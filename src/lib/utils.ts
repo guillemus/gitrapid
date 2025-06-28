@@ -1,3 +1,5 @@
+import { useParams } from 'react-router'
+
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()
     const languageMap: Record<string, string> = {
@@ -65,4 +67,13 @@ export function getLanguageFromExtension(filePath: string): string {
         properties: 'properties',
     }
     return languageMap[extension || ''] || 'text'
+}
+
+export function useSingleFileParams() {
+    let params = useParams<SingleFileParams>()
+
+    return {
+        ...params,
+        ref: params.ref ? params.ref : 'HEAD',
+    }
 }

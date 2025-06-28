@@ -37,6 +37,7 @@ export function App() {
         <QueryClientProvider client={queryClient}>
             <BrowserRouter>
                 <Routes>
+                    <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
                     <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
                     <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
                 </Routes>

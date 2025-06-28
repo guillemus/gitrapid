@@ -2,9 +2,9 @@ import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router'
 import { FastNavlink } from './components'
 import { githubClient } from './lib/github-client'
+import { useSingleFileParams } from './lib/utils'
 
 type FileItem = {
     name: string
@@ -19,7 +19,8 @@ type ExpandableFileItem = FileItem & {
 }
 
 export function Sidebar() {
-    const params = useParams<SingleFileParams>()
+    const params = useSingleFileParams()
+
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [fileTree, setFileTree] = useState<ExpandableFileItem[]>([])
 

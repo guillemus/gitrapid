@@ -2,14 +2,14 @@ import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
-import { useParams } from 'react-router'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import remarkGfm from 'remark-gfm'
-import { githubClient } from './lib/github-client'
-import { Sidebar } from './sidebar'
-import { getLanguageFromExtension } from './lib/utils'
 import { FastNavlink } from './components'
+import { githubClient } from './lib/github-client'
+import { getLanguageFromExtension, useSingleFileParams } from './lib/utils'
+import { Searchbar } from './search-bar'
+import { Sidebar } from './sidebar'
 
 type GitHubContentItem = {
     name: string
@@ -45,10 +45,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
             <div className="breadcrumbs text-sm">
                 <ul>
                     <li>
-                        <FastNavlink
-                            to={`/${props.owner}/${props.repo}/blob/${props.ref}`}
-                            className="link"
-                        >
+                        <FastNavlink to={`/${props.owner}/${props.repo}`} className="link">
                             {props.owner}/{props.repo}
                         </FastNavlink>
                     </li>
@@ -65,7 +62,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
                                     <span>{segment}</span>
                                 ) : (
                                     <FastNavlink
-                                        to={`/${props.owner}/${props.repo}/blob/${props.ref}/${segmentPath}`}
+                                        to={`/${props.owner}/${props.repo}/tree/${props.ref}/${segmentPath}`}
                                         className="link"
                                     >
                                         {segment}
@@ -89,7 +86,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
 }
 
 function CodeRenderer() {
-    const params = useParams<SingleFileParams>()
+    const params = useSingleFileParams()
     const filePath = params['*'] || ''
 
     // If at root with no file path, try to load README.md
@@ -103,9 +100,9 @@ function CodeRenderer() {
                 params.owner!,
                 params.repo!,
                 targetPath,
-                params.ref!,
+                params.ref,
             ),
-        enabled: !!(params.owner && params.repo && params.ref),
+        enabled: !!(params.owner && params.repo),
         retry: isRoot ? 1 : 3, // Don't retry much for README.md if it doesn't exist
     })
 
@@ -136,7 +133,7 @@ function CodeRenderer() {
                 <BreadcrumbsWithGitHubLink
                     owner={params.owner!}
                     repo={params.repo!}
-                    ref={params.ref!}
+                    ref={params.ref}
                     filePath={filePath}
                     isFolder={true}
                 />
@@ -165,7 +162,7 @@ function CodeRenderer() {
                 <BreadcrumbsWithGitHubLink
                     owner={params.owner!}
                     repo={params.repo!}
-                    ref={params.ref!}
+                    ref={params.ref}
                     filePath={isRoot ? 'README.md' : filePath}
                     isFolder={false}
                 />
@@ -207,7 +204,7 @@ function CodeRenderer() {
             <BreadcrumbsWithGitHubLink
                 owner={params.owner!}
                 repo={params.repo!}
-                ref={params.ref!}
+                ref={params.ref}
                 filePath={isRoot ? 'README.md' : filePath}
                 isFolder={false}
             />
@@ -236,6 +233,8 @@ export function GithubCodeBrowser() {
                 <Sidebar />
             </aside>
             <main className="flex h-screen flex-1 flex-col">
+                <Searchbar />
+
                 <CodeRenderer />
             </main>
         </div>
