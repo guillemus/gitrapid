@@ -1,15 +1,61 @@
 import 'github-markdown-css/github-markdown-light.css'
+import '@wooorm/starry-night/style/both'
 
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { common, createStarryNight } from '@wooorm/starry-night'
+import { toHtml } from 'hast-util-to-html'
 import remarkGfm from 'remark-gfm'
+import { useEffect, useState } from 'react'
 import { FastNavlink } from './components'
 import { githubClient } from './lib/github-client'
 import { getLanguageFromExtension, useSingleFileParams } from './lib/utils'
 import { Searchbar } from './search-bar'
-import { Sidebar } from './sidebar'
+import type { PropsWithChildren } from 'react'
+
+// Custom hook for starry-night
+function useStarryNight() {
+    const [starryNight, setStarryNight] = useState<any>(null)
+
+    useEffect(() => {
+        createStarryNight(common).then(setStarryNight)
+    }, [])
+
+    return starryNight
+}
+
+// Component for syntax highlighting
+function StarryCodeBlock({ code, language }: { code: string; language?: string }) {
+    const starryNight = useStarryNight()
+
+    if (!starryNight) {
+        return (
+            <pre className="bg-gray-900 p-4 text-sm text-gray-100">
+                <code>{code}</code>
+            </pre>
+        )
+    }
+
+    const scope = language ? starryNight.flagToScope(language) : null
+    if (!scope) {
+        return (
+            <pre className="bg-gray-900 p-4 text-sm text-gray-100">
+                <code>{code}</code>
+            </pre>
+        )
+    }
+
+    const tree = starryNight.highlight(code, scope)
+    const html = toHtml(tree)
+
+    return (
+        <pre
+            className="overflow-x-auto bg-gray-900 p-4 text-sm text-gray-100"
+            style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
+            dangerouslySetInnerHTML={{ __html: html }}
+        />
+    )
+}
 
 type GitHubContentItem = {
     name: string
@@ -83,7 +129,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
     )
 }
 
-function CodeRenderer() {
+export function CodeRenderer() {
     const params = useSingleFileParams()
     const filePath = params['*'] || ''
 
@@ -127,14 +173,7 @@ function CodeRenderer() {
         })
 
         return (
-            <div className="flex h-full flex-col">
-                <BreadcrumbsWithGitHubLink
-                    owner={params.owner!}
-                    repo={params.repo!}
-                    ref={params.ref}
-                    filePath={filePath}
-                    isFolder={true}
-                />
+            <CodeLayout>
                 <div className="flex-1 space-y-2 overflow-y-auto p-4">
                     {sortedItems.map((item) => (
                         <FastNavlink
@@ -147,7 +186,7 @@ function CodeRenderer() {
                         </FastNavlink>
                     ))}
                 </div>
-            </div>
+            </CodeLayout>
         )
     }
 
@@ -156,15 +195,8 @@ function CodeRenderer() {
 
     if (isMarkdown) {
         return (
-            <div className="flex h-full flex-col">
-                <BreadcrumbsWithGitHubLink
-                    owner={params.owner!}
-                    repo={params.repo!}
-                    ref={params.ref}
-                    filePath={isRoot ? 'README.md' : filePath}
-                    isFolder={false}
-                />
-                <div className="markdown-body max-w-none flex-1 overflow-y-auto p-8">
+            <CodeLayout>
+                <div className="markdown-body max-w-none flex-1 overflow-auto p-8">
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -172,14 +204,10 @@ function CodeRenderer() {
                                 const inline = !className
                                 const match = /language-(\w+)/.exec(className || '')
                                 return !inline && match ? (
-                                    <SyntaxHighlighter
-                                        style={vs as any}
+                                    <StarryCodeBlock
+                                        code={String(children).replace(/\n$/, '')}
                                         language={match[1]}
-                                        PreTag="div"
-                                        {...props}
-                                    >
-                                        {String(children).replace(/\n$/, '')}
-                                    </SyntaxHighlighter>
+                                    />
                                 ) : (
                                     <code className={className} {...props}>
                                         {children}
@@ -191,12 +219,28 @@ function CodeRenderer() {
                         {fileContent}
                     </ReactMarkdown>
                 </div>
-            </div>
+            </CodeLayout>
         )
     }
 
     const language = getLanguageFromExtension(targetPath)
 
+    return (
+        <CodeLayout>
+            <div
+                className="bg-gray-900"
+                style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}
+            >
+                <StarryCodeBlock code={fileContent || ''} language={language} />
+            </div>
+        </CodeLayout>
+    )
+}
+
+function CodeLayout(props: PropsWithChildren) {
+    const params = useSingleFileParams()
+    const filePath = params['*'] || ''
+    const isRoot = !filePath
     return (
         <div className="flex h-full flex-col">
             <BreadcrumbsWithGitHubLink
@@ -206,33 +250,7 @@ function CodeRenderer() {
                 filePath={isRoot ? 'README.md' : filePath}
                 isFolder={false}
             />
-            <div className="flex-1 overflow-y-auto p-4">
-                <SyntaxHighlighter
-                    style={vs as any}
-                    language={language}
-                    PreTag="div"
-                    customStyle={{
-                        margin: 0,
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                    }}
-                >
-                    {fileContent || ''}
-                </SyntaxHighlighter>
-            </div>
-        </div>
-    )
-}
-
-export function GithubCodeBrowser() {
-    return (
-        <div className="flex h-full">
-            <aside className="h-screen w-64 overflow-y-scroll border-r bg-gray-100 p-4">
-                <Sidebar />
-            </aside>
-            <main className="flex h-screen flex-1 flex-col">
-                <CodeRenderer />
-            </main>
+            <div className="flex-1 overflow-y-auto p-4">{props.children}</div>
         </div>
     )
 }

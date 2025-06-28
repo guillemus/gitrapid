@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
 import { BrowserRouter, Routes, Route } from 'react-router'
-import { GithubCodeBrowser } from './github-code-browser'
+import { Sidebar } from './sidebar'
+import { CodeRenderer } from './github-code-browser'
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -16,7 +17,7 @@ const queryClient = new QueryClient({
 })
 
 const idbPersister = {
-    persistClient: async (client: any) => {
+    persistClient: async (client: unknown) => {
         await set('react-query-cache', client)
     },
     restoreClient: async () => {
@@ -31,6 +32,19 @@ persistQueryClient({
     queryClient,
     persister: idbPersister,
 })
+
+function GithubCodeBrowser() {
+    return (
+        <div className="flex h-screen w-screen">
+            <aside className="h-full w-64 overflow-y-auto border-r bg-gray-100 p-4">
+                <Sidebar />
+            </aside>
+            <main className="h-full flex-1 overflow-hidden">
+                <CodeRenderer />
+            </main>
+        </div>
+    )
+}
 
 export function App() {
     return (
