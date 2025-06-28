@@ -1,13 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
 import 'github-markdown-css/github-markdown-light.css'
+
+import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import remarkGfm from 'remark-gfm'
 import { githubClient } from './lib/github-client'
 import { Sidebar } from './sidebar'
 import { getLanguageFromExtension } from './lib/utils'
+import { FastNavlink } from './components'
 
 type GitHubContentItem = {
     name: string
@@ -24,47 +26,64 @@ type SingleFileParams = {
     '*'?: string
 }
 
-type BreadcrumbsProps = {
+type BreadcrumbsWithGitHubLinkProps = {
     owner: string
     repo: string
     ref: string
     filePath: string
+    isFolder: boolean
 }
 
-function Breadcrumbs(props: BreadcrumbsProps) {
+function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
     const pathSegments = props.filePath ? props.filePath.split('/').filter(Boolean) : []
+    const githubUrl = `https://github.com/${props.owner}/${props.repo}/${
+        props.isFolder ? 'tree' : 'blob'
+    }/${props.ref}/${props.filePath}`
 
     return (
-        <div className="breadcrumbs text-sm p-4 bg-gray-50">
-            <ul>
-                <li>
-                    <Link to={`/${props.owner}/${props.repo}/blob/${props.ref}`} className="link">
-                        {props.owner}/{props.repo}
-                    </Link>
-                </li>
-                <li>
-                    <span className="text-gray-500">@ {props.ref}</span>
-                </li>
-                {pathSegments.map((segment, index) => {
-                    const segmentPath = pathSegments.slice(0, index + 1).join('/')
-                    const isLast = index === pathSegments.length - 1
+        <div className="flex items-center justify-between border-b bg-gray-50 p-4">
+            <div className="breadcrumbs text-sm">
+                <ul>
+                    <li>
+                        <FastNavlink
+                            to={`/${props.owner}/${props.repo}/blob/${props.ref}`}
+                            className="link"
+                        >
+                            {props.owner}/{props.repo}
+                        </FastNavlink>
+                    </li>
+                    <li>
+                        <span className="text-gray-500">@ {props.ref}</span>
+                    </li>
+                    {pathSegments.map((segment, index) => {
+                        const segmentPath = pathSegments.slice(0, index + 1).join('/')
+                        const isLast = index === pathSegments.length - 1
 
-                    return (
-                        <li key={segmentPath}>
-                            {isLast ? (
-                                <span>{segment}</span>
-                            ) : (
-                                <Link
-                                    to={`/${props.owner}/${props.repo}/blob/${props.ref}/${segmentPath}`}
-                                    className="link"
-                                >
-                                    {segment}
-                                </Link>
-                            )}
-                        </li>
-                    )
-                })}
-            </ul>
+                        return (
+                            <li key={segmentPath}>
+                                {isLast ? (
+                                    <span>{segment}</span>
+                                ) : (
+                                    <FastNavlink
+                                        to={`/${props.owner}/${props.repo}/blob/${props.ref}/${segmentPath}`}
+                                        className="link"
+                                    >
+                                        {segment}
+                                    </FastNavlink>
+                                )}
+                            </li>
+                        )
+                    })}
+                </ul>
+            </div>
+            <a
+                href={githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm"
+            >
+                View on GitHub
+            </a>
         </div>
     )
 }
@@ -72,84 +91,85 @@ function Breadcrumbs(props: BreadcrumbsProps) {
 function CodeRenderer() {
     const params = useParams<SingleFileParams>()
     const filePath = params['*'] || ''
-    const { data, error } = useQuery({
-        queryKey: ['github-content', params.owner, params.repo, params.ref, filePath],
+
+    // If at root with no file path, try to load README.md
+    const isRoot = !filePath
+    const targetPath = isRoot ? 'README.md' : filePath
+
+    const githubContentQuery = useQuery({
+        queryKey: ['github-content', params.owner, params.repo, params.ref, targetPath],
         queryFn: () =>
-            githubClient.getFileOrFolderContent(params.owner!, params.repo!, filePath, params.ref!),
+            githubClient.getFileOrFolderContent(
+                params.owner!,
+                params.repo!,
+                targetPath,
+                params.ref!,
+            ),
         enabled: !!(params.owner && params.repo && params.ref),
+        retry: isRoot ? 1 : 3, // Don't retry much for README.md if it doesn't exist
     })
 
-    if (error) {
+    if (githubContentQuery.error) {
+        // If we're at root and README.md doesn't exist, just render nothing
+        if (isRoot) {
+            return null
+        }
         return <div className="p-4 text-red-600">Error loading content</div>
     }
 
     // Check if data is a folder (array) or file (string)
-    const isFolder = Array.isArray(data)
+    const isFolder = Array.isArray(githubContentQuery.data)
 
     if (isFolder) {
-        const folderItems = data as GitHubContentItem[]
-        const githubUrl = `https://github.com/${params.owner}/${params.repo}/tree/${params.ref}/${filePath}`
+        const folderItems = githubContentQuery.data as GitHubContentItem[]
+        const sortedItems = [...folderItems].sort((a, b) => {
+            // Folders first, then files
+            if (a.type !== b.type) {
+                return a.type === 'dir' ? -1 : 1
+            }
+            // Alphabetical within same type
+            return a.name.localeCompare(b.name)
+        })
 
         return (
-            <div>
-                <Breadcrumbs
+            <div className="flex h-full flex-col">
+                <BreadcrumbsWithGitHubLink
                     owner={params.owner!}
                     repo={params.repo!}
                     ref={params.ref!}
                     filePath={filePath}
+                    isFolder={true}
                 />
-                <div className="p-4">
-                    <div className="mb-4 pb-4 border-b flex justify-end">
-                        <a
-                            href={githubUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-outline btn-sm"
+                <div className="flex-1 space-y-2 overflow-y-auto p-4">
+                    {sortedItems.map((item) => (
+                        <FastNavlink
+                            key={item.path}
+                            to={`/${params.owner}/${params.repo}/blob/${params.ref}/${item.path}`}
+                            className="flex items-center gap-2 rounded p-2 hover:bg-gray-100"
                         >
-                            View on GitHub
-                        </a>
-                    </div>
-                    <div className="space-y-2">
-                        {folderItems.map((item) => (
-                            <Link
-                                key={item.path}
-                                to={`/${params.owner}/${params.repo}/blob/${params.ref}/${item.path}`}
-                                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded"
-                            >
-                                <span className="text-sm">{item.type === 'dir' ? '📁' : '📄'}</span>
-                                <span>{item.name}</span>
-                            </Link>
-                        ))}
-                    </div>
+                            <span className="text-sm">{item.type === 'dir' ? '📁' : '📄'}</span>
+                            <span>{item.name}</span>
+                        </FastNavlink>
+                    ))}
                 </div>
             </div>
         )
     }
 
-    const fileContent = data as string
-    const isMarkdown = filePath.toLowerCase().endsWith('.md')
-    const githubUrl = `https://github.com/${params.owner}/${params.repo}/blob/${params.ref}/${filePath}`
+    const fileContent = githubContentQuery.data as string
+    const isMarkdown = targetPath.toLowerCase().endsWith('.md')
 
     if (isMarkdown) {
         return (
-            <div>
-                <Breadcrumbs
+            <div className="flex h-full flex-col">
+                <BreadcrumbsWithGitHubLink
                     owner={params.owner!}
                     repo={params.repo!}
                     ref={params.ref!}
-                    filePath={filePath}
+                    filePath={isRoot ? 'README.md' : filePath}
+                    isFolder={false}
                 />
-                <div className="markdown-body p-8 max-w-none">
-                    <div className="mb-4 pb-4 border-b flex justify-end">
-                        <a
-                            href={githubUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-outline btn-sm"
-                        >
-                            View on GitHub
-                        </a>
-                    </div>
+                <div className="markdown-body max-w-none flex-1 overflow-y-auto p-8">
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -180,27 +200,18 @@ function CodeRenderer() {
         )
     }
 
-    const language = getLanguageFromExtension(filePath)
+    const language = getLanguageFromExtension(targetPath)
 
     return (
-        <div>
-            <Breadcrumbs
+        <div className="flex h-full flex-col">
+            <BreadcrumbsWithGitHubLink
                 owner={params.owner!}
                 repo={params.repo!}
                 ref={params.ref!}
-                filePath={filePath}
+                filePath={isRoot ? 'README.md' : filePath}
+                isFolder={false}
             />
-            <div className="p-4">
-                <div className="mb-4 pb-4 border-b flex justify-end">
-                    <a
-                        href={githubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-outline btn-sm"
-                    >
-                        View on GitHub
-                    </a>
-                </div>
+            <div className="flex-1 overflow-y-auto p-4">
                 <SyntaxHighlighter
                     style={vs as any}
                     language={language}
@@ -220,11 +231,11 @@ function CodeRenderer() {
 
 export function GithubCodeBrowser() {
     return (
-        <div className="flex h-full ">
-            <aside className="w-64 bg-gray-100 border-r h-screen overflow-y-scroll p-4">
+        <div className="flex h-full">
+            <aside className="h-screen w-64 overflow-y-scroll border-r bg-gray-100 p-4">
                 <Sidebar />
             </aside>
-            <main className="flex-1 h-screen overflow-y-scroll">
+            <main className="flex h-screen flex-1 flex-col">
                 <CodeRenderer />
             </main>
         </div>

@@ -1,12 +1,14 @@
 // Custom github apiclient.
-// We do not use octokit because it is quite heavy. So instead we will just
+// We do not use octokit because it is quite heavy, so instead we will just
 // call the rest endpoints and add their corresponding types.
 
+// Do not import code from the repo, just the types
 import type { RestEndpointMethodTypes } from '@octokit/rest'
 
 type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']
 type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']
 type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']
+type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']
 
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
@@ -99,6 +101,28 @@ export class GitHubClient {
         const endpoint = `/repos/${owner}/${repo}/git/trees/${ref}${
             recursive ? '?recursive=1' : ''
         }`
+        const response = await this.request(endpoint)
+        return response.json()
+    }
+
+    // Search repositories
+    async searchRepos(
+        query: string,
+        sort?: 'stars' | 'forks' | 'help-wanted-issues' | 'updated',
+        order?: 'asc' | 'desc',
+        perPage: number = 30,
+        page: number = 1,
+    ): Promise<SearchReposResponse['data']> {
+        const params = new URLSearchParams({
+            q: query,
+            per_page: perPage.toString(),
+            page: page.toString(),
+        })
+
+        if (sort) params.append('sort', sort)
+        if (order) params.append('order', order)
+
+        const endpoint = `/search/repositories?${params.toString()}`
         const response = await this.request(endpoint)
         return response.json()
     }

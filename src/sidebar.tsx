@@ -23,14 +23,15 @@ export function Sidebar() {
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [fileTree, setFileTree] = useState<ExpandableFileItem[]>([])
 
-    const {
-        data: rootFiles,
-        isLoading,
-        error,
-    } = useQuery({
+    const githubContentsQuery = useQuery({
         queryKey: ['github-contents', params.owner, params.repo, params.ref],
         queryFn: async (): Promise<FileItem[]> => {
-            const data = await githubClient.getRepoContents(params.owner!, params.repo!, '', params.ref!)
+            const data = await githubClient.getRepoContents(
+                params.owner!,
+                params.repo!,
+                '',
+                params.ref!,
+            )
             // Handle both array and single file responses
             if (Array.isArray(data)) {
                 return data as FileItem[]
@@ -41,13 +42,26 @@ export function Sidebar() {
     })
 
     useEffect(() => {
-        if (rootFiles) {
-            setFileTree(rootFiles.map((file: FileItem) => ({ ...file })))
+        if (githubContentsQuery.data) {
+            const sortedData = [...githubContentsQuery.data].sort((a, b) => {
+                // Folders first, then files
+                if (a.type !== b.type) {
+                    return a.type === 'dir' ? -1 : 1
+                }
+                // Alphabetical within same type
+                return a.name.localeCompare(b.name)
+            })
+            setFileTree(sortedData.map((file: FileItem) => ({ ...file })))
         }
-    }, [rootFiles])
+    }, [githubContentsQuery.data])
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
-        const data = await githubClient.getRepoContents(params.owner!, params.repo!, folderPath, params.ref!)
+        const data = await githubClient.getRepoContents(
+            params.owner!,
+            params.repo!,
+            folderPath,
+            params.ref!,
+        )
         // Handle both array and single file responses
         if (Array.isArray(data)) {
             return data as FileItem[]
@@ -64,7 +78,10 @@ export function Sidebar() {
             if (item.path === targetPath) {
                 return { ...item, children, isLoading: false }
             } else if (item.children) {
-                return { ...item, children: updateFileTree(item.children, targetPath, children) }
+                return {
+                    ...item,
+                    children: updateFileTree(item.children, targetPath, children),
+                }
             }
             return item
         })
@@ -79,7 +96,10 @@ export function Sidebar() {
             if (item.path === targetPath) {
                 return { ...item, isLoading: loading }
             } else if (item.children) {
-                return { ...item, children: setFolderLoading(item.children, targetPath, loading) }
+                return {
+                    ...item,
+                    children: setFolderLoading(item.children, targetPath, loading),
+                }
             }
             return item
         })
@@ -120,11 +140,19 @@ export function Sidebar() {
 
             try {
                 const children = await fetchFolderContents(folderPath)
+                const sortedChildren = [...children].sort((a, b) => {
+                    // Folders first, then files
+                    if (a.type !== b.type) {
+                        return a.type === 'dir' ? -1 : 1
+                    }
+                    // Alphabetical within same type
+                    return a.name.localeCompare(b.name)
+                })
                 setFileTree((prev) =>
                     updateFileTree(
                         prev,
                         folderPath,
-                        children.map((child) => ({ ...child })),
+                        sortedChildren.map((child) => ({ ...child })),
                     ),
                 )
             } catch (error) {
@@ -139,21 +167,21 @@ export function Sidebar() {
 
     function renderFileTree(items: ExpandableFileItem[], depth = 0) {
         return items.map((item) => (
-            <div key={item.path} style={{ marginLeft: `${depth * 20}px` }}>
+            <div key={item.path} style={{ marginLeft: `${depth * 12}px` }}>
                 {item.type === 'dir' ? (
                     <div>
                         <button
-                            onClick={() => toggleFolder(item.path)}
-                            className="flex items-center w-full text-left hover:bg-gray-200 p-1 rounded"
+                            onMouseDown={() => toggleFolder(item.path)}
+                            className="flex w-full items-center rounded p-1 text-left hover:bg-gray-200"
                         >
-                            <span className="mr-1">
+                            <span className="mr-1 flex-shrink-0">
                                 {item.isLoading
                                     ? '⏳'
                                     : expandedFolders.has(item.path)
-                                    ? '▼'
-                                    : '▶️'}
+                                      ? '▼'
+                                      : '▶️'}
                             </span>
-                            <span>📁 {item.name}</span>
+                            <span className="min-w-0 truncate">📁 {item.name}</span>
                         </button>
                         {expandedFolders.has(item.path) && item.children && (
                             <div>{renderFileTree(item.children, depth + 1)}</div>
@@ -162,17 +190,21 @@ export function Sidebar() {
                 ) : (
                     <FastNavlink
                         to={`/${params.owner}/${params.repo}/tree/${params.ref}/${item.path}`}
-                        className="text-blue-600 hover:underline block p-1 hover:bg-gray-200 rounded"
+                        className="flex items-center rounded p-1 text-blue-600 hover:bg-gray-200 hover:underline"
                     >
-                        📄 {item.name}
+                        <span className="min-w-0 truncate">📄 {item.name}</span>
                     </FastNavlink>
                 )}
             </div>
         ))
     }
 
-    if (isLoading) return <div className="p-4">Loading files...</div>
-    if (error) return <div className="p-4 text-red-600">Error loading files</div>
+    if (githubContentsQuery.isLoading) {
+        return <div className="p-4">Loading files...</div>
+    }
+    if (githubContentsQuery.error) {
+        return <div className="p-4 text-red-600">Error loading files</div>
+    }
 
-    return <div className="font-bold mb-4">{renderFileTree(fileTree)}</div>
+    return <div className="mb-4 font-bold">{renderFileTree(fileTree)}</div>
 }
