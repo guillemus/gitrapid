@@ -61,6 +61,27 @@ export class GitHubClient {
         return response.text()
     }
 
+    // Get file or folder content - tries raw content first, falls back to folder listing
+    async getFileOrFolderContent(
+        owner: string,
+        repo: string,
+        path: string,
+        ref: string,
+    ): Promise<string | GetContentResponse['data']> {
+        try {
+            // Try to get raw file content first
+            return await this.getFileContent(owner, repo, path, ref)
+        } catch (error) {
+            // If that fails (likely a 404 for a folder), try to get folder contents
+            try {
+                return await this.getRepoContents(owner, repo, path, ref)
+            } catch (folderError) {
+                // If both fail, re-throw the original error
+                throw error
+            }
+        }
+    }
+
     // Get repository info
     async getRepo(owner: string, repo: string): Promise<GetRepoResponse['data']> {
         const endpoint = `/repos/${owner}/${repo}`

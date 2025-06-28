@@ -32,3 +32,14 @@ Assume that the app is always running on port 3000.
 - **File Extensions**: `.astro` for pages, `.tsx` for React components
 - **Function definitions**: prefer using named function instead of arrow functions 
 
+- **Component definitions**: if a component has props, write the typescript type as follows
+
+```typescript
+
+type ComponentProps = {}
+
+function Component(props: ComponentProps) {
+    // ...
+}
+```
+
