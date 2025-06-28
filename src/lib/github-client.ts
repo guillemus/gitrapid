@@ -12,18 +12,15 @@ type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response'
 
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
-    private token: string
 
-    constructor(token: string) {
-        this.token = token
-    }
+    constructor(private token?: string) {}
 
     private async request(endpoint: string, options: RequestInit = {}) {
         const url = `${this.baseUrl}${endpoint}`
         const response = await fetch(url, {
             ...options,
             headers: {
-                Authorization: `Bearer ${this.token}`,
+                ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
                 Accept: 'application/vnd.github.v3+json',
                 'X-GitHub-Api-Version': '2022-11-28',
                 ...options.headers,
