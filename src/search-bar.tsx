@@ -1,4 +1,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value)
+        }, delay)
+
+        return () => {
+            clearTimeout(handler)
+        }
+    }, [value, delay])
+
+    return debouncedValue
+}
 import { useQuery } from '@tanstack/react-query'
 import { githubClient } from './lib/github-client'
 import { useNavigate } from 'react-router'
@@ -7,11 +23,12 @@ export function Searchbar() {
     const [query, setQuery] = useState('')
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
+    const debouncedQuery = useDebounce(query, 300)
 
     const { data: searchResults, isLoading } = useQuery({
-        queryKey: ['search-repos', query],
-        queryFn: () => githubClient.searchRepos(query, 'stars', 'desc', 10),
-        enabled: query.length > 2,
+        queryKey: ['search-repos', debouncedQuery],
+        queryFn: () => githubClient.searchRepos(debouncedQuery, 'stars', 'desc', 10),
+        enabled: debouncedQuery.length > 2,
         staleTime: 30000,
     })
 
@@ -46,7 +63,7 @@ export function Searchbar() {
     }, [isOpen])
 
     return (
-        <div ref={containerRef} className="relative w-full max-w-md">
+        <div ref={containerRef} className="relative w-lg">
             <input
                 type="text"
                 placeholder="Search repositories..."
