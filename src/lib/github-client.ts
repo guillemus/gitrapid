@@ -1,0 +1,89 @@
+// Custom github apiclient.
+// We do not use octokit because it is quite heavy. So instead we will just
+// call the rest endpoints and add their corresponding types.
+
+import type { RestEndpointMethodTypes } from '@octokit/rest'
+
+type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']
+type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']
+type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']
+
+export class GitHubClient {
+    private baseUrl = 'https://api.github.com'
+    private token: string
+
+    constructor(token: string) {
+        this.token = token
+    }
+
+    private async request(endpoint: string, options: RequestInit = {}) {
+        const url = `${this.baseUrl}${endpoint}`
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                Authorization: `Bearer ${this.token}`,
+                Accept: 'application/vnd.github.v3+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                ...options.headers,
+            },
+        })
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+        }
+
+        return response
+    }
+
+    // Get repository contents
+    async getRepoContents(
+        owner: string,
+        repo: string,
+        path: string = '',
+        ref: string = 'main',
+    ): Promise<GetContentResponse['data']> {
+        const endpoint = `/repos/${owner}/${repo}/contents/${path}?ref=${ref}`
+        const response = await this.request(endpoint)
+        return response.json()
+    }
+
+    // Get file content (raw) using raw.githubusercontent.com
+    // We use this instead of the api call for performance, because the file is
+    // distributed through fastly's CDN
+    async getFileContent(owner: string, repo: string, path: string, ref: string): Promise<string> {
+        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`
+        const response = await fetch(url)
+        if (!response.ok) {
+            throw new Error(
+                `Failed to fetch file content: ${response.status} ${response.statusText}`,
+            )
+        }
+        return response.text()
+    }
+
+    // Get repository info
+    async getRepo(owner: string, repo: string): Promise<GetRepoResponse['data']> {
+        const endpoint = `/repos/${owner}/${repo}`
+        const response = await this.request(endpoint)
+        return response.json()
+    }
+
+    // Get repository tree (for file structure)
+    async getRepoTree(
+        owner: string,
+        repo: string,
+        ref: string = 'main',
+        recursive: boolean = false,
+    ): Promise<GetTreeResponse['data']> {
+        const endpoint = `/repos/${owner}/${repo}/git/trees/${ref}${
+            recursive ? '?recursive=1' : ''
+        }`
+        const response = await this.request(endpoint)
+        return response.json()
+    }
+}
+
+const GITHUB_TOKEN = import.meta.env.PUBLIC_GITHUB_TOKEN
+
+// Export singleton instance
+export const githubClient = new GitHubClient(GITHUB_TOKEN)

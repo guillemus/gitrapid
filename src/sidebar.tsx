@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import { FastNavlink } from './components'
+import { githubClient } from './lib/github-client'
 
 type FileItem = {
     name: string
@@ -29,11 +30,12 @@ export function Sidebar() {
     } = useQuery({
         queryKey: ['github-contents', params.owner, params.repo, params.ref],
         queryFn: async (): Promise<FileItem[]> => {
-            const response = await fetch(
-                `https://api.github.com/repos/${params.owner}/${params.repo}/contents?ref=${params.ref}`,
-            )
-            if (!response.ok) throw new Error('Failed to fetch files')
-            return response.json()
+            const data = await githubClient.getRepoContents(params.owner!, params.repo!, '', params.ref!)
+            // Handle both array and single file responses
+            if (Array.isArray(data)) {
+                return data as FileItem[]
+            }
+            return [data] as FileItem[]
         },
         enabled: !!(params.owner && params.repo && params.ref),
     })
@@ -45,11 +47,12 @@ export function Sidebar() {
     }, [rootFiles])
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
-        const response = await fetch(
-            `https://api.github.com/repos/${params.owner}/${params.repo}/contents/${folderPath}?ref=${params.ref}`,
-        )
-        if (!response.ok) throw new Error('Failed to fetch folder contents')
-        return response.json()
+        const data = await githubClient.getRepoContents(params.owner!, params.repo!, folderPath, params.ref!)
+        // Handle both array and single file responses
+        if (Array.isArray(data)) {
+            return data as FileItem[]
+        }
+        return [data] as FileItem[]
     }
 
     function updateFileTree(
