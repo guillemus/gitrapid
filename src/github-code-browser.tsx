@@ -1,10 +1,8 @@
 import 'github-markdown-css/github-markdown-light.css'
-import '@wooorm/starry-night/style/both'
 
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
-import { common, createStarryNight } from '@wooorm/starry-night'
-import { toHtml } from 'hast-util-to-html'
+import { createHighlighter } from 'shiki'
 import remarkGfm from 'remark-gfm'
 import { useEffect, useState } from 'react'
 import { FastNavlink } from './components'
@@ -13,22 +11,44 @@ import { getLanguageFromExtension, useSingleFileParams } from './lib/utils'
 import { Searchbar } from './search-bar'
 import type { PropsWithChildren } from 'react'
 
-// Custom hook for starry-night
-function useStarryNight() {
-    const [starryNight, setStarryNight] = useState<any>(null)
+// Custom hook for shiki
+function useShiki() {
+    const [highlighter, setHighlighter] = useState<any>(null)
 
     useEffect(() => {
-        createStarryNight(common).then(setStarryNight)
+        createHighlighter({
+            themes: ['github-dark'],
+            langs: [
+                'javascript',
+                'typescript',
+                'jsx',
+                'tsx',
+                'css',
+                'html',
+                'json',
+                'markdown',
+                'python',
+                'java',
+                'go',
+                'rust',
+                'php',
+                'ruby',
+                'shell',
+                'yaml',
+                'xml',
+                'sql',
+            ],
+        }).then((h) => setHighlighter(h))
     }, [])
 
-    return starryNight
+    return highlighter
 }
 
 // Component for syntax highlighting
-function StarryCodeBlock({ code, language }: { code: string; language?: string }) {
-    const starryNight = useStarryNight()
+function ShikiCodeBlock({ code, language }: { code: string; language?: string }) {
+    const highlighter = useShiki()
 
-    if (!starryNight) {
+    if (!highlighter) {
         return (
             <pre className="bg-gray-900 p-4 text-sm text-gray-100">
                 <code>{code}</code>
@@ -36,25 +56,27 @@ function StarryCodeBlock({ code, language }: { code: string; language?: string }
         )
     }
 
-    const scope = language ? starryNight.flagToScope(language) : null
-    if (!scope) {
+    try {
+        const html = highlighter.codeToHtml(code, {
+            lang: language || 'text',
+            theme: 'github-dark',
+        })
+
+        return (
+            <div
+                className="overflow-x-auto p-4 text-sm"
+                style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
+                dangerouslySetInnerHTML={{ __html: html }}
+            />
+        )
+    } catch (error) {
+        // Fallback for unsupported languages
         return (
             <pre className="bg-gray-900 p-4 text-sm text-gray-100">
                 <code>{code}</code>
             </pre>
         )
     }
-
-    const tree = starryNight.highlight(code, scope)
-    const html = toHtml(tree)
-
-    return (
-        <pre
-            className="overflow-x-auto bg-gray-900 p-4 text-sm text-gray-100"
-            style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
-            dangerouslySetInnerHTML={{ __html: html }}
-        />
-    )
 }
 
 type GitHubContentItem = {
@@ -204,7 +226,7 @@ export function CodeRenderer() {
                                 const inline = !className
                                 const match = /language-(\w+)/.exec(className || '')
                                 return !inline && match ? (
-                                    <StarryCodeBlock
+                                    <ShikiCodeBlock
                                         code={String(children).replace(/\n$/, '')}
                                         language={match[1]}
                                     />
@@ -231,7 +253,7 @@ export function CodeRenderer() {
                 className="bg-gray-900"
                 style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}
             >
-                <StarryCodeBlock code={fileContent || ''} language={language} />
+                <ShikiCodeBlock code={fileContent || ''} language={language} />
             </div>
         </CodeLayout>
     )
