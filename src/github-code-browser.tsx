@@ -19,13 +19,6 @@ type GitHubContentItem = {
     download_url: string | null
 }
 
-type SingleFileParams = {
-    owner: string
-    repo: string
-    ref: string
-    '*'?: string
-}
-
 type BreadcrumbsWithGitHubLinkProps = {
     owner: string
     repo: string
@@ -73,14 +66,19 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
                     })}
                 </ul>
             </div>
-            <a
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-outline btn-sm"
-            >
-                View on GitHub
-            </a>
+
+            <div className="flex items-center gap-4">
+                <Searchbar />
+
+                <a
+                    href={githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm"
+                >
+                    View on GitHub
+                </a>
+            </div>
         </div>
     )
 }
@@ -233,8 +231,6 @@ export function GithubCodeBrowser() {
                 <Sidebar />
             </aside>
             <main className="flex h-screen flex-1 flex-col">
-                <Searchbar />
-
                 <CodeRenderer />
             </main>
         </div>

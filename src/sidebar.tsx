@@ -1,7 +1,7 @@
 import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { FastNavlink } from './components'
 import { githubClient } from './lib/github-client'
 import { useSingleFileParams } from './lib/utils'
@@ -22,7 +22,10 @@ export function Sidebar() {
     const params = useSingleFileParams()
 
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-    const [fileTree, setFileTree] = useState<ExpandableFileItem[]>([])
+    const [folderContents, setFolderContents] = useState<Map<string, ExpandableFileItem[]>>(
+        new Map(),
+    )
+    const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
 
     const githubContentsQuery = useQuery({
         queryKey: ['github-contents', params.owner, params.repo, params.ref],
@@ -42,9 +45,9 @@ export function Sidebar() {
         enabled: !!(params.owner && params.repo && params.ref),
     })
 
-    useEffect(() => {
-        if (githubContentsQuery.data) {
-            const sortedData = [...githubContentsQuery.data].sort((a, b) => {
+    function buildFileTree(items: FileItem[]): ExpandableFileItem[] {
+        return items
+            .sort((a, b) => {
                 // Folders first, then files
                 if (a.type !== b.type) {
                     return a.type === 'dir' ? -1 : 1
@@ -52,9 +55,29 @@ export function Sidebar() {
                 // Alphabetical within same type
                 return a.name.localeCompare(b.name)
             })
-            setFileTree(sortedData.map((file: FileItem) => ({ ...file })))
-        }
-    }, [githubContentsQuery.data])
+            .map((file: FileItem) => ({
+                ...file,
+                children: folderContents.get(file.path),
+                isLoading: loadingFolders.has(file.path),
+            }))
+    }
+
+    function populateChildren(items: ExpandableFileItem[]): ExpandableFileItem[] {
+        return items.map((item) => ({
+            ...item,
+            children: item.children
+                ? populateChildren(item.children)
+                : folderContents.get(item.path)?.map((child) => ({
+                      ...child,
+                      children: folderContents.get(child.path),
+                      isLoading: loadingFolders.has(child.path),
+                  })),
+        }))
+    }
+
+    const fileTree = githubContentsQuery.data
+        ? populateChildren(buildFileTree(githubContentsQuery.data))
+        : []
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
         const data = await githubClient.getRepoContents(
@@ -68,42 +91,6 @@ export function Sidebar() {
             return data as FileItem[]
         }
         return [data] as FileItem[]
-    }
-
-    function updateFileTree(
-        tree: ExpandableFileItem[],
-        targetPath: string,
-        children: ExpandableFileItem[],
-    ): ExpandableFileItem[] {
-        return tree.map((item) => {
-            if (item.path === targetPath) {
-                return { ...item, children, isLoading: false }
-            } else if (item.children) {
-                return {
-                    ...item,
-                    children: updateFileTree(item.children, targetPath, children),
-                }
-            }
-            return item
-        })
-    }
-
-    function setFolderLoading(
-        tree: ExpandableFileItem[],
-        targetPath: string,
-        loading: boolean,
-    ): ExpandableFileItem[] {
-        return tree.map((item) => {
-            if (item.path === targetPath) {
-                return { ...item, isLoading: loading }
-            } else if (item.children) {
-                return {
-                    ...item,
-                    children: setFolderLoading(item.children, targetPath, loading),
-                }
-            }
-            return item
-        })
     }
 
     async function toggleFolder(folderPath: string) {
@@ -137,7 +124,7 @@ export function Sidebar() {
         const targetItem = findItem(fileTree, folderPath)
         if (!targetItem?.children) {
             // Set loading state
-            setFileTree((prev) => setFolderLoading(prev, folderPath, true))
+            setLoadingFolders((prev) => new Set([...prev, folderPath]))
 
             try {
                 const children = await fetchFolderContents(folderPath)
@@ -149,16 +136,25 @@ export function Sidebar() {
                     // Alphabetical within same type
                     return a.name.localeCompare(b.name)
                 })
-                setFileTree((prev) =>
-                    updateFileTree(
-                        prev,
-                        folderPath,
-                        sortedChildren.map((child) => ({ ...child })),
-                    ),
+                setFolderContents(
+                    (prev) =>
+                        new Map([
+                            ...prev,
+                            [folderPath, sortedChildren.map((child) => ({ ...child }))],
+                        ]),
                 )
+                setLoadingFolders((prev) => {
+                    const next = new Set(prev)
+                    next.delete(folderPath)
+                    return next
+                })
             } catch (error) {
                 console.error('Error fetching folder contents:', error)
-                setFileTree((prev) => setFolderLoading(prev, folderPath, false))
+                setLoadingFolders((prev) => {
+                    const next = new Set(prev)
+                    next.delete(folderPath)
+                    return next
+                })
                 // Remove from expanded on error
                 newExpanded.delete(folderPath)
                 setExpandedFolders(newExpanded)
