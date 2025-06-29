@@ -23,7 +23,7 @@ function useShiki() {
 
     useEffect(() => {
         createHighlighter({
-            themes: ['github-light'],
+            themes: ['github-dark'],
             langs: [
                 'javascript',
                 'typescript',
@@ -83,6 +83,7 @@ function ShikiCodeBlock({ code, language }: { code: string; language?: string })
             />
         )
     } catch (error) {
+        console.log(error)
         // Fallback for unsupported languages
         return (
             <pre
@@ -261,10 +262,7 @@ export function CodeRenderer() {
 
     return (
         <CodeLayout>
-            <div
-                className="bg-gray-900"
-                style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}
-            >
+            <div style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
                 <ShikiCodeBlock code={file.contents} language={language} />
             </div>
         </CodeLayout>
@@ -274,7 +272,7 @@ export function CodeRenderer() {
 function CodeLayout(props: PropsWithChildren) {
     const params = useGithubFilePath()
     return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col border border-black p-4">
             <BreadcrumbsWithGitHubLink
                 owner={params.owner!}
                 repo={params.repo!}
