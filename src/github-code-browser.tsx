@@ -1,20 +1,19 @@
 import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
-import ReactMarkdown from 'react-markdown'
+import { marked } from 'marked'
+import type { PropsWithChildren } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     createHighlighter,
     type BundledLanguage,
     type BundledTheme,
     type HighlighterGeneric,
 } from 'shiki'
-import remarkGfm from 'remark-gfm'
-import { useEffect, useState } from 'react'
 import { FastNavlink } from './components'
-import { getFileOrFolderContent, githubClient } from './lib/github-client'
+import { getFileOrFolderContent } from './lib/github-client'
 import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
 import { Searchbar } from './search-bar'
-import type { PropsWithChildren } from 'react'
 
 // Custom hook for shiki
 function useShiki() {
@@ -83,7 +82,7 @@ function ShikiCodeBlock({ code, language }: { code: string; language?: string })
             />
         )
     } catch (error) {
-        console.log(error)
+        console.error(error)
         // Fallback for unsupported languages
         return (
             <pre
@@ -208,52 +207,16 @@ export function CodeRenderer() {
 
     let file = data
     const isMarkdown = file.path.toLowerCase().endsWith('.md')
-    const isLargeMarkdown = file.contents.length > 200000
 
     if (isMarkdown) {
-        // For very large markdown files, render as plain text
-        if (isLargeMarkdown) {
-            return (
-                <CodeLayout>
-                    <div className="flex-1 overflow-auto p-8">
-                        <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 p-4">
-                            <p className="text-sm text-yellow-800">
-                                Large markdown file - showing as plain text for better performance
-                            </p>
-                        </div>
-                        <pre className="rounded bg-gray-50 p-4 font-mono text-sm whitespace-pre-wrap">
-                            {file.contents}
-                        </pre>
-                    </div>
-                </CodeLayout>
-            )
-        }
-
         return (
             <CodeLayout>
-                <div className="markdown-body max-w-none flex-1 overflow-auto p-8">
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                            code({ node, className, children, ...props }: any) {
-                                const inline = !className
-                                const match = /language-(\w+)/.exec(className || '')
-                                return !inline && match ? (
-                                    <ShikiCodeBlock
-                                        code={String(children).replace(/\n$/, '')}
-                                        language={match[1]}
-                                    />
-                                ) : (
-                                    <code className={className} {...props}>
-                                        {children}
-                                    </code>
-                                )
-                            },
-                        }}
-                    >
-                        {file.contents}
-                    </ReactMarkdown>
-                </div>
+                <div
+                    className="markdown-body max-w-none flex-1 overflow-auto p-8"
+                    dangerouslySetInnerHTML={{
+                        __html: marked(file.contents),
+                    }}
+                />
             </CodeLayout>
         )
     }
