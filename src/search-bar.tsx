@@ -18,6 +18,7 @@ function useDebounce<T>(value: T, delay: number): T {
 import { useQuery } from '@tanstack/react-query'
 import { githubClient } from './lib/github-client'
 import { useNavigate } from 'react-router'
+import { unwrap } from './lib/utils'
 
 export function Searchbar() {
     const [query, setQuery] = useState('')
@@ -27,7 +28,7 @@ export function Searchbar() {
 
     const { data: searchResults, isLoading } = useQuery({
         queryKey: ['search-repos', debouncedQuery],
-        queryFn: () => githubClient.searchRepos(debouncedQuery, 'stars', 'desc', 10),
+        queryFn: () => githubClient.searchRepos(debouncedQuery, 'stars', 'desc', 10).then(unwrap),
         enabled: debouncedQuery.length > 2,
         staleTime: 30000,
     })

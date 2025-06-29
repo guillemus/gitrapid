@@ -1,4 +1,5 @@
 import { useParams } from 'react-router'
+import type { GithubFilePath } from './github-client'
 
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()
@@ -69,11 +70,79 @@ export function getLanguageFromExtension(filePath: string): string {
     return languageMap[extension || ''] || 'text'
 }
 
-export function useSingleFileParams() {
-    let params = useParams<SingleFileParams>()
+type GithubFilePathWithRoot = GithubFilePath & {
+    root: boolean
+}
+
+// Transforms
+// - /:owner/:repo/tree/:ref/*
+// - /:owner/:repo/blob/:ref/*
+// paths into a github file path
+export function useGithubFilePath(): GithubFilePathWithRoot {
+    let params = useParams<{
+        owner: string
+        repo: string
+        ref: string
+        '*': string
+    }>()
+
+    if (!params.owner) throw new Error(':owner param required')
+    if (!params.repo) throw new Error(':repo param required')
+
+    let ref = params.ref
+    if (!ref) {
+        ref = 'HEAD'
+    }
+
+    let path = params['*']
+    let root = false
+    if (!path) {
+        path = 'README.md'
+        root = true
+    }
 
     return {
-        ...params,
-        ref: params.ref ? params.ref : 'HEAD',
+        owner: params.owner,
+        repo: params.repo,
+        ref,
+        path,
+        root,
     }
+}
+
+type Success<T> = {
+    data: T
+    error: null
+}
+
+type Failure<E> = {
+    data: null
+    error: E
+}
+
+export type Result<T, E = Error> = Success<T> | Failure<E>
+
+export function err(msg: string) {
+    return { data: null, error: new Error(msg) }
+}
+
+export function ok<T>(val: T) {
+    return { data: val, error: null }
+}
+
+export async function tryCatch<T, E = Error>(promise: Promise<T>): Promise<Result<T, E>> {
+    try {
+        const data = await promise
+        return { data, error: null }
+    } catch (error) {
+        return { data: null, error: error as E }
+    }
+}
+
+export function unwrap<T, E = Error>(res: Result<T, E>) {
+    if (res.error) {
+        throw res.error
+    }
+
+    return res.data
 }

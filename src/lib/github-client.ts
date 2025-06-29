@@ -4,20 +4,31 @@
 
 // Do not import code from the repo, just the types
 import type { RestEndpointMethodTypes } from '@octokit/rest'
+import { err, ok, tryCatch, type Result } from './utils'
 
-type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']
-type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']
-type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']
-type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']
+type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data']
+type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
+type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']['data']
+type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']['data']
 
+export type GithubFilePath = {
+    owner: string
+    repo: string
+    ref: string
+    path: string
+}
+
+// GitHubClient has just the raw http calls to github.
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
 
     constructor(private token?: string) {}
 
-    private async request(endpoint: string, options: RequestInit = {}) {
+    private async jsonRequest<T = never>(endpoint: string, options: RequestInit = {}) {
         const url = `${this.baseUrl}${endpoint}`
-        const response = await fetch(url, {
+
+        let data
+        data = fetch(url, {
             ...options,
             headers: {
                 ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
@@ -26,90 +37,62 @@ export class GitHubClient {
                 ...options.headers,
             },
         })
+        data = await tryCatch(data)
+        if (data.error) return data
 
-        if (!response.ok) {
-            throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
-        }
+        data = data.data
+        if (!data.ok) return err(`GitHub API error: ${data.status} ${data.statusText}`)
 
-        return response
+        data = await tryCatch(data.json())
+        if (data.error) return data
+
+        return ok(data.data as T)
     }
 
-    // Get repository contents
-    async getRepoContents(
-        owner: string,
-        repo: string,
-        path: string = '',
-        ref: string = 'main',
-    ): Promise<GetContentResponse['data']> {
-        const endpoint = `/repos/${owner}/${repo}/contents/${path}?ref=${ref}`
-        const response = await this.request(endpoint)
-        return response.json()
+    // Get file data by using the API. Useful to check what kind of file is the given file.
+    getFileContentByAPI(path: GithubFilePath) {
+        const endpoint = `/repos/${path.owner}/${path.repo}/contents/${path.path}?ref=${path.ref}`
+        return this.jsonRequest<GetContentResponse>(endpoint)
     }
 
-    // Get file content (raw) using raw.githubusercontent.com
+    // Get file contents using raw.githubusercontent.com
     // We use this instead of the api call for performance, because the file is
     // distributed through fastly's CDN
-    async getFileContent(owner: string, repo: string, path: string, ref: string): Promise<string> {
-        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`
-        const response = await fetch(url)
-        if (!response.ok) {
-            throw new Error(
-                `Failed to fetch file content: ${response.status} ${response.statusText}`,
-            )
-        }
-        return response.text()
-    }
+    async getFileContentByCDN(path: GithubFilePath) {
+        const url = `https://raw.githubusercontent.com/${path.owner}/${path.repo}/${path.ref}/${path.path}`
 
-    // Get file or folder content - tries raw content first, falls back to folder listing
-    async getFileOrFolderContent(
-        owner: string,
-        repo: string,
-        path: string,
-        ref: string,
-    ): Promise<string | GetContentResponse['data']> {
-        try {
-            // Try to get raw file content first
-            return await this.getFileContent(owner, repo, path, ref)
-        } catch (error) {
-            // If that fails (likely a 404 for a folder), try to get folder contents
-            try {
-                return await this.getRepoContents(owner, repo, path, ref)
-            } catch (folderError) {
-                // If both fail, re-throw the original error
-                throw error
-            }
-        }
+        let data
+        data = await tryCatch(fetch(url))
+        if (data.error) return data
+
+        data = data.data
+        if (!data.ok) return err(`failed to fetch ${data.url} contents: ${data.statusText} status`)
+
+        return tryCatch(data.text())
     }
 
     // Get repository info
-    async getRepo(owner: string, repo: string): Promise<GetRepoResponse['data']> {
+    getRepo(owner: string, repo: string) {
         const endpoint = `/repos/${owner}/${repo}`
-        const response = await this.request(endpoint)
-        return response.json()
+        return this.jsonRequest<GetRepoResponse>(endpoint)
     }
 
     // Get repository tree (for file structure)
-    async getRepoTree(
-        owner: string,
-        repo: string,
-        ref: string = 'main',
-        recursive: boolean = false,
-    ): Promise<GetTreeResponse['data']> {
+    getRepoTree(owner: string, repo: string, ref: string = 'main', recursive: boolean = false) {
         const endpoint = `/repos/${owner}/${repo}/git/trees/${ref}${
             recursive ? '?recursive=1' : ''
         }`
-        const response = await this.request(endpoint)
-        return response.json()
+        return this.jsonRequest<GetTreeResponse>(endpoint)
     }
 
     // Search repositories
-    async searchRepos(
+    searchRepos(
         query: string,
         sort?: 'stars' | 'forks' | 'help-wanted-issues' | 'updated',
         order?: 'asc' | 'desc',
         perPage: number = 30,
         page: number = 1,
-    ): Promise<SearchReposResponse['data']> {
+    ) {
         const params = new URLSearchParams({
             q: query,
             per_page: perPage.toString(),
@@ -120,8 +103,8 @@ export class GitHubClient {
         if (order) params.append('order', order)
 
         const endpoint = `/search/repositories?${params.toString()}`
-        const response = await this.request(endpoint)
-        return response.json()
+
+        return this.jsonRequest<SearchReposResponse>(endpoint)
     }
 }
 
@@ -129,3 +112,54 @@ const GITHUB_TOKEN = import.meta.env.PUBLIC_GITHUB_TOKEN
 
 // Export singleton instance
 export const githubClient = new GitHubClient(GITHUB_TOKEN)
+
+type File = {
+    type: 'file'
+    path: string
+    contents: string
+}
+
+type Folder = {
+    type: 'folder'
+    contents: {
+        name: string
+        path: string
+        isDir: boolean
+    }[]
+}
+
+export async function getFileOrFolderContent(
+    path: GithubFilePath,
+): Promise<Result<File | Folder, Error>> {
+    let data
+    data = await githubClient.getFileContentByCDN(path)
+    if (data.data) {
+        return ok({
+            type: 'file',
+            path: path.path,
+            contents: data.data,
+        })
+    }
+
+    data = await githubClient.getFileContentByAPI(path)
+    if (data.error) return data
+
+    data = data.data
+    if (Array.isArray(data)) {
+        let contents: Folder['contents'] = []
+        for (let file of data) {
+            contents.push({
+                isDir: file.type === 'dir',
+                name: file.name,
+                path: file.path,
+            })
+        }
+
+        return ok({ type: 'folder', contents: contents })
+    }
+
+    // at this point the file should have been fetched previously, so if we
+    // get here this should be a logic error
+
+    return err(`Unexpected response: expected file or folder content, got ${JSON.stringify(data)}`)
+}

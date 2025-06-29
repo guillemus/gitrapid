@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FastNavlink } from './components'
 import { githubClient } from './lib/github-client'
-import { useSingleFileParams } from './lib/utils'
+import { unwrap, useGithubFilePath } from './lib/utils'
+import { queryClient } from './queryClient'
 
 type FileItem = {
     name: string
@@ -19,7 +20,7 @@ type ExpandableFileItem = FileItem & {
 }
 
 export function Sidebar() {
-    const params = useSingleFileParams()
+    const params = useGithubFilePath()
 
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [folderContents, setFolderContents] = useState<Map<string, ExpandableFileItem[]>>(
@@ -27,22 +28,19 @@ export function Sidebar() {
     )
     const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
 
+    let rootFileParams = { ...params, path: '' }
+
     const githubContentsQuery = useQuery({
-        queryKey: ['github-contents', params.owner, params.repo, params.ref],
+        queryKey: ['github-root-files', rootFileParams],
         queryFn: async (): Promise<FileItem[]> => {
-            const data = await githubClient.getRepoContents(
-                params.owner!,
-                params.repo!,
-                '',
-                params.ref!,
-            )
+            const data = await githubClient.getFileContentByAPI(rootFileParams).then(unwrap)
+
             // Handle both array and single file responses
             if (Array.isArray(data)) {
                 return data as FileItem[]
             }
             return [data] as FileItem[]
         },
-        enabled: !!(params.owner && params.repo && params.ref),
     })
 
     function buildFileTree(items: FileItem[]): ExpandableFileItem[] {
@@ -80,17 +78,22 @@ export function Sidebar() {
         : []
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
-        const data = await githubClient.getRepoContents(
-            params.owner!,
-            params.repo!,
-            folderPath,
-            params.ref!,
-        )
-        // Handle both array and single file responses
-        if (Array.isArray(data)) {
-            return data as FileItem[]
+        let fileParams = {
+            ...params,
+            path: folderPath,
         }
-        return [data] as FileItem[]
+
+        return queryClient.fetchQuery({
+            queryKey: ['github-files', fileParams],
+            queryFn: async () => {
+                const data = await githubClient.getFileContentByAPI(fileParams).then(unwrap)
+                // Handle both array and single file responses
+                if (Array.isArray(data)) {
+                    return data as FileItem[]
+                }
+                return [data] as FileItem[]
+            },
+        })
     }
 
     async function toggleFolder(folderPath: string) {
