@@ -1,9 +1,10 @@
 import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
+import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import type { PropsWithChildren } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     createHighlighter,
     type BundledLanguage,
@@ -78,7 +79,7 @@ function ShikiCodeBlock({ code, language }: { code: string; language?: string })
             <div
                 className="overflow-x-auto p-4 text-sm"
                 style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
-                dangerouslySetInnerHTML={{ __html: html }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
             />
         )
     } catch (error) {
@@ -209,12 +210,13 @@ export function CodeRenderer() {
     const isMarkdown = file.path.toLowerCase().endsWith('.md')
 
     if (isMarkdown) {
+        const htmlContent = marked(file.contents) as string
         return (
             <CodeLayout>
                 <div
                     className="markdown-body max-w-none flex-1 overflow-auto p-8"
                     dangerouslySetInnerHTML={{
-                        __html: marked(file.contents),
+                        __html: DOMPurify.sanitize(htmlContent),
                     }}
                 />
             </CodeLayout>
