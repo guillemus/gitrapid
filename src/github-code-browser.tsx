@@ -160,7 +160,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
     )
 }
 
-export function CodeRenderer() {
+function CodeRenderer() {
     const params = useGithubFilePath()
 
     const fileContentsQuery = useQuery({
@@ -192,24 +192,22 @@ export function CodeRenderer() {
         })
 
         return (
-            <CodeLayout>
-                <div className="flex-1 space-y-2 overflow-y-auto p-4">
-                    {sorted.map((item) => (
-                        <FastNavlink
-                            key={item.path}
-                            to={`/${params.owner}/${params.repo}/blob/${params.ref}/${item.path}`}
-                            className="flex items-center gap-2 rounded p-2 hover:bg-gray-100"
-                        >
-                            {item.isDir ? (
-                                <FaFolder className="text-sm" />
-                            ) : (
-                                <FaFile className="text-sm" />
-                            )}
-                            <span>{item.name}</span>
-                        </FastNavlink>
-                    ))}
-                </div>
-            </CodeLayout>
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+                {sorted.map((item) => (
+                    <FastNavlink
+                        key={item.path}
+                        to={`/${params.owner}/${params.repo}/blob/${params.ref}/${item.path}`}
+                        className="flex items-center gap-2 rounded p-2 hover:bg-gray-100"
+                    >
+                        {item.isDir ? (
+                            <FaFolder className="text-sm" />
+                        ) : (
+                            <FaFile className="text-sm" />
+                        )}
+                        <span>{item.name}</span>
+                    </FastNavlink>
+                ))}
+            </div>
         )
     }
 
@@ -219,29 +217,25 @@ export function CodeRenderer() {
     if (isMarkdown) {
         const htmlContent = marked(file.contents) as string
         return (
-            <CodeLayout>
-                <div
-                    className="markdown-body max-w-none flex-1 overflow-auto p-8"
-                    dangerouslySetInnerHTML={{
-                        __html: DOMPurify.sanitize(htmlContent),
-                    }}
-                />
-            </CodeLayout>
+            <div
+                className="markdown-body max-w-none flex-1 overflow-auto p-8"
+                dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(htmlContent),
+                }}
+            />
         )
     }
 
     const language = getLanguageFromExtension(file.path)
 
     return (
-        <CodeLayout>
-            <div style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
-                <ShikiCodeBlock code={file.contents} language={language} />
-            </div>
-        </CodeLayout>
+        <div style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
+            <ShikiCodeBlock code={file.contents} language={language} />
+        </div>
     )
 }
 
-function CodeLayout(props: PropsWithChildren) {
+export function CodeBrowser() {
     const params = useGithubFilePath()
     return (
         <div className="flex h-full flex-col">
@@ -252,7 +246,9 @@ function CodeLayout(props: PropsWithChildren) {
                 filePath={params.path}
                 isFolder={false}
             />
-            <div className="flex-1 overflow-y-auto p-4">{props.children}</div>
+            <div className="flex-1 overflow-y-auto p-4">
+                <CodeRenderer></CodeRenderer>
+            </div>
         </div>
     )
 }

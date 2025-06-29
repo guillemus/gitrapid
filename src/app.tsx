@@ -3,7 +3,7 @@
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router'
-import { CodeRenderer } from './github-code-browser'
+import { CodeBrowser } from './github-code-browser'
 import { queryClient } from './queryClient'
 import { Sidebar } from './sidebar'
 
@@ -14,7 +14,7 @@ function GithubCodeBrowser() {
                 <Sidebar />
             </aside>
             <main className="h-full flex-1 overflow-hidden">
-                <CodeRenderer />
+                <CodeBrowser />
             </main>
         </div>
     )
