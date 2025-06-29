@@ -2,6 +2,8 @@ import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { FaChevronDown, FaChevronRight, FaFolder, FaFile, FaSpinner } from 'react-icons/fa'
+import { useNavigate } from 'react-router'
 import { FastNavlink } from './components'
 import { githubClient } from './lib/github-client'
 import { unwrap, useGithubFilePath } from './lib/utils'
@@ -21,6 +23,7 @@ type ExpandableFileItem = FileItem & {
 
 export function Sidebar() {
     const params = useGithubFilePath()
+    const navigate = useNavigate()
 
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [folderContents, setFolderContents] = useState<Map<string, ExpandableFileItem[]>>(
@@ -99,6 +102,9 @@ export function Sidebar() {
     async function toggleFolder(folderPath: string) {
         const isExpanded = expandedFolders.has(folderPath)
 
+        // Navigate to folder URL
+        navigate(`/${params.owner}/${params.repo}/tree/${params.ref}/${folderPath}`)
+
         if (isExpanded) {
             // Collapse folder
             const newExpanded = new Set(expandedFolders)
@@ -166,37 +172,49 @@ export function Sidebar() {
     }
 
     function renderFileTree(items: ExpandableFileItem[], depth = 0) {
-        return items.map((item) => (
-            <div key={item.path} style={{ marginLeft: `${depth * 12}px` }}>
-                {item.type === 'dir' ? (
-                    <div>
-                        <button
-                            onMouseDown={() => toggleFolder(item.path)}
-                            className="flex w-full items-center rounded p-1 text-left hover:bg-gray-200"
+        return items.map((item) => {
+            const isCurrentPath = item.path === params.path
+
+            return (
+                <div key={item.path} style={{ marginLeft: `${depth * 12}px` }}>
+                    {item.type === 'dir' ? (
+                        <div>
+                            <button
+                                onMouseDown={() => toggleFolder(item.path)}
+                                className={`flex w-full items-center rounded p-1 text-left ${
+                                    isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                                }`}
+                            >
+                                <span className="mr-1 flex-shrink-0">
+                                    {item.isLoading ? (
+                                        <FaSpinner className="animate-spin" />
+                                    ) : expandedFolders.has(item.path) ? (
+                                        <FaChevronDown />
+                                    ) : (
+                                        <FaChevronRight />
+                                    )}
+                                </span>
+                                <FaFolder className="mr-1 flex-shrink-0" />
+                                <span className="min-w-0 truncate">{item.name}</span>
+                            </button>
+                            {expandedFolders.has(item.path) && item.children && (
+                                <div>{renderFileTree(item.children, depth + 1)}</div>
+                            )}
+                        </div>
+                    ) : (
+                        <FastNavlink
+                            to={`/${params.owner}/${params.repo}/tree/${params.ref}/${item.path}`}
+                            className={`flex items-center rounded p-1 pl-6 ${
+                                isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                            }`}
                         >
-                            <span className="mr-1 flex-shrink-0">
-                                {item.isLoading
-                                    ? '⏳'
-                                    : expandedFolders.has(item.path)
-                                      ? '▼'
-                                      : '▶️'}
-                            </span>
-                            <span className="min-w-0 truncate">📁 {item.name}</span>
-                        </button>
-                        {expandedFolders.has(item.path) && item.children && (
-                            <div>{renderFileTree(item.children, depth + 1)}</div>
-                        )}
-                    </div>
-                ) : (
-                    <FastNavlink
-                        to={`/${params.owner}/${params.repo}/tree/${params.ref}/${item.path}`}
-                        className="flex items-center rounded p-1 text-blue-600 hover:bg-gray-200 hover:underline"
-                    >
-                        <span className="min-w-0 truncate">📄 {item.name}</span>
-                    </FastNavlink>
-                )}
-            </div>
-        ))
+                            <FaFile className="mr-1 flex-shrink-0" />
+                            <span className="min-w-0 truncate">{item.name}</span>
+                        </FastNavlink>
+                    )}
+                </div>
+            )
+        })
     }
 
     if (githubContentsQuery.isLoading) {
@@ -206,5 +224,5 @@ export function Sidebar() {
         return <div className="p-4 text-red-600">Error loading files</div>
     }
 
-    return <div className="mb-4 font-bold">{renderFileTree(fileTree)}</div>
+    return <div className="mb-4">{renderFileTree(fileTree)}</div>
 }

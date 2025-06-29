@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import type { PropsWithChildren } from 'react'
 import { useEffect, useState } from 'react'
+import { FaFolder, FaFile } from 'react-icons/fa'
 import {
     createHighlighter,
     type BundledLanguage,
@@ -14,7 +15,8 @@ import {
 import { FastNavlink } from './components'
 import { getFileOrFolderContent } from './lib/github-client'
 import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
-import { Searchbar } from './search-bar'
+import { Searchbar } from './repo-search-bar'
+import { CodeSearchBar } from './code-search-bar'
 
 // Custom hook for shiki
 function useShiki() {
@@ -126,7 +128,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
                         return (
                             <li key={segmentPath}>
                                 {isLast ? (
-                                    <span>{segment}</span>
+                                    <span className="font-semibold">{segment}</span>
                                 ) : (
                                     <FastNavlink
                                         to={`/${props.owner}/${props.repo}/tree/${props.ref}/${segmentPath}`}
@@ -143,6 +145,7 @@ function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
 
             <div className="flex items-center gap-4">
                 <Searchbar />
+                <CodeSearchBar owner={props.owner} repo={props.repo} />
 
                 <a
                     href={githubUrl}
@@ -197,7 +200,11 @@ export function CodeRenderer() {
                             to={`/${params.owner}/${params.repo}/blob/${params.ref}/${item.path}`}
                             className="flex items-center gap-2 rounded p-2 hover:bg-gray-100"
                         >
-                            <span className="text-sm">{item.isDir ? '📁' : '📄'}</span>
+                            {item.isDir ? (
+                                <FaFolder className="text-sm" />
+                            ) : (
+                                <FaFile className="text-sm" />
+                            )}
                             <span>{item.name}</span>
                         </FastNavlink>
                     ))}
@@ -237,7 +244,7 @@ export function CodeRenderer() {
 function CodeLayout(props: PropsWithChildren) {
     const params = useGithubFilePath()
     return (
-        <div className="flex h-full flex-col border border-black p-4">
+        <div className="flex h-full flex-col">
             <BreadcrumbsWithGitHubLink
                 owner={params.owner!}
                 repo={params.repo!}

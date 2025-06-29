@@ -18,12 +18,11 @@ function useDebounce<T>(value: T, delay: number): T {
 import { useQuery } from '@tanstack/react-query'
 import { githubClient } from './lib/github-client'
 import { useNavigate } from 'react-router'
-import { unwrap } from './lib/utils'
+import { unwrap, useClickOutside } from './lib/utils'
 
 export function Searchbar() {
     const [query, setQuery] = useState('')
     const [isOpen, setIsOpen] = useState(false)
-    const containerRef = useRef<HTMLDivElement>(null)
     const debouncedQuery = useDebounce(query, 300)
 
     const { data: searchResults, isLoading } = useQuery({
@@ -47,21 +46,7 @@ export function Searchbar() {
         setQuery(`${owner}/${repo}`)
     }
 
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside)
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside)
-        }
-    }, [isOpen])
+    const containerRef = useClickOutside(() => setIsOpen(false))
 
     return (
         <div ref={containerRef} className="relative w-lg">

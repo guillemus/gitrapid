@@ -1,5 +1,6 @@
 import { useParams } from 'react-router'
 import type { GithubFilePath } from './github-client'
+import { useEffect, useRef, useState } from 'react'
 
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()
@@ -145,4 +146,39 @@ export function unwrap<T, E = Error>(res: Result<T, E>) {
     }
 
     return res.data
+}
+
+export function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value)
+        }, delay)
+
+        return () => {
+            clearTimeout(handler)
+        }
+    }, [value, delay])
+
+    return debouncedValue
+}
+
+export function useClickOutside(onclickOutside: () => void) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                onclickOutside()
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [])
+
+    return containerRef
 }

@@ -10,6 +10,7 @@ type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data
 type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
 type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']['data']
 type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']['data']
+type SearchCodeResponse = RestEndpointMethodTypes['search']['code']['response']['data']
 
 export type GithubFilePath = {
     owner: string
@@ -105,6 +106,31 @@ export class GitHubClient {
         const endpoint = `/search/repositories?${params.toString()}`
 
         return this.jsonRequest<SearchReposResponse>(endpoint)
+    }
+
+    // Search code within a repository
+    searchCode(
+        query: string,
+        owner: string,
+        repo: string,
+        sort?: 'indexed',
+        order?: 'asc' | 'desc',
+        perPage: number = 30,
+        page: number = 1,
+    ) {
+        const searchQuery = `${query} repo:${owner}/${repo}`
+        const params = new URLSearchParams({
+            q: searchQuery,
+            per_page: perPage.toString(),
+            page: page.toString(),
+        })
+
+        if (sort) params.append('sort', sort)
+        if (order) params.append('order', order)
+
+        const endpoint = `/search/code?${params.toString()}`
+
+        return this.jsonRequest<SearchCodeResponse>(endpoint)
     }
 }
 

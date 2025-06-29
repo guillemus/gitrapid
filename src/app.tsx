@@ -10,7 +10,7 @@ import { Sidebar } from './sidebar'
 function GithubCodeBrowser() {
     return (
         <div className="flex h-screen w-screen">
-            <aside className="h-full w-64 overflow-y-auto border-r bg-gray-100 p-4">
+            <aside className="h-full w-90 overflow-y-auto border-r bg-gray-100 p-4">
                 <Sidebar />
             </aside>
             <main className="h-full flex-1 overflow-hidden">
