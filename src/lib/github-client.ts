@@ -130,7 +130,11 @@ export class GitHubClient {
 
         const endpoint = `/search/code?${params.toString()}`
 
-        return this.jsonRequest<SearchCodeResponse>(endpoint)
+        return this.jsonRequest<SearchCodeResponse>(endpoint, {
+            headers: {
+                Accept: 'application/vnd.github.text-match+json',
+            },
+        })
     }
 }
 

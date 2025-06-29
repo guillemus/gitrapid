@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { CodeBrowser } from './github-code-browser'
 import { queryClient } from './queryClient'
+import { SearchPage } from './search-page'
 import { Sidebar } from './sidebar'
 
 function GithubCodeBrowser() {
@@ -20,6 +21,19 @@ function GithubCodeBrowser() {
     )
 }
 
+function GithubSearchPage() {
+    return (
+        <div className="flex h-screen w-screen">
+            <aside className="h-full w-90 overflow-y-auto border-r bg-gray-100 p-4">
+                <Sidebar />
+            </aside>
+            <main className="h-full flex-1 overflow-hidden">
+                <SearchPage />
+            </main>
+        </div>
+    )
+}
+
 export function App() {
     return (
         <QueryClientProvider client={queryClient}>
@@ -28,6 +42,7 @@ export function App() {
                     <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
                     <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
                     <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
+                    <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
                 </Routes>
             </BrowserRouter>
         </QueryClientProvider>

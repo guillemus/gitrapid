@@ -3,20 +3,17 @@ import 'github-markdown-css/github-markdown-light.css'
 import { useQuery } from '@tanstack/react-query'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import type { PropsWithChildren } from 'react'
 import { useEffect, useState } from 'react'
-import { FaFolder, FaFile } from 'react-icons/fa'
+import { FaFile, FaFolder } from 'react-icons/fa'
 import {
     createHighlighter,
     type BundledLanguage,
     type BundledTheme,
     type HighlighterGeneric,
 } from 'shiki'
-import { FastNavlink } from './components'
+import { BreadcrumbsWithGitHubLink, FastNavlink } from './components'
 import { getFileOrFolderContent } from './lib/github-client'
 import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
-import { Searchbar } from './repo-search-bar'
-import { CodeSearchBar } from './code-search-bar'
 
 // Custom hook for shiki
 function useShiki() {
@@ -98,68 +95,6 @@ function ShikiCodeBlock({ code, language }: { code: string; language?: string })
     }
 }
 
-type BreadcrumbsWithGitHubLinkProps = {
-    owner: string
-    repo: string
-    ref: string
-    filePath: string
-    isFolder: boolean
-}
-
-function BreadcrumbsWithGitHubLink(props: BreadcrumbsWithGitHubLinkProps) {
-    const pathSegments = props.filePath ? props.filePath.split('/').filter(Boolean) : []
-    const githubUrl = `https://github.com/${props.owner}/${props.repo}/${
-        props.isFolder ? 'tree' : 'blob'
-    }/${props.ref}/${props.filePath}`
-
-    return (
-        <div className="flex items-center justify-between border-b bg-gray-50 p-4">
-            <div className="breadcrumbs text-sm">
-                <ul>
-                    <li>
-                        <FastNavlink to={`/${props.owner}/${props.repo}`} className="link">
-                            {props.owner}/{props.repo}
-                        </FastNavlink>
-                    </li>
-                    {pathSegments.map((segment, index) => {
-                        const segmentPath = pathSegments.slice(0, index + 1).join('/')
-                        const isLast = index === pathSegments.length - 1
-
-                        return (
-                            <li key={segmentPath}>
-                                {isLast ? (
-                                    <span className="font-semibold">{segment}</span>
-                                ) : (
-                                    <FastNavlink
-                                        to={`/${props.owner}/${props.repo}/tree/${props.ref}/${segmentPath}`}
-                                        className="link"
-                                    >
-                                        {segment}
-                                    </FastNavlink>
-                                )}
-                            </li>
-                        )
-                    })}
-                </ul>
-            </div>
-
-            <div className="flex items-center gap-4">
-                <Searchbar />
-                <CodeSearchBar owner={props.owner} repo={props.repo} />
-
-                <a
-                    href={githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline btn-sm"
-                >
-                    View on GitHub
-                </a>
-            </div>
-        </div>
-    )
-}
-
 function CodeRenderer() {
     const params = useGithubFilePath()
 
@@ -236,16 +171,9 @@ function CodeRenderer() {
 }
 
 export function CodeBrowser() {
-    const params = useGithubFilePath()
     return (
         <div className="flex h-full flex-col">
-            <BreadcrumbsWithGitHubLink
-                owner={params.owner!}
-                repo={params.repo!}
-                ref={params.ref}
-                filePath={params.path}
-                isFolder={false}
-            />
+            <BreadcrumbsWithGitHubLink />
             <div className="flex-1 overflow-y-auto p-4">
                 <CodeRenderer></CodeRenderer>
             </div>
