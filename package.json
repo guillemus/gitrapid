@@ -15,6 +15,7 @@
         "@astrojs/vercel": "^8.2.0",
         "@fontsource/geist-sans": "^5.2.5",
         "@octokit/rest": "^22.0.0",
+        "@shikijs/transformers": "^3.7.0",
         "@tailwindcss/typography": "^0.5.16",
         "@tailwindcss/vite": "^4.1.11",
         "@tanstack/react-query": "^5.81.5",

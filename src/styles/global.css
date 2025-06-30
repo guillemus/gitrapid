@@ -17,3 +17,20 @@ body {
         'Noto Sans',
         sans-serif;
 }
+
+/* Shiki line numbers */
+pre.shiki {
+    padding: 1rem;
+}
+
+pre.shiki .line::before {
+    counter-increment: line-number;
+    content: counter(line-number);
+    position: absolute;
+    left: 0;
+    width: 3rem;
+    text-align: right;
+    padding-right: 1rem;
+    color: rgba(156, 163, 175, 0.6);
+    user-select: none;
+}

@@ -35,15 +35,21 @@ Assume that the app is always running on port 3000.
 - **CSS**: Use Tailwind classes + DaisyUI components
 - **File Extensions**: `.astro` for pages, `.tsx` for React components
 - **Function definitions**: prefer using named function instead of arrow functions
+- **Do not use prop object destructuring**: instead just use the props 
+- **Try to use tailwindcss styles**: instead of object literal styles
 - **Component definitions**: if a component has props, write the typescript type as follows
 
 ```typescript
-type ComponentProps = {}
+type ComponentProps = {
+    // ... props here
+}
 
 function Component(props: ComponentProps) {
     // ...
 }
 ```
+
+If a component doesn't accept props don't write any ComponentProps type.
 
 - For error handling use this tiny library:
 

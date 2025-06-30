@@ -1,24 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams, useSearchParams } from 'react-router'
-import { githubClient } from './lib/github-client'
+import { useSearchParams } from 'react-router'
 import { BreadcrumbsWithGitHubLink } from './components'
+import { githubClient } from './lib/github-client'
+import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
+import { ShikiCodeBlock } from './shiki-code-block'
 
 function Search() {
-    const { owner, repo } = useParams<{ owner: string; repo: string }>()
+    const { owner, repo } = useGithubFilePath()
     const [searchParams] = useSearchParams()
     const query = searchParams.get('q') || ''
 
     const {
-        data: searchResults,
+        data: results,
         isLoading,
         error,
     } = useQuery({
         queryKey: ['search-code', owner, repo, query],
-        queryFn: () => {
-            if (!owner || !repo || !query) return null
-            return githubClient.searchCode(query, owner, repo)
-        },
-        enabled: Boolean(owner && repo && query),
+        queryFn: () => githubClient.searchCode(query, owner, repo).then(unwrap),
     })
 
     if (!query) {
@@ -47,17 +45,6 @@ function Search() {
         )
     }
 
-    if (searchResults?.error) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <div className="alert alert-error">
-                    <span>Search failed: {searchResults.error.message}</span>
-                </div>
-            </div>
-        )
-    }
-
-    const results = searchResults?.data
     if (!results || results.total_count === 0) {
         return (
             <div className="flex h-full items-center justify-center">
@@ -90,23 +77,26 @@ function Search() {
                                 </a>
                             </h2>
 
-                            {item.text_matches?.map((match, matchIndex) => (
-                                <div key={matchIndex} className="mt-4">
-                                    <div className="mockup-code text-sm">
-                                        <pre className="px-4">
-                                            <code>{match.fragment}</code>
-                                        </pre>
+                            {item.text_matches?.map((match, matchIndex) => {
+                                const language = getLanguageFromExtension(item.path)
+
+                                // Convert match indices to highlight ranges
+                                const highlightRanges =
+                                    match.matches?.map((submatch) => ({
+                                        start: submatch.indices?.[0] || 0,
+                                        end: submatch.indices?.[1] || 0,
+                                    })) || []
+
+                                return (
+                                    <div key={matchIndex} className="mt-4">
+                                        <ShikiCodeBlock
+                                            code={match.fragment || ''}
+                                            language={language}
+                                            highlightLines={highlightRanges}
+                                        />
                                     </div>
-                                    {match.matches?.map((submatch, submatchIndex) => (
-                                        <div
-                                            key={submatchIndex}
-                                            className="mt-2 text-sm text-gray-600"
-                                        >
-                                            Match at indices {submatch.indices?.join('-')}
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 ))}

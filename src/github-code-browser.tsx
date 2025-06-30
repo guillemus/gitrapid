@@ -3,97 +3,11 @@ import 'github-markdown-css/github-markdown-light.css'
 import { useQuery } from '@tanstack/react-query'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { useEffect, useState } from 'react'
 import { FaFile, FaFolder } from 'react-icons/fa'
-import {
-    createHighlighter,
-    type BundledLanguage,
-    type BundledTheme,
-    type HighlighterGeneric,
-} from 'shiki'
 import { BreadcrumbsWithGitHubLink, FastNavlink } from './components'
 import { getFileOrFolderContent } from './lib/github-client'
 import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
-
-// Custom hook for shiki
-function useShiki() {
-    const [highlighter, setHighlighter] =
-        useState<HighlighterGeneric<BundledLanguage, BundledTheme>>()
-
-    useEffect(() => {
-        createHighlighter({
-            themes: ['github-dark'],
-            langs: [
-                'javascript',
-                'typescript',
-                'jsx',
-                'tsx',
-                'css',
-                'html',
-                'json',
-                'markdown',
-                'python',
-                'java',
-                'go',
-                'rust',
-                'php',
-                'ruby',
-                'shell',
-                'yaml',
-                'xml',
-                'sql',
-                'bash',
-            ],
-        }).then((h) => setHighlighter(h))
-    }, [])
-
-    return highlighter
-}
-
-// Component for syntax highlighting
-function ShikiCodeBlock({ code, language }: { code: string; language?: string }) {
-    const highlighter = useShiki()
-
-    // Skip highlighting for very large files (>100KB or >5000 lines)
-    const isLargeFile = code.length > 100000 || code.split('\n').length > 5000
-
-    if (!highlighter || isLargeFile) {
-        return (
-            <pre
-                className="bg-gray-900 p-4 text-sm text-gray-100"
-                style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}
-            >
-                <code>{code}</code>
-            </pre>
-        )
-    }
-
-    try {
-        const html = highlighter.codeToHtml(code, {
-            lang: language || 'text',
-            theme: 'github-dark',
-        })
-
-        return (
-            <div
-                className="overflow-x-auto p-4 text-sm"
-                style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
-            />
-        )
-    } catch (error) {
-        console.error(error)
-        // Fallback for unsupported languages
-        return (
-            <pre
-                className="bg-gray-900 p-4 text-sm text-gray-100"
-                style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}
-            >
-                <code>{code}</code>
-            </pre>
-        )
-    }
-}
+import { ShikiCodeBlock } from './shiki-code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()
@@ -120,8 +34,8 @@ function CodeRenderer() {
     if (data.type === 'folder') {
         let sorted = [...data.contents]
         sorted.sort((a, b) => {
-            if (a.isDir) return -1
-            if (b.isDir) return -1
+            if (a.isDir && !b.isDir) return -1
+            if (!a.isDir && b.isDir) return 1
 
             return a.name.localeCompare(b.name)
         })
