@@ -41,7 +41,7 @@ function CodeRenderer() {
         })
 
         return (
-            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+            <div className="flex-1 space-y-2 p-4">
                 {sorted.map((item) => (
                     <FastNavlink
                         key={item.path}
@@ -67,7 +67,7 @@ function CodeRenderer() {
         const htmlContent = marked(file.contents) as string
         return (
             <div
-                className="markdown-body max-w-none flex-1 overflow-auto p-8"
+                className="markdown-body max-w-none flex-1 p-8"
                 dangerouslySetInnerHTML={{
                     __html: DOMPurify.sanitize(htmlContent),
                 }}
@@ -78,8 +78,8 @@ function CodeRenderer() {
     const language = getLanguageFromExtension(file.path)
 
     return (
-        <div style={{ overflowY: 'scroll', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
-            <ShikiCodeBlock code={file.contents} language={language} />
+        <div style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
+            <ShikiCodeBlock showLines code={file.contents} language={language} />
         </div>
     )
 }

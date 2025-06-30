@@ -121,8 +121,11 @@ function createTransformer(props: ShikiCodeBlockProps): ShikiTransformer {
             // Reset character index for each render
             currentCharIndex = 0
 
-            // Add CSS for line numbers with counter
-            this.addClassToHast(el, 'relative')
+            if (props.showLines) {
+                // Add CSS for line numbers with counter
+                this.addClassToHast(el, 'relative')
+            }
+
             el.properties.style = `
                 counter-reset: line-number ${(props.startLineNumber ?? 1) - 1};
                 padding-left: 3.5rem;
@@ -138,6 +141,7 @@ type HighlightRange = {
 
 type ShikiCodeBlockProps = {
     code: string
+    showLines?: boolean
     language?: string
     highlightIndices?: HighlightRange[]
     highlightLines?: HighlightRange[]
@@ -172,7 +176,7 @@ export function ShikiCodeBlock(props: ShikiCodeBlockProps) {
 
         return (
             <div
-                className="overflow-x-auto text-sm"
+                className="overflow-x-auto overflow-y-hidden text-sm"
                 style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
             />

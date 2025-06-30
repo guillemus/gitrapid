@@ -92,7 +92,7 @@ function Search() {
                                         <ShikiCodeBlock
                                             code={match.fragment || ''}
                                             language={language}
-                                            highlightLines={highlightRanges}
+                                            highlightIndices={highlightRanges}
                                         />
                                     </div>
                                 )
