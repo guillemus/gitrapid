@@ -7,7 +7,7 @@ import {
 } from 'shiki'
 
 let hightlighter = createHighlighter({
-    themes: ['github-dark'],
+    themes: ['github-light'],
     langs: [
         'javascript',
         'typescript',

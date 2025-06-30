@@ -170,7 +170,7 @@ export function ShikiCodeBlock(props: ShikiCodeBlockProps) {
     try {
         let html = highlighter.codeToHtml(props.code, {
             lang: props.language || 'text',
-            theme: 'github-dark',
+            theme: 'github-light',
             transformers: [createTransformer(props)],
         })
 
