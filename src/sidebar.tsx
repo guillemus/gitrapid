@@ -25,10 +25,8 @@ export function Sidebar() {
     const params = useGithubFilePath()
     const navigate = useNavigate()
 
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-    const [folderContents, setFolderContents] = useState<Map<string, ExpandableFileItem[]>>(
-        new Map(),
-    )
+    const [expandedFolders, setExpandedFolders] = useState(new Set<string>())
+    const [folderContents, setFolderContents] = useState(new Map<string, ExpandableFileItem[]>())
     const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
 
     let rootFileParams = { ...params, path: '' }

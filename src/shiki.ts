@@ -31,6 +31,11 @@ let hightlighter = createHighlighter({
     ],
 })
 
+import.meta.hot?.dispose(() => {
+    console.log('disposing of hightlighter for hmr')
+    hightlighter.then((h) => h.dispose())
+})
+
 export function useShiki() {
     const [highlighter, setHighlighter] =
         useState<HighlighterGeneric<BundledLanguage, BundledTheme>>()

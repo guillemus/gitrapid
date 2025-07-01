@@ -14,8 +14,7 @@ function CodeRenderer() {
 
     const fileContentsQuery = useQuery({
         queryKey: ['github-content', params],
-        queryFn: async () => getFileOrFolderContent(params).then(unwrap),
-        enabled: !!(params.owner && params.repo),
+        queryFn: () => getFileOrFolderContent(params).then(unwrap),
         retry: params.root ? 1 : 3, // Don't retry much for README.md if it doesn't exist
     })
 

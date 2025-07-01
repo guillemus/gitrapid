@@ -3,6 +3,8 @@
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+
 import { CodeBrowser } from './github-code-browser'
 import { queryClient } from './queryClient'
 import { SearchPage } from './search-page'
@@ -45,6 +47,7 @@ export function App() {
                     <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
                 </Routes>
             </BrowserRouter>
+            <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
     )
 }
