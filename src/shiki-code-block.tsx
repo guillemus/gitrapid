@@ -151,8 +151,8 @@ type ShikiCodeBlockProps = {
 export function ShikiCodeBlock(props: ShikiCodeBlockProps) {
     const highlighter = useShiki()
 
-    // Skip highlighting for very large files (>100KB or >5000 lines)
-    const isLargeFile = props.code.length > 100000 || props.code.split('\n').length > 5000
+    // Skip highlighting for very large files (>500KB or >10,000 lines)
+    const isLargeFile = props.code.length > 500_000 || props.code.split('\n').length > 10_000
 
     if (!highlighter) return null
 
@@ -174,11 +174,13 @@ export function ShikiCodeBlock(props: ShikiCodeBlockProps) {
             transformers: [createTransformer(props)],
         })
 
+        let sanitized = DOMPurify.sanitize(html)
+
         return (
             <div
                 className="overflow-x-auto overflow-y-hidden text-sm"
                 style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+                dangerouslySetInnerHTML={{ __html: sanitized }}
             />
         )
     } catch (error) {
