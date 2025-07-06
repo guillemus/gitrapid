@@ -3,11 +3,10 @@
 ## Commands
 
 - **Build**: `pnpm build`
-- **Preview**: `pnpm preview`
 - **Type Check**: `bunx tsc`
 - **Package Manager**: Use `pnpm` (not npm/yarn)
 
-Assume that the app is always running on port 3000.
+Assume that the app is always running on port 3000, you don't need to start any web server.
 
 ## Project Requirements
 

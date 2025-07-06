@@ -1,7 +1,7 @@
 import 'github-markdown-css/github-markdown-light.css'
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FaChevronDown, FaChevronRight, FaFolder, FaFile, FaSpinner } from 'react-icons/fa'
 import { useNavigate } from 'react-router'
 import { FastNavlink } from './components'
@@ -77,6 +77,58 @@ export function Sidebar() {
     const fileTree = githubContentsQuery.data
         ? populateChildren(buildFileTree(githubContentsQuery.data))
         : []
+
+    // Auto-expand folders containing the current file path
+    useEffect(() => {
+        if (!params.path || githubContentsQuery.isLoading) return
+
+        const pathSegments = params.path.split('/').filter(Boolean)
+        const foldersToExpand = new Set<string>()
+
+        // Build all folder paths that need to be expanded
+        let currentPath = ''
+        for (let i = 0; i < pathSegments.length - 1; i++) {
+            currentPath = currentPath ? `${currentPath}/${pathSegments[i]}` : pathSegments[i]
+            foldersToExpand.add(currentPath)
+        }
+
+        // Only expand if we have folders to expand and they're not already expanded
+        if (foldersToExpand.size > 0) {
+            const newExpanded = new Set([...expandedFolders, ...foldersToExpand])
+            setExpandedFolders(newExpanded)
+
+            // Load contents for each folder that needs expansion
+            foldersToExpand.forEach(async (folderPath) => {
+                if (!folderContents.has(folderPath)) {
+                    setLoadingFolders((prev) => new Set([...prev, folderPath]))
+                    try {
+                        const children = await fetchFolderContents(folderPath)
+                        const sortedChildren = [...children].sort((a, b) => {
+                            if (a.type !== b.type) {
+                                return a.type === 'dir' ? -1 : 1
+                            }
+                            return a.name.localeCompare(b.name)
+                        })
+                        setFolderContents(
+                            (prev) =>
+                                new Map([
+                                    ...prev,
+                                    [folderPath, sortedChildren.map((child) => ({ ...child }))],
+                                ]),
+                        )
+                    } catch (error) {
+                        console.error('Error fetching folder contents:', error)
+                    } finally {
+                        setLoadingFolders((prev) => {
+                            const next = new Set(prev)
+                            next.delete(folderPath)
+                            return next
+                        })
+                    }
+                }
+            })
+        }
+    }, [params.path, githubContentsQuery.isLoading])
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
         let fileParams = {
