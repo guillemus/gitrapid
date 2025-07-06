@@ -48,7 +48,7 @@ function Search() {
     if (!results || results.total_count === 0) {
         return (
             <div className="flex h-full items-center justify-center">
-                <p className="text-gray-500">No results found for "{query}"</p>
+                <p className="text-gray-500">{`No results found for "${query}"}`}</p>
             </div>
         )
     }
@@ -58,7 +58,7 @@ function Search() {
             <div className="mb-6">
                 <h1 className="text-2xl font-bold">Search Results</h1>
                 <p className="text-gray-600">
-                    {results.total_count} results for "{query}" in {owner}/{repo}
+                    {`${results.total_count} results for "${query}" in ${owner}/${repo}`}
                 </p>
             </div>
 

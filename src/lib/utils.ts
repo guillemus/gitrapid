@@ -80,7 +80,7 @@ type GithubFilePathWithRoot = GithubFilePath & {
 // - /:owner/:repo/blob/:ref/*
 // paths into a github file path
 export function useGithubFilePath(): GithubFilePathWithRoot {
-    let params = useParams<{
+    const params = useParams<{
         owner: string
         repo: string
         ref: string

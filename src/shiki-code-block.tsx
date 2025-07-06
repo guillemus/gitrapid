@@ -14,9 +14,9 @@ function createTransformer(props: ShikiCodeBlockProps): ShikiTransformer {
     let currentCharIndex = 0
 
     return {
-        span(el, line, col, offset) {
+        span(el) {
             let tokenText: string
-            let firstChild = el.children[0]
+            const firstChild = el.children[0]
             if (firstChild.type === 'text') {
                 tokenText = firstChild.value
             } else return
@@ -106,7 +106,7 @@ function createTransformer(props: ShikiCodeBlockProps): ShikiTransformer {
             el.properties['data-line'] = displayLineNumber
 
             // Add highlight class for line ranges (if still needed)
-            for (let range of props.highlightLines ?? []) {
+            for (const range of props.highlightLines ?? []) {
                 if (displayLineNumber >= range.start && displayLineNumber <= range.end) {
                     this.addClassToHast(el, 'bg-blue-200 bg-opacity-20')
                 }
@@ -168,13 +168,13 @@ export function ShikiCodeBlock(props: ShikiCodeBlockProps) {
     }
 
     try {
-        let html = highlighter.codeToHtml(props.code, {
+        const html = highlighter.codeToHtml(props.code, {
             lang: props.language || 'text',
             theme: 'github-light',
             transformers: [createTransformer(props)],
         })
 
-        let sanitized = DOMPurify.sanitize(html)
+        const sanitized = DOMPurify.sanitize(html)
 
         return (
             <div

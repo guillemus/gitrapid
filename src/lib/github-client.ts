@@ -176,8 +176,8 @@ export async function getFileOrFolderContent(
 
     data = data.data
     if (Array.isArray(data)) {
-        let contents: Folder['contents'] = []
-        for (let file of data) {
+        const contents: Folder['contents'] = []
+        for (const file of data) {
             contents.push({
                 isDir: file.type === 'dir',
                 name: file.name,

@@ -6,7 +6,7 @@ import {
     type HighlighterGeneric,
 } from 'shiki'
 
-let hightlighter = createHighlighter({
+const hightlighter = createHighlighter({
     themes: ['github-light'],
     langs: [
         'javascript',

@@ -28,10 +28,10 @@ function CodeRenderer() {
 
     if (!fileContentsQuery.data) return null
 
-    let data = fileContentsQuery.data
+    const data = fileContentsQuery.data
 
     if (data.type === 'folder') {
-        let sorted = [...data.contents]
+        const sorted = [...data.contents]
         sorted.sort((a, b) => {
             if (a.isDir && !b.isDir) return -1
             if (!a.isDir && b.isDir) return 1
@@ -59,7 +59,7 @@ function CodeRenderer() {
         )
     }
 
-    let file = data
+    const file = data
     const isMarkdown = file.path.toLowerCase().endsWith('.md')
 
     if (isMarkdown) {

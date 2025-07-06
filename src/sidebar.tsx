@@ -29,7 +29,7 @@ export function Sidebar() {
     const [folderContents, setFolderContents] = useState(new Map<string, ExpandableFileItem[]>())
     const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
 
-    let rootFileParams = { ...params, path: '' }
+    const rootFileParams = { ...params, path: '' }
 
     const githubContentsQuery = useQuery({
         queryKey: ['github-root-files', rootFileParams],
@@ -131,7 +131,7 @@ export function Sidebar() {
     }, [params.path, githubContentsQuery.isLoading])
 
     async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
-        let fileParams = {
+        const fileParams = {
             ...params,
             path: folderPath,
         }
