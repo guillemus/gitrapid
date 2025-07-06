@@ -23,6 +23,7 @@ export type GithubFilePath = {
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
 
+    // TODO: token should be eventually used when implementing auth
     constructor(private token?: string) {}
 
     private async jsonRequest<T = never>(endpoint: string, options: RequestInit = {}) {
@@ -138,10 +139,8 @@ export class GitHubClient {
     }
 }
 
-const GITHUB_TOKEN = import.meta.env.PUBLIC_GITHUB_TOKEN
-
 // Export singleton instance
-export const githubClient = new GitHubClient(GITHUB_TOKEN)
+export const githubClient = new GitHubClient()
 
 type File = {
     type: 'file'
