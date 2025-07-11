@@ -94,7 +94,7 @@ export function unwrap<T, E = Error>(res: Result<T, E>) {
 ## State Management
 
 - **Always use useMutable instead of useState** - Never use `useState`, always use `useMutable`
-- **Import from utils**: `import { useMutable } from '@/lib/utils'`
+- **Import from utils**: `import { useMutable } from '@/client/utils'`
 
 ### useMutable Patterns:
 

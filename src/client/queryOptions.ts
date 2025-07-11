@@ -1,11 +1,20 @@
+import {
+    GitHubClient,
+    githubClient,
+    RateLimitError,
+    type File,
+    type Folder,
+    type GithubError,
+    type GithubFilePath,
+} from '@/shared/github-client'
+import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
 import { useClerk } from '@clerk/clerk-react'
 import { queryOptions } from '@tanstack/react-query'
-import { GitHubClient, githubClient, type GithubFilePath } from '@/shared/github-client'
-import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
 import { getLanguageFromExtension, type GithubFilePathWithRoot } from './utils'
 
-import { transformFileContentsResponse, unwrap } from '@/shared/shared'
+import { ok, transformFileContentsResponse, unwrap, type ResultP } from '@/shared/shared'
 
+import { useNavigate } from 'react-router'
 import {
     hightlighterP as highlighterP,
     parseCode,
@@ -13,25 +22,44 @@ import {
     type CreateTransformerOptions,
 } from './shiki'
 
-async function getGithubFile(clerk: ReturnType<typeof useClerk>, path: GithubFilePath) {
+async function getGithubFile(
+    clerk: ReturnType<typeof useClerk>,
+    path: GithubFilePath,
+): ResultP<File | Folder | null, GithubError> {
     let token = await clerk.session?.getToken()
     if (token) {
         let res = await client.getGithubFile.query(path)
-        return res
+        return ok(res)
     }
 
     let githubClient = new GitHubClient()
-    let res = await githubClient.getFileContentByAPI(path).then(unwrap)
-    return transformFileContentsResponse(res)
+    let res
+    res = await githubClient.getFileContentByAPI(path)
+    if (res.error) {
+        return res
+    }
+
+    return ok(transformFileContentsResponse(res.data))
 }
 
 export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = true) {
     let clerk = useClerk()
+    let navigate = useNavigate()
 
     return queryOptions({
         queryKey: ['file', path.owner, path.repo, path.ref, path.path],
         queryFn: async (): Promise<GetGithubFileOutput> => {
-            return getGithubFile(clerk, path)
+            let fileRes = await getGithubFile(clerk, path)
+            if (fileRes.error) {
+                if (fileRes.error instanceof RateLimitError) {
+                    navigate('/login')
+                    return null
+                }
+
+                return null
+            }
+
+            return fileRes.data
         },
         enabled,
     })
@@ -39,13 +67,23 @@ export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = tru
 
 export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTransformerOptions) {
     let clerk = useClerk()
+    let navigate = useNavigate()
 
     return queryOptions({
         queryKey: ['file', path.owner, path.repo, path.ref, path.path],
         queryFn: async () => {
-            let file = await getGithubFile(clerk, path)
-            if (!file) return null
+            let fileRes = await getGithubFile(clerk, path)
+            if (fileRes.error) {
+                if (fileRes.error instanceof RateLimitError) {
+                    navigate('/login')
+                    return null
+                }
 
+                return null
+            }
+
+            let file = fileRes.data
+            if (!file) return null
             if (file.type === 'folder') return file
 
             const isMarkdown = file.path.toLowerCase().endsWith('.md')

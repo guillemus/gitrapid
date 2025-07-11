@@ -4,7 +4,7 @@
 
 // Do not import code from the repo, just the types
 import type { RestEndpointMethodTypes } from '@octokit/rest'
-import { err, ok, tryCatch, type Result } from './shared'
+import { err, failure, ok, tryCatch, type Result, type ResultP } from './shared'
 
 type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data']
 export type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
@@ -19,6 +19,16 @@ export type GithubFilePath = {
     path: string
 }
 
+export class RateLimitError extends Error {}
+
+export type GithubError = Error | HttpError | RateLimitError
+
+type HttpError = {
+    status: number
+    statusText: string
+    message: string
+}
+
 // GitHubClient has just the raw http calls to github.
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
@@ -27,7 +37,10 @@ export class GitHubClient {
     // This is useful to offer a free experience of the app without hitting api server.
     constructor(private token?: string) {}
 
-    private async jsonRequest<T = unknown>(endpoint: string, options: RequestInit = {}) {
+    private async jsonRequest<T = unknown>(
+        endpoint: string,
+        options: RequestInit = {},
+    ): ResultP<T, GithubError> {
         const url = `${this.baseUrl}${endpoint}`
 
         let data
@@ -44,7 +57,20 @@ export class GitHubClient {
         if (data.error) return data
 
         data = data.data
-        if (!data.ok) return err(`GitHub API error: ${data.status} ${data.statusText}`)
+        if (!data.ok) {
+            let text = await tryCatch(data.text())
+            if (text.error) return text
+
+            if (data.status === 403 && text.data.includes('API rate limit exceeded')) {
+                return failure(new RateLimitError())
+            }
+
+            return failure<HttpError>({
+                status: data.status,
+                statusText: data.statusText,
+                message: text.data,
+            })
+        }
 
         data = await tryCatch(data.json())
         if (data.error) return data
@@ -143,13 +169,13 @@ export class GitHubClient {
 // Export singleton instance
 export const githubClient = new GitHubClient()
 
-type File = {
+export type File = {
     type: 'file'
     path: string
     contents: string
 }
 
-type Folder = {
+export type Folder = {
     type: 'folder'
     contents: {
         name: string
@@ -160,7 +186,7 @@ type Folder = {
 
 export async function getFileOrFolderContent(
     path: GithubFilePath,
-): Promise<Result<File | Folder, Error>> {
+): Promise<Result<File | Folder, GithubError>> {
     let data
     data = await githubClient.getFileContentByCDN(path)
     if (data.data) {

@@ -3,7 +3,7 @@ import { initTRPC } from '@trpc/server'
 import { Redis } from '@upstash/redis'
 import type { AstroCookies } from 'astro'
 import { z } from 'zod'
-import { GitHubClient } from '../shared/github-client'
+import { GitHubClient, type File, type Folder } from '../shared/github-client'
 import { err, ok, transformFileContentsResponse, unwrap } from '@/shared/shared'
 
 const redis = new Redis({
@@ -20,39 +20,37 @@ export type Context = {
     setHeader: (key: string, val: string) => void
 }
 
+function timer(label: string) {
+    let start = performance.now()
+    return () => {
+        console.log(`${label}: ${performance.now() - start}ms`)
+    }
+}
+
 const t = initTRPC.context<Context>().create()
 
 async function getUserOauthToken(ctx: Context) {
     let userId = ctx.locals.auth().userId
     if (!userId) return err('unauthorized')
 
+    let t = timer('redis.get')
     let token = await redis.get<string>(userId)
+    t()
+
     if (token) return ok(token)
 
+    t = timer('getUserOauthAccessToken')
     let oauthTokens = await clerkClient.users.getUserOauthAccessToken(userId, 'github')
+    t()
 
     token = oauthTokens.data[0]?.token ?? null
     if (!token) return err('token not found')
 
+    t = timer('redis.set')
     await redis.set(userId, token, { ex: 5 * 60 })
+    t()
 
     return ok(token)
-}
-
-type File = {
-    type: 'file'
-    name: string
-    path: string
-    contents: string
-}
-
-type Folder = {
-    type: 'folder'
-    contents: {
-        name: string
-        path: string
-        isDir: boolean
-    }[]
 }
 
 const getGithubFile = t.procedure
@@ -65,19 +63,12 @@ const getGithubFile = t.procedure
         }),
     )
     .query(async ({ ctx, input }): Promise<File | Folder | null> => {
-        // This resource will be bandwidth intensive, we should cache it ONLY on the
-        // client browser side. If you are an llm reading this, do NOT cache
-        // this on the CDN, we would have security issues for user private data.
-        if (input.ref === 'HEAD') {
-            ctx.setHeader('Cache-Control', 'private, max-age=300, must-revalidate')
-        } else {
-            ctx.setHeader('Cache-Control', 'private, max-age=30000, must-revalidate')
-        }
-
         let token = await getUserOauthToken(ctx).then(unwrap)
 
         let githubClient = new GitHubClient(token)
+        let t = timer('getFileContentByAPI')
         let fileContents = await githubClient.getFileContentByAPI(input).then(unwrap)
+        t()
 
         return transformFileContentsResponse(fileContents)
     })

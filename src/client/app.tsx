@@ -37,6 +37,7 @@ function GithubSearchPage() {
 }
 
 import { ClerkProvider } from '@clerk/clerk-react'
+import { Login } from './login'
 
 export function App() {
     return (
@@ -44,6 +45,7 @@ export function App() {
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>
                     <Routes>
+                        <Route path="/login" element={<Login />} />
                         <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
                         <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
                         <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />

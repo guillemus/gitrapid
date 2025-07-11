@@ -42,6 +42,7 @@ export type Failure<E> = {
 }
 
 export type Result<T, E = Error> = Success<T> | Failure<E>
+export type ResultP<T, E = Error> = Promise<Result<T, E>>
 
 export function ok<T>(val: T): Success<T> {
     return { data: val, error: null }
@@ -49,6 +50,10 @@ export function ok<T>(val: T): Success<T> {
 
 export function err(msg: string): Failure<Error> {
     return { data: null, error: new Error(msg) }
+}
+
+export function failure<T>(val: T): Failure<T> {
+    return { data: null, error: val }
 }
 
 export async function tryCatch<T, E = Error>(promise: Promise<T>): Promise<Result<T, E>> {
