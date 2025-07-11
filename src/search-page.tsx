@@ -1,23 +1,16 @@
+import { getLanguageFromExtension, useGithubFilePath } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { BreadcrumbsWithGitHubLink } from './components'
-import { githubClient } from './lib/github-client'
-import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
-import { ShikiCodeBlock } from './shiki-code-block'
+import { searchCodeOptions } from './queryOptions'
+import { ShikiCodeBlockWithParsing } from './shiki-code-block'
 
 function Search() {
     const { owner, repo } = useGithubFilePath()
     const [searchParams] = useSearchParams()
     const query = searchParams.get('q') || ''
 
-    const {
-        data: results,
-        isLoading,
-        error,
-    } = useQuery({
-        queryKey: ['search-code', owner, repo, query],
-        queryFn: () => githubClient.searchCode(query, owner, repo).then(unwrap),
-    })
+    const { data: results, isLoading, error } = useQuery(searchCodeOptions(owner, repo, query))
 
     if (!query) {
         return (
@@ -89,7 +82,7 @@ function Search() {
 
                                 return (
                                     <div key={matchIndex} className="mt-4">
-                                        <ShikiCodeBlock
+                                        <ShikiCodeBlockWithParsing
                                             code={match.fragment || ''}
                                             language={language}
                                             highlightIndices={highlightRanges}

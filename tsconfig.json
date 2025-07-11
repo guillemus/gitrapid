@@ -4,6 +4,11 @@
     "exclude": ["dist"],
     "compilerOptions": {
         "jsx": "react-jsx",
-        "jsxImportSource": "react"
+        "noUncheckedIndexedAccess": true,
+        "jsxImportSource": "react",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"],
+        }
     }
 }

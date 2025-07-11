@@ -7,7 +7,7 @@ import type { RestEndpointMethodTypes } from '@octokit/rest'
 import { err, ok, tryCatch, type Result } from './utils'
 
 type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data']
-type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
+export type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
 type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']['data']
 type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']['data']
 type SearchCodeResponse = RestEndpointMethodTypes['search']['code']['response']['data']
@@ -23,10 +23,11 @@ export type GithubFilePath = {
 export class GitHubClient {
     private baseUrl = 'https://api.github.com'
 
-    // TODO: token should be eventually used when implementing auth
+    // If token is not given, the public very rate limited api will be used.
+    // This is useful to offer a free experience of the app without hitting api server.
     constructor(private token?: string) {}
 
-    private async jsonRequest<T = never>(endpoint: string, options: RequestInit = {}) {
+    private async jsonRequest<T = unknown>(endpoint: string, options: RequestInit = {}) {
         const url = `${this.baseUrl}${endpoint}`
 
         let data

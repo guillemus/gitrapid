@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useMutable } from '@/lib/utils'
 import { useNavigate } from 'react-router'
 
 type CodeSearchBarProps = {
@@ -7,42 +7,36 @@ type CodeSearchBarProps = {
 }
 
 export function CodeSearchBar(props: CodeSearchBarProps) {
-    const [query, setQuery] = useState('')
+    const query = useMutable({ value: '' })
     const navigate = useNavigate()
 
-    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setQuery(e.target.value)
-    }, [])
+    function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+        query.value = e.target.value
+    }
 
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === 'Enter' && query.trim()) {
-                navigate(
-                    `/${props.owner}/${props.repo}/search?q=${encodeURIComponent(query.trim())}`,
-                )
-            }
-        },
-        [query, navigate, props.owner, props.repo],
-    )
+    function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key === 'Enter' && query.value.trim()) {
+            navigate(
+                `/${props.owner}/${props.repo}/search?q=${encodeURIComponent(query.value.trim())}`,
+            )
+        }
+    }
 
-    const handleSubmit = useCallback(
-        (e: React.FormEvent) => {
-            e.preventDefault()
-            if (query.trim()) {
-                navigate(
-                    `/${props.owner}/${props.repo}/search?q=${encodeURIComponent(query.trim())}`,
-                )
-            }
-        },
-        [query, navigate, props.owner, props.repo],
-    )
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault()
+        if (query.value.trim()) {
+            navigate(
+                `/${props.owner}/${props.repo}/search?q=${encodeURIComponent(query.value.trim())}`,
+            )
+        }
+    }
 
     return (
         <form onSubmit={handleSubmit} className="w-lg">
             <input
                 type="text"
                 placeholder="Search code..."
-                value={query}
+                value={query.value}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 className="input input-bordered w-full"

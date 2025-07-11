@@ -1,278 +1,141 @@
 import 'github-markdown-css/github-markdown-light.css'
 
+import { useGithubFilePath, useMutable } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
-import { FaChevronDown, FaChevronRight, FaFolder, FaFile, FaSpinner } from 'react-icons/fa'
-import { useNavigate } from 'react-router'
+import { FaChevronDown, FaChevronRight, FaFile, FaFolder, FaSpinner } from 'react-icons/fa'
 import { FastNavlink } from './components'
-import { githubClient } from './lib/github-client'
-import { unwrap, useGithubFilePath } from './lib/utils'
-import { queryClient } from './queryClient'
+import { fileOptions } from './queryOptions'
 
 type FileItem = {
     name: string
     path: string
-    type: 'file' | 'dir'
-    url: string
+    isDir: boolean
 }
 
-type ExpandableFileItem = FileItem & {
-    children?: ExpandableFileItem[]
-    isLoading?: boolean
+function FileNode(props: { file: FileItem }) {
+    const params = useGithubFilePath()
+    const item = props.file
+    const isCurrentPath = item.path === params.path
+
+    return (
+        <FastNavlink
+            to={`/${params.owner}/${params.repo}/tree/${params.ref}/${item.path}`}
+            className={`flex items-center rounded p-1 pl-6 ${
+                isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+            }`}
+        >
+            <FaFile className="mr-1 flex-shrink-0" />
+            <span className="min-w-0 truncate">{item.name}</span>
+        </FastNavlink>
+    )
+}
+
+function FolderNode(props: { file: FileItem }) {
+    const params = useGithubFilePath()
+    const path = props.file.path
+    const item = props.file
+
+    const isCurrentPath = item.path === params.path
+
+    const isInPath = params.path.indexOf(path) === 0
+
+    // update path as the folder will have different path from the current url github file path
+    const fileParams = { ...params, path }
+    const filesQuery = useQuery(fileOptions(fileParams, isInPath))
+
+    const state = useMutable({
+        pressed: isInPath,
+        didPress: false,
+    })
+
+    let fileItems: FileItem[] = []
+    if (filesQuery.data?.type === 'folder') {
+        fileItems = filesQuery.data.contents.slice().sort((a, b) => {
+            // Folders first, then files
+            if (a.isDir !== b.isDir) {
+                return a.isDir ? -1 : 1
+            }
+            // Alphabetical within same type
+            return a.name.localeCompare(b.name)
+        })
+    }
+
+    return (
+        <div>
+            <button
+                onMouseDown={() => {
+                    if (!state.pressed && !state.didPress) {
+                        filesQuery.refetch()
+                        state.didPress = true
+                    }
+
+                    state.pressed = !state.pressed
+                }}
+                className={`flex w-full cursor-pointer items-center rounded p-1 text-left ${
+                    isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
+                }`}
+            >
+                <span className="mr-1 flex-shrink-0">
+                    {filesQuery.isLoading ? (
+                        <FaSpinner className="animate-spin" />
+                    ) : state.pressed ? (
+                        <FaChevronDown />
+                    ) : (
+                        <FaChevronRight />
+                    )}
+                </span>
+                <FaFolder className="mr-1 flex-shrink-0" />
+                <span className="min-w-0 truncate">{item.name}</span>
+            </button>
+            {state.pressed &&
+                fileItems?.map((item) => (
+                    <div key={item.path} style={{ marginLeft: `${1 * 12}px` }}>
+                        {item.isDir ? (
+                            <FolderNode file={item}></FolderNode>
+                        ) : (
+                            <FileNode file={item}></FileNode>
+                        )}
+                    </div>
+                ))}
+        </div>
+    )
 }
 
 export function Sidebar() {
     const params = useGithubFilePath()
-    const navigate = useNavigate()
-
-    const [expandedFolders, setExpandedFolders] = useState(new Set<string>())
-    const [folderContents, setFolderContents] = useState(new Map<string, ExpandableFileItem[]>())
-    const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
 
     const rootFileParams = { ...params, path: '' }
+    const rootFilesQuery = useQuery(fileOptions(rootFileParams))
 
-    const githubContentsQuery = useQuery({
-        queryKey: ['github-root-files', rootFileParams],
-        queryFn: async (): Promise<FileItem[]> => {
-            const data = await githubClient.getFileContentByAPI(rootFileParams).then(unwrap)
-
-            // Handle both array and single file responses
-            if (Array.isArray(data)) {
-                return data as FileItem[]
-            }
-            return [data] as FileItem[]
-        },
-    })
-
-    function buildFileTree(items: FileItem[]): ExpandableFileItem[] {
-        return items
-            .sort((a, b) => {
-                // Folders first, then files
-                if (a.type !== b.type) {
-                    return a.type === 'dir' ? -1 : 1
-                }
-                // Alphabetical within same type
-                return a.name.localeCompare(b.name)
-            })
-            .map((file: FileItem) => ({
-                ...file,
-                children: folderContents.get(file.path),
-                isLoading: loadingFolders.has(file.path),
-            }))
-    }
-
-    function populateChildren(items: ExpandableFileItem[]): ExpandableFileItem[] {
-        return items.map((item) => ({
-            ...item,
-            children: item.children
-                ? populateChildren(item.children)
-                : folderContents.get(item.path)?.map((child) => ({
-                      ...child,
-                      children: folderContents.get(child.path),
-                      isLoading: loadingFolders.has(child.path),
-                  })),
-        }))
-    }
-
-    const fileTree = githubContentsQuery.data
-        ? populateChildren(buildFileTree(githubContentsQuery.data))
-        : []
-
-    // Auto-expand folders containing the current file path
-    useEffect(() => {
-        if (!params.path || githubContentsQuery.isLoading) return
-
-        const pathSegments = params.path.split('/').filter(Boolean)
-        const foldersToExpand = new Set<string>()
-
-        // Build all folder paths that need to be expanded
-        let currentPath = ''
-        for (let i = 0; i < pathSegments.length - 1; i++) {
-            currentPath = currentPath ? `${currentPath}/${pathSegments[i]}` : pathSegments[i]
-            foldersToExpand.add(currentPath)
-        }
-
-        // Only expand if we have folders to expand and they're not already expanded
-        if (foldersToExpand.size > 0) {
-            const newExpanded = new Set([...expandedFolders, ...foldersToExpand])
-            setExpandedFolders(newExpanded)
-
-            // Load contents for each folder that needs expansion
-            foldersToExpand.forEach(async (folderPath) => {
-                if (!folderContents.has(folderPath)) {
-                    setLoadingFolders((prev) => new Set([...prev, folderPath]))
-                    try {
-                        const children = await fetchFolderContents(folderPath)
-                        const sortedChildren = [...children].sort((a, b) => {
-                            if (a.type !== b.type) {
-                                return a.type === 'dir' ? -1 : 1
-                            }
-                            return a.name.localeCompare(b.name)
-                        })
-                        setFolderContents(
-                            (prev) =>
-                                new Map([
-                                    ...prev,
-                                    [folderPath, sortedChildren.map((child) => ({ ...child }))],
-                                ]),
-                        )
-                    } catch (error) {
-                        console.error('Error fetching folder contents:', error)
-                    } finally {
-                        setLoadingFolders((prev) => {
-                            const next = new Set(prev)
-                            next.delete(folderPath)
-                            return next
-                        })
-                    }
-                }
-            })
-        }
-    }, [params.path, githubContentsQuery.isLoading])
-
-    async function fetchFolderContents(folderPath: string): Promise<FileItem[]> {
-        const fileParams = {
-            ...params,
-            path: folderPath,
-        }
-
-        return queryClient.fetchQuery({
-            queryKey: ['github-files', fileParams],
-            queryFn: async () => {
-                const data = await githubClient.getFileContentByAPI(fileParams).then(unwrap)
-                // Handle both array and single file responses
-                if (Array.isArray(data)) {
-                    return data as FileItem[]
-                }
-                return [data] as FileItem[]
-            },
-        })
-    }
-
-    async function toggleFolder(folderPath: string) {
-        const isExpanded = expandedFolders.has(folderPath)
-
-        // Navigate to folder URL
-        navigate(`/${params.owner}/${params.repo}/tree/${params.ref}/${folderPath}`)
-
-        if (isExpanded) {
-            // Collapse folder
-            const newExpanded = new Set(expandedFolders)
-            newExpanded.delete(folderPath)
-            setExpandedFolders(newExpanded)
-            return
-        }
-
-        // Expand folder
-        const newExpanded = new Set(expandedFolders)
-        newExpanded.add(folderPath)
-        setExpandedFolders(newExpanded)
-
-        // Check if we already have children loaded
-        const findItem = (tree: ExpandableFileItem[], path: string): ExpandableFileItem | null => {
-            for (const item of tree) {
-                if (item.path === path) return item
-                if (item.children) {
-                    const found = findItem(item.children, path)
-                    if (found) return found
-                }
-            }
-            return null
-        }
-
-        const targetItem = findItem(fileTree, folderPath)
-        if (!targetItem?.children) {
-            // Set loading state
-            setLoadingFolders((prev) => new Set([...prev, folderPath]))
-
-            try {
-                const children = await fetchFolderContents(folderPath)
-                const sortedChildren = [...children].sort((a, b) => {
-                    // Folders first, then files
-                    if (a.type !== b.type) {
-                        return a.type === 'dir' ? -1 : 1
-                    }
-                    // Alphabetical within same type
-                    return a.name.localeCompare(b.name)
-                })
-                setFolderContents(
-                    (prev) =>
-                        new Map([
-                            ...prev,
-                            [folderPath, sortedChildren.map((child) => ({ ...child }))],
-                        ]),
-                )
-                setLoadingFolders((prev) => {
-                    const next = new Set(prev)
-                    next.delete(folderPath)
-                    return next
-                })
-            } catch (error) {
-                console.error('Error fetching folder contents:', error)
-                setLoadingFolders((prev) => {
-                    const next = new Set(prev)
-                    next.delete(folderPath)
-                    return next
-                })
-                // Remove from expanded on error
-                newExpanded.delete(folderPath)
-                setExpandedFolders(newExpanded)
-            }
-        }
-    }
-
-    function renderFileTree(items: ExpandableFileItem[], depth = 0) {
-        return items.map((item) => {
-            const isCurrentPath = item.path === params.path
-
-            return (
-                <div key={item.path} style={{ marginLeft: `${depth * 12}px` }}>
-                    {item.type === 'dir' ? (
-                        <div>
-                            <button
-                                onMouseDown={() => toggleFolder(item.path)}
-                                className={`flex w-full items-center rounded p-1 text-left ${
-                                    isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                                }`}
-                            >
-                                <span className="mr-1 flex-shrink-0">
-                                    {item.isLoading ? (
-                                        <FaSpinner className="animate-spin" />
-                                    ) : expandedFolders.has(item.path) ? (
-                                        <FaChevronDown />
-                                    ) : (
-                                        <FaChevronRight />
-                                    )}
-                                </span>
-                                <FaFolder className="mr-1 flex-shrink-0" />
-                                <span className="min-w-0 truncate">{item.name}</span>
-                            </button>
-                            {expandedFolders.has(item.path) && item.children && (
-                                <div>{renderFileTree(item.children, depth + 1)}</div>
-                            )}
-                        </div>
-                    ) : (
-                        <FastNavlink
-                            to={`/${params.owner}/${params.repo}/tree/${params.ref}/${item.path}`}
-                            className={`flex items-center rounded p-1 pl-6 ${
-                                isCurrentPath ? 'bg-blue-100 text-blue-700' : 'text-gray-700'
-                            }`}
-                        >
-                            <FaFile className="mr-1 flex-shrink-0" />
-                            <span className="min-w-0 truncate">{item.name}</span>
-                        </FastNavlink>
-                    )}
-                </div>
-            )
-        })
-    }
-
-    if (githubContentsQuery.isLoading) {
+    if (rootFilesQuery.isLoading) {
         return <div className="p-4">Loading files...</div>
     }
-    if (githubContentsQuery.error) {
+    if (rootFilesQuery.error || !rootFilesQuery.data) {
         return <div className="p-4 text-red-600">Error loading files</div>
     }
 
-    return <div className="mb-4">{renderFileTree(fileTree)}</div>
+    if (rootFilesQuery.data.type === 'file') return null
+
+    const fileItems = rootFilesQuery.data.contents.slice().sort((a, b) => {
+        // Folders first, then files
+        if (a.isDir !== b.isDir) {
+            return a.isDir ? -1 : 1
+        }
+        // Alphabetical within same type
+        return a.name.localeCompare(b.name)
+    })
+
+    return (
+        <div>
+            {fileItems.map((item) => (
+                <div key={item.path}>
+                    {item.isDir ? (
+                        <FolderNode file={item}></FolderNode>
+                    ) : (
+                        <FileNode file={item}></FileNode>
+                    )}
+                </div>
+            ))}
+        </div>
+    )
 }

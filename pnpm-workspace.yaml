@@ -1,2 +1,5 @@
 onlyBuiltDependencies:
-    - '@tailwindcss/oxide'
+  - '@clerk/shared'
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp

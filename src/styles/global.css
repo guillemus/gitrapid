@@ -34,3 +34,9 @@ pre.shiki .line::before {
     color: rgba(156, 163, 175, 0.6);
     user-select: none;
 }
+
+.markdown-body h1 {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}

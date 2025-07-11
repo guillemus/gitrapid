@@ -1,26 +1,19 @@
 import 'github-markdown-css/github-markdown-light.css'
 
+import { useGithubFilePath } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import DOMPurify from 'dompurify'
-import { marked } from 'marked'
 import { FaFile, FaFolder } from 'react-icons/fa'
 import { BreadcrumbsWithGitHubLink, FastNavlink } from './components'
-import { getFileOrFolderContent } from './lib/github-client'
-import { getLanguageFromExtension, unwrap, useGithubFilePath } from './lib/utils'
+import { parsedFileOptions } from './queryOptions'
 import { ShikiCodeBlock } from './shiki-code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()
 
-    const fileContentsQuery = useQuery({
-        queryKey: ['github-content', params],
-        queryFn: () => getFileOrFolderContent(params).then(unwrap),
-        retry: params.root ? 1 : 3, // Don't retry much for README.md if it doesn't exist
-    })
-
+    const fileContentsQuery = useQuery(parsedFileOptions(params, { showLines: true }))
     if (fileContentsQuery.error) {
         // If we're at root and README.md doesn't exist, just render nothing
-        if (params.root) {
+        if (params.isRoot) {
             return null
         }
         return <div className="p-4 text-red-600">Error loading content</div>
@@ -28,10 +21,10 @@ function CodeRenderer() {
 
     if (!fileContentsQuery.data) return null
 
-    const data = fileContentsQuery.data
+    const file = fileContentsQuery.data
 
-    if (data.type === 'folder') {
-        const sorted = [...data.contents]
+    if (file.type === 'folder') {
+        const sorted = [...file.contents]
         sorted.sort((a, b) => {
             if (a.isDir && !b.isDir) return -1
             if (!a.isDir && b.isDir) return 1
@@ -59,26 +52,20 @@ function CodeRenderer() {
         )
     }
 
-    const file = data
-    const isMarkdown = file.path.toLowerCase().endsWith('.md')
-
-    if (isMarkdown) {
-        const htmlContent = marked(file.contents) as string
+    if (file.type === 'markdown') {
         return (
             <div
                 className="markdown-body max-w-none flex-1 p-8"
                 dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(htmlContent),
+                    __html: file.contents,
                 }}
             />
         )
     }
 
-    const language = getLanguageFromExtension(file.path)
-
     return (
         <div style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
-            <ShikiCodeBlock showLines code={file.contents} language={language} />
+            <ShikiCodeBlock code={file.contents} />
         </div>
     )
 }

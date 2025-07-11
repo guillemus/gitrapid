@@ -2,8 +2,8 @@
 // main app to not have any hmr inconsistencies.
 
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Route, Routes } from 'react-router'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { BrowserRouter, Route, Routes } from 'react-router'
 
 import { CodeBrowser } from './github-code-browser'
 import { queryClient } from './queryClient'
@@ -36,18 +36,22 @@ function GithubSearchPage() {
     )
 }
 
+import { ClerkProvider } from '@clerk/clerk-react'
+
 export function App() {
     return (
-        <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
-                </Routes>
-            </BrowserRouter>
-            <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
+        <ClerkProvider publishableKey={import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY}>
+            <QueryClientProvider client={queryClient}>
+                <BrowserRouter>
+                    <Routes>
+                        <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
+                    </Routes>
+                </BrowserRouter>
+                <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+        </ClerkProvider>
     )
 }
