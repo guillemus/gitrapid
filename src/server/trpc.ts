@@ -1,17 +1,36 @@
 import { createClerkClient } from '@clerk/backend'
 import { initTRPC } from '@trpc/server'
-import { Redis } from '@upstash/redis'
+import { Redis, type SetCommandOptions } from '@upstash/redis'
 import type { AstroCookies } from 'astro'
 import { z } from 'zod'
 import { GitHubClient, type File, type Folder } from '../shared/github-client'
-import { err, ok, transformFileContentsResponse, unwrap } from '@/shared/shared'
+import {
+    err,
+    ok,
+    transformFileContentsResponse,
+    tryCatch,
+    unwrap,
+    type ResultP,
+} from '@/shared/shared'
 
 const redis = new Redis({
     url: import.meta.env.UPSTASH_REDIS_URL,
     token: import.meta.env.UPSTASH_REDIS_SECRET,
 })
 
-let clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+type RedisSchema = {
+    token?: string
+}
+
+async function redisGet(key: string) {
+    return redis.get<RedisSchema>(key)
+}
+
+async function redisSetKey(key: string, val: RedisSchema, opts?: SetCommandOptions) {
+    return redis.set<RedisSchema>(key, val, opts)
+}
+
+let clerkClient = createClerkClient({ secretKey: import.meta.env.CLERK_SECRET_KEY })
 
 export type Context = {
     request: Request
@@ -23,31 +42,33 @@ export type Context = {
 function timer(label: string) {
     let start = performance.now()
     return () => {
-        console.log(`${label}: ${performance.now() - start}ms`)
+        console.log(`timer for ${label}: ${performance.now() - start}ms`)
     }
 }
 
 const t = initTRPC.context<Context>().create()
 
-async function getUserOauthToken(ctx: Context) {
+async function getUserOauthToken(ctx: Context): ResultP<string> {
     let userId = ctx.locals.auth().userId
     if (!userId) return err('unauthorized')
 
     let t = timer('redis.get')
-    let token = await redis.get<string>(userId)
+    let user = await redisGet(userId)
     t()
 
-    if (token) return ok(token)
+    if (user?.token) return ok(user.token)
 
     t = timer('getUserOauthAccessToken')
-    let oauthTokens = await clerkClient.users.getUserOauthAccessToken(userId, 'github')
+    let oauthTokensRes = await tryCatch(clerkClient.users.getUserOauthAccessToken(userId, 'github'))
     t()
 
-    token = oauthTokens.data[0]?.token ?? null
+    if (oauthTokensRes.error) return oauthTokensRes
+
+    let token = oauthTokensRes.data.data[0]?.token ?? null
     if (!token) return err('token not found')
 
     t = timer('redis.set')
-    await redis.set(userId, token, { ex: 5 * 60 })
+    await redisSetKey(userId, { token }, { ex: 5 * 60 })
     t()
 
     return ok(token)
