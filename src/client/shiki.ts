@@ -1,10 +1,10 @@
-import { useMutable } from '@/lib/utils'
+import { useMutable } from '@/client/utils'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useEffect } from 'react'
 import { createHighlighter, type Highlighter, type ShikiTransformer } from 'shiki'
 
-const hightlighter = createHighlighter({
+export const hightlighterP = createHighlighter({
     themes: ['github-light'],
     langs: [
         'javascript',
@@ -31,7 +31,7 @@ const hightlighter = createHighlighter({
 
 import.meta.hot?.dispose(() => {
     console.log('disposing of hightlighter for hmr')
-    hightlighter.then((h) => h.dispose())
+    hightlighterP.then((h) => h.dispose())
 })
 
 export function useShiki() {
@@ -40,7 +40,7 @@ export function useShiki() {
     })
 
     useEffect(() => {
-        hightlighter.then((h) => {
+        hightlighterP.then((h) => {
             state.highlighter = h
         })
     }, [])
@@ -61,11 +61,13 @@ export function parseCode(
     language: string,
 ) {
     try {
+        console.time('codeToHtml')
         const html = highlighter.codeToHtml(code, {
             lang: language || 'text',
             theme: 'github-light',
             transformers: [createTransformer(opts, code)],
         })
+        console.timeEnd('codeToHtml')
 
         const sanitized = DOMPurify.sanitize(html)
         return sanitized as TrustedHTML

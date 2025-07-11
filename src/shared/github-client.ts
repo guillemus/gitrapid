@@ -4,7 +4,7 @@
 
 // Do not import code from the repo, just the types
 import type { RestEndpointMethodTypes } from '@octokit/rest'
-import { err, ok, tryCatch, type Result } from './utils'
+import { err, ok, tryCatch, type Result } from './shared'
 
 type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data']
 export type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']

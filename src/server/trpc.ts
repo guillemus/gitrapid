@@ -3,8 +3,8 @@ import { initTRPC } from '@trpc/server'
 import { Redis } from '@upstash/redis'
 import type { AstroCookies } from 'astro'
 import { z } from 'zod'
-import { GitHubClient } from './github-client'
-import { err, ok, transformFileContentsResponse, unwrap } from './utils'
+import { GitHubClient } from '../shared/github-client'
+import { err, ok, transformFileContentsResponse, unwrap } from '@/shared/shared'
 
 const redis = new Redis({
     url: import.meta.env.UPSTASH_REDIS_URL,

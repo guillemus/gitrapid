@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { type PropsWithChildren } from 'react'
-import { useGithubFilePath as useGithubFileParams } from '@/lib/utils'
+import { useGithubFilePath as useGithubFileParams } from '@/client/utils'
 import { CodeSearchBar } from './code-search-bar'
 import { SignedIn, SignedOut, SignInButton, SignOutButton } from '@clerk/clerk-react'
 

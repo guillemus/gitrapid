@@ -1,14 +1,17 @@
 import { useClerk } from '@clerk/clerk-react'
 import { queryOptions } from '@tanstack/react-query'
-import { GitHubClient, githubClient, type GithubFilePath } from './lib/github-client'
-import { client, type GetGithubFileOutput } from './lib/trpc-client'
+import { GitHubClient, githubClient, type GithubFilePath } from '@/shared/github-client'
+import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
+import { getLanguageFromExtension, type GithubFilePathWithRoot } from './utils'
+
+import { transformFileContentsResponse, unwrap } from '@/shared/shared'
+
 import {
-    getLanguageFromExtension,
-    transformFileContentsResponse,
-    unwrap,
-    type GithubFilePathWithRoot,
-} from './lib/utils'
-import { parseCode, parseMarkdown, useShiki, type CreateTransformerOptions } from './shiki'
+    hightlighterP as highlighterP,
+    parseCode,
+    parseMarkdown,
+    type CreateTransformerOptions,
+} from './shiki'
 
 async function getGithubFile(clerk: ReturnType<typeof useClerk>, path: GithubFilePath) {
     let token = await clerk.session?.getToken()
@@ -36,7 +39,6 @@ export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = tru
 
 export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTransformerOptions) {
     let clerk = useClerk()
-    let highlighter = useShiki()
 
     return queryOptions({
         queryKey: ['file', path.owner, path.repo, path.ref, path.path],
@@ -53,7 +55,7 @@ export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTran
                 return { type: 'markdown', contents: parsed } as const
             }
 
-            if (!highlighter) return null
+            let highlighter = await highlighterP
 
             const language = getLanguageFromExtension(file.path)
             let code = atob(file.contents)

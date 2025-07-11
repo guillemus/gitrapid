@@ -1,4 +1,4 @@
-import { useMutable } from '@/lib/utils'
+import { useMutable } from '@/client/utils'
 import { useNavigate } from 'react-router'
 
 type CodeSearchBarProps = {

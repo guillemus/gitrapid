@@ -1,6 +1,6 @@
 import { parseCode, useShiki, type CreateTransformerOptions } from './shiki'
 
-export function ShikiCodeBlock(props: { code: TrustedHTML }) {
+export function CodeBlock(props: { code: TrustedHTML }) {
     return (
         <div
             className="overflow-x-auto overflow-y-hidden text-sm"
@@ -10,14 +10,14 @@ export function ShikiCodeBlock(props: { code: TrustedHTML }) {
     )
 }
 
-type ShikiCodeBlockWithParsingProps = CreateTransformerOptions & { code: string; language: string }
+type CodeBlockWithParsingProps = CreateTransformerOptions & { code: string; language: string }
 
-export function ShikiCodeBlockWithParsing(props: ShikiCodeBlockWithParsingProps) {
+export function CodeBlockWithParsing(props: CodeBlockWithParsingProps) {
     let highlighter = useShiki()
     if (!highlighter) return highlighter
 
     let parsed = parseCode(props, highlighter, props.code, props.language)
     if (!parsed) return null
 
-    return <ShikiCodeBlock code={parsed}></ShikiCodeBlock>
+    return <CodeBlock code={parsed}></CodeBlock>
 }

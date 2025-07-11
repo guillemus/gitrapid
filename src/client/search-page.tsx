@@ -1,9 +1,9 @@
-import { getLanguageFromExtension, useGithubFilePath } from '@/lib/utils'
+import { getLanguageFromExtension, useGithubFilePath } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { BreadcrumbsWithGitHubLink } from './components'
 import { searchCodeOptions } from './queryOptions'
-import { ShikiCodeBlockWithParsing } from './shiki-code-block'
+import { CodeBlockWithParsing } from './code-block'
 
 function Search() {
     const { owner, repo } = useGithubFilePath()
@@ -82,7 +82,7 @@ function Search() {
 
                                 return (
                                     <div key={matchIndex} className="mt-4">
-                                        <ShikiCodeBlockWithParsing
+                                        <CodeBlockWithParsing
                                             code={match.fragment || ''}
                                             language={language}
                                             highlightIndices={highlightRanges}

@@ -1,16 +1,17 @@
 import 'github-markdown-css/github-markdown-light.css'
 
-import { useGithubFilePath } from '@/lib/utils'
+import { useGithubFilePath } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { FaFile, FaFolder } from 'react-icons/fa'
-import { BreadcrumbsWithGitHubLink, FastNavlink } from './components'
+import { BreadcrumbsWithGitHubLink, FastNavlink } from '@/client/components'
 import { parsedFileOptions } from './queryOptions'
-import { ShikiCodeBlock } from './shiki-code-block'
+import { CodeBlock } from './code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()
 
     const fileContentsQuery = useQuery(parsedFileOptions(params, { showLines: true }))
+
     if (fileContentsQuery.error) {
         // If we're at root and README.md doesn't exist, just render nothing
         if (params.isRoot) {
@@ -65,7 +66,7 @@ function CodeRenderer() {
 
     return (
         <div style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
-            <ShikiCodeBlock code={file.contents} />
+            <CodeBlock code={file.contents} />
         </div>
     )
 }

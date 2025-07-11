@@ -1,6 +1,6 @@
 import 'github-markdown-css/github-markdown-light.css'
 
-import { useGithubFilePath, useMutable } from '@/lib/utils'
+import { useGithubFilePath, useMutable } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { FaChevronDown, FaChevronRight, FaFile, FaFolder, FaSpinner } from 'react-icons/fa'
 import { FastNavlink } from './components'

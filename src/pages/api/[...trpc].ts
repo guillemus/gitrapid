@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-import { appRouter, type Context } from '@/lib/trpc'
+import { appRouter, type Context } from '@/server/trpc'
 
 export const ALL: APIRoute = async (ctx) => {
     let headers: Record<string, string> = {}
