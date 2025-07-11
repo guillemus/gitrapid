@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FaFile, FaFolder } from 'react-icons/fa'
 import { BreadcrumbsWithGitHubLink, FastNavlink } from '@/client/components'
 import { parsedFileOptions } from './queryOptions'
-import { CodeBlock } from './code-block'
+import { CodeBlock, MarkdownBlock } from './code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()
@@ -54,14 +54,7 @@ function CodeRenderer() {
     }
 
     if (file.type === 'markdown') {
-        return (
-            <div
-                className="markdown-body max-w-none flex-1 p-8"
-                dangerouslySetInnerHTML={{
-                    __html: file.contents,
-                }}
-            />
-        )
+        return <MarkdownBlock markdown={file.contents}></MarkdownBlock>
     }
 
     return (

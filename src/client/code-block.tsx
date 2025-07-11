@@ -10,6 +10,15 @@ export function CodeBlock(props: { code: TrustedHTML }) {
     )
 }
 
+export function MarkdownBlock(props: { markdown: TrustedHTML }) {
+    return (
+        <div
+            className="markdown-body max-w-none flex-1 p-8"
+            dangerouslySetInnerHTML={{ __html: props.markdown }}
+        />
+    )
+}
+
 type CodeBlockWithParsingProps = CreateTransformerOptions & { code: string; language: string }
 
 export function CodeBlockWithParsing(props: CodeBlockWithParsingProps) {
