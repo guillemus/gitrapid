@@ -9,12 +9,7 @@ import {
 } from '@/shared/github-client'
 import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
 import { queryOptions } from '@tanstack/react-query'
-import {
-    authClient,
-    getLanguageFromExtension,
-    pageLoadSession,
-    type GithubFilePathWithRoot,
-} from './utils'
+import { authClient, getLanguageFromExtension, type GithubFilePathWithRoot } from './utils'
 
 import { ok, transformFileContentsResponse, unwrap, type ResultP } from '@/shared/shared'
 
@@ -26,9 +21,11 @@ import {
     type CreateTransformerOptions,
 } from './shiki'
 
-async function getGithubFile(path: GithubFilePath): ResultP<File | Folder | null, GithubError> {
-    let sess = await pageLoadSession
-    if (sess.data?.user.id) {
+async function getGithubFile(
+    path: GithubFilePath,
+    usePublicApi: boolean,
+): ResultP<File | Folder | null, GithubError> {
+    if (!usePublicApi) {
         let res = await client.getGithubFile.query(path)
         return ok(res)
     }
@@ -41,12 +38,13 @@ async function getGithubFile(path: GithubFilePath): ResultP<File | Folder | null
 }
 
 export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = true) {
+    let session = authClient.useSession()
     let navigate = useNavigate()
 
     return queryOptions({
         queryKey: ['file', path.owner, path.repo, path.ref, path.path],
         queryFn: async (): Promise<GetGithubFileOutput> => {
-            let fileRes = await getGithubFile(path)
+            let fileRes = await getGithubFile(path, !session.data)
             if (fileRes.error) {
                 if (fileRes.error instanceof RateLimitError) {
                     navigate('/login?rateLimited=true')
@@ -58,17 +56,18 @@ export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = tru
 
             return fileRes.data
         },
-        enabled,
+        enabled: enabled && !session.isPending,
     })
 }
 
 export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTransformerOptions) {
+    let session = authClient.useSession()
     let navigate = useNavigate()
 
     return queryOptions({
         queryKey: ['file', path.owner, path.repo, path.ref, path.path],
         queryFn: async () => {
-            let fileRes = await getGithubFile(path)
+            let fileRes = await getGithubFile(path, !session.data)
             if (fileRes.error) {
                 if (fileRes.error instanceof RateLimitError) {
                     navigate('/login?rateLimited=true')
@@ -99,17 +98,19 @@ export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTran
 
             return { type: 'code', contents } as const
         },
+        enabled: !session.isPending,
 
         staleTime: 5000,
     })
 }
 
 export function searchCodeOptions(owner: string, repo: string, query: string, enabled = true) {
+    let session = authClient.useSession()
+
     return queryOptions({
         queryKey: ['search-code', owner, repo, query],
         queryFn: async () => {
-            let sess = await pageLoadSession
-            if (sess.data?.user.id) {
+            if (session.data?.user.id) {
                 let res = await client.searchCode.query({ owner, repo, query })
                 return res
             }
@@ -117,5 +118,6 @@ export function searchCodeOptions(owner: string, repo: string, query: string, en
             let res = await githubClient.searchCode(query, owner, repo).then(unwrap)
             return res
         },
+        enabled: !session.isPending,
     })
 }

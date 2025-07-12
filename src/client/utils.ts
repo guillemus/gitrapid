@@ -157,5 +157,3 @@ export function useMutable<T extends object>(initial: T): T {
 import { createAuthClient } from 'better-auth/react'
 
 export const authClient = createAuthClient()
-
-export const pageLoadSession = authClient.getSession()
