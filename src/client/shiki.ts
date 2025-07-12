@@ -61,13 +61,11 @@ export function parseCode(
     language: string,
 ) {
     try {
-        console.time('codeToHtml')
         const html = highlighter.codeToHtml(code, {
             lang: language || 'text',
             theme: 'github-light',
             transformers: [createTransformer(opts, code)],
         })
-        console.timeEnd('codeToHtml')
 
         const sanitized = DOMPurify.sanitize(html)
         return sanitized as TrustedHTML

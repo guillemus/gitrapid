@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router'
 import { type PropsWithChildren } from 'react'
 import { useGithubFilePath as useGithubFileParams } from '@/client/utils'
 import { CodeSearchBar } from './code-search-bar'
-import { SignedIn, SignedOut, SignInButton, SignOutButton } from '@clerk/clerk-react'
+import { SignedIn, SignedOut, SignInButton, SignOutButton } from './login'
 
 type FastNavlinkProps = PropsWithChildren<{
     to: string
@@ -78,14 +78,12 @@ export function BreadcrumbsWithGitHubLink() {
                     View on GitHub
                 </a>
 
-                <div className="btn">
-                    <SignedIn>
-                        <SignOutButton></SignOutButton>
-                    </SignedIn>
-                    <SignedOut>
-                        <SignInButton></SignInButton>
-                    </SignedOut>
-                </div>
+                <SignedIn>
+                    <SignOutButton></SignOutButton>
+                </SignedIn>
+                <SignedOut>
+                    <SignInButton></SignInButton>
+                </SignedOut>
             </div>
         </div>
     )

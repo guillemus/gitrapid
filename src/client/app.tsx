@@ -36,24 +36,21 @@ function GithubSearchPage() {
     )
 }
 
-import { ClerkProvider } from '@clerk/clerk-react'
 import { Login } from './login'
 
 export function App() {
     return (
-        <ClerkProvider publishableKey={import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY}>
-            <QueryClientProvider client={queryClient}>
-                <BrowserRouter>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
-                        <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
-                        <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
-                        <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
-                    </Routes>
-                </BrowserRouter>
-                <ReactQueryDevtools initialIsOpen={false} />
-            </QueryClientProvider>
-        </ClerkProvider>
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
+                    <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
+                    <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
+                    <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
+                </Routes>
+            </BrowserRouter>
+            <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
     )
 }

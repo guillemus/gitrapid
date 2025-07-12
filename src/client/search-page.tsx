@@ -1,16 +1,36 @@
-import { getLanguageFromExtension, useGithubFilePath } from '@/client/utils'
+import { authClient, getLanguageFromExtension, useGithubFilePath } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { BreadcrumbsWithGitHubLink } from './components'
 import { searchCodeOptions } from './queryOptions'
 import { CodeBlockWithParsing } from './code-block'
+import { SignInButton } from './login'
 
 function Search() {
+    const { data } = authClient.useSession()
     const { owner, repo } = useGithubFilePath()
     const [searchParams] = useSearchParams()
     const query = searchParams.get('q') || ''
 
-    const { data: results, isLoading, error } = useQuery(searchCodeOptions(owner, repo, query))
+    const isSignedIn = !!data?.user.email
+
+    const {
+        data: results,
+        isLoading,
+        error,
+    } = useQuery(searchCodeOptions(owner, repo, query, isSignedIn))
+
+    if (!isSignedIn) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <div className="alert alert-info flex flex-col">
+                    <span>Please sign in to search GitHub repositories</span>
+
+                    <SignInButton></SignInButton>
+                </div>
+            </div>
+        )
+    }
 
     if (!query) {
         return (
