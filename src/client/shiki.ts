@@ -37,7 +37,6 @@ export type HighlightRange = {
 export type CreateTransformerOptions = {
     showLines?: boolean
     highlightRanges?: HighlightRange[]
-    highlightLines?: HighlightRange[]
     startLineNumber?: number
 }
 
@@ -50,6 +49,7 @@ function createTransformer(opts: CreateTransformerOptions, code: string): ShikiT
         }
     }
 
+    let totalLines = code.split('\n').length
     let currentCharIndex = 0
 
     return {
@@ -143,15 +143,8 @@ function createTransformer(opts: CreateTransformerOptions, code: string): ShikiT
             // Add line number as data attribute for CSS to use
             el.properties['data-line'] = displayLineNumber
 
-            // Add highlight class for line ranges
-            for (const range of opts.highlightLines ?? []) {
-                if (displayLineNumber >= range.start && displayLineNumber <= range.end) {
-                    this.addClassToHast(el, 'bg-blue-200 bg-opacity-20')
-                }
-            }
-
             // Add newline character to our tracking (except for last line)
-            if (line < code.split('\n').length) {
+            if (line < totalLines) {
                 currentCharIndex += 1 // for \n character
             }
         },

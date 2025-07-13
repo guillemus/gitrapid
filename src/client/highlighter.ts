@@ -1,3 +1,5 @@
+// highlighter is kept in it's own file because of HMR reasons.
+
 import { useEffect } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
 import { useMutable } from './utils'

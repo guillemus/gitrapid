@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useParams } from 'react-router'
+import { useLocation, useParams } from 'react-router'
 import type { GithubFilePath } from '../shared/github-client'
 
 export function getLanguageFromExtension(filePath: string): string {
@@ -72,7 +72,17 @@ export function getLanguageFromExtension(filePath: string): string {
 }
 
 export type GithubFilePathWithRoot = GithubFilePath & {
+    highlightedLine?: number
     isRoot: boolean
+}
+
+function parseLineNumber(hash: string) {
+    if (hash[0] === '#') {
+        let res = parseInt(hash.slice(2))
+        if (isNaN(res)) return
+
+        return res
+    }
 }
 
 // Transforms
@@ -86,6 +96,9 @@ export function useGithubFilePath(): GithubFilePathWithRoot {
         ref: string
         '*': string
     }>()
+
+    let location = useLocation()
+    let startLineNumber = parseLineNumber(location.hash)
 
     if (!params.owner) throw new Error(':owner param required')
     if (!params.repo) throw new Error(':repo param required')
@@ -107,6 +120,7 @@ export function useGithubFilePath(): GithubFilePathWithRoot {
         repo: params.repo,
         ref,
         path,
+        highlightedLine: startLineNumber,
         isRoot: root,
     }
 }

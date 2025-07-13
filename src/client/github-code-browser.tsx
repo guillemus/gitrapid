@@ -1,15 +1,14 @@
 import 'github-markdown-css/github-markdown-light.css'
 
+import { BreadcrumbsWithGitHubLink, FastNavlink } from '@/client/components'
 import { useGithubFilePath } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { FaFile, FaFolder } from 'react-icons/fa'
-import { BreadcrumbsWithGitHubLink, FastNavlink } from '@/client/components'
+import { CodeBlock, MarkdownBlock } from './code-block'
 import { parsedFileOptions } from './queryOptions'
-import { CodeBlock, CodeBlockWithParsing, MarkdownBlock } from './code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()
-
     const fileContentsQuery = useQuery(parsedFileOptions(params, { showLines: true }))
 
     if (fileContentsQuery.error) {
@@ -59,7 +58,7 @@ function CodeRenderer() {
 
     return (
         <div style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
-            <CodeBlock code={file.contents} />
+            <CodeBlock highlightedLine={params.highlightedLine} code={file.contents} />
         </div>
     )
 }

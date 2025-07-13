@@ -2,7 +2,7 @@ import { authClient, getLanguageFromExtension, useGithubFilePath } from '@/clien
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { CodeBlockWithParsing } from './code-block'
-import { BreadcrumbsWithGitHubLink } from './components'
+import { BreadcrumbsWithGitHubLink, FastNavlink } from './components'
 import { SignInButton } from './login'
 import { searchCodeOptions } from './queryOptions'
 
@@ -80,14 +80,12 @@ function Search() {
                     <div key={index} className="card bg-base-100 shadow-sm">
                         <div className="card-body">
                             <h2 className="card-title text-lg">
-                                <a
-                                    href={item.html_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                <FastNavlink
+                                    to={item.html_url.replace('https://github.com', '')}
                                     className="link link-primary"
                                 >
                                     {item.path}
-                                </a>
+                                </FastNavlink>
                             </h2>
 
                             {item.text_matches?.map((match, matchIndex) => {
@@ -100,7 +98,10 @@ function Search() {
                                     })) || []
 
                                 return (
-                                    <div key={matchIndex} className="mt-4">
+                                    <div
+                                        key={matchIndex}
+                                        className="mt-4 rounded border border-gray-200"
+                                    >
                                         <CodeBlockWithParsing
                                             code={match.fragment || ''}
                                             language={language}

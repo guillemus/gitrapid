@@ -15,7 +15,7 @@ import { ok, transformFileContentsResponse, unwrap, type ResultP } from '@/share
 
 import { useNavigate } from 'react-router'
 import { parseCode, parseMarkdown, type CreateTransformerOptions } from './shiki'
-import { hightlighterP } from './shiki-highlighter'
+import { hightlighterP } from './highlighter'
 
 async function getGithubFile(
     path: GithubFilePath,
@@ -114,6 +114,6 @@ export function searchCodeOptions(owner: string, repo: string, query: string, en
             let res = await githubClient.searchCode(query, owner, repo).then(unwrap)
             return res
         },
-        enabled: !session.isPending,
+        enabled: !session.isPending && !!session.data?.user,
     })
 }

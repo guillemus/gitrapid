@@ -1,9 +1,22 @@
+import { useEffect, useRef } from 'react'
 import { parseCode, type CreateTransformerOptions } from './shiki'
-import { useShiki } from './shiki-highlighter'
+import { useShiki } from './highlighter'
 
-export function CodeBlock(props: { code: TrustedHTML }) {
+export function CodeBlock(props: { code: TrustedHTML; highlightedLine?: number }) {
+    let ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (!ref.current || !props.highlightedLine) return
+
+        let line = ref.current.querySelector(`.line[data-line="${props.highlightedLine}"]`)
+        if (line) {
+            line.classList.remove('bg-red-200')
+            line.classList.add('bg-red-200')
+        }
+    }, [])
+
     return (
         <div
+            ref={ref}
             className="overflow-x-auto overflow-y-hidden text-sm"
             style={{ whiteSpace: 'pre', fontFamily: 'monospace' }}
             dangerouslySetInnerHTML={{ __html: props.code }}
