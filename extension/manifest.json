@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub to GitRapid",
+  "version": "1.0",
+  "description": "Navigate from GitHub to GitRapid with one click",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
