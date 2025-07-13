@@ -1,11 +1,10 @@
 import { authClient, getLanguageFromExtension, useGithubFilePath } from '@/client/utils'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
-import { BreadcrumbsWithGitHubLink } from './components'
-import { searchCodeOptions } from './queryOptions'
 import { CodeBlockWithParsing } from './code-block'
+import { BreadcrumbsWithGitHubLink } from './components'
 import { SignInButton } from './login'
-import type { HighlightRange } from './shiki'
+import { searchCodeOptions } from './queryOptions'
 
 function Search() {
     const { data } = authClient.useSession()

@@ -1,52 +1,6 @@
-import { useMutable } from '@/client/utils'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { useEffect } from 'react'
-import { createHighlighter, type Highlighter, type ShikiTransformer } from 'shiki'
-
-export const hightlighterP = createHighlighter({
-    themes: ['github-light'],
-    langs: [
-        'javascript',
-        'typescript',
-        'jsx',
-        'tsx',
-        'css',
-        'html',
-        'json',
-        'markdown',
-        'python',
-        'java',
-        'go',
-        'rust',
-        'php',
-        'ruby',
-        'shell',
-        'yaml',
-        'xml',
-        'sql',
-        'bash',
-    ],
-})
-
-import.meta.hot?.dispose(() => {
-    console.log('disposing of hightlighter for hmr')
-    hightlighterP.then((h) => h.dispose())
-})
-
-export function useShiki() {
-    const state = useMutable({
-        highlighter: undefined as Highlighter | undefined,
-    })
-
-    useEffect(() => {
-        hightlighterP.then((h) => {
-            state.highlighter = h
-        })
-    }, [])
-
-    return state.highlighter
-}
+import { type Highlighter, type ShikiTransformer } from 'shiki'
 
 export function parseMarkdown(unparsed: string) {
     let contents = marked(unparsed) as string
@@ -186,14 +140,16 @@ function createTransformer(opts: CreateTransformerOptions, code: string): ShikiT
         },
         line(el, line) {
             const displayLineNumber = (opts.startLineNumber ?? 1) + line - 1
-            // Add line number as data attribute
+            // Add line number as data attribute for CSS to use
             el.properties['data-line'] = displayLineNumber
-            // Add highlight class for line ranges (if still needed)
+
+            // Add highlight class for line ranges
             for (const range of opts.highlightLines ?? []) {
                 if (displayLineNumber >= range.start && displayLineNumber <= range.end) {
                     this.addClassToHast(el, 'bg-blue-200 bg-opacity-20')
                 }
             }
+
             // Add newline character to our tracking (except for last line)
             if (line < code.split('\n').length) {
                 currentCharIndex += 1 // for \n character
@@ -203,15 +159,10 @@ function createTransformer(opts: CreateTransformerOptions, code: string): ShikiT
             // Reset character index for each render
             currentCharIndex = 0
 
+            // Add class for line numbers styling if enabled
             if (opts.showLines) {
-                // Add CSS for line numbers with counter
-                this.addClassToHast(el, 'relative')
+                this.addClassToHast(el, 'show-line-numbers')
             }
-
-            el.properties.style = `
-                counter-reset: line-number ${(opts.startLineNumber ?? 1) - 1};
-                padding-left: 3.5rem;
-            `
         },
     }
 }

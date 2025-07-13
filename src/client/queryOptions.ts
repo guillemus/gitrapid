@@ -14,12 +14,8 @@ import { authClient, getLanguageFromExtension, type GithubFilePathWithRoot } fro
 import { ok, transformFileContentsResponse, unwrap, type ResultP } from '@/shared/shared'
 
 import { useNavigate } from 'react-router'
-import {
-    hightlighterP as highlighterP,
-    parseCode,
-    parseMarkdown,
-    type CreateTransformerOptions,
-} from './shiki'
+import { parseCode, parseMarkdown, type CreateTransformerOptions } from './shiki'
+import { hightlighterP } from './shiki-highlighter'
 
 async function getGithubFile(
     path: GithubFilePath,
@@ -88,7 +84,7 @@ export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTran
                 return { type: 'markdown', contents: parsed } as const
             }
 
-            let highlighter = await highlighterP
+            let highlighter = await hightlighterP
 
             const language = getLanguageFromExtension(file.path)
             let code = atob(file.contents)

@@ -1,4 +1,5 @@
-import { parseCode, useShiki, type CreateTransformerOptions } from './shiki'
+import { parseCode, type CreateTransformerOptions } from './shiki'
+import { useShiki } from './shiki-highlighter'
 
 export function CodeBlock(props: { code: TrustedHTML }) {
     return (

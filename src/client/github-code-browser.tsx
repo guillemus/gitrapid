@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FaFile, FaFolder } from 'react-icons/fa'
 import { BreadcrumbsWithGitHubLink, FastNavlink } from '@/client/components'
 import { parsedFileOptions } from './queryOptions'
-import { CodeBlock, MarkdownBlock } from './code-block'
+import { CodeBlock, CodeBlockWithParsing, MarkdownBlock } from './code-block'
 
 function CodeRenderer() {
     const params = useGithubFilePath()

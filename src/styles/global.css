@@ -23,9 +23,28 @@ pre.shiki {
     padding: 1rem;
 }
 
-pre.shiki .line::before {
-    counter-increment: line-number;
-    content: counter(line-number);
+.shiki .line {
+    padding-left: 10px;
+}
+
+.markdown-body h1 {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.show-line-numbers {
+    position: relative;
+    padding-left: 3.5rem;
+}
+
+.show-line-numbers .line {
+    padding-left: 5.5rem;
+    margin-left: -3.5rem;
+}
+
+.show-line-numbers .line::before {
+    content: attr(data-line);
     position: absolute;
     left: 0;
     width: 3rem;
@@ -33,10 +52,6 @@ pre.shiki .line::before {
     padding-right: 1rem;
     color: rgba(156, 163, 175, 0.6);
     user-select: none;
-}
-
-.markdown-body h1 {
-    display: flex;
-    gap: 4px;
-    align-items: center;
+    font-size: 0.875rem;
+    line-height: inherit;
 }
