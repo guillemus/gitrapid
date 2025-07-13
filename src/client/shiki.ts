@@ -82,7 +82,7 @@ export type HighlightRange = {
 
 export type CreateTransformerOptions = {
     showLines?: boolean
-    highlightIndices?: HighlightRange[]
+    highlightRanges?: HighlightRange[]
     highlightLines?: HighlightRange[]
     startLineNumber?: number
 }
@@ -90,7 +90,7 @@ export type CreateTransformerOptions = {
 function createTransformer(opts: CreateTransformerOptions, code: string): ShikiTransformer {
     // Calculate which characters need highlighting
     const highlightChars = new Set<number>()
-    for (const match of opts.highlightIndices ?? []) {
+    for (const match of opts.highlightRanges ?? []) {
         for (let i = match.start; i < match.end; i++) {
             highlightChars.add(i)
         }
@@ -186,17 +186,14 @@ function createTransformer(opts: CreateTransformerOptions, code: string): ShikiT
         },
         line(el, line) {
             const displayLineNumber = (opts.startLineNumber ?? 1) + line - 1
-
             // Add line number as data attribute
             el.properties['data-line'] = displayLineNumber
-
             // Add highlight class for line ranges (if still needed)
             for (const range of opts.highlightLines ?? []) {
                 if (displayLineNumber >= range.start && displayLineNumber <= range.end) {
                     this.addClassToHast(el, 'bg-blue-200 bg-opacity-20')
                 }
             }
-
             // Add newline character to our tracking (except for last line)
             if (line < code.split('\n').length) {
                 currentCharIndex += 1 // for \n character

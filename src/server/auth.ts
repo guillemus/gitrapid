@@ -10,7 +10,6 @@ export const auth = betterAuth({
         provider: 'pg',
         schema,
     }),
-
     socialProviders: {
         github: {
             clientId: process.env.GITHUB_CLIENT_ID!,

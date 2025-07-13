@@ -5,6 +5,7 @@ import { BreadcrumbsWithGitHubLink } from './components'
 import { searchCodeOptions } from './queryOptions'
 import { CodeBlockWithParsing } from './code-block'
 import { SignInButton } from './login'
+import type { HighlightRange } from './shiki'
 
 function Search() {
     const { data } = authClient.useSession()
@@ -93,7 +94,6 @@ function Search() {
                             {item.text_matches?.map((match, matchIndex) => {
                                 const language = getLanguageFromExtension(item.path)
 
-                                // Convert match indices to highlight ranges
                                 const highlightRanges =
                                     match.matches?.map((submatch) => ({
                                         start: submatch.indices?.[0] || 0,
@@ -105,7 +105,7 @@ function Search() {
                                         <CodeBlockWithParsing
                                             code={match.fragment || ''}
                                             language={language}
-                                            highlightIndices={highlightRanges}
+                                            highlightRanges={highlightRanges}
                                         />
                                     </div>
                                 )
