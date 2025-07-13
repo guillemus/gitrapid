@@ -110,10 +110,11 @@ export function Sidebar() {
     if (rootFilesQuery.isLoading) {
         return <div className="p-4">Loading files...</div>
     }
-    if (rootFilesQuery.error || !rootFilesQuery.data) {
+    if (rootFilesQuery.error) {
         return <div className="p-4 text-red-600">Error loading files</div>
     }
 
+    if (!rootFilesQuery.data) return null
     if (rootFilesQuery.data.type === 'file') return null
 
     const fileItems = rootFilesQuery.data.contents.slice().sort((a, b) => {

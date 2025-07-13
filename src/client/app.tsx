@@ -37,20 +37,23 @@ function GithubSearchPage() {
 }
 
 import { Login } from './login'
+import React from 'react'
 
 export function App() {
     return (
-        <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
-                </Routes>
-            </BrowserRouter>
-            <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
+        <React.StrictMode>
+            <QueryClientProvider client={queryClient}>
+                <BrowserRouter>
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
+                        <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
+                    </Routes>
+                </BrowserRouter>
+                <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+        </React.StrictMode>
     )
 }

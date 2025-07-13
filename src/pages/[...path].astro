@@ -11,6 +11,11 @@ import { App } from '@/client/app'
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <title>github code browser</title>
+        {
+            import.meta.env.PUBLIC_REACT_SCAN === 'true' && (
+                <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js" />
+            )
+        }
     </head>
     <body>
         <App client:only />
