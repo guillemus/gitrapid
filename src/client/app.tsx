@@ -36,7 +36,16 @@ function GithubSearchPage() {
     )
 }
 
+import type { PropsWithChildren } from 'react'
 import { Login } from './login'
+
+function WithRefAndPath(props: PropsWithChildren) {
+    let data = useRefAndPath()
+
+    if (!data) return null
+
+    return props.children
+}
 
 export function App() {
     return (
@@ -45,8 +54,22 @@ export function App() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/:owner/:repo" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/tree/:ref/*" element={<GithubCodeBrowser />} />
-                    <Route path="/:owner/:repo/blob/:ref/*" element={<GithubCodeBrowser />} />
+                    <Route
+                        path="/:owner/:repo/tree/*"
+                        element={
+                            <WithRefAndPath>
+                                <GithubCodeBrowser />
+                            </WithRefAndPath>
+                        }
+                    />
+                    <Route
+                        path="/:owner/:repo/blob/*"
+                        element={
+                            <WithRefAndPath>
+                                <GithubCodeBrowser />
+                            </WithRefAndPath>
+                        }
+                    />
                     <Route path="/:owner/:repo/search" element={<GithubSearchPage />} />
                 </Routes>
             </BrowserRouter>

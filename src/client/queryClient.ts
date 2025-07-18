@@ -22,7 +22,7 @@ const idbPersister = {
     },
 }
 
-persistQueryClient({
+export const [, gettingQueryClientP] = persistQueryClient({
     queryClient,
     persister: idbPersister,
 })

@@ -71,9 +71,8 @@ export function getLanguageFromExtension(filePath: string): string {
     return languageMap[extension || ''] || 'text'
 }
 
-export type GithubFilePathWithRoot = GithubFilePath & {
+export type GithubFilePathWithLine = GithubFilePath & {
     highlightedLine?: number
-    isRoot: boolean
 }
 
 function parseLineNumber(hash: string) {
@@ -86,14 +85,13 @@ function parseLineNumber(hash: string) {
 }
 
 // Transforms
-// - /:owner/:repo/tree/:ref/*
-// - /:owner/:repo/blob/:ref/*
+// - /:owner/:repo/tree/*
+// - /:owner/:repo/blob/*
 // paths into a github file path
-export function useGithubFilePath(): GithubFilePathWithRoot {
+export function useGithubFilePath(): GithubFilePathWithLine {
     const params = useParams<{
         owner: string
         repo: string
-        ref: string
         '*': string
     }>()
 
@@ -103,25 +101,13 @@ export function useGithubFilePath(): GithubFilePathWithRoot {
     if (!params.owner) throw new Error(':owner param required')
     if (!params.repo) throw new Error(':repo param required')
 
-    let ref = params.ref
-    if (!ref) {
-        ref = 'HEAD'
-    }
-
-    let path = params['*']
-    let root = false
-    if (!path) {
-        path = 'README.md'
-        root = true
-    }
+    let refAndPath = params['*'] ?? ''
 
     return {
         owner: params.owner,
         repo: params.repo,
-        ref,
-        path,
+        refAndPath,
         highlightedLine: startLineNumber,
-        isRoot: root,
     }
 }
 

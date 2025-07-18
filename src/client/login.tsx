@@ -1,6 +1,6 @@
 import { authClient, useMutable } from '@/client/utils'
-import type { PropsWithChildren, ReactNode } from 'react'
-import { useSearchParams } from 'react-router'
+import type { PropsWithChildren } from 'react'
+import { useLocation } from 'react-router'
 
 export function SignedIn(props: PropsWithChildren) {
     const { data } = authClient.useSession()
@@ -17,15 +17,26 @@ export function SignedOut(props: PropsWithChildren) {
 }
 
 export function SignInButton() {
+    // Using the pathname as the callback url ensures that the user will be
+    // redirected to the same page after logging in, which makes a much better user
+    // experience.
+    const pathname = useLocation().pathname
     const state = useMutable({ isLoading: false })
 
     return (
         <button
             onClick={() => {
                 state.isLoading = true
+                // So, just in case. This should not happen, but better auth can
+                // sometimes timeout and crash, which is quite annoying, but well
+                // what can you do.
+                setTimeout(() => {
+                    state.isLoading = false
+                }, 5000)
+
                 authClient.signIn.social({
                     provider: 'github',
-                    callbackURL: '/',
+                    callbackURL: pathname,
                 })
             }}
             className="btn btn-primary w-50 cursor-pointer"
@@ -48,10 +59,6 @@ export function SignOutButton() {
 }
 
 export function Login() {
-    const [params] = useSearchParams()
-
-    const wasRateLimited = params.get('rateLimited') !== null
-
     return (
         <div className="flex min-h-screen items-center justify-center bg-white p-4">
             <div className="card w-full max-w-md border border-slate-200 bg-white shadow-lg">
@@ -64,28 +71,6 @@ export function Login() {
                     <div className="flex justify-center">
                         <SignInButton></SignInButton>
                     </div>
-
-                    {wasRateLimited && (
-                        <div className="alert alert-warning mt-4">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-6 w-6 shrink-0 stroke-current"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
-                                />
-                            </svg>
-                            <span>
-                                You were rate-limited by GitHub. Please log in to continue browsing
-                                repositories.
-                            </span>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

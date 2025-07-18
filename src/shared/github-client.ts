@@ -4,19 +4,20 @@
 
 // Do not import code from the repo, just the types
 import type { RestEndpointMethodTypes } from '@octokit/rest'
-import { err, failure, ok, tryCatch, type Result, type ResultP } from './shared'
+import { err, failure, ok, tryCatch, type ResultP } from './shared'
 
 type GetRepoResponse = RestEndpointMethodTypes['repos']['get']['response']['data']
 export type GetContentResponse = RestEndpointMethodTypes['repos']['getContent']['response']['data']
 type GetTreeResponse = RestEndpointMethodTypes['git']['getTree']['response']['data']
 type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response']['data']
 type SearchCodeResponse = RestEndpointMethodTypes['search']['code']['response']['data']
+type ListBranchesResponse = RestEndpointMethodTypes['repos']['listBranches']['response']['data']
+type GetCommitResponse = RestEndpointMethodTypes['repos']['getCommit']['response']['data']
 
 export type GithubFilePath = {
     owner: string
     repo: string
-    ref: string
-    path: string
+    refAndPath: string
 }
 
 export class RateLimitError extends Error {}
@@ -79,25 +80,9 @@ export class GitHubClient {
     }
 
     // Get file data by using the API. Useful to check what kind of file is the given file.
-    getFileContentByAPI(path: GithubFilePath) {
-        const endpoint = `/repos/${path.owner}/${path.repo}/contents/${path.path}?ref=${path.ref}`
+    getFileContentByAPI(owner: string, repo: string, path: string, ref: string) {
+        const endpoint = `/repos/${owner}/${repo}/contents/${path}?ref=${ref}`
         return this.jsonRequest<GetContentResponse>(endpoint)
-    }
-
-    // Get file contents using raw.githubusercontent.com
-    // We use this instead of the api call for performance, because the file is
-    // distributed through fastly's CDN
-    async getFileContentByCDN(path: GithubFilePath) {
-        const url = `https://raw.githubusercontent.com/${path.owner}/${path.repo}/${path.ref}/${path.path}`
-
-        let data
-        data = await tryCatch(fetch(url))
-        if (data.error) return data
-
-        data = data.data
-        if (!data.ok) return err(`failed to fetch ${data.url} contents: ${data.statusText} status`)
-
-        return tryCatch(data.text())
     }
 
     // Get repository info
@@ -164,10 +149,71 @@ export class GitHubClient {
             },
         })
     }
+
+    // Get repository branches
+    getBranches(owner: string, repo: string, perPage: number = 100, page: number = 1) {
+        const params = new URLSearchParams({
+            per_page: perPage.toString(),
+            page: page.toString(),
+        })
+
+        const endpoint = `/repos/${owner}/${repo}/branches?${params.toString()}`
+        return this.jsonRequest<ListBranchesResponse>(endpoint)
+    }
+
+    getCommit(owner: string, repo: string, ref: string) {
+        const endpoint = `/repos/${owner}/${repo}/commits/${ref}`
+        return this.jsonRequest<GetCommitResponse>(endpoint)
+    }
 }
 
 // Export singleton instance
 export const githubClient = new GitHubClient()
+
+export type RefAndPath = {
+    ref: string
+    path: string
+}
+
+export async function parseRefAndPath(
+    client: GitHubClient,
+    owner: string,
+    repo: string,
+    refAndPath: string,
+): ResultP<RefAndPath> {
+    let parts = refAndPath.split('/')
+    let acc = ''
+    let lastValidRef = ''
+    for (let part of parts) {
+        if (acc === '') {
+            acc = part
+        } else {
+            acc = `${acc}/${part}`
+        }
+
+        let commit = await client.getCommit(owner, repo, acc)
+        if (commit.error) {
+            if (!!lastValidRef) {
+                break
+            }
+            continue
+        }
+
+        lastValidRef = acc
+    }
+
+    if (!lastValidRef) {
+        // all get commit failed, unexpected things happened
+        return err(`invalid ref ${repo}/${owner}/${refAndPath}`)
+    }
+
+    let ref = lastValidRef
+
+    // the +1 is the '/' character
+    let path = refAndPath.slice(lastValidRef.length + 1)
+
+    return ok({ ref, path })
+}
 
 export type File = {
     type: 'file'
@@ -175,47 +221,13 @@ export type File = {
     contents: string
 }
 
+export type FolderContents = {
+    name: string
+    path: string
+    isDir: boolean
+}[]
+
 export type Folder = {
     type: 'folder'
-    contents: {
-        name: string
-        path: string
-        isDir: boolean
-    }[]
-}
-
-export async function getFileOrFolderContent(
-    path: GithubFilePath,
-): Promise<Result<File | Folder, GithubError>> {
-    let data
-    data = await githubClient.getFileContentByCDN(path)
-    if (data.data) {
-        return ok({
-            type: 'file',
-            path: path.path,
-            contents: data.data,
-        })
-    }
-
-    data = await githubClient.getFileContentByAPI(path)
-    if (data.error) return data
-
-    data = data.data
-    if (Array.isArray(data)) {
-        const contents: Folder['contents'] = []
-        for (const file of data) {
-            contents.push({
-                isDir: file.type === 'dir',
-                name: file.name,
-                path: file.path,
-            })
-        }
-
-        return ok({ type: 'folder', contents: contents })
-    }
-
-    // at this point the file should have been fetched previously, so if we
-    // get here this should be a logic error
-
-    return err(`Unexpected response: expected file or folder content, got ${JSON.stringify(data)}`)
+    contents: FolderContents
 }

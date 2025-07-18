@@ -1,79 +1,33 @@
-import {
-    GitHubClient,
-    githubClient,
-    RateLimitError,
-    type File,
-    type Folder,
-    type GithubError,
-    type GithubFilePath,
-} from '@/shared/github-client'
+import { authClient, getLanguageFromExtension, type GithubFilePathWithLine } from '@/client/utils'
+import { githubClient } from '@/shared/github-client'
+import { unwrap } from '@/shared/shared'
 import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
 import { queryOptions } from '@tanstack/react-query'
-import { authClient, getLanguageFromExtension, type GithubFilePathWithRoot } from './utils'
 
-import { ok, transformFileContentsResponse, unwrap, type ResultP } from '@/shared/shared'
-
-import { useNavigate } from 'react-router'
-import { parseCode, parseMarkdown, type CreateTransformerOptions } from './shiki'
 import { hightlighterP } from './highlighter'
+import { parseCode, parseMarkdown, type CreateTransformerOptions } from './shiki'
 
-async function getGithubFile(
-    path: GithubFilePath,
-    usePublicApi: boolean,
-): ResultP<File | Folder | null, GithubError> {
-    if (!usePublicApi) {
-        let res = await client.getGithubFile.query(path)
-        return ok(res)
-    }
-
-    let githubClient = new GitHubClient()
-    let res = await githubClient.getFileContentByAPI(path)
-    if (res.error) return res
-
-    return ok(transformFileContentsResponse(res.data))
-}
-
-export function fileOptions(path: GithubFilePathWithRoot, enabled: boolean = true) {
+export function fileOptions(params: GithubFilePathWithLine, enabled: boolean = true) {
     let session = authClient.useSession()
-    let navigate = useNavigate()
 
     return queryOptions({
-        queryKey: ['file', path.owner, path.repo, path.ref, path.path],
+        queryKey: ['file', params.owner, params.repo, params.refAndPath],
         queryFn: async (): Promise<GetGithubFileOutput> => {
-            let fileRes = await getGithubFile(path, !session.data)
-            if (fileRes.error) {
-                if (fileRes.error instanceof RateLimitError) {
-                    navigate('/login?rateLimited=true')
-                    return null
-                }
-
-                return null
-            }
-
-            return fileRes.data
+            let res = await client.getGithubFile.query(params)
+            return res
         },
         enabled: enabled && !session.isPending,
     })
 }
 
-export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTransformerOptions) {
+export function parsedFileOptions(params: GithubFilePathWithLine, opts: CreateTransformerOptions) {
     let session = authClient.useSession()
-    let navigate = useNavigate()
 
     return queryOptions({
-        queryKey: ['file', path.owner, path.repo, path.ref, path.path],
+        queryKey: ['file-parsed', params.owner, params.repo, params.refAndPath],
         queryFn: async () => {
-            let fileRes = await getGithubFile(path, !session.data)
-            if (fileRes.error) {
-                if (fileRes.error instanceof RateLimitError) {
-                    navigate('/login?rateLimited=true')
-                    return null
-                }
+            let file = await client.getGithubFile.query(params)
 
-                return null
-            }
-
-            let file = fileRes.data
             if (!file) return null
             if (file.type === 'folder') return file
 
@@ -100,7 +54,7 @@ export function parsedFileOptions(path: GithubFilePathWithRoot, opts: CreateTran
     })
 }
 
-export function searchCodeOptions(owner: string, repo: string, query: string, enabled = true) {
+export function searchCodeOptions(owner: string, repo: string, query: string) {
     let session = authClient.useSession()
 
     return queryOptions({
@@ -114,6 +68,26 @@ export function searchCodeOptions(owner: string, repo: string, query: string, en
             let res = await githubClient.searchCode(query, owner, repo).then(unwrap)
             return res
         },
+        enabled: !session.isPending && !!session.data?.user,
+    })
+}
+
+export function branchesOptions(owner: string, repo: string) {
+    let session = authClient.useSession()
+
+    return queryOptions({
+        queryKey: ['branches', owner, repo],
+        queryFn: async () => {
+            if (session.data?.user.id) {
+                let res = await client.getBranches.query({ owner, repo })
+                return res
+            }
+
+            // For public API, just get branches (no repo info available)
+            let branches = await githubClient.getBranches(owner, repo).then(unwrap)
+            return { branches, defaultBranch: null }
+        },
+        staleTime: 1000 * 60 * 60,
         enabled: !session.isPending && !!session.data?.user,
     })
 }

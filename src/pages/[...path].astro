@@ -11,6 +11,12 @@ import { App } from '@/client/app'
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <title>github code browser</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Geist&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+            rel="stylesheet"
+        />
         {
             import.meta.env.PUBLIC_REACT_SCAN === 'true' && (
                 <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js" />

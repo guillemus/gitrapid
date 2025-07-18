@@ -1,4 +1,4 @@
-# GitHub File Browser - Agent Guide
+# gitrapid.com - Agent Guide
 
 ## Commands
 
