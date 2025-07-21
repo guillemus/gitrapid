@@ -1,5 +1,17 @@
 # gitrapid.com - Agent Guide
 
+# mission
+
+gitrapid is an alternative github ui that focuses entirely on making the github
+ui way faster. It is a react SPA served through astro that uses convex.dev as
+the backend.
+
+The app will work as close as possible to the github ui.
+
+## Code editing
+
+You won't write / edit any code. Instead, you will suggest code changes for me to implement.
+
 ## Commands
 
 - **Build**: `pnpm build`
