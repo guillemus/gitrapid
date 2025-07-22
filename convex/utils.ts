@@ -13,6 +13,58 @@ export interface Context {
     ): Promise<FunctionReturnType<Mutation>>
 }
 
+type RefAndPath = {
+    ref: string
+    path: string
+}
+
+const commitShaRegex = /^[a-f0-9]{40}$/i
+
+export function getRefAndPath(repoRefsSet: Set<string>, refAndPath: string): RefAndPath | null {
+    let parts = refAndPath.split('/')
+    let acc = ''
+    let lastValidRef = ''
+
+    let firstPart = parts[0]
+
+    if (firstPart && commitShaRegex.test(firstPart)) {
+        let path = parts.slice(1).join('/')
+        if (path === '') {
+            path = 'README.md'
+        }
+
+        return { ref: firstPart, path }
+    }
+
+    for (let part of parts) {
+        if (acc === '') {
+            acc = part
+        } else {
+            acc = `${acc}/${part}`
+        }
+
+        if (repoRefsSet.has(acc)) {
+            lastValidRef = acc
+            continue
+        }
+
+        if (lastValidRef !== '') {
+            let path = refAndPath.slice(lastValidRef.length)
+            if (path.startsWith('/')) {
+                path = path.slice(1)
+            }
+            return { ref: lastValidRef, path }
+        }
+    }
+
+    // Handle case where the entire string is a valid ref (no path)
+    if (repoRefsSet.has(refAndPath)) {
+        return { ref: refAndPath, path: 'README.md' }
+    }
+
+    return null
+}
+
 export async function downloadAllRefs(
     ctx: Context,
     githubClient: GithubClient,
@@ -108,7 +160,7 @@ export async function downloadAllRefs(
             `processing commit ${i + 1}/${commits.length}: getting tree for`,
             owner,
             repoName,
-            commit,
+            commit.sha,
         )
         let allFiles = await githubClient.getRepoTree(owner, repoName, commit.sha)
         if (allFiles.error) {
