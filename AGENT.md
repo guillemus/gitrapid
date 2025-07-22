@@ -12,14 +12,6 @@ The app will work as close as possible to the github ui.
 
 You won't write / edit any code. Instead, you will suggest code changes for me to implement.
 
-## Commands
-
-- **Build**: `pnpm build`
-- **Type Check**: `bunx tsc`
-- **Package Manager**: Use `pnpm` (not npm/yarn)
-
-Assume that the app is always running on port 3000, you don't need to start any web server.
-
 ## Project Requirements
 
 - **Mission**: GitHub files browser with sidebar tree view and main file viewer

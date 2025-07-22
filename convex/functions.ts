@@ -8,33 +8,13 @@ import { downloadAllRefs } from './utils'
 let githubClient = new GithubClient(process.env.GITHUB_TOKEN)
 
 export const downloadRefs = action({
-    async handler(ctx) {
-        let owner = 'facebook'
-        let repoName = 'react'
-
-        return downloadAllRefs(ctx, githubClient, owner, repoName)
+    args: {
+        owner: v.string(),
+        repo: v.string(),
     },
-})
 
-export const downloadFilenames = action({
-    async handler(ctx) {
-        let owner = 'facebook'
-        let repo = 'react'
-
-        let refs = await ctx.runQuery(api.functions.getRepoRefs, { owner, repo })
-        for (let ref of refs) {
-            console.log('downloading filenames for ref', ref.ref)
-
-            // has to be recursive.
-
-            let tree = await githubClient.getRepoTree(owner, repo, ref.ref)
-            if (tree.error) {
-                console.error('failed to get tree for ref', ref.ref, tree.error)
-                continue
-            }
-
-            console.log('got', tree.data.tree.length, 'files for ref', ref.ref)
-        }
+    async handler(ctx, args) {
+        return downloadAllRefs(ctx, githubClient, args.owner, args.repo)
     },
 })
 
@@ -144,7 +124,49 @@ export const insertCommits = mutation({
     },
 })
 
-export const insertCommitsAndRefs = mutation({
+export const getAllRepoCommitsWithoutFiles = query({
+    args: {
+        repoId: v.id('repos'),
+    },
+    async handler(ctx, args) {
+        let commits = await ctx.db
+            .query('commits')
+            .withIndex('by_repo', (c) => c.eq('repo', args.repoId))
+            .collect()
+
+        let commitsWithoutFiles = []
+        for (let commit of commits) {
+            let savedCommitFiles = await ctx.db
+                .query('commitFiles')
+                .withIndex('by_commit', (c) => c.eq('commit', commit._id))
+                .first()
+
+            if (!savedCommitFiles) {
+                commitsWithoutFiles.push(commit)
+            }
+        }
+
+        return commitsWithoutFiles
+    },
+})
+
+export const upsertFiles = mutation({
+    args: {
+        commitId: v.id('commits'),
+        fileNames: v.array(v.string()),
+    },
+
+    async handler(ctx, args) {
+        let commitFileId = await ctx.db.insert('commitFiles', { commit: args.commitId })
+
+        await ctx.db.insert('filenames', {
+            commitFileId,
+            files: args.fileNames,
+        })
+    },
+})
+
+export const upsertCommitsAndRefs = mutation({
     args: {
         repo: v.id('repos'),
         refs: v.array(
@@ -208,36 +230,46 @@ export const getPathAndTree = action({
         refAndPath: v.string(),
     }),
     handler: async (ctx, input) => {
-        // to do, parse refAndPath.
         let repoRefs = await ctx.runQuery(api.functions.getRepoRefs, input)
+        let repoRefsSet = new Set([...repoRefs.map((ref) => ref.ref)])
 
         let parts = input.refAndPath.split('/')
         let acc = ''
         let lastValidRef = ''
-        refAndPathPartsLoop: for (let part of parts) {
+        for (let part of parts) {
             if (acc === '') {
                 acc = part
             } else {
                 acc = `${acc}/${part}`
             }
 
-            for (let ref of repoRefs) {
-                if (ref.ref === acc) {
-                    lastValidRef = acc
-                    continue refAndPathPartsLoop
-                }
+            if (repoRefsSet.has(acc)) {
+                lastValidRef = acc
+                continue
             }
 
             if (lastValidRef !== '') {
                 break
             } else {
                 // we don't have this ref stored in database, so this either means:
-                // - we are not well synced (shouldn't happen)
                 // - this is a commit
+                //      - this is a saved commit
+                //      - this is a not saved commit
                 // - user wrote some ref that doesn't exist anymore, we should return 404 like error
+                // - we are not well synced
             }
         }
 
         return 'data'
+    },
+})
+
+export const insertRepo = mutation({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+    async handler(ctx, args) {
+        return await ctx.db.insert('repos', args)
     },
 })

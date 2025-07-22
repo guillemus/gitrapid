@@ -24,9 +24,15 @@ export async function downloadAllRefs(
         repo: repoName,
     })
 
-    if (!repo) throw new Error('repo not found')
+    let repoId = repo?._id
 
-    let commits = new Set<string>()
+    if (!repoId) {
+        repoId = await ctx.runMutation(api.functions.insertRepo, {
+            owner,
+            repo: repoName,
+        })
+    }
+
     let fetchedRefs: {
         sha: string
         ref: string
@@ -37,7 +43,7 @@ export async function downloadAllRefs(
         console.log('fetching branches page', page, 'for', owner, repoName)
 
         let refs
-        refs = await githubClient.listBranches('facebook', 'react', page)
+        refs = await githubClient.listBranches(owner, repoName, page)
         if (refs.error) {
             console.error(refs.error)
             throw refs.error
@@ -51,7 +57,6 @@ export async function downloadAllRefs(
 
         for (let ref of refs) {
             let sha = ref.commit.sha
-            commits.add(sha)
             fetchedRefs.push({ sha, ref: ref.name })
         }
 
@@ -63,7 +68,7 @@ export async function downloadAllRefs(
         console.log('fetching tags page', page, 'for', owner, repoName)
 
         let tags
-        tags = await githubClient.listTags('facebook', 'react', page)
+        tags = await githubClient.listTags(owner, repoName, page)
         if (tags.error) {
             console.error(tags.error)
             throw tags.error
@@ -77,7 +82,6 @@ export async function downloadAllRefs(
 
         for (let tag of tags) {
             let sha = tag.commit.sha
-            commits.add(sha)
             fetchedRefs.push({ sha, ref: tag.name })
         }
 
@@ -86,8 +90,93 @@ export async function downloadAllRefs(
 
     console.log('total fetched refs', fetchedRefs.length)
 
-    await ctx.runMutation(api.functions.insertCommitsAndRefs, {
-        repo: repo._id,
+    console.log('updating refs')
+    await ctx.runMutation(api.functions.upsertCommitsAndRefs, {
+        repo: repoId,
         refs: fetchedRefs,
     })
+
+    console.log('fetching filenames for each commit')
+
+    let commits = await ctx.runQuery(api.functions.getAllRepoCommitsWithoutFiles, {
+        repoId: repoId,
+    })
+
+    for (let i = 0; i < commits.length; i++) {
+        const commit = commits[i]!
+        console.log(
+            `processing commit ${i + 1}/${commits.length}: getting tree for`,
+            owner,
+            repoName,
+            commit,
+        )
+        let allFiles = await githubClient.getRepoTree(owner, repoName, commit.sha)
+        if (allFiles.error) {
+            console.error(allFiles.error)
+            continue
+        }
+
+        let fileNames = allFiles.data.tree.map((f) => f.path)
+        console.log('upserting', fileNames.length, 'files for commit', commit.sha)
+
+        await ctx.runMutation(api.functions.upsertFiles, {
+            commitId: commit._id,
+            fileNames: fileNames,
+        })
+
+        console.log(`finished upserting commit ${commit.sha}`)
+    }
+}
+
+type TreeNode = {
+    [folderName: string]: (string | TreeNode)[]
+}
+
+export function buildFileTree(filePaths: string[]): TreeNode {
+    // Group paths by their root directory
+    const groups: { [rootDir: string]: string[] } = {}
+
+    for (const path of filePaths) {
+        const parts = path.split('/').filter((part) => part.length > 0)
+        if (parts.length === 0) continue
+
+        const rootDir = parts[0]
+        if (!rootDir) continue
+
+        if (!groups[rootDir]) {
+            groups[rootDir] = []
+        }
+        groups[rootDir].push(path)
+    }
+
+    const result: TreeNode = {}
+
+    for (const [rootDir, paths] of Object.entries(groups)) {
+        result[rootDir] = []
+
+        // Separate files in root vs subdirectories
+        const filesInRoot: string[] = []
+        const subPaths: string[] = []
+
+        for (const path of paths) {
+            const parts = path.split('/').filter((part) => part.length > 0)
+            if (parts.length === 1) {
+                const fileName = parts[0]
+                if (fileName) filesInRoot.push(fileName)
+            } else {
+                subPaths.push(parts.slice(1).join('/'))
+            }
+        }
+
+        // Add files directly to the array
+        result[rootDir].push(...filesInRoot)
+
+        // If there are subdirectories, create a nested object
+        if (subPaths.length > 0) {
+            const subTree = buildFileTree(subPaths)
+            result[rootDir].push(subTree)
+        }
+    }
+
+    return result
 }

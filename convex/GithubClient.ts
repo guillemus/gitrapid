@@ -26,6 +26,7 @@ export class RateLimitError extends Error {}
 export type GithubError = Error | HttpError | RateLimitError
 
 type HttpError = {
+    failingUrl: string
     status: number
     statusText: string
     message: string
@@ -68,6 +69,7 @@ export class GithubClient {
             }
 
             return failure<HttpError>({
+                failingUrl: url,
                 status: data.status,
                 statusText: data.statusText,
                 message: text.data,
@@ -97,7 +99,7 @@ export class GithubClient {
         const params = new URLSearchParams({
             recursive: recursive ? '1' : '0',
         })
-        const endpoint = `/repos/${owner}/${repo}/git/trees/${ref}${params.toString()}`
+        const endpoint = `/repos/${owner}/${repo}/git/trees/${ref}?${params.toString()}`
 
         return this.jsonRequest<GetTreeResponse>(endpoint)
     }
