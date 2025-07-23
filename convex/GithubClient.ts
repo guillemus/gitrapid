@@ -56,8 +56,15 @@ export class GithubClient {
                 ...options.headers,
             },
         })
-        data = await tryCatch(data)
-        if (data.error) return data
+        {
+            let now = new Date().getTime()
+            data = await tryCatch(data)
+            if (data.error) return data
+
+            let shortened = url.slice(this.baseUrl.length)
+
+            console.debug(`github: ${new Date().getTime() - now}ms for ${shortened}`)
+        }
 
         data = data.data
         if (!data.ok) {

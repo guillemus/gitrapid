@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useParams } from 'react-router'
 import type { GithubFilePath } from '../shared/github-client'
+import { useQuery } from '@tanstack/react-query'
+
+// This exists bc of naming conflict with convex.
+export const useTanstackQuery = useQuery
 
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()

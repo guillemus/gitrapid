@@ -22,7 +22,9 @@ export default defineSchema({
         repo: v.id('repos'),
         commit: v.id('commits'),
         ref: v.string(),
-    }).index('by_commit_and_repo', ['commit', 'repo']),
+    })
+        .index('by_repo', ['repo'])
+        .index('by_repo_and_commit', ['repo', 'commit']),
 
     // commitFiles saves which commits have files. When updating repository refs,
     // new commits might be saved, so a commit might be in a temporary state of

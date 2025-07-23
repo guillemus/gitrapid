@@ -1,11 +1,16 @@
-import { ConvexProvider, ConvexReactClient, useAction } from 'convex/react'
 import { api } from '@convex/_generated/api'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ConvexProvider, ConvexReactClient, useAction, useQuery } from 'convex/react'
 import { BrowserRouter, Route, Routes, useParams } from 'react-router'
+import { queryClient } from './queryClient'
+import { useTanstackQuery } from './utils'
+import { getFileOptions } from './queryOptions'
+import { CodeBlock } from './code-block'
 
 type GithubParams = {
     owner: string
     repo: string
-    refAndPath?: string
+    refAndPath: string
 }
 
 function useGithubParams(): GithubParams {
@@ -16,24 +21,37 @@ function useGithubParams(): GithubParams {
     let repo = params.repo
     if (!repo) throw new Error(':repo required')
 
-    let refAndPath = params.refAndPath
+    let refAndPath = params['*'] ?? ''
 
     return { owner, repo, refAndPath }
 }
 
+function Sidebar() {
+    let params = useGithubParams()
+    let repo = useQuery(api.functions.getRepo, { owner: params.owner, repo: params.repo })
+
+    return <div>lol</div>
+}
+
 function GitRapid() {
     let params = useGithubParams()
-    let lol = useAction(api.actions.lol)
+    let repo = useQuery(api.functions.getRepo, { owner: params.owner, repo: params.repo })
+    let fileRes = useTanstackQuery(
+        getFileOptions({
+            transformerOpts: { showLines: true },
+            repoId: repo?._id,
+            refAndPath: params.refAndPath,
+        }),
+    )
+
+    if (!fileRes.data) return null
 
     return (
-        <div
-            className="btn"
-            onClick={async () => {
-                let res = await lol(params)
-                console.log(res)
-            }}
-        >
-            hello world
+        <div className="flex">
+            <div className="w-60">
+                <Sidebar></Sidebar>
+            </div>
+            <CodeBlock code={fileRes.data}></CodeBlock>
         </div>
     )
 }
@@ -50,12 +68,14 @@ function Router() {
     )
 }
 
-const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL as string)
+const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL!)
 
 export function App() {
     return (
         <ConvexProvider client={convex}>
-            <Router></Router>
+            <QueryClientProvider client={queryClient}>
+                <Router></Router>
+            </QueryClientProvider>
         </ConvexProvider>
     )
 }

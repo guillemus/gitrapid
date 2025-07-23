@@ -8,11 +8,5 @@
             "group": "build",
             "label": "tsc: build - tsconfig.json"
         },
-        {
-            "type": "eslint",
-            "label": "lint",
-            "problemMatcher": ["$eslint-stylish"],
-            "group": "build"
-        }
     ]
 }

@@ -1,8 +1,9 @@
 import { v } from 'convex/values'
 import { api } from './_generated/api'
-import { action, mutation, query } from './_generated/server'
+import { Id } from './_generated/dataModel'
+import { action, mutation, query, QueryCtx } from './_generated/server'
 import { GithubClient } from './GithubClient'
-import { downloadAllRefs } from './utils'
+import { downloadAllRefs, parseRefAndPath } from './utils'
 
 // fixme: this should come from context instead
 let githubClient = new GithubClient(process.env.GITHUB_TOKEN)
@@ -18,34 +19,26 @@ export const downloadRefs = action({
     },
 })
 
-// Return the last 100 tasks in a given task list.
-export const getRepoRefs = query({
+function getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
+    return ctx.db
+        .query('refs')
+        .withIndex('by_repo', (r) => r.eq('repo', repoId))
+        .collect()
+}
+
+function getSavedRepo(ctx: QueryCtx, owner: string, repo: string) {
+    return ctx.db
+        .query('repos')
+        .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+        .first()
+}
+
+export const getRepoFromId = query({
     args: {
-        owner: v.string(),
-        repo: v.string(),
+        repoId: v.id('repos'),
     },
-    handler: async (ctx, args) => {
-        let repos = await ctx.db
-            .query('repos')
-            .filter(
-                (repo) =>
-                    repo.eq(repo.field('owner'), args.owner) &&
-                    repo.eq(repo.field('repo'), args.repo),
-            )
-            .collect()
-
-        let refs
-        refs = await Promise.all(
-            repos.map((repo) => {
-                return ctx.db
-                    .query('refs')
-                    .filter((ref) => ref.eq(ref.field('repo'), repo._id))
-                    .collect()
-            }),
-        )
-        refs = refs.flatMap((r) => r)
-
-        return refs
+    async handler(ctx, args) {
+        return ctx.db.get(args.repoId)
     },
 })
 
@@ -54,17 +47,19 @@ export const getRepo = query({
         owner: v.string(),
         repo: v.string(),
     },
-    async handler(ctx, args) {
-        let repo = await ctx.db
-            .query('repos')
-            .filter(
-                (repo) =>
-                    repo.eq(repo.field('owner'), args.owner) &&
-                    repo.eq(repo.field('repo'), args.repo),
-            )
-            .first()
 
-        return repo
+    handler: async (ctx, args) => {
+        return getSavedRepo(ctx, args.owner, args.repo)
+    },
+})
+
+export const getRepoRefs = query({
+    args: {
+        repoId: v.id('repos'),
+    },
+    handler: async (ctx, args) => {
+        let refs = await getRefsFromRepo(ctx, args.repoId)
+        return refs
     },
 })
 
@@ -193,8 +188,8 @@ export const upsertCommitsAndRefs = mutation({
 
             let savedRefs = await ctx.db
                 .query('refs')
-                .withIndex('by_commit_and_repo', (ref) =>
-                    ref.eq('commit', commitId).eq('repo', args.repo),
+                .withIndex('by_repo_and_commit', (ref) =>
+                    ref.eq('repo', args.repo).eq('commit', commitId),
                 )
                 .collect()
 
@@ -223,44 +218,56 @@ export const upsertCommitsAndRefs = mutation({
     },
 })
 
-export const getPathAndTree = action({
+export const getFile = action({
     args: v.object({
-        owner: v.string(),
-        repo: v.string(),
+        repoId: v.id('repos'),
         refAndPath: v.string(),
     }),
-    handler: async (ctx, input) => {
-        let repoRefs = await ctx.runQuery(api.functions.getRepoRefs, input)
-        let repoRefsSet = new Set([...repoRefs.map((ref) => ref.ref)])
+    handler: async (ctx, args) => {
+        let repoP = ctx.runQuery(api.functions.getRepoFromId, { repoId: args.repoId })
 
-        let parts = input.refAndPath.split('/')
-        let acc = ''
-        let lastValidRef = ''
-        for (let part of parts) {
-            if (acc === '') {
-                acc = part
-            } else {
-                acc = `${acc}/${part}`
-            }
-
-            if (repoRefsSet.has(acc)) {
-                lastValidRef = acc
-                continue
-            }
-
-            if (lastValidRef !== '') {
-                break
-            } else {
-                // we don't have this ref stored in database, so this either means:
-                // - this is a commit
-                //      - this is a saved commit
-                //      - this is a not saved commit
-                // - user wrote some ref that doesn't exist anymore, we should return 404 like error
-                // - we are not well synced
-            }
+        let repoRefs = await ctx.runQuery(api.functions.getRepoRefs, { repoId: args.repoId })
+        if (!repoRefs) {
+            console.error('not found repo refs')
+            return null
         }
 
-        return 'data'
+        let repo = await repoP
+        if (!repo) {
+            console.error('repo not found')
+            return null
+        }
+
+        let repoRefsSet = new Set([...repoRefs.map((ref) => ref.ref)])
+
+        let parsed = parseRefAndPath(repoRefsSet, args.refAndPath)
+        if (!parsed) {
+            console.error('error parsing path', args)
+            return null
+        }
+
+        let fileContentsRes = await githubClient.getFileContentByAPI(
+            repo.owner,
+            repo.repo,
+            parsed.path,
+            parsed.ref,
+        )
+        if (fileContentsRes.error) {
+            console.error(fileContentsRes.error)
+            return null
+        }
+
+        if (Array.isArray(fileContentsRes.data)) {
+            console.info('file contents is a directory', fileContentsRes.data)
+            return null
+        }
+
+        if (fileContentsRes.data.type === 'file') {
+            return atob(fileContentsRes.data.content)
+        }
+
+        console.log('file contents is something else', fileContentsRes.data)
+        return null
     },
 })
 

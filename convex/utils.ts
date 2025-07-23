@@ -20,10 +20,17 @@ type RefAndPath = {
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
 
-export function getRefAndPath(repoRefsSet: Set<string>, refAndPath: string): RefAndPath | null {
+export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): RefAndPath | null {
     let parts = refAndPath.split('/')
     let acc = ''
     let lastValidRef = ''
+
+    if (refAndPath === '') {
+        return {
+            ref: 'HEAD',
+            path: 'README.md',
+        }
+    }
 
     let firstPart = parts[0]
 
