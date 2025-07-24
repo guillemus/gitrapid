@@ -26,17 +26,18 @@ export default defineSchema({
         .index('by_repo', ['repo'])
         .index('by_repo_and_commit', ['repo', 'commit']),
 
-    // commitFiles saves which commits have files. When updating repository refs,
-    // new commits might be saved, so a commit might be in a temporary state of
-    // not having any files.
-    commitFiles: defineTable({
-        commit: v.id('commits'),
-    }).index('by_commit', ['commit']),
-
     // filenames contains all the filenames for each repo. The size of each row
     // can be potentially very different across repositories.
     filenames: defineTable({
-        commitFileId: v.id('commitFiles'),
+        commit: v.id('commits'),
         files: v.array(v.string()),
-    }).index('by_commit_file', ['commitFileId']),
+    }).index('by_commit', ['commit']),
+
+    filecontents: defineTable({
+        commit: v.id('commits'),
+        path: v.string(),
+        contents: v.string(),
+    })
+        .index('by_path', ['path'])
+        .index('by_commit', ['commit']),
 })

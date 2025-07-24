@@ -8,10 +8,6 @@ the backend.
 
 The app will work as close as possible to the github ui.
 
-## Code editing
-
-You won't write / edit any code. Instead, you will suggest code changes for me to implement.
-
 ## Project Requirements
 
 - **Mission**: GitHub files browser with sidebar tree view and main file viewer

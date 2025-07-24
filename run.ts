@@ -19,4 +19,4 @@ let ctx: Context = {
     },
 }
 
-await downloadAllRefs(ctx, githubClient, 'alarbada', 'gitrapid.com')
+await downloadAllRefs(ctx, githubClient, 'facebook', 'react')

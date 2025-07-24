@@ -16,6 +16,7 @@ export interface Context {
 type RefAndPath = {
     ref: string
     path: string
+    isCommit: boolean
 }
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
@@ -29,6 +30,7 @@ export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): R
         return {
             ref: 'HEAD',
             path: 'README.md',
+            isCommit: false,
         }
     }
 
@@ -40,7 +42,7 @@ export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): R
             path = 'README.md'
         }
 
-        return { ref: firstPart, path }
+        return { ref: firstPart, path, isCommit: true }
     }
 
     for (let part of parts) {
@@ -60,13 +62,13 @@ export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): R
             if (path.startsWith('/')) {
                 path = path.slice(1)
             }
-            return { ref: lastValidRef, path }
+            return { ref: lastValidRef, path, isCommit: false }
         }
     }
 
     // Handle case where the entire string is a valid ref (no path)
     if (repoRefsSet.has(refAndPath)) {
-        return { ref: refAndPath, path: 'README.md' }
+        return { ref: refAndPath, path: 'README.md', isCommit: false }
     }
 
     return null
