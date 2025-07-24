@@ -1,6 +1,6 @@
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 import { api } from './_generated/api'
-import type { GithubClient } from './GithubClient'
+import type { GithubClient } from '../src/pages/shared/github-client'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query'>>(
@@ -97,6 +97,7 @@ export async function downloadAllRefs(
     let fetchedRefs: {
         sha: string
         ref: string
+        isTag: boolean
     }[] = []
 
     let page = 0
@@ -118,7 +119,7 @@ export async function downloadAllRefs(
 
         for (let ref of refs) {
             let sha = ref.commit.sha
-            fetchedRefs.push({ sha, ref: ref.name })
+            fetchedRefs.push({ sha, ref: ref.name, isTag: false })
         }
 
         page++
@@ -143,7 +144,7 @@ export async function downloadAllRefs(
 
         for (let tag of tags) {
             let sha = tag.commit.sha
-            fetchedRefs.push({ sha, ref: tag.name })
+            fetchedRefs.push({ sha, ref: tag.name, isTag: true })
         }
 
         page++

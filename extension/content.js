@@ -32,7 +32,7 @@ button.addEventListener('mouseleave', () => {
 // Click handler
 button.addEventListener('click', () => {
     const currentUrl = window.location.href
-    const gitrapidUrl = currentUrl.replace('github.com', 'gitrapid.com')
+    const gitrapidUrl = currentUrl.replace('https://github.com', 'http://localhost:3000')
     window.location.href = gitrapidUrl
 })
 

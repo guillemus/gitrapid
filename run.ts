@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 
-import { GithubClient } from '@convex/GithubClient'
+import { GithubClient } from '@/pages/shared/github-client'
 import { downloadAllRefs, type Context } from '@convex/utils'
 import { ConvexHttpClient } from 'convex/browser'
 

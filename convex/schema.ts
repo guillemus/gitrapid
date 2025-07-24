@@ -22,6 +22,7 @@ export default defineSchema({
         repo: v.id('repos'),
         commit: v.id('commits'),
         ref: v.string(),
+        isTag: v.boolean(),
     })
         .index('by_repo', ['repo'])
         .index('by_repo_and_commit', ['repo', 'commit']),

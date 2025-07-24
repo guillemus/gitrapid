@@ -61,6 +61,7 @@ export const insertRefs = mutation({
             v.object({
                 sha: v.string(),
                 ref: v.string(),
+                isTag: v.boolean(),
             }),
         ),
     },
@@ -80,6 +81,7 @@ export const insertRefs = mutation({
             await ctx.db.insert('refs', {
                 repo: args.repoId,
                 commit: saved._id,
+                isTag: ref.isTag,
                 ref: ref.ref,
             })
         }
@@ -157,6 +159,7 @@ export const upsertCommitsAndRefs = mutation({
             v.object({
                 sha: v.string(),
                 ref: v.string(),
+                isTag: v.boolean(),
             }),
         ),
     },
@@ -187,6 +190,7 @@ export const upsertCommitsAndRefs = mutation({
                     commit: commitId,
                     ref: ref.ref,
                     repo: args.repo,
+                    isTag: ref.isTag,
                 })
                 continue
             }
@@ -201,64 +205,12 @@ export const upsertCommitsAndRefs = mutation({
                     repo: args.repo,
                     ref: ref.ref,
                     commit: commitId,
+                    isTag: ref.isTag,
                 })
             }
         }
     },
 })
-
-// export const getFile = action({
-//     args: v.object({
-//         repoId: v.id('repos'),
-//         refAndPath: v.string(),
-//     }),
-//     handler: async (ctx, args) => {
-//         let repoP = ctx.runQuery(api.functions.getRepoFromId, { repoId: args.repoId })
-
-//         let repoRefs = await ctx.runQuery(api.functions.getRepoRefs, { repoId: args.repoId })
-//         if (!repoRefs) {
-//             console.error('not found repo refs')
-//             return null
-//         }
-
-//         let repo = await repoP
-//         if (!repo) {
-//             console.error('repo not found')
-//             return null
-//         }
-
-//         let repoRefsSet = new Set([...repoRefs.map((ref) => ref.ref)])
-
-//         let parsed = parseRefAndPath(repoRefsSet, args.refAndPath)
-//         if (!parsed) {
-//             console.error('error parsing path', args)
-//             return null
-//         }
-
-//         let fileContentsRes = await githubClient.getFileContentByAPI(
-//             repo.owner,
-//             repo.repo,
-//             parsed.path,
-//             parsed.ref,
-//         )
-//         if (fileContentsRes.error) {
-//             console.error(fileContentsRes.error)
-//             return null
-//         }
-
-//         if (Array.isArray(fileContentsRes.data)) {
-//             console.info('file contents is a directory', fileContentsRes.data)
-//             return null
-//         }
-
-//         if (fileContentsRes.data.type === 'file') {
-//             return atob(fileContentsRes.data.content)
-//         }
-
-//         console.log('file contents is something else', fileContentsRes.data)
-//         return null
-//     },
-// })
 
 type GetFileOutput =
     | {

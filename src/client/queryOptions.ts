@@ -1,6 +1,6 @@
 import { authClient, getLanguageFromExtension, type GithubFilePathWithLine } from '@/client/utils'
-import { githubClient } from '@/shared/github-client'
-import { unwrap } from '@/shared/shared'
+import { githubClient } from '@/pages/shared/github-client'
+import { unwrap } from '@/pages/shared/shared'
 import { client, type GetGithubFileOutput } from '@/shared/trpc-client'
 import { queryOptions } from '@tanstack/react-query'
 

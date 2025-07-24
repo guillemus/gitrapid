@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { GithubClient } from './GithubClient'
+import { GithubClient } from '../src/pages/shared/github-client'
 import { api } from './_generated/api'
 import { action } from './_generated/server'
 import { downloadAllRefs } from './utils'

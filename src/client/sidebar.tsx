@@ -5,15 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import {
     FaChevronDown,
     FaChevronRight,
+    FaCodeBranch,
     FaFile,
     FaFolder,
     FaSpinner,
-    FaCodeBranch,
 } from 'react-icons/fa'
-import { FastNavlink } from './components'
-import { fileOptions, branchesOptions } from './queryOptions'
 import { useNavigate } from 'react-router'
-import type { Folder, FolderContents } from '@/shared/github-client'
+import { FastNavlink } from './components'
+import { branchesOptions, fileOptions } from './queryOptions'
 
 type FileItem = {
     name: string
