@@ -90,7 +90,7 @@ export class GithubClient {
     }
 
     // Get file data by using the API. Useful to check what kind of file is the given file.
-    getFileContentByAPI(owner: string, repo: string, path: string, ref: string) {
+    getFileContentByAPI(owner: string, repo: string, ref: string, path: string) {
         const endpoint = `/repos/${owner}/${repo}/contents/${path}?ref=${ref}`
         return this.jsonRequest<GetContentResponse>(endpoint)
     }

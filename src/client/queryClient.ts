@@ -2,7 +2,8 @@ import { QueryClient } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
 
-export const queryClient = new QueryClient({
+// caches queries to indexeddb
+export const idbQueryClient = new QueryClient({
     defaultOptions: {
         queries: {
             gcTime: 1000 * 60 * 60 * 24, // 24 hours
@@ -23,6 +24,6 @@ const idbPersister = {
 }
 
 persistQueryClient({
-    queryClient,
+    queryClient: idbQueryClient,
     persister: idbPersister,
 })

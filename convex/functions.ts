@@ -212,96 +212,6 @@ export const upsertCommitsAndRefs = mutation({
     },
 })
 
-type GetFileOutput =
-    | {
-          type: 'success'
-          contents: string
-          ref: string
-          path: string
-          commitId: Id<'commits'>
-      }
-    | { type: 'error' }
-    | {
-          type: 'file_not_found'
-          ref: string
-          path: string
-          commitId: Id<'commits'>
-      }
-
-export const getFile = query({
-    args: v.object({
-        owner: v.string(),
-        repo: v.string(),
-        refAndPath: v.string(),
-    }),
-    async handler(ctx, { owner, repo, refAndPath }): Promise<GetFileOutput> {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
-        if (!savedRepo) {
-            console.error(`getFile: repo not found - owner: ${owner}, repo: ${repo}`)
-            return { type: 'error' }
-        }
-
-        let refs = await getRefsFromRepo(ctx, savedRepo._id)
-        let refsSet = new Set(refs.map((ref) => ref.ref))
-
-        let parsed = parseRefAndPath(refsSet, refAndPath)
-        if (!parsed) {
-            console.error(`getFile: failed to parse refAndPath - refAndPath: ${refAndPath}`)
-            return { type: 'error' }
-        }
-
-        let commitId
-        getCommit: {
-            if (parsed.isCommit) {
-                let savedCommit = await getSavedCommitFromSha(ctx, parsed.ref)
-                if (!savedCommit) {
-                    console.error(`getFile: commit not found - sha: ${parsed.ref}`)
-                    return { type: 'error' }
-                }
-
-                commitId = savedCommit?._id
-            } else if (refsSet.has(parsed.ref)) {
-                for (let ref of refs) {
-                    if (parsed.ref === ref.ref) {
-                        commitId = ref.commit
-                        break getCommit
-                    }
-                }
-
-                console.error(`getFile: commitId not found after ref lookup - ref: ${parsed.ref}`)
-                return { type: 'error' }
-            } else {
-                console.error(
-                    `getFile: ref not found in refsSet - ref: ${parsed.ref}, available refs: ${Array.from(refsSet).join(', ')}`,
-                )
-                return { type: 'error' }
-            }
-        }
-
-        let filecontents = await ctx.db
-            .query('filecontents')
-            .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .filter((f) => f.eq(f.field('path'), parsed.path))
-            .first()
-        if (!filecontents) {
-            return {
-                type: 'file_not_found',
-                ref: parsed.ref,
-                path: parsed.path,
-                commitId,
-            }
-        }
-
-        return {
-            type: 'success',
-            contents: filecontents.contents,
-            ref: parsed.ref,
-            path: parsed.path,
-            commitId,
-        }
-    },
-})
-
 export const getRefAndPath = query({
     args: v.object({
         repoId: v.id('repos'),
@@ -322,21 +232,6 @@ export const insertRepo = mutation({
     },
     async handler(ctx, args) {
         return ctx.db.insert('repos', args)
-    },
-})
-
-export const insertFileContents = mutation({
-    args: {
-        commitId: v.id('commits'),
-        path: v.string(),
-        contents: v.string(),
-    },
-    async handler(ctx, { commitId, path, contents }) {
-        return ctx.db.insert('filecontents', {
-            commit: commitId,
-            path,
-            contents,
-        })
     },
 })
 
@@ -374,5 +269,103 @@ export const urlWithFilenames = query({
         }
 
         return `http://localhost:3000/${repo.owner}/${repo.repo}/blob/${commit.sha}`
+    },
+})
+
+export const getRefs = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+    async handler(ctx, args) {
+        let savedRepo = await getSavedRepo(ctx, args.owner, args.repo)
+        if (!savedRepo) {
+            console.error(`getRefs: repo not found - owner: ${args.owner}, repo: ${args.repo}`)
+            return []
+        }
+
+        return getRefsFromRepo(ctx, savedRepo._id)
+    },
+})
+
+export const getRefsAndCurrent = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        if (!savedRepo) {
+            return null
+        }
+
+        let commitIdAndRefs = await getCommitIdFromRef(ctx, savedRepo._id, refAndPath)
+        if (!commitIdAndRefs) return null
+
+        return commitIdAndRefs
+    },
+})
+
+export const separateRefFromPath = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        if (!savedRepo) {
+            return null
+        }
+
+        // Fetch all refs for the repo to parse the refAndPath
+        let refs = await getRefsFromRepo(ctx, savedRepo._id)
+        let refsSet = new Set(refs.map((ref) => ref.ref))
+
+        return parseRefAndPath(refsSet, refAndPath)
+    },
+})
+
+async function getCommitIdFromRef(ctx: QueryCtx, repoId: Id<'repos'>, refAndPath: string) {
+    let refs = await getRefsFromRepo(ctx, repoId)
+    let refsSet = new Set(refs.map((ref) => ref.ref))
+
+    let parsed = parseRefAndPath(refsSet, refAndPath)
+    if (!parsed) {
+        return null
+    }
+
+    for (let ref of refs) {
+        if (ref.ref === parsed.ref) {
+            return {
+                ref: parsed.ref,
+                commitId: ref.commit,
+                refs,
+            }
+        }
+    }
+
+    return null
+}
+
+export const commitIdFromPath = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        if (!savedRepo) {
+            return null
+        }
+
+        let result = await getCommitIdFromRef(ctx, savedRepo._id, refAndPath)
+        if (!result) {
+            return null
+        }
+
+        return result.commitId
     },
 })

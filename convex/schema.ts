@@ -33,12 +33,4 @@ export default defineSchema({
         commit: v.id('commits'),
         files: v.array(v.string()),
     }).index('by_commit', ['commit']),
-
-    filecontents: defineTable({
-        commit: v.id('commits'),
-        path: v.string(),
-        contents: v.string(),
-    })
-        .index('by_path', ['path'])
-        .index('by_commit', ['commit']),
 })

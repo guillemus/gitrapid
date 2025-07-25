@@ -21,6 +21,7 @@ type RefAndPath = {
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
 
+// fixme: Set<string> leaking implementation details!!
 export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): RefAndPath | null {
     let parts = refAndPath.split('/')
     let acc = ''
@@ -164,6 +165,8 @@ export async function downloadAllRefs(
         repoId: repoId,
     })
 
+    let ps = []
+
     for (let i = 0; i < commits.length; i++) {
         const commit = commits[i]!
         console.log(
@@ -181,10 +184,17 @@ export async function downloadAllRefs(
         let fileNames = allFiles.data.tree.map((f) => f.path)
         console.log('upserting', fileNames.length, 'files for commit', commit.sha)
 
-        await ctx.runMutation(api.functions.upsertFiles, {
-            commitId: commit._id,
-            fileNames: fileNames,
-        })
+        if (ps.length > 10) {
+            await Promise.all(ps)
+            ps = []
+        }
+
+        ps.push(
+            ctx.runMutation(api.functions.upsertFiles, {
+                commitId: commit._id,
+                fileNames: fileNames,
+            }),
+        )
 
         console.log(`finished upserting commit ${commit.sha}`)
     }

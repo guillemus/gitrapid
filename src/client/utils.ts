@@ -161,3 +161,12 @@ export function useMutable<T extends object>(initial: T): T {
 import { createAuthClient } from 'better-auth/react'
 
 export const authClient = createAuthClient()
+
+export function useDefined<T>(t?: T) {
+    let ref = useRef(t)
+    if (t) {
+        ref.current = t
+    }
+
+    return ref.current
+}

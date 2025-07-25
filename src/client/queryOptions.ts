@@ -6,38 +6,6 @@ import { queryOptions } from '@tanstack/react-query'
 
 import { hightlighterP } from './highlighter'
 import { parseCode, parseMarkdown, type CreateTransformerOptions } from './shiki'
-import { useAction } from 'convex/react'
-import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
-
-type GetFileOptionsProps = {
-    transformerOpts: CreateTransformerOptions
-    repoId?: Id<'repos'>
-    refAndPath: string
-}
-
-export function getFileOptions(props: GetFileOptionsProps) {
-    let getFile = useAction(api.functions.getFile)
-
-    return queryOptions({
-        queryKey: [props.repoId, props.refAndPath],
-        queryFn: async () => {
-            if (!props.repoId) {
-                return null
-            }
-
-            let fileContents = await getFile({ refAndPath: props.refAndPath, repoId: props.repoId })
-            if (!fileContents) {
-                return null
-            }
-
-            const language = getLanguageFromExtension(props.refAndPath)
-            let highlighter = await hightlighterP
-
-            return parseCode(props.transformerOpts, highlighter, fileContents, language)
-        },
-    })
-}
 
 export function fileOptions(params: GithubFilePathWithLine, enabled: boolean = true) {
     let session = authClient.useSession()
