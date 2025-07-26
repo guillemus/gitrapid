@@ -11,6 +11,7 @@ export default defineSchema({
     commits: defineTable({
         repo: v.id('repos'),
         sha: v.string(),
+        filenames: v.optional(v.id('filenames')),
     })
         .index('by_repo_and_sha', ['repo', 'sha'])
         .index('by_repo', ['repo']),

@@ -16,7 +16,7 @@ import { ConvexProvider, useAction, useQuery } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { CodeBlock } from './code-block'
-import { convex, queryClient } from './convex'
+import { convex, convexHttp, queryClient } from './convex'
 import { useDefined, useMutable, useTanstackQuery } from './utils'
 
 type GithubParams = {
@@ -211,12 +211,7 @@ function RefSelector() {
         : currentData
 
     function selectRef(ref: string) {
-        // Extract path from current refAndPath
-        const pathParts = params.refAndPath.split('/')
-        const currentPath = pathParts.slice(1).join('/')
-        const newPath = currentPath ? `${ref}/${currentPath}` : ref
-
-        navigate(`/${params.owner}/${params.repo}/tree/${newPath}`)
+        navigate(`/${params.owner}/${params.repo}/blob/${ref}`)
         selectorState.showDropdown = false
         selectorState.searchQuery = ''
     }
@@ -315,20 +310,19 @@ function RefSelector() {
     )
 }
 
-function Sidebar() {
+function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()
 
-    let commitId
-    commitId = useQuery(api.functions.commitIdFromPath, {
+    let files
+    files = useQuery(api.functions.filesAndCommitIdFromPath, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: params.refAndPath,
     })
-    commitId = useDefined(commitId) ?? undefined
+    files = useDefined(files)
+    let commitId = files?.commitId
 
-    let files
-    files = useQuery(api.functions.getFiles, commitId ? { commitId } : 'skip')
-    files = files ? files.files : []
+    files = preloadedFiles ?? files?.files
 
     let fileTree = useMemo(() => buildFileTree(files ?? []), [files])
 
@@ -344,75 +338,33 @@ function Sidebar() {
     )
 }
 
-function FilePicker({
-    files,
-    onClose,
-    params,
-}: {
-    files: string[]
-    onClose: () => void
-    params: GithubParams
-}) {
-    const navigate = useNavigate()
-    const [query, setQuery] = useState('')
-
-    const openFile = (path: string) => {
-        const refParts = params.refAndPath.split('/')
-        const ref = refParts[0] || 'main'
-        navigate(`/${params.owner}/${params.repo}/blob/${ref}/${path}`)
-        onClose()
-    }
-
-    const q = query.trim().toLowerCase()
-    const filtered = q ? files.filter((f) => f.toLowerCase().includes(q)) : files
-
-    // Close on Escape
-    useEffect(() => {
-        const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-        window.addEventListener('keydown', esc)
-        return () => window.removeEventListener('keydown', esc)
-    }, [onClose])
-
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-20"
-            onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
-            <div className="w-full max-w-lg rounded bg-white shadow-xl">
-                <Command className="p-2">
-                    <Command.Input
-                        autoFocus
-                        placeholder="Search files…"
-                        className="w-full border-b px-2 py-2 text-lg outline-none"
-                        value={query}
-                        onValueChange={setQuery}
-                    />
-                    <Command.List className="max-h-80 overflow-y-auto">
-                        {filtered.map((path) => (
-                            <Command.Item
-                                key={path}
-                                value={path}
-                                onSelect={() => openFile(path)}
-                                className="cursor-pointer px-3 py-1.5 data-[selected=true]:bg-blue-100"
-                            >
-                                {path}
-                            </Command.Item>
-                        ))}
-                    </Command.List>
-                </Command>
-            </div>
-        </div>
-    )
-}
-
 function GitRapid() {
+    let params = useGithubParams()
+
+    let loaded = useMutable({ value: false })
+    let page = useTanstackQuery({
+        queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
+        queryFn: async () => {
+            let query = await convexHttp.action(api.actions.getRepoPage, {
+                owner: params.owner,
+                repo: params.repo,
+                refAndPath: params.refAndPath,
+            })
+
+            loaded.value = true
+
+            return query
+        },
+        enabled: !loaded.value,
+    })
+
     return (
         <div className="flex h-screen">
             <div className="h-full w-60 overflow-y-auto">
-                <Sidebar></Sidebar>
+                <Sidebar preloadedFiles={page.data?.files}></Sidebar>
             </div>
             <div className="flex-1 overflow-auto">
-                <Code></Code>
+                <Code preloadedFileContents={page.data?.fileContents}></Code>
             </div>
         </div>
     )
@@ -435,13 +387,15 @@ function useFetchFileOptions(refAndPath: string) {
     })
 }
 
-function Code() {
+function Code(props: { preloadedFileContents?: string }) {
     let params = useGithubParams()
     let { data: file } = useTanstackQuery(useFetchFileOptions(params.refAndPath))
 
+    let contents = props.preloadedFileContents ?? file
+
     return (
         <div>
-            <CodeBlock code={file ?? ''}></CodeBlock>
+            <CodeBlock code={contents ?? ''}></CodeBlock>
         </div>
     )
 }

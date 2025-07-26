@@ -1,28 +1,7 @@
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
 import { mutation, query, QueryCtx } from './_generated/server'
-import { parseRefAndPath } from './utils'
-
-function getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-    return ctx.db
-        .query('refs')
-        .withIndex('by_repo', (r) => r.eq('repo', repoId))
-        .collect()
-}
-
-function getSavedRepo(ctx: QueryCtx, owner: string, repo: string) {
-    return ctx.db
-        .query('repos')
-        .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-        .first()
-}
-
-function getSavedCommitFromSha(ctx: QueryCtx, sha: string) {
-    return ctx.db
-        .query('commits')
-        .filter((r) => r.eq(r.field('sha'), sha))
-        .first()
-}
+import { getFilesFromCommit, getRefsFromRepo, getSavedRepo, parseRefAndPath } from './utils'
 
 export const getRepoFromId = query({
     args: {
@@ -41,6 +20,12 @@ export const getRepo = query({
 
     handler: async (ctx, args) => {
         return getSavedRepo(ctx, args.owner, args.repo)
+    },
+})
+
+export const getAllRepos = query({
+    async handler(ctx) {
+        return ctx.db.query('repos').collect()
     },
 })
 
@@ -117,24 +102,11 @@ export const getAllRepoCommitsWithoutFiles = query({
         repoId: v.id('repos'),
     },
     async handler(ctx, args) {
-        let commits = await ctx.db
+        return ctx.db
             .query('commits')
             .withIndex('by_repo', (c) => c.eq('repo', args.repoId))
+            .filter((c) => c.eq(c.field('filenames'), undefined))
             .collect()
-
-        let commitsWithoutFiles = []
-        for (let commit of commits) {
-            let savedCommitFiles = await ctx.db
-                .query('filenames')
-                .withIndex('by_commit', (c) => c.eq('commit', commit._id))
-                .first()
-
-            if (!savedCommitFiles) {
-                commitsWithoutFiles.push(commit)
-            }
-        }
-
-        return commitsWithoutFiles
     },
 })
 
@@ -145,10 +117,11 @@ export const upsertFiles = mutation({
     },
 
     async handler(ctx, args) {
-        return ctx.db.insert('filenames', {
+        let insertedFilenames = await ctx.db.insert('filenames', {
             commit: args.commitId,
             files: args.fileNames,
         })
+        await ctx.db.patch(args.commitId, { filenames: insertedFilenames })
     },
 })
 
@@ -219,9 +192,11 @@ export const getRefAndPath = query({
     }),
     async handler(ctx, args) {
         let refs = await getRefsFromRepo(ctx, args.repoId)
-        let refsSet = new Set(refs.map((ref) => ref.ref))
 
-        return parseRefAndPath(refsSet, args.refAndPath)
+        return parseRefAndPath(
+            refs.map((ref) => ref.ref),
+            args.refAndPath,
+        )
     },
 })
 
@@ -321,17 +296,21 @@ export const separateRefFromPath = query({
 
         // Fetch all refs for the repo to parse the refAndPath
         let refs = await getRefsFromRepo(ctx, savedRepo._id)
-        let refsSet = new Set(refs.map((ref) => ref.ref))
 
-        return parseRefAndPath(refsSet, refAndPath)
+        return parseRefAndPath(
+            refs.map((ref) => ref.ref),
+            refAndPath,
+        )
     },
 })
 
 async function getCommitIdFromRef(ctx: QueryCtx, repoId: Id<'repos'>, refAndPath: string) {
     let refs = await getRefsFromRepo(ctx, repoId)
-    let refsSet = new Set(refs.map((ref) => ref.ref))
 
-    let parsed = parseRefAndPath(refsSet, refAndPath)
+    let parsed = parseRefAndPath(
+        refs.map((ref) => ref.ref),
+        refAndPath,
+    )
     if (!parsed) {
         return null
     }
@@ -367,5 +346,61 @@ export const commitIdFromPath = query({
         }
 
         return result.commitId
+    },
+})
+
+export const filesAndCommitIdFromPath = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        if (!savedRepo) {
+            return null
+        }
+
+        let result = await getCommitIdFromRef(ctx, savedRepo._id, refAndPath)
+        if (!result) {
+            return null
+        }
+
+        let commitId = result.commitId
+        let files = await ctx.db
+            .query('filenames')
+            .withIndex('by_commit', (f) => f.eq('commit', commitId))
+            .first()
+
+        return {
+            files: files ? files.files : [],
+            commitId,
+        }
+    },
+})
+
+export const getRepoAndRefs = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+    async handler(ctx, { owner, repo }) {
+        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        if (!savedRepo) {
+            console.error(`getRepoAndRefs: repo not found - owner: ${owner}, repo: ${repo}`)
+            return null
+        }
+        let refs = await getRefsFromRepo(ctx, savedRepo._id)
+        if (!refs) {
+            console.error(
+                `getRepoAndRefs: refs not found for repo - owner: ${owner}, repo: ${repo}`,
+            )
+            return null
+        }
+
+        return {
+            repo: savedRepo,
+            refs,
+        }
     },
 })

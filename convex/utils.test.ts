@@ -2,11 +2,11 @@ import { describe, test, expect } from 'vitest'
 import { parseRefAndPath } from './utils'
 
 describe('getRefAndPath', () => {
-    const repoRefsSet = new Set(['main', 'develop', 'feature/auth', 'v1.0.0'])
+    const repoRefs = ['main', 'develop', 'feature/auth', 'v1.0.0']
 
     test('should detect commit SHA and extract path', () => {
         const commitSha = 'a1b2c3d4e5f6789012345678901234567890abcd'
-        const result = parseRefAndPath(repoRefsSet, `${commitSha}/src/components/App.tsx`)
+        const result = parseRefAndPath(repoRefs, `${commitSha}/src/components/App.tsx`)
 
         expect(result).toEqual({
             ref: commitSha,
@@ -16,7 +16,7 @@ describe('getRefAndPath', () => {
 
     test('should detect commit SHA without path', () => {
         const commitSha = 'a1b2c3d4e5f6789012345678901234567890abcd'
-        const result = parseRefAndPath(repoRefsSet, commitSha)
+        const result = parseRefAndPath(repoRefs, commitSha)
 
         expect(result).toEqual({
             ref: commitSha,
@@ -25,7 +25,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should detect branch ref with path', () => {
-        const result = parseRefAndPath(repoRefsSet, 'main/src/utils.ts')
+        const result = parseRefAndPath(repoRefs, 'main/src/utils.ts')
 
         expect(result).toEqual({
             ref: 'main',
@@ -34,7 +34,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should detect nested ref with path', () => {
-        const result = parseRefAndPath(repoRefsSet, 'feature/auth/src/auth/login.ts')
+        const result = parseRefAndPath(repoRefs, 'feature/auth/src/auth/login.ts')
 
         expect(result).toEqual({
             ref: 'feature/auth',
@@ -43,7 +43,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should detect tag ref with path', () => {
-        const result = parseRefAndPath(repoRefsSet, 'v1.0.0/README.md')
+        const result = parseRefAndPath(repoRefs, 'v1.0.0/README.md')
 
         expect(result).toEqual({
             ref: 'v1.0.0',
@@ -52,20 +52,20 @@ describe('getRefAndPath', () => {
     })
 
     test('should return null for invalid ref', () => {
-        const result = parseRefAndPath(repoRefsSet, 'nonexistent/src/file.ts')
+        const result = parseRefAndPath(repoRefs, 'nonexistent/src/file.ts')
 
         expect(result).toBeNull()
     })
 
     test('should return null for invalid commit SHA', () => {
-        const result = parseRefAndPath(repoRefsSet, 'invalid-sha/src/file.ts')
+        const result = parseRefAndPath(repoRefs, 'invalid-sha/src/file.ts')
 
         expect(result).toBeNull()
     })
 
     test('should handle uppercase commit SHA', () => {
         const commitSha = 'A1B2C3D4E5F6789012345678901234567890ABCD'
-        const result = parseRefAndPath(repoRefsSet, `${commitSha}/src/file.ts`)
+        const result = parseRefAndPath(repoRefs, `${commitSha}/src/file.ts`)
 
         expect(result).toEqual({
             ref: commitSha,
@@ -75,32 +75,32 @@ describe('getRefAndPath', () => {
 
     test('should handle short commit SHA (7-39 chars)', () => {
         const shortSha = 'a1b2c3d'
-        const result = parseRefAndPath(repoRefsSet, `${shortSha}/src/file.ts`)
+        const result = parseRefAndPath(repoRefs, `${shortSha}/src/file.ts`)
 
         expect(result).toBeNull()
     })
 
     test('should handle commit SHA with invalid characters', () => {
         const invalidSha = 'g1b2c3d4e5f6789012345678901234567890abcd'
-        const result = parseRefAndPath(repoRefsSet, `${invalidSha}/src/file.ts`)
+        const result = parseRefAndPath(repoRefs, `${invalidSha}/src/file.ts`)
 
         expect(result).toBeNull()
     })
 
     test('should handle empty string', () => {
-        const result = parseRefAndPath(repoRefsSet, '')
+        const result = parseRefAndPath(repoRefs, '')
 
         expect(result).toBeNull()
     })
 
     test('should handle single slash', () => {
-        const result = parseRefAndPath(repoRefsSet, '/')
+        const result = parseRefAndPath(repoRefs, '/')
 
         expect(result).toBeNull()
     })
 
     test('should handle ref without path (just ref name)', () => {
-        const result = parseRefAndPath(repoRefsSet, 'main')
+        const result = parseRefAndPath(repoRefs, 'main')
 
         expect(result).toEqual({
             ref: 'main',
@@ -109,7 +109,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should handle path with special characters', () => {
-        const result = parseRefAndPath(repoRefsSet, 'main/src/file-name_v2.component.ts')
+        const result = parseRefAndPath(repoRefs, 'main/src/file-name_v2.component.ts')
 
         expect(result).toEqual({
             ref: 'main',
@@ -118,7 +118,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should prioritize longer matching ref', () => {
-        const refsWithNested = new Set(['feature', 'feature/auth', 'feature/auth/jwt'])
+        const refsWithNested = ['feature', 'feature/auth', 'feature/auth/jwt']
         const result = parseRefAndPath(refsWithNested, 'feature/auth/jwt/src/token.ts')
 
         expect(result).toEqual({
@@ -128,7 +128,7 @@ describe('getRefAndPath', () => {
     })
 
     test('should handle ref that looks like commit but is in refs set', () => {
-        const refsWithShaLike = new Set(['a1b2c3d4e5f6789012345678901234567890abcd'])
+        const refsWithShaLike = ['a1b2c3d4e5f6789012345678901234567890abcd']
         const result = parseRefAndPath(
             refsWithShaLike,
             'a1b2c3d4e5f6789012345678901234567890abcd/src/file.ts',
@@ -142,7 +142,7 @@ describe('getRefAndPath', () => {
 
     test('should handle very deep nested path', () => {
         const result = parseRefAndPath(
-            repoRefsSet,
+            repoRefs,
             'main/src/components/auth/login/forms/LoginForm.tsx',
         )
 

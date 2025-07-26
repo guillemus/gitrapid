@@ -1,6 +1,8 @@
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 import { api } from './_generated/api'
 import type { GithubClient } from '../src/pages/shared/github-client'
+import { QueryCtx } from './_generated/server'
+import { Id } from './_generated/dataModel'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query'>>(
@@ -21,8 +23,9 @@ type RefAndPath = {
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
 
-// fixme: Set<string> leaking implementation details!!
-export function parseRefAndPath(repoRefsSet: Set<string>, refAndPath: string): RefAndPath | null {
+export function parseRefAndPath(repoRefs: string[], refAndPath: string): RefAndPath | null {
+    let repoRefsSet = new Set(repoRefs)
+
     let parts = refAndPath.split('/')
     let acc = ''
     let lastValidRef = ''
@@ -251,4 +254,25 @@ export function buildFileTree(filePaths: string[]): TreeNode {
     }
 
     return result
+}
+
+export function getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
+    return ctx.db
+        .query('refs')
+        .withIndex('by_repo', (r) => r.eq('repo', repoId))
+        .collect()
+}
+
+export function getSavedRepo(ctx: QueryCtx, owner: string, repo: string) {
+    return ctx.db
+        .query('repos')
+        .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+        .first()
+}
+
+export function getFilesFromCommit(ctx: QueryCtx, commitId: Id<'commits'>) {
+    return ctx.db
+        .query('filenames')
+        .withIndex('by_commit', (f) => f.eq('commit', commitId))
+        .first()
 }
