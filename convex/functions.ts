@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
-import { mutation, query, QueryCtx } from './_generated/server'
-import { getFilesFromCommit, getRefsFromRepo, getSavedRepo, parseRefAndPath } from './utils'
+import { mutation, MutationCtx, query, QueryCtx } from './_generated/server'
+import { getRefsFromRepo, getSavedRepo, parseRefAndPath } from './utils'
 
 export const getRepoFromId = query({
     args: {
@@ -104,7 +104,7 @@ export const getAllRepoCommitsWithoutFiles = query({
     async handler(ctx, args) {
         return ctx.db
             .query('commits')
-            .withIndex('by_repo', (c) => c.eq('repo', args.repoId))
+            .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId))
             .filter((c) => c.eq(c.field('filenames'), undefined))
             .collect()
     },
@@ -402,5 +402,94 @@ export const getRepoAndRefs = query({
             repo: savedRepo,
             refs,
         }
+    },
+})
+
+export const insertFilenames = mutation({
+    args: {
+        commitId: v.id('commits'),
+        fileList: v.array(v.string()),
+    },
+    async handler(ctx, { commitId, fileList }) {
+        let saved = await ctx.db
+            .query('filenames')
+            .withIndex('by_commit', (f) => f.eq('commit', commitId))
+            .first()
+
+        if (saved) {
+            return saved._id
+        }
+
+        return await ctx.db.insert('filenames', { commit: commitId, files: fileList })
+    },
+})
+
+export const insertCommit = mutation({
+    args: {
+        repoId: v.id('repos'),
+        sha: v.string(),
+    },
+    async handler(ctx, { repoId, sha }) {
+        let saved = await ctx.db
+            .query('commits')
+            .withIndex('by_repo_and_sha', (c) => c.eq('repo', repoId).eq('sha', sha))
+            .first()
+
+        if (saved) {
+            return saved._id
+        }
+        return await ctx.db.insert('commits', { repo: repoId, sha })
+    },
+})
+
+async function insertFileUtil(
+    ctx: MutationCtx,
+    repoId: Id<'repos'>,
+    commitId: Id<'commits'>,
+    filename: string,
+    content: string,
+) {
+    let saved = await ctx.db
+        .query('files')
+        .withIndex('by_repo_and_commit', (f) => f.eq('repo', repoId).eq('commit', commitId))
+        .first()
+
+    if (saved) {
+        await ctx.db.patch(saved._id, { content })
+        return saved._id
+    }
+    return await ctx.db.insert('files', { repo: repoId, commit: commitId, filename, content })
+}
+
+export const insertFile = mutation({
+    args: {
+        repoId: v.id('repos'),
+        commitId: v.id('commits'),
+        filename: v.string(),
+        content: v.string(),
+    },
+    async handler(ctx, { repoId, commitId, filename, content }) {
+        return await insertFileUtil(ctx, repoId, commitId, filename, content)
+    },
+})
+
+export const insertFiles = mutation({
+    args: {
+        repoId: v.id('repos'),
+        commitId: v.id('commits'),
+        files: v.array(
+            v.object({
+                filename: v.string(),
+                content: v.string(),
+            }),
+        ),
+    },
+    async handler(ctx, { repoId, commitId, files }) {
+        let fileIds = []
+        for (let file of files) {
+            let id = await insertFileUtil(ctx, repoId, commitId, file.filename, file.content)
+            fileIds.push(id)
+        }
+        return fileIds
     },
 })

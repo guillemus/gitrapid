@@ -8,4 +8,6 @@ crons.interval('sync public repositories', { minutes: 5 }, api.actions.downloadR
     repo: 'react',
 })
 
+crons.interval('check github ratelimit', { minutes: 1 }, api.actions.checkRateLimit)
+
 export default crons

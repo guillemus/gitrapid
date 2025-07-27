@@ -14,6 +14,7 @@ type SearchCodeResponse = RestEndpointMethodTypes['search']['code']['response'][
 type ListBranchesResponse = RestEndpointMethodTypes['repos']['listBranches']['response']['data']
 type ListTagsResponse = RestEndpointMethodTypes['repos']['listTags']['response']['data']
 type GetCommitResponse = RestEndpointMethodTypes['repos']['getCommit']['response']['data']
+type GetRateLimitResponse = RestEndpointMethodTypes['rateLimit']['get']['response']['data']
 
 export type GithubFilePath = {
     owner: string
@@ -185,6 +186,10 @@ export class GithubClient {
     getCommit(owner: string, repo: string, ref: string) {
         const endpoint = `/repos/${owner}/${repo}/commits/${ref}`
         return this.jsonRequest<GetCommitResponse>(endpoint)
+    }
+
+    checkRateLimits() {
+        return this.jsonRequest<GetRateLimitResponse>('/rate_limit')
     }
 }
 

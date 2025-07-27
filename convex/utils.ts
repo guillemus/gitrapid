@@ -1,8 +1,8 @@
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
-import { api } from './_generated/api'
 import type { GithubClient } from '../src/pages/shared/github-client'
-import { QueryCtx } from './_generated/server'
-import { Id } from './_generated/dataModel'
+import { api } from './_generated/api'
+import type { Id } from './_generated/dataModel'
+import type { QueryCtx } from './_generated/server'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query'>>(
@@ -259,7 +259,7 @@ export function buildFileTree(filePaths: string[]): TreeNode {
 export function getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
     return ctx.db
         .query('refs')
-        .withIndex('by_repo', (r) => r.eq('repo', repoId))
+        .withIndex('by_repo_and_commit', (r) => r.eq('repo', repoId))
         .collect()
 }
 

@@ -11,13 +11,13 @@ import {
 } from '@primer/octicons-react'
 import { QueryClientProvider, queryOptions } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { Command } from 'cmdk'
 import { ConvexProvider, useAction, useQuery } from 'convex/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { CodeBlock } from './code-block'
 import { convex, convexHttp, queryClient } from './convex'
 import { useDefined, useMutable, useTanstackQuery } from './utils'
+import { NewDesign } from './newDesign'
 
 type GithubParams = {
     owner: string
@@ -328,7 +328,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
 
     return (
         <div>
-            <RefSelector />
+            {/* <RefSelector /> */}
             <div className="p-2">
                 {fileTree.map((node) => (
                     <FileTreeNode commitId={commitId} key={node.path} node={node} params={params} />
@@ -404,6 +404,7 @@ function Router() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/newDesign" element={<NewDesign />} />
                 <Route path="/:owner/:repo" element={<GitRapid />} />
                 <Route path="/:owner/:repo/tree/*" element={<GitRapid />} />
                 <Route path="/:owner/:repo/blob/*" element={<GitRapid />} />

@@ -12,9 +12,7 @@ export default defineSchema({
         repo: v.id('repos'),
         sha: v.string(),
         filenames: v.optional(v.id('filenames')),
-    })
-        .index('by_repo_and_sha', ['repo', 'sha'])
-        .index('by_repo', ['repo']),
+    }).index('by_repo_and_sha', ['repo', 'sha']),
 
     // refs are dynamic pointers to commits. When the user selects a ref, this
     // will be 'dereferenced' back to a pointer, which will get all the files.
@@ -24,9 +22,7 @@ export default defineSchema({
         commit: v.id('commits'),
         ref: v.string(),
         isTag: v.boolean(),
-    })
-        .index('by_repo', ['repo'])
-        .index('by_repo_and_commit', ['repo', 'commit']),
+    }).index('by_repo_and_commit', ['repo', 'commit']),
 
     // filenames contains all the filenames for each repo. The size of each row
     // can be potentially very different across repositories.
@@ -34,4 +30,19 @@ export default defineSchema({
         commit: v.id('commits'),
         files: v.array(v.string()),
     }).index('by_commit', ['commit']),
+
+    files: defineTable({
+        repo: v.id('repos'),
+        commit: v.id('commits'),
+        filename: v.string(),
+        content: v.string(),
+    }).index('by_repo_and_commit', ['repo', 'commit']),
+
+    // appRateLimit is used to track the rate limit of the app.
+    appRateLimit: defineTable({
+        limit: v.number(),
+        used: v.number(),
+        remaining: v.number(),
+        reset: v.string(),
+    }),
 })

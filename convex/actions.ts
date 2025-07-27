@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { GithubClient } from '../src/pages/shared/github-client'
 import { api } from './_generated/api'
 import { Id } from './_generated/dataModel'
-import { action } from './_generated/server'
+import { action, mutation } from './_generated/server'
 import { downloadAllRefs, parseRefAndPath } from './utils'
 
 async function withExponentialBackoff<T>(
@@ -312,5 +312,51 @@ export const insertFilenames = action({
                 }),
             )
         }
+    },
+})
+
+export const updateRateLimit = mutation({
+    args: {
+        limit: v.number(),
+        used: v.number(),
+        remaining: v.number(),
+        reset: v.string(),
+    },
+    async handler(ctx, { limit, used, remaining, reset }) {
+        let rateLimit = {
+            limit,
+            used,
+            remaining,
+            reset,
+        }
+
+        let existingRateLimit = await ctx.db.query('appRateLimit').first()
+        if (existingRateLimit) {
+            await ctx.db.replace(existingRateLimit._id, rateLimit)
+            return
+        }
+
+        await ctx.db.insert('appRateLimit', rateLimit)
+    },
+})
+
+export const checkRateLimit = action({
+    async handler(ctx) {
+        let rateLimits = await githubClient.checkRateLimits()
+        if (rateLimits.error) {
+            throw rateLimits.error
+        }
+
+        const resetMs = rateLimits.data.resources.core.reset * 1000
+        const nowMs = Date.now()
+        const diffMs = resetMs - nowMs
+        const minutes = Math.round(diffMs / (1000 * 60))
+
+        await ctx.runMutation(api.actions.updateRateLimit, {
+            limit: rateLimits.data.resources.core.limit,
+            used: rateLimits.data.resources.core.used,
+            remaining: rateLimits.data.resources.core.remaining,
+            reset: `in ${minutes} minute${minutes === 1 ? '' : 's'}`,
+        })
     },
 })
