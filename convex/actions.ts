@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { GithubClient } from '../src/pages/shared/github-client'
+import { GithubClient } from '../src/shared/githubClient'
 import { api } from './_generated/api'
 import { Id } from './_generated/dataModel'
 import { action, mutation } from './_generated/server'
@@ -239,33 +239,6 @@ export const updateRepoRefs = action({
             repo: repoId,
             refs: fetchedRefs,
         })
-
-        let commits = await ctx.runQuery(api.functions.getAllRepoCommitsWithoutFiles, {
-            repoId: repoId,
-        })
-
-        for (let i = 0; i < commits.length; i++) {
-            const commit = commits[i]!
-            console.log(
-                `processing commit ${i + 1}/${commits.length}: getting tree for`,
-                owner,
-                repoName,
-                commit.sha,
-            )
-            let allFiles = await githubClient.getRepoTree(owner, repoName, commit.sha)
-            if (allFiles.error) {
-                console.error(allFiles.error)
-                continue
-            }
-
-            let fileNames = allFiles.data.tree.map((f) => f.path)
-            console.log('upserting', fileNames.length, 'files for commit', commit.sha)
-
-            await ctx.scheduler.runAfter(0, api.functions.upsertFiles, {
-                commitId: commit._id,
-                fileNames: fileNames,
-            })
-        }
     },
 })
 

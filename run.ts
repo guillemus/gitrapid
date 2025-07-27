@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 
-import { GithubClient } from '@/pages/shared/github-client'
+import { GithubClient } from '@/shared/githubClient'
 import { type Context } from '@convex/utils'
 import { ConvexHttpClient } from 'convex/browser'
 import simpleGit from 'simple-git'
@@ -43,30 +43,36 @@ async function downloadMyRepo(ctx: Context) {
     const commits = log.all
 
     for (const commit of commits) {
-        console.log(`downloading commit ${commit.hash}`)
+        console.log(`${commit.hash}: downloading commit`)
         const commitHash = commit.hash
         const files = await git.raw(['ls-tree', '-r', '--name-only', commitHash])
         const fileList = files.split('\n').filter(Boolean)
 
-        console.log(`inserting commit ${commitHash}`)
+        console.log(`${commitHash}: inserting commit`)
         const commitId = await ctx.runMutation(api.functions.insertCommit, {
             repoId: repoId,
             sha: commitHash,
         })
 
-        console.log(`inserting filenames for commit ${commitHash}`)
-        await ctx.runMutation(api.functions.insertFilenames, {
+        console.log(`${commitHash}: inserting filenames`)
+        let filenamesId = await ctx.runMutation(api.functions.insertFilenames, {
             commitId: commitId,
             fileList,
         })
 
-        // Insert files 30 by 30 (in batches)
-        for (let i = 0; i < fileList.length; i += 30) {
-            const batch = fileList.slice(i, i + 30).map((file) => ({ filename: file, content: '' }))
-            await ctx.runMutation(api.functions.insertFiles, {
+        await ctx.runMutation(api.functions.updateCommit, {
+            commitId: commitId,
+            filenamesId: filenamesId,
+        })
+
+        for (let filename of fileList) {
+            console.log(`${commitHash}: inserting file ${filename}`)
+            let content = await git.raw(['show', `${commitHash}:${filename}`])
+            await ctx.runMutation(api.functions.insertFile, {
                 repoId: repoId,
                 commitId: commitId,
-                files: batch,
+                filename,
+                content,
             })
         }
     }

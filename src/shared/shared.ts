@@ -1,4 +1,4 @@
-import type { GetContentResponse } from './github-client'
+import type { GetContentResponse } from './githubClient'
 
 export function transformFileContentsResponse(fileContents: GetContentResponse) {
     if (Array.isArray(fileContents)) {

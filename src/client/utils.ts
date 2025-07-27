@@ -1,7 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { useLocation, useParams } from 'react-router'
-import type { GithubFilePath } from '../pages/shared/github-client'
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 
 // This exists bc of naming conflict with convex.
 export const useTanstackQuery = useQuery
@@ -73,46 +71,6 @@ export function getLanguageFromExtension(filePath: string): string {
         properties: 'properties',
     }
     return languageMap[extension || ''] || 'text'
-}
-
-export type GithubFilePathWithLine = GithubFilePath & {
-    highlightedLine?: number
-}
-
-function parseLineNumber(hash: string) {
-    if (hash[0] === '#') {
-        let res = parseInt(hash.slice(2))
-        if (isNaN(res)) return
-
-        return res
-    }
-}
-
-// Transforms
-// - /:owner/:repo/tree/*
-// - /:owner/:repo/blob/*
-// paths into a github file path
-export function useGithubFilePath(): GithubFilePathWithLine {
-    const params = useParams<{
-        owner: string
-        repo: string
-        '*': string
-    }>()
-
-    let location = useLocation()
-    let startLineNumber = parseLineNumber(location.hash)
-
-    if (!params.owner) throw new Error(':owner param required')
-    if (!params.repo) throw new Error(':repo param required')
-
-    let refAndPath = params['*'] ?? ''
-
-    return {
-        owner: params.owner,
-        repo: params.repo,
-        refAndPath,
-        highlightedLine: startLineNumber,
-    }
 }
 
 export function useDebounce<T>(value: T, delay: number): T {

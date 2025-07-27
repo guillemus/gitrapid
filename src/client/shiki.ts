@@ -5,6 +5,8 @@ import { type Highlighter, type ShikiTransformer } from 'shiki'
 export function parseMarkdown(unparsed: string) {
     let contents = marked(unparsed) as string
     contents = DOMPurify.sanitize(contents)
+
+    // @ts-ignore
     return contents as TrustedHTML
 }
 
@@ -22,6 +24,8 @@ export function parseCode(
         })
 
         const sanitized = DOMPurify.sanitize(html)
+
+        // @ts-ignore
         return sanitized as TrustedHTML
     } catch (err) {
         console.error(err)

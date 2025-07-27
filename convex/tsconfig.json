@@ -21,6 +21,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["./**/*", "../src/pages/shared/github-client.ts"],
+  "include": ["./**/*", "../src/shared/githubClient.ts"],
   "exclude": ["./_generated"]
 }

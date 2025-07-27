@@ -1,3 +1,4 @@
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import {
@@ -9,15 +10,14 @@ import {
     SearchIcon,
     TagIcon,
 } from '@primer/octicons-react'
-import { QueryClientProvider, queryOptions } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { ConvexProvider, useAction, useQuery } from 'convex/react'
+import { ConvexProvider, useQuery } from 'convex/react'
 import { useEffect, useMemo } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate, useParams } from 'react-router'
-import { CodeBlock } from './code-block'
+import { CodeBlock } from './codeBlock'
 import { convex, convexHttp, queryClient } from './convex'
 import { useDefined, useMutable, useTanstackQuery } from './utils'
-import { NewDesign } from './newDesign'
 
 type GithubParams = {
     owner: string
@@ -345,7 +345,7 @@ function GitRapid() {
     let page = useTanstackQuery({
         queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
         queryFn: async () => {
-            let query = await convexHttp.action(api.actions.getRepoPage, {
+            let query = await convexHttp.query(api.functions.getRepoPage, {
                 owner: params.owner,
                 repo: params.repo,
                 refAndPath: params.refAndPath,
@@ -372,18 +372,10 @@ function GitRapid() {
 
 function useFetchFileOptions(refAndPath: string) {
     let params = useGithubParams()
-    let fetchFile = useAction(api.actions.fetchFileFromGithub)
-    return queryOptions({
-        queryKey: ['file', params.owner, params.repo, refAndPath],
-        queryFn: async () => {
-            let file = await fetchFile({
-                owner: params.owner,
-                repo: params.repo,
-                refAndPath: refAndPath,
-            })
-            return file
-        },
-        staleTime: Infinity,
+    return convexQuery(api.functions.getFile, {
+        owner: params.owner,
+        repo: params.repo,
+        refAndPath: refAndPath,
     })
 }
 
@@ -391,7 +383,8 @@ function Code(props: { preloadedFileContents?: string }) {
     let params = useGithubParams()
     let { data: file } = useTanstackQuery(useFetchFileOptions(params.refAndPath))
 
-    let contents = props.preloadedFileContents ?? file
+    // fixme: should be parsed, this is bad.
+    let contents: any = props.preloadedFileContents ?? file
 
     return (
         <div>
@@ -404,7 +397,6 @@ function Router() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/newDesign" element={<NewDesign />} />
                 <Route path="/:owner/:repo" element={<GitRapid />} />
                 <Route path="/:owner/:repo/tree/*" element={<GitRapid />} />
                 <Route path="/:owner/:repo/blob/*" element={<GitRapid />} />

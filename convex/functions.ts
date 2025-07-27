@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { Id } from './_generated/dataModel'
-import { mutation, MutationCtx, query, QueryCtx } from './_generated/server'
-import { getRefsFromRepo, getSavedRepo, parseRefAndPath } from './utils'
+import { mutation, query, QueryCtx } from './_generated/server'
+import { parseRefAndPath } from './utils'
 
 export const getRepoFromId = query({
     args: {
@@ -19,7 +19,10 @@ export const getRepo = query({
     },
 
     handler: async (ctx, args) => {
-        return getSavedRepo(ctx, args.owner, args.repo)
+        return ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
+            .first()
     },
 })
 
@@ -34,7 +37,10 @@ export const getRepoRefs = query({
         repoId: v.id('repos'),
     },
     handler: async (ctx, args) => {
-        let refs = await getRefsFromRepo(ctx, args.repoId)
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', args.repoId))
+            .collect()
         return refs
     },
 })
@@ -191,7 +197,10 @@ export const getRefAndPath = query({
         refAndPath: v.string(),
     }),
     async handler(ctx, args) {
-        let refs = await getRefsFromRepo(ctx, args.repoId)
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', args.repoId))
+            .collect()
 
         return parseRefAndPath(
             refs.map((ref) => ref.ref),
@@ -253,13 +262,19 @@ export const getRefs = query({
         repo: v.string(),
     },
     async handler(ctx, args) {
-        let savedRepo = await getSavedRepo(ctx, args.owner, args.repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
+            .first()
         if (!savedRepo) {
             console.error(`getRefs: repo not found - owner: ${args.owner}, repo: ${args.repo}`)
             return []
         }
 
-        return getRefsFromRepo(ctx, savedRepo._id)
+        return ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
+            .collect()
     },
 })
 
@@ -270,7 +285,10 @@ export const getRefsAndCurrent = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
         if (!savedRepo) {
             return null
         }
@@ -289,13 +307,18 @@ export const separateRefFromPath = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
         if (!savedRepo) {
             return null
         }
 
-        // Fetch all refs for the repo to parse the refAndPath
-        let refs = await getRefsFromRepo(ctx, savedRepo._id)
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
+            .collect()
 
         return parseRefAndPath(
             refs.map((ref) => ref.ref),
@@ -305,7 +328,10 @@ export const separateRefFromPath = query({
 })
 
 async function getCommitIdFromRef(ctx: QueryCtx, repoId: Id<'repos'>, refAndPath: string) {
-    let refs = await getRefsFromRepo(ctx, repoId)
+    let refs = await ctx.db
+        .query('refs')
+        .withIndex('by_repo_and_commit', (r) => r.eq('repo', repoId))
+        .collect()
 
     let parsed = parseRefAndPath(
         refs.map((ref) => ref.ref),
@@ -335,7 +361,10 @@ export const commitIdFromPath = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
         if (!savedRepo) {
             return null
         }
@@ -356,7 +385,10 @@ export const filesAndCommitIdFromPath = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
         if (!savedRepo) {
             return null
         }
@@ -385,12 +417,18 @@ export const getRepoAndRefs = query({
         repo: v.string(),
     },
     async handler(ctx, { owner, repo }) {
-        let savedRepo = await getSavedRepo(ctx, owner, repo)
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
         if (!savedRepo) {
             console.error(`getRepoAndRefs: repo not found - owner: ${owner}, repo: ${repo}`)
             return null
         }
-        let refs = await getRefsFromRepo(ctx, savedRepo._id)
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
+            .collect()
         if (!refs) {
             console.error(
                 `getRepoAndRefs: refs not found for repo - owner: ${owner}, repo: ${repo}`,
@@ -442,24 +480,15 @@ export const insertCommit = mutation({
     },
 })
 
-async function insertFileUtil(
-    ctx: MutationCtx,
-    repoId: Id<'repos'>,
-    commitId: Id<'commits'>,
-    filename: string,
-    content: string,
-) {
-    let saved = await ctx.db
-        .query('files')
-        .withIndex('by_repo_and_commit', (f) => f.eq('repo', repoId).eq('commit', commitId))
-        .first()
-
-    if (saved) {
-        await ctx.db.patch(saved._id, { content })
-        return saved._id
-    }
-    return await ctx.db.insert('files', { repo: repoId, commit: commitId, filename, content })
-}
+export const updateCommit = mutation({
+    args: {
+        commitId: v.id('commits'),
+        filenamesId: v.id('filenames'),
+    },
+    async handler(ctx, { commitId, filenamesId }) {
+        await ctx.db.patch(commitId, { filenames: filenamesId })
+    },
+})
 
 export const insertFile = mutation({
     args: {
@@ -469,27 +498,155 @@ export const insertFile = mutation({
         content: v.string(),
     },
     async handler(ctx, { repoId, commitId, filename, content }) {
-        return await insertFileUtil(ctx, repoId, commitId, filename, content)
+        let saved = await ctx.db
+            .query('files')
+            .withIndex('by_repo_and_commit', (f) => f.eq('repo', repoId).eq('commit', commitId))
+            .filter((f) => f.eq(f.field('filename'), filename))
+            .first()
+
+        if (saved) {
+            await ctx.db.patch(saved._id, { content })
+            return saved._id
+        }
+        return await ctx.db.insert('files', { repo: repoId, commit: commitId, filename, content })
     },
 })
 
-export const insertFiles = mutation({
+export const getRepoPage = query({
     args: {
-        repoId: v.id('repos'),
-        commitId: v.id('commits'),
-        files: v.array(
-            v.object({
-                filename: v.string(),
-                content: v.string(),
-            }),
-        ),
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
     },
-    async handler(ctx, { repoId, commitId, files }) {
-        let fileIds = []
-        for (let file of files) {
-            let id = await insertFileUtil(ctx, repoId, commitId, file.filename, file.content)
-            fileIds.push(id)
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
+        if (!savedRepo) {
+            console.error(`getRepoPage: repo not found - owner: ${owner}, repo: ${repo}`)
+            return null
         }
-        return fileIds
+
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
+            .collect()
+        if (!refs) {
+            console.error(`getRepoPage: refs not found for repo - owner: ${owner}, repo: ${repo}`)
+            return null
+        }
+
+        let refNames = refs.map((ref) => ref.ref)
+        let parsed = parseRefAndPath(refNames, refAndPath)
+        if (!parsed) {
+            console.error(
+                `getRepoPage: error parsing ref and path - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+            )
+            return null
+        }
+
+        let ref = refs.find((r) => r.ref === parsed.ref)
+        if (!ref) {
+            console.error(
+                `getRepoPage: ref not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}`,
+            )
+            return null
+        }
+
+        let fileContents = await ctx.db
+            .query('files')
+            .withIndex('by_repo_and_commit', (f) =>
+                f.eq('repo', savedRepo._id).eq('commit', ref.commit),
+            )
+            .filter((f) => f.eq(f.field('filename'), parsed.path))
+            .first()
+
+        if (!fileContents) {
+            console.error(
+                `getRepoPage: file not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
+            )
+            return null
+        }
+
+        let filenames = await ctx.db
+            .query('filenames')
+            .withIndex('by_commit', (f) => f.eq('commit', ref.commit))
+            .first()
+        if (!filenames) {
+            console.error(
+                `getRepoPage: filenames not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
+            )
+            return null
+        }
+
+        return {
+            ref: ref.ref,
+            commitId: ref.commit,
+            fileContents: fileContents.content,
+            repoId: savedRepo._id,
+            refs: refs,
+            files: filenames.files,
+        }
+    },
+})
+
+export const getFile = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let savedRepo = await ctx.db
+            .query('repos')
+            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .first()
+        if (!savedRepo) {
+            return null
+        }
+
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
+            .collect()
+        if (!refs) {
+            console.error(`getFile: refs not found for repo - owner: ${owner}, repo: ${repo}`)
+            return null
+        }
+
+        let refNames = refs.map((ref) => ref.ref)
+        let parsed = parseRefAndPath(refNames, refAndPath)
+        if (!parsed) {
+            console.error(
+                `getFile: error parsing ref and path - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+            )
+            return null
+        }
+
+        let ref = refs.find((r) => r.ref === parsed.ref)
+        if (!ref) {
+            console.error(
+                `getFile: ref not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}`,
+            )
+            return null
+        }
+
+        let fileContents = await ctx.db
+            .query('files')
+            .withIndex('by_repo_and_commit', (f) =>
+                f.eq('repo', savedRepo._id).eq('commit', ref.commit),
+            )
+            .filter((f) => f.eq(f.field('filename'), parsed.path))
+            .first()
+
+        if (!fileContents) {
+            console.error(
+                `getFile: file not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
+            )
+            return null
+        }
+
+        return fileContents.content
     },
 })

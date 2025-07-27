@@ -1,5 +1,5 @@
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
-import type { GithubClient } from '../src/pages/shared/github-client'
+import type { GithubClient } from '../src/shared/githubClient'
 import { api } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
@@ -254,25 +254,4 @@ export function buildFileTree(filePaths: string[]): TreeNode {
     }
 
     return result
-}
-
-export function getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-    return ctx.db
-        .query('refs')
-        .withIndex('by_repo_and_commit', (r) => r.eq('repo', repoId))
-        .collect()
-}
-
-export function getSavedRepo(ctx: QueryCtx, owner: string, repo: string) {
-    return ctx.db
-        .query('repos')
-        .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-        .first()
-}
-
-export function getFilesFromCommit(ctx: QueryCtx, commitId: Id<'commits'>) {
-    return ctx.db
-        .query('filenames')
-        .withIndex('by_commit', (f) => f.eq('commit', commitId))
-        .first()
 }
