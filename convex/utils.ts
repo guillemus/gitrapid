@@ -1,11 +1,11 @@
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
 export interface Context {
-    runQuery<Query extends FunctionReference<'query'>>(
+    runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
         query: Query,
         ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>>
-    runMutation<Mutation extends FunctionReference<'mutation'>>(
+    runMutation<Mutation extends FunctionReference<'mutation', 'internal' | 'public'>>(
         mutation: Mutation,
         ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>>

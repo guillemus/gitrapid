@@ -1,22 +1,23 @@
 import dotenv from 'dotenv'
 
-import { GithubClient } from '@/shared/githubClient'
+import { internal } from '@convex/_generated/api'
 import { type Context } from '@convex/utils'
 import { ConvexHttpClient } from 'convex/browser'
 import simpleGit from 'simple-git'
-import { api } from '@convex/_generated/api'
 
 dotenv.config()
 dotenv.config({ override: true, path: '.env.local' })
 
 const convexClient = new ConvexHttpClient(process.env.CONVEX_URL!)
-const githubClient = new GithubClient(process.env.GITHUB_TOKEN)
+// const githubClient = new GithubClient(process.env.GITHUB_TOKEN)
 
 let ctx: Context = {
     runQuery(query, ...args) {
+        // @ts-ignore
         return convexClient.query(query, ...args)
     },
     runMutation(mutation, ...args) {
+        // @ts-ignore
         return convexClient.mutation(mutation, ...args)
     },
 }
@@ -26,7 +27,7 @@ let ctx: Context = {
 async function downloadMyRepo(ctx: Context) {
     let git = simpleGit()
 
-    const repo = await ctx.runQuery(api.functions.getRepoAndRefs, {
+    const repo = await ctx.runQuery(internal.functions.getRepoAndRefs, {
         owner: 'alarbada',
         repo: 'gitrapid.com',
     })
@@ -49,13 +50,13 @@ async function downloadMyRepo(ctx: Context) {
         const fileList = files.split('\n').filter(Boolean)
 
         console.log(`${commitHash}: inserting commit`)
-        const commitId = await ctx.runMutation(api.functions.insertCommit, {
+        const commitId = await ctx.runMutation(internal.functions.insertCommit, {
             repoId: repoId,
             sha: commitHash,
         })
 
         console.log(`${commitHash}: inserting filenames`)
-        await ctx.runMutation(api.functions.insertFilenames, {
+        await ctx.runMutation(internal.functions.insertFilenames, {
             commitId,
             fileList,
         })
@@ -63,7 +64,7 @@ async function downloadMyRepo(ctx: Context) {
         for (let filename of fileList) {
             console.log(`${commitHash}: inserting file ${filename}`)
             let content = await git.raw(['show', `${commitHash}:${filename}`])
-            await ctx.runMutation(api.functions.insertFile, {
+            await ctx.runMutation(internal.functions.insertFile, {
                 repoId: repoId,
                 commitId: commitId,
                 filename,

@@ -6,14 +6,11 @@ import {
     ChevronRightIcon,
     FileDirectoryIcon,
     FileIcon,
-    GitBranchIcon,
-    SearchIcon,
-    TagIcon,
 } from '@primer/octicons-react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useQuery } from 'convex/react'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { CodeBlock } from './codeBlock'
 import { convex, queryClient, useConvexHttp } from './convex'
@@ -181,134 +178,134 @@ function FileTreeNode({
     )
 }
 
-function RefSelector() {
-    let params = useGithubParams()
+// function RefSelector() {
+//     let params = useGithubParams()
 
-    let refsAndCurrent
-    refsAndCurrent = useQuery(api.functions.getRefsAndCurrent, {
-        owner: params.owner,
-        repo: params.repo,
-        refAndPath: params.refAndPath,
-    })
-    refsAndCurrent = useDefined(refsAndCurrent)
+//     let refsAndCurrent
+//     refsAndCurrent = useQuery(api.functions.getRefsAndCurrent, {
+//         owner: params.owner,
+//         repo: params.repo,
+//         refAndPath: params.refAndPath,
+//     })
+//     refsAndCurrent = useDefined(refsAndCurrent)
 
-    let branches = refsAndCurrent?.refs.filter((r) => !r.isTag) ?? []
-    let tags = refsAndCurrent?.refs.filter((r) => r.isTag) ?? []
+//     let branches = refsAndCurrent?.refs.filter((r) => !r.isTag) ?? []
+//     let tags = refsAndCurrent?.refs.filter((r) => r.isTag) ?? []
 
-    let selectorState = useMutable({
-        showDropdown: false,
-        searchQuery: '',
-        activeTab: 'branches' as 'branches' | 'tags',
-    })
+//     let selectorState = useMutable({
+//         showDropdown: false,
+//         searchQuery: '',
+//         activeTab: 'branches' as 'branches' | 'tags',
+//     })
 
-    const navigate = useNavigate()
+//     const navigate = useNavigate()
 
-    const currentData = selectorState.activeTab === 'branches' ? branches : tags
-    const filteredData = selectorState.searchQuery.trim()
-        ? currentData.filter((item) =>
-              item.ref.toLowerCase().includes(selectorState.searchQuery.toLowerCase()),
-          )
-        : currentData
+//     const currentData = selectorState.activeTab === 'branches' ? branches : tags
+//     const filteredData = selectorState.searchQuery.trim()
+//         ? currentData.filter((item) =>
+//               item.ref.toLowerCase().includes(selectorState.searchQuery.toLowerCase()),
+//           )
+//         : currentData
 
-    function selectRef(ref: string) {
-        navigate(`/${params.owner}/${params.repo}/blob/${ref}`)
-        selectorState.showDropdown = false
-        selectorState.searchQuery = ''
-    }
+//     function selectRef(ref: string) {
+//         navigate(`/${params.owner}/${params.repo}/blob/${ref}`)
+//         selectorState.showDropdown = false
+//         selectorState.searchQuery = ''
+//     }
 
-    useEffect(() => {
-        function handleEscape(e: KeyboardEvent) {
-            if (e.key === 'Escape') {
-                selectorState.showDropdown = false
-            }
-        }
+//     useEffect(() => {
+//         function handleEscape(e: KeyboardEvent) {
+//             if (e.key === 'Escape') {
+//                 selectorState.showDropdown = false
+//             }
+//         }
 
-        if (selectorState.showDropdown) {
-            document.addEventListener('keydown', handleEscape)
-            return () => document.removeEventListener('keydown', handleEscape)
-        }
-    }, [selectorState.showDropdown])
+//         if (selectorState.showDropdown) {
+//             document.addEventListener('keydown', handleEscape)
+//             return () => document.removeEventListener('keydown', handleEscape)
+//         }
+//     }, [selectorState.showDropdown])
 
-    if (!refsAndCurrent) return null
+//     if (!refsAndCurrent) return null
 
-    return (
-        <div className="relative p-2 pb-0">
-            <button
-                onClick={() => (selectorState.showDropdown = !selectorState.showDropdown)}
-                className="flex w-full items-center justify-between rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-            >
-                <div className="flex items-center">
-                    <GitBranchIcon className="mr-2 h-4 w-4" />
-                    <span className="truncate">{refsAndCurrent?.ref ?? ''}</span>
-                </div>
-                <ChevronDownIcon className="h-4 w-4" />
-            </button>
+//     return (
+//         <div className="relative p-2 pb-0">
+//             <button
+//                 onClick={() => (selectorState.showDropdown = !selectorState.showDropdown)}
+//                 className="flex w-full items-center justify-between rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+//             >
+//                 <div className="flex items-center">
+//                     <GitBranchIcon className="mr-2 h-4 w-4" />
+//                     <span className="truncate">{refsAndCurrent?.ref ?? ''}</span>
+//                 </div>
+//                 <ChevronDownIcon className="h-4 w-4" />
+//             </button>
 
-            {selectorState.showDropdown && (
-                <div className="absolute top-12 right-2 left-2 z-50 rounded border border-gray-300 bg-white shadow-lg">
-                    <div className="p-2">
-                        <div className="flex items-center rounded border border-gray-300 px-2 py-1">
-                            <SearchIcon className="mr-2 h-4 w-4 text-gray-500" />
-                            <input
-                                type="text"
-                                placeholder={`Find a ${selectorState.activeTab === 'branches' ? 'branch' : 'tag'}...`}
-                                value={selectorState.searchQuery}
-                                onChange={(e) => (selectorState.searchQuery = e.target.value)}
-                                className="flex-1 text-sm outline-none"
-                                autoFocus
-                            />
-                        </div>
-                    </div>
+//             {selectorState.showDropdown && (
+//                 <div className="absolute top-12 right-2 left-2 z-50 rounded border border-gray-300 bg-white shadow-lg">
+//                     <div className="p-2">
+//                         <div className="flex items-center rounded border border-gray-300 px-2 py-1">
+//                             <SearchIcon className="mr-2 h-4 w-4 text-gray-500" />
+//                             <input
+//                                 type="text"
+//                                 placeholder={`Find a ${selectorState.activeTab === 'branches' ? 'branch' : 'tag'}...`}
+//                                 value={selectorState.searchQuery}
+//                                 onChange={(e) => (selectorState.searchQuery = e.target.value)}
+//                                 className="flex-1 text-sm outline-none"
+//                                 autoFocus
+//                             />
+//                         </div>
+//                     </div>
 
-                    <div className="border-t border-gray-200">
-                        <div className="flex border-b border-gray-200">
-                            <button
-                                onClick={() => (selectorState.activeTab = 'branches')}
-                                className={`flex-1 px-3 py-2 text-xs font-semibold ${
-                                    selectorState.activeTab === 'branches'
-                                        ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                }`}
-                            >
-                                Branches
-                            </button>
-                            <button
-                                onClick={() => (selectorState.activeTab = 'tags')}
-                                className={`flex-1 px-3 py-2 text-xs font-semibold ${
-                                    selectorState.activeTab === 'tags'
-                                        ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                }`}
-                            >
-                                Tags
-                            </button>
-                        </div>
+//                     <div className="border-t border-gray-200">
+//                         <div className="flex border-b border-gray-200">
+//                             <button
+//                                 onClick={() => (selectorState.activeTab = 'branches')}
+//                                 className={`flex-1 px-3 py-2 text-xs font-semibold ${
+//                                     selectorState.activeTab === 'branches'
+//                                         ? 'border-b-2 border-blue-600 text-blue-600'
+//                                         : 'text-gray-600 hover:text-gray-800'
+//                                 }`}
+//                             >
+//                                 Branches
+//                             </button>
+//                             <button
+//                                 onClick={() => (selectorState.activeTab = 'tags')}
+//                                 className={`flex-1 px-3 py-2 text-xs font-semibold ${
+//                                     selectorState.activeTab === 'tags'
+//                                         ? 'border-b-2 border-blue-600 text-blue-600'
+//                                         : 'text-gray-600 hover:text-gray-800'
+//                                 }`}
+//                             >
+//                                 Tags
+//                             </button>
+//                         </div>
 
-                        <div className="max-h-48 overflow-y-auto">
-                            {filteredData.map((item) => (
-                                <button
-                                    key={item._id}
-                                    onClick={() => selectRef(item.ref)}
-                                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50"
-                                >
-                                    <div className="flex items-center">
-                                        {selectorState.activeTab === 'tags' && (
-                                            <TagIcon className="mr-2 h-4 w-4 text-gray-500" />
-                                        )}
-                                        <span className="truncate">{item.ref}</span>
-                                    </div>
-                                    {item.ref === refsAndCurrent?.ref && (
-                                        <span className="text-xs text-gray-500">current</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
+//                         <div className="max-h-48 overflow-y-auto">
+//                             {filteredData.map((item) => (
+//                                 <button
+//                                     key={item._id}
+//                                     onClick={() => selectRef(item.ref)}
+//                                     className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-blue-50"
+//                                 >
+//                                     <div className="flex items-center">
+//                                         {selectorState.activeTab === 'tags' && (
+//                                             <TagIcon className="mr-2 h-4 w-4 text-gray-500" />
+//                                         )}
+//                                         <span className="truncate">{item.ref}</span>
+//                                     </div>
+//                                     {item.ref === refsAndCurrent?.ref && (
+//                                         <span className="text-xs text-gray-500">current</span>
+//                                     )}
+//                                 </button>
+//                             ))}
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     )
+// }
 
 function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
-import { mutation, query, type QueryCtx } from './_generated/server'
+import { internalMutation, internalQuery, query, type QueryCtx } from './_generated/server'
 import { parseRefAndPath } from './utils'
 
 export const getRepoFromId = query({
@@ -12,7 +12,7 @@ export const getRepoFromId = query({
     },
 })
 
-export const getRepo = query({
+export const getRepo = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -26,13 +26,13 @@ export const getRepo = query({
     },
 })
 
-export const getAllRepos = query({
+export const getAllRepos = internalQuery({
     async handler(ctx) {
         return ctx.db.query('repos').collect()
     },
 })
 
-export const getRepoRefs = query({
+export const getRepoRefs = internalQuery({
     args: {
         repoId: v.id('repos'),
     },
@@ -45,7 +45,7 @@ export const getRepoRefs = query({
     },
 })
 
-export const insertRefs = mutation({
+export const insertRefs = internalMutation({
     args: {
         repoId: v.id('repos'),
         refs: v.array(
@@ -79,7 +79,7 @@ export const insertRefs = mutation({
     },
 })
 
-export const insertCommits = mutation({
+export const insertCommits = internalMutation({
     args: {
         repoId: v.id('repos'),
         commits: v.array(v.string()),
@@ -103,7 +103,7 @@ export const insertCommits = mutation({
     },
 })
 
-export const upsertCommitsAndRefs = mutation({
+export const upsertCommitsAndRefs = internalMutation({
     args: {
         repo: v.id('repos'),
         refs: v.array(
@@ -163,7 +163,7 @@ export const upsertCommitsAndRefs = mutation({
     },
 })
 
-export const getRefAndPath = query({
+export const getRefAndPath = internalQuery({
     args: v.object({
         repoId: v.id('repos'),
         refAndPath: v.string(),
@@ -181,7 +181,7 @@ export const getRefAndPath = query({
     },
 })
 
-export const insertRepo = mutation({
+export const insertRepo = internalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -191,7 +191,7 @@ export const insertRepo = mutation({
     },
 })
 
-export const getFiles = query({
+export const getFiles = internalQuery({
     args: {
         commitId: v.id('commits'),
     },
@@ -203,7 +203,7 @@ export const getFiles = query({
     },
 })
 
-export const urlWithFilenames = query({
+export const urlWithFilenames = internalQuery({
     args: {
         filenamesId: v.id('filenames'),
     },
@@ -228,7 +228,7 @@ export const urlWithFilenames = query({
     },
 })
 
-export const getRefs = query({
+export const getRefs = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -257,6 +257,9 @@ export const getRefsAndCurrent = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
+        let user = await ctx.auth.getUserIdentity()
+        if (!user) throw new Error('not authenticated')
+
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
@@ -272,7 +275,7 @@ export const getRefsAndCurrent = query({
     },
 })
 
-export const separateRefFromPath = query({
+export const separateRefFromPath = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -326,7 +329,7 @@ async function getCommitIdFromRef(ctx: QueryCtx, repoId: Id<'repos'>, refAndPath
     return null
 }
 
-export const commitIdFromPath = query({
+export const commitIdFromPath = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -350,7 +353,7 @@ export const commitIdFromPath = query({
     },
 })
 
-export const filesAndCommitIdFromPath = query({
+export const filesAndCommitIdFromPath = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -383,7 +386,7 @@ export const filesAndCommitIdFromPath = query({
     },
 })
 
-export const getRepoAndRefs = query({
+export const getRepoAndRefs = internalQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -415,7 +418,7 @@ export const getRepoAndRefs = query({
     },
 })
 
-export const insertFilenames = mutation({
+export const insertFilenames = internalMutation({
     args: {
         commitId: v.id('commits'),
         fileList: v.array(v.string()),
@@ -434,7 +437,7 @@ export const insertFilenames = mutation({
     },
 })
 
-export const insertCommit = mutation({
+export const insertCommit = internalMutation({
     args: {
         repoId: v.id('repos'),
         sha: v.string(),
@@ -452,7 +455,7 @@ export const insertCommit = mutation({
     },
 })
 
-export const insertFile = mutation({
+export const insertFile = internalMutation({
     args: {
         repoId: v.id('repos'),
         commitId: v.id('commits'),
@@ -565,6 +568,9 @@ export const getFile = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
+        let user = await ctx.auth.getUserIdentity()
+        if (!user) throw new Error('not authenticated')
+
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
@@ -620,7 +626,7 @@ export const getFile = query({
     },
 })
 
-export const updateRepoHead = mutation({
+export const updateRepoHead = internalMutation({
     args: {
         repoId: v.id('repos'),
         head: v.id('commits'),

@@ -1,20 +1,20 @@
 import { v } from 'convex/values'
 import { GithubClient } from '../src/shared/githubClient'
-import { api, internal } from './_generated/api'
-import { action, internalMutation } from './_generated/server'
+import { internal } from './_generated/api'
+import { internalAction } from './_generated/server'
 import { parseRefAndPath } from './utils'
 
 // fixme: bad bad, no auth
 let githubClient = new GithubClient(process.env.GITHUB_TOKEN)
 
-export const fetchFileFromGithub = action({
+export const fetchFileFromGithub = internalAction({
     args: {
         owner: v.string(),
         repo: v.string(),
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let refs = await ctx.runQuery(api.functions.getRefs, {
+        let refs = await ctx.runQuery(internal.functions.getRefs, {
             owner,
             repo,
         })
@@ -48,14 +48,14 @@ export const fetchFileFromGithub = action({
     },
 })
 
-export const updateRepoRefs = action({
+export const updateRepoRefs = internalAction({
     args: {
         owner: v.string(),
         repo: v.string(),
     },
 
     async handler(ctx, { owner, repo: repoName }) {
-        let savedRepo = await ctx.runQuery(api.functions.getRepo, {
+        let savedRepo = await ctx.runQuery(internal.functions.getRepo, {
             owner,
             repo: repoName,
         })
@@ -121,14 +121,14 @@ export const updateRepoRefs = action({
         }
 
         console.log('upserting refs for', owner, repoName, fetchedRefs.length, 'refs')
-        await ctx.runMutation(api.functions.upsertCommitsAndRefs, {
+        await ctx.runMutation(internal.functions.upsertCommitsAndRefs, {
             repo: repoId,
             refs: fetchedRefs,
         })
     },
 })
 
-export const updateHead = action({
+export const updateHead = internalAction({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -137,7 +137,7 @@ export const updateHead = action({
     async handler(ctx, { owner, repo }) {
         console.log('processing repo', owner, repo)
 
-        let savedRepo = await ctx.runQuery(api.functions.getRepo, {
+        let savedRepo = await ctx.runQuery(internal.functions.getRepo, {
             owner,
             repo,
         })
@@ -172,7 +172,7 @@ export const updateHead = action({
             return
         }
 
-        let commitId = await ctx.runMutation(api.functions.insertCommit, {
+        let commitId = await ctx.runMutation(internal.functions.insertCommit, {
             repoId: savedRepo._id,
             sha: commitSha,
         })
@@ -180,7 +180,7 @@ export const updateHead = action({
         let fileList = treeRes.data.tree.map((f) => f.path)
 
         console.log('inserting filenames for', commitId)
-        await ctx.runMutation(api.functions.insertFilenames, { commitId, fileList })
+        await ctx.runMutation(internal.functions.insertFilenames, { commitId, fileList })
 
         for (let file of fileList) {
             console.log('getting file', file)
@@ -207,7 +207,7 @@ export const updateHead = action({
             let fileContent = atob(fileRes.data.content)
 
             console.log('inserting file', file)
-            await ctx.runMutation(api.functions.insertFile, {
+            await ctx.runMutation(internal.functions.insertFile, {
                 repoId: savedRepo._id,
                 commitId: commitId,
                 filename: file,
@@ -215,55 +215,9 @@ export const updateHead = action({
             })
         }
 
-        await ctx.runMutation(api.functions.updateRepoHead, {
+        await ctx.runMutation(internal.functions.updateRepoHead, {
             repoId: savedRepo._id,
             head: commitId,
-        })
-    },
-})
-
-export const updateRateLimit = internalMutation({
-    args: {
-        limit: v.number(),
-        used: v.number(),
-        remaining: v.number(),
-        reset: v.string(),
-    },
-    async handler(ctx, { limit, used, remaining, reset }) {
-        let rateLimit = {
-            limit,
-            used,
-            remaining,
-            reset,
-        }
-
-        let existingRateLimit = await ctx.db.query('appRateLimit').first()
-        if (existingRateLimit) {
-            await ctx.db.replace(existingRateLimit._id, rateLimit)
-            return
-        }
-
-        await ctx.db.insert('appRateLimit', rateLimit)
-    },
-})
-
-export const checkRateLimit = action({
-    async handler(ctx) {
-        let rateLimits = await githubClient.checkRateLimits()
-        if (rateLimits.error) {
-            throw rateLimits.error
-        }
-
-        const resetMs = rateLimits.data.resources.core.reset * 1000
-        const nowMs = Date.now()
-        const diffMs = resetMs - nowMs
-        const minutes = Math.round(diffMs / (1000 * 60))
-
-        await ctx.runMutation(internal.actions.updateRateLimit, {
-            limit: rateLimits.data.resources.core.limit,
-            used: rateLimits.data.resources.core.used,
-            remaining: rateLimits.data.resources.core.remaining,
-            reset: `in ${minutes} minute${minutes === 1 ? '' : 's'}`,
         })
     },
 })
