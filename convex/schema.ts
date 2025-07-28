@@ -1,17 +1,20 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { authTables } from '@convex-dev/auth/server'
 
 export default defineSchema({
+    ...authTables,
+
     repos: defineTable({
         owner: v.string(),
         repo: v.string(),
+        head: v.optional(v.id('commits')),
     }),
 
     // commits saves the sha for each commit.
     commits: defineTable({
         repo: v.id('repos'),
         sha: v.string(),
-        filenames: v.optional(v.id('filenames')),
     }).index('by_repo_and_sha', ['repo', 'sha']),
 
     // refs are dynamic pointers to commits. When the user selects a ref, this

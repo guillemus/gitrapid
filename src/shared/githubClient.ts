@@ -13,8 +13,20 @@ type SearchReposResponse = RestEndpointMethodTypes['search']['repos']['response'
 type SearchCodeResponse = RestEndpointMethodTypes['search']['code']['response']['data']
 type ListBranchesResponse = RestEndpointMethodTypes['repos']['listBranches']['response']['data']
 type ListTagsResponse = RestEndpointMethodTypes['repos']['listTags']['response']['data']
-type GetCommitResponse = RestEndpointMethodTypes['repos']['getCommit']['response']['data']
+type GetCommitResponse = RestEndpointMethodTypes['git']['getCommit']['response']['data']
 type GetRateLimitResponse = RestEndpointMethodTypes['rateLimit']['get']['response']['data']
+type GetRefResponse = RestEndpointMethodTypes['git']['getRef']['response']['data']
+
+type ListRefsResponse = {
+    ref: string
+    node_id: string
+    url: string
+    object: {
+        sha: string
+        type: string
+        url: string
+    }
+}[]
 
 export type GithubFilePath = {
     owner: string
@@ -102,6 +114,16 @@ export class GithubClient {
         return this.jsonRequest<GetRepoResponse>(endpoint)
     }
 
+    getBranchRef(owner: string, repo: string, branch: string) {
+        const endpoint = `/repos/${owner}/${repo}/git/ref/heads/${branch}`
+        return this.jsonRequest<GetRefResponse>(endpoint)
+    }
+
+    getTagRef(owner: string, repo: string, tag: string) {
+        const endpoint = `/repos/${owner}/${repo}/git/ref/tags/${tag}`
+        return this.jsonRequest<GetRefResponse>(endpoint)
+    }
+
     // Get repository tree (for file structure)
     getRepoTree(owner: string, repo: string, ref: string = 'main', recursive: boolean = true) {
         const params = new URLSearchParams({
@@ -163,19 +185,27 @@ export class GithubClient {
         })
     }
 
-    // Get repository branches
-    listBranches(owner: string, repo: string, page = 1, perPage = 100) {
+    listRefs(owner: string, repo: string, page: number) {
         const params = new URLSearchParams({
-            per_page: perPage.toString(),
+            per_page: '100',
+            page: page.toString(),
+        })
+        const endpoint = `/repos/${owner}/${repo}/git/refs?${params.toString()}`
+        return this.jsonRequest<ListRefsResponse>(endpoint)
+    }
+
+    listBranches(owner: string, repo: string, page: number) {
+        const params = new URLSearchParams({
+            per_page: '100',
             page: page.toString(),
         })
 
         const endpoint = `/repos/${owner}/${repo}/branches?${params.toString()}`
         return this.jsonRequest<ListBranchesResponse>(endpoint)
     }
-    listTags(owner: string, repo: string, page = 1, perPage = 100) {
+    listTags(owner: string, repo: string, page: number) {
         const params = new URLSearchParams({
-            per_page: perPage.toString(),
+            per_page: '100',
             page: page.toString(),
         })
 

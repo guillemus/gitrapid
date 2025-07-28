@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { parseCode, type CreateTransformerOptions } from './shiki'
-import { useShiki } from './highlighter'
+// import { useShiki } from './highlighter'
 
 export function CodeBlock(props: { code: TrustedHTML; highlightedLine?: number }) {
     let ref = useRef<HTMLDivElement>(null)
@@ -33,14 +33,14 @@ export function MarkdownBlock(props: { markdown: TrustedHTML }) {
     )
 }
 
-type CodeBlockWithParsingProps = CreateTransformerOptions & { code: string; language: string }
+// type CodeBlockWithParsingProps = CreateTransformerOptions & { code: string; language: string }
 
-export function CodeBlockWithParsing(props: CodeBlockWithParsingProps) {
-    let highlighter = useShiki()
-    if (!highlighter) return highlighter
+// export function CodeBlockWithParsing(props: CodeBlockWithParsingProps) {
+//     let highlighter = useShiki()
+//     if (!highlighter) return highlighter
 
-    let parsed = parseCode(props, highlighter, props.code, props.language)
-    if (!parsed) return null
+//     let parsed = parseCode(props, highlighter, props.code, props.language)
+//     if (!parsed) return null
 
-    return <CodeBlock code={parsed}></CodeBlock>
-}
+//     return <CodeBlock code={parsed}></CodeBlock>
+// }

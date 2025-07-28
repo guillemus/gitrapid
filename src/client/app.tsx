@@ -12,11 +12,11 @@ import {
 } from '@primer/octicons-react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { ConvexProvider, useQuery } from 'convex/react'
+import { useQuery } from 'convex/react'
 import { useEffect, useMemo } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate, useParams } from 'react-router'
 import { CodeBlock } from './codeBlock'
-import { convex, convexHttp, queryClient } from './convex'
+import { convex, queryClient, useConvexHttp } from './convex'
 import { useDefined, useMutable, useTanstackQuery } from './utils'
 
 type GithubParams = {
@@ -313,16 +313,15 @@ function RefSelector() {
 function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()
 
-    let files
-    files = useQuery(api.functions.filesAndCommitIdFromPath, {
+    let query = useQuery(api.functions.getRepoPage, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: params.refAndPath,
     })
-    files = useDefined(files)
-    let commitId = files?.commitId
+    query = useDefined(query)
 
-    files = preloadedFiles ?? files?.files
+    let files = preloadedFiles ?? query?.files
+    let commitId = query?.commitId
 
     let fileTree = useMemo(() => buildFileTree(files ?? []), [files])
 
@@ -341,10 +340,14 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
 function GitRapid() {
     let params = useGithubParams()
 
+    const convexHttp = useConvexHttp()
+
     let loaded = useMutable({ value: false })
     let page = useTanstackQuery({
         queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
         queryFn: async () => {
+            if (!convexHttp) return
+
             let query = await convexHttp.query(api.functions.getRepoPage, {
                 owner: params.owner,
                 repo: params.repo,
@@ -355,7 +358,7 @@ function GitRapid() {
 
             return query
         },
-        enabled: !loaded.value,
+        enabled: !loaded.value && !!convexHttp,
     })
 
     return (
@@ -397,6 +400,7 @@ function Router() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/login" element={<Login />} />
                 <Route path="/:owner/:repo" element={<GitRapid />} />
                 <Route path="/:owner/:repo/tree/*" element={<GitRapid />} />
                 <Route path="/:owner/:repo/blob/*" element={<GitRapid />} />
@@ -405,13 +409,34 @@ function Router() {
     )
 }
 
+import { ConvexAuthProvider } from '@convex-dev/auth/react'
+
 export function App() {
     return (
-        <ConvexProvider client={convex}>
+        <ConvexAuthProvider client={convex}>
             <QueryClientProvider client={queryClient}>
                 <Router></Router>
                 <ReactQueryDevtools client={queryClient}></ReactQueryDevtools>
             </QueryClientProvider>
-        </ConvexProvider>
+        </ConvexAuthProvider>
+    )
+}
+
+import { useAuthActions } from '@convex-dev/auth/react'
+
+export function Login() {
+    const { signIn } = useAuthActions()
+
+    return (
+        <button
+            className="btn btn-active"
+            onClick={() =>
+                signIn('github', {
+                    redirectTo: '/alarbada/gitrapid.com',
+                })
+            }
+        >
+            Sign in with GitHub
+        </button>
     )
 }

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
-import { Id } from './_generated/dataModel'
-import { mutation, query, QueryCtx } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+import { mutation, query, type QueryCtx } from './_generated/server'
 import { parseRefAndPath } from './utils'
 
 export const getRepoFromId = query({
@@ -100,34 +100,6 @@ export const insertCommits = mutation({
                 sha: commit,
             })
         }
-    },
-})
-
-export const getAllRepoCommitsWithoutFiles = query({
-    args: {
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        return ctx.db
-            .query('commits')
-            .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId))
-            .filter((c) => c.eq(c.field('filenames'), undefined))
-            .collect()
-    },
-})
-
-export const upsertFiles = mutation({
-    args: {
-        commitId: v.id('commits'),
-        fileNames: v.array(v.string()),
-    },
-
-    async handler(ctx, args) {
-        let insertedFilenames = await ctx.db.insert('filenames', {
-            commit: args.commitId,
-            files: args.fileNames,
-        })
-        await ctx.db.patch(args.commitId, { filenames: insertedFilenames })
     },
 })
 
@@ -480,16 +452,6 @@ export const insertCommit = mutation({
     },
 })
 
-export const updateCommit = mutation({
-    args: {
-        commitId: v.id('commits'),
-        filenamesId: v.id('filenames'),
-    },
-    async handler(ctx, { commitId, filenamesId }) {
-        await ctx.db.patch(commitId, { filenames: filenamesId })
-    },
-})
-
 export const insertFile = mutation({
     args: {
         repoId: v.id('repos'),
@@ -519,6 +481,11 @@ export const getRepoPage = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
+        let user = await ctx.auth.getUserIdentity()
+        if (!user) throw new Error('not authenticated')
+
+        console.log(user)
+
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
@@ -624,6 +591,8 @@ export const getFile = query({
             return null
         }
 
+        console.log(parsed)
+
         let ref = refs.find((r) => r.ref === parsed.ref)
         if (!ref) {
             console.error(
@@ -648,5 +617,15 @@ export const getFile = query({
         }
 
         return fileContents.content
+    },
+})
+
+export const updateRepoHead = mutation({
+    args: {
+        repoId: v.id('repos'),
+        head: v.id('commits'),
+    },
+    async handler(ctx, { repoId, head }) {
+        await ctx.db.patch(repoId, { head })
     },
 })

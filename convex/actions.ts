@@ -1,30 +1,8 @@
 import { v } from 'convex/values'
 import { GithubClient } from '../src/shared/githubClient'
-import { api } from './_generated/api'
-import { Id } from './_generated/dataModel'
-import { action, mutation } from './_generated/server'
-import { downloadAllRefs, parseRefAndPath } from './utils'
-
-async function withExponentialBackoff<T>(
-    operation: () => Promise<T>,
-    maxRetries: number = 4,
-): Promise<T> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return await operation()
-        } catch (error) {
-            if (attempt === maxRetries - 1) {
-                console.error(`BACKOFF: Operation failed after ${maxRetries} attempts:`, error)
-                throw error
-            }
-
-            const delay = Math.pow(2, attempt) * 1000 // 1s, 2s, 4s, 8s
-            console.log(`BACKOFF: Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error)
-            await new Promise((resolve) => setTimeout(resolve, delay))
-        }
-    }
-    throw new Error('BACKOFF: Should not reach here')
-}
+import { api, internal } from './_generated/api'
+import { action, internalMutation } from './_generated/server'
+import { parseRefAndPath } from './utils'
 
 // fixme: bad bad, no auth
 let githubClient = new GithubClient(process.env.GITHUB_TOKEN)
@@ -67,98 +45,6 @@ export const fetchFileFromGithub = action({
         }
 
         return atob(fileRes.data.content)
-    },
-})
-
-export const downloadRefs = action({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-    },
-
-    async handler(ctx, args) {
-        return downloadAllRefs(ctx, githubClient, args.owner, args.repo)
-    },
-})
-
-type RepoPageResult = {
-    ref: string
-    commitId: Id<'commits'>
-    repoId: Id<'repos'>
-    refs: Array<{ ref: string; commit: string }>
-    files?: string[]
-    fileContents?: string
-}
-
-export const getRepoPage = action({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        refAndPath: v.string(),
-    },
-    async handler(ctx, { owner, repo, refAndPath }): Promise<RepoPageResult | null> {
-        let repoAndRefs = await ctx.runQuery(api.functions.getRepoAndRefs, {
-            owner,
-            repo,
-        })
-        if (!repoAndRefs) {
-            console.error(`repo not found`, owner, repo)
-            return null
-        }
-
-        let savedRepo = repoAndRefs.repo
-        let refs = repoAndRefs.refs
-
-        let refNames = refs.map((ref) => ref.ref)
-
-        let parsed = parseRefAndPath(refNames, refAndPath)
-        if (!parsed) {
-            console.error(`error parsing ref and path`, refAndPath)
-            return null
-        }
-
-        let ref = refs.find((r) => r.ref === parsed.ref)
-        if (!ref) {
-            console.error(`ref not found`, parsed.ref)
-            return null
-        }
-
-        let fileP = githubClient.getFileContentByAPI(owner, repo, parsed.ref, parsed.path)
-
-        let files = await ctx.runQuery(api.functions.getFiles, {
-            commitId: ref.commit,
-        })
-        if (!files) {
-            console.error(`error getting files for commit`, ref.commit)
-            return null
-        }
-
-        let fileRes = await fileP
-        if (fileRes.error) {
-            console.error(`error getting file`, fileRes.error)
-            return null
-        }
-
-        if (Array.isArray(fileRes.data)) {
-            console.info('file is directory')
-            return null
-        }
-
-        if (fileRes.data.type !== 'file') {
-            console.info('must be file')
-            return null
-        }
-
-        let fileContents = atob(fileRes.data.content)
-
-        return {
-            ref: ref.ref,
-            commitId: ref.commit,
-            fileContents,
-            repoId: savedRepo._id,
-            refs: refs,
-            files: files?.files,
-        }
     },
 })
 
@@ -242,12 +128,15 @@ export const updateRepoRefs = action({
     },
 })
 
-export const insertFilenames = action({
+export const updateHead = action({
     args: {
         owner: v.string(),
         repo: v.string(),
     },
+
     async handler(ctx, { owner, repo }) {
+        console.log('processing repo', owner, repo)
+
         let savedRepo = await ctx.runQuery(api.functions.getRepo, {
             owner,
             repo,
@@ -257,38 +146,83 @@ export const insertFilenames = action({
             return
         }
 
-        let commits = await ctx.runQuery(api.functions.getAllRepoCommitsWithoutFiles, {
+        let repoInfo = await githubClient.getRepo(savedRepo.owner, savedRepo.repo)
+        if (repoInfo.error) {
+            console.error(repoInfo.error)
+            return
+        }
+
+        console.log('getting main ref for', savedRepo.owner, savedRepo.repo)
+        let mainRef = await githubClient.getBranchRef(
+            savedRepo.owner,
+            savedRepo.repo,
+            repoInfo.data.default_branch,
+        )
+        if (mainRef.error) {
+            console.error(mainRef.error)
+            return
+        }
+
+        let commitSha = mainRef.data.object.sha
+
+        console.log('main ref sha', commitSha)
+        let treeRes = await githubClient.getRepoTree(savedRepo.owner, savedRepo.repo, commitSha)
+        if (treeRes.error) {
+            console.error(treeRes.error)
+            return
+        }
+
+        let commitId = await ctx.runMutation(api.functions.insertCommit, {
             repoId: savedRepo._id,
+            sha: commitSha,
         })
 
-        console.log(commits.length, 'commits without files for', owner, repo, commits.length)
+        let fileList = treeRes.data.tree.map((f) => f.path)
 
-        for (let i = 0; i < commits.length; i++) {
-            const commit = commits[i]!
-            console.log(
-                `processing commit ${i + 1}/${commits.length}: getting tree for`,
-                commit.sha,
+        console.log('inserting filenames for', commitId)
+        await ctx.runMutation(api.functions.insertFilenames, { commitId, fileList })
+
+        for (let file of fileList) {
+            console.log('getting file', file)
+            let fileRes = await githubClient.getFileContentByAPI(
+                savedRepo.owner,
+                savedRepo.repo,
+                commitSha,
+                file,
             )
-            let allFiles = await githubClient.getRepoTree(owner, repo, commit.sha)
-            if (allFiles.error) {
-                console.error(allFiles.error)
+            if (fileRes.error) {
+                console.error(fileRes.error)
                 continue
             }
 
-            let fileNames = allFiles.data.tree.map((f) => f.path)
-            console.log('upserting', fileNames.length, 'files for commit', commit.sha)
+            if (Array.isArray(fileRes.data)) {
+                console.error('file is directory', file)
+                continue
+            }
+            if (fileRes.data.type !== 'file') {
+                console.error('file is not a file', file)
+                continue
+            }
 
-            await withExponentialBackoff(() =>
-                ctx.runMutation(api.functions.upsertFiles, {
-                    commitId: commit._id,
-                    fileNames: fileNames,
-                }),
-            )
+            let fileContent = atob(fileRes.data.content)
+
+            console.log('inserting file', file)
+            await ctx.runMutation(api.functions.insertFile, {
+                repoId: savedRepo._id,
+                commitId: commitId,
+                filename: file,
+                content: fileContent,
+            })
         }
+
+        await ctx.runMutation(api.functions.updateRepoHead, {
+            repoId: savedRepo._id,
+            head: commitId,
+        })
     },
 })
 
-export const updateRateLimit = mutation({
+export const updateRateLimit = internalMutation({
     args: {
         limit: v.number(),
         used: v.number(),
@@ -325,7 +259,7 @@ export const checkRateLimit = action({
         const diffMs = resetMs - nowMs
         const minutes = Math.round(diffMs / (1000 * 60))
 
-        await ctx.runMutation(api.actions.updateRateLimit, {
+        await ctx.runMutation(internal.actions.updateRateLimit, {
             limit: rateLimits.data.resources.core.limit,
             used: rateLimits.data.resources.core.used,
             remaining: rateLimits.data.resources.core.remaining,

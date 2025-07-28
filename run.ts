@@ -55,14 +55,9 @@ async function downloadMyRepo(ctx: Context) {
         })
 
         console.log(`${commitHash}: inserting filenames`)
-        let filenamesId = await ctx.runMutation(api.functions.insertFilenames, {
-            commitId: commitId,
+        await ctx.runMutation(api.functions.insertFilenames, {
+            commitId,
             fileList,
-        })
-
-        await ctx.runMutation(api.functions.updateCommit, {
-            commitId: commitId,
-            filenamesId: filenamesId,
         })
 
         for (let filename of fileList) {
