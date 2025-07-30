@@ -1,6 +1,6 @@
+import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { authTables } from '@convex-dev/auth/server'
 
 export default defineSchema({
     ...authTables,
@@ -14,7 +14,7 @@ export default defineSchema({
         repo: v.string(),
         private: v.boolean(),
         head: v.optional(v.id('commits')),
-    }),
+    }).index('by_owner_and_repo', ['owner', 'repo']),
 
     installations: defineTable({
         userDataId: v.id('usersData'),

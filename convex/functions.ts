@@ -7,16 +7,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from './_generated/server'
-import { parseRefAndPath } from './utils'
-
-export const getRepoFromId = query({
-    args: {
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        return ctx.db.get(args.repoId)
-    },
-})
+import { getUserIdentity, parseRefAndPath } from './utils'
 
 export const getRepo = internalQuery({
     args: {
@@ -265,8 +256,7 @@ export const getRefsAndCurrent = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let user = await ctx.auth.getUserIdentity()
-        if (!user) throw new Error('not authenticated')
+        await getUserIdentity(ctx.auth)
 
         let savedRepo = await ctx.db
             .query('repos')
@@ -277,7 +267,9 @@ export const getRefsAndCurrent = query({
         }
 
         let commitIdAndRefs = await getCommitIdFromRef(ctx, savedRepo._id, refAndPath)
-        if (!commitIdAndRefs) return null
+        if (!commitIdAndRefs) {
+            return null
+        }
 
         return commitIdAndRefs
     },
@@ -492,14 +484,11 @@ export const getRepoPage = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let user = await ctx.auth.getUserIdentity()
-        if (!user) throw new Error('not authenticated')
-
-        console.log(user)
+        await getUserIdentity(ctx.auth)
 
         let savedRepo = await ctx.db
             .query('repos')
-            .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
+            .withIndex('by_owner_and_repo', (r) => r.eq('owner', owner).eq('repo', repo))
             .first()
         if (!savedRepo) {
             console.error(`getRepoPage: repo not found - owner: ${owner}, repo: ${repo}`)
@@ -524,18 +513,30 @@ export const getRepoPage = query({
             return null
         }
 
-        let ref = refs.find((r) => r.ref === parsed.ref)
-        if (!ref) {
-            console.error(
-                `getRepoPage: ref not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}`,
-            )
-            return null
+        let commitId: Id<'commits'>
+        if (parsed.ref === 'HEAD') {
+            if (savedRepo.head) {
+                commitId = savedRepo.head
+            } else {
+                console.log(`getRepoPage: head not found - owner: ${owner}, repo: ${repo}`)
+                return null
+            }
+        } else {
+            let ref = refs.find((r) => r.ref === parsed.ref)
+            if (!ref) {
+                console.error(
+                    `getRepoPage: ref not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}`,
+                )
+                return null
+            }
+
+            commitId = ref.commit
         }
 
         let fileContents = await ctx.db
             .query('files')
             .withIndex('by_repo_and_commit', (f) =>
-                f.eq('repo', savedRepo._id).eq('commit', ref.commit),
+                f.eq('repo', savedRepo._id).eq('commit', commitId),
             )
             .filter((f) => f.eq(f.field('filename'), parsed.path))
             .first()
@@ -549,7 +550,7 @@ export const getRepoPage = query({
 
         let filenames = await ctx.db
             .query('filenames')
-            .withIndex('by_commit', (f) => f.eq('commit', ref.commit))
+            .withIndex('by_commit', (f) => f.eq('commit', commitId))
             .first()
         if (!filenames) {
             console.error(
@@ -559,8 +560,8 @@ export const getRepoPage = query({
         }
 
         return {
-            ref: ref.ref,
-            commitId: ref.commit,
+            ref: parsed.ref,
+            commitId,
             fileContents: fileContents.content,
             repoId: savedRepo._id,
             refs: refs,
@@ -576,8 +577,7 @@ export const getFile = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let user = await ctx.auth.getUserIdentity()
-        if (!user) throw new Error('not authenticated')
+        await getUserIdentity(ctx.auth)
 
         let savedRepo = await ctx.db
             .query('repos')
@@ -604,8 +604,6 @@ export const getFile = query({
             )
             return null
         }
-
-        console.log(parsed)
 
         let ref = refs.find((r) => r.ref === parsed.ref)
         if (!ref) {

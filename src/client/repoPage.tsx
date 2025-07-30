@@ -114,15 +114,15 @@ function FileTreeNode({
     const state = useMutable({ expanded: false })
     const navigate = useNavigate()
 
-    let refsAndCurrent
-    refsAndCurrent = useQuery(api.functions.getRefsAndCurrent, {
+    let query = useQuery(api.functions.getRepoPage, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: params.refAndPath,
     })
-    refsAndCurrent = useDefined(refsAndCurrent)
+    query = useDefined(query)
 
-    let ref = refsAndCurrent?.ref
+    let ref = query?.ref
+
     let fetchFileOptions = useFetchFileOptions(`${ref}/${node.path}`)
 
     if (node.isDir) {

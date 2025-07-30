@@ -1,4 +1,9 @@
-import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
+import type {
+    FunctionReference,
+    FunctionReturnType,
+    OptionalRestArgs,
+    UserIdentity,
+} from 'convex/server'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -10,6 +15,9 @@ export interface Context {
         ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>>
 }
+
+// fixme: this could be better modelled as a parse result of type 'head', type 'commit', etc
+// so that there's no confusion
 
 type RefAndPath = {
     ref: string
@@ -93,4 +101,17 @@ export async function withExponentialBackoff<T>(
         }
     }
     throw new Error('BACKOFF: Should not reach here')
+}
+
+type Auth = {
+    getUserIdentity: () => Promise<UserIdentity | null>
+}
+
+export async function getUserIdentity(auth: Auth) {
+    let userIdentity = await auth.getUserIdentity()
+    if (!userIdentity) {
+        throw new Error('User not authenticated')
+    }
+
+    return userIdentity
 }
