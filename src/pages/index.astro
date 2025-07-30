@@ -1,41 +1,8 @@
 ---
-import '../styles/global.css'
-import '@fontsource/geist-sans'
+import { LandingPage } from '@/client/landingPage'
+import Layout from '@/layout.astro'
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="viewport" content="width=device-width" />
-        <meta name="generator" content={Astro.generator} />
-        <title>gitrapid</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
-            rel="stylesheet"
-        />
-    </head>
-    <body>
-        <div class="hero bg-base-200 min-h-screen">
-            <div class="hero-content text-center">
-                <div class="max-w-md">
-                    <h1 class="text-5xl font-bold">GitRapid</h1>
-                    <p class="py-6">A faster github experience</p>
-                    <div class="flex gap-4">
-                        <a href="/alarbada/gitrapid.com" class="btn btn-primary">
-                            alarbada/gitrapid.com
-                        </a>
-                        <a
-                            href="/alarbada/gitrapid.com/blob/main/README.md"
-                            class="btn btn-primary"
-                        >
-                            alarbada/gitrapid.com (commit)
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-</html>
+<Layout>
+    <LandingPage />
+</Layout>

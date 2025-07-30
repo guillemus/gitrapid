@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# gitrapid.com
+
+# mission
+
+gitrapid is an alternative github ui that focuses entirely on making the github ui way faster. It syncs repository state in a convex database. 
+
+The app will work as close as possible to the github ui on the front end.
+
+# ui
+
+We use tailwindcss with shadcn ui for ui components. 

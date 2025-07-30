@@ -12,6 +12,13 @@
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "noUncheckedIndexedAccess": true,
+    "strictNullChecks": true,
+
+
+    "baseUrl": ".",
+    "paths": {
+        "@convex/*": ["*"],
+    },
 
     /* These compiler options are required by Convex */
     "target": "ESNext",
@@ -20,6 +27,7 @@
     "module": "ESNext",
     "isolatedModules": true,
     "noEmit": true
+
   },
   "include": ["./**/*", "../src/shared/githubClient.ts"],
   "exclude": ["./_generated"]

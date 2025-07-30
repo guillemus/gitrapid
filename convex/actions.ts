@@ -1,8 +1,9 @@
 import { v } from 'convex/values'
 import { GithubClient } from '../src/shared/githubClient'
 import { internal } from './_generated/api'
-import { internalAction } from './_generated/server'
+import { internalAction, internalQuery } from './_generated/server'
 import { parseRefAndPath } from './utils'
+import { Octokit } from '@octokit/rest'
 
 // fixme: bad bad, no auth
 let githubClient = new GithubClient(process.env.GITHUB_TOKEN)
@@ -219,5 +220,112 @@ export const updateHead = internalAction({
             repoId: savedRepo._id,
             head: commitId,
         })
+    },
+})
+
+export const getInstallationToken = internalQuery({
+    args: {
+        repoId: v.id('repos'),
+    },
+
+    async handler(ctx, { repoId }) {
+        let repo = await ctx.db.get(repoId)
+        if (!repo) {
+            console.error(`repo not found`, repoId)
+            return null
+        }
+
+        let token = await ctx.db
+            .query('installationAccessTokens')
+            .withIndex('by_repo_id', (q) => q.eq('repoId', repo._id))
+            .first()
+        if (!token) {
+            console.error(`token not found`, repoId)
+            return null
+        }
+
+        return token
+    },
+})
+
+export const syncIssues = internalAction({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+
+    async handler(ctx, { owner, repo }) {
+        let savedRepo = await ctx.runQuery(internal.functions.getRepo, {
+            owner,
+            repo,
+        })
+        if (!savedRepo) {
+            console.error(`repo not found`, owner, repo)
+            return
+        }
+
+        let savedToken = await ctx.runQuery(internal.actions.getInstallationToken, {
+            repoId: savedRepo._id,
+        })
+        if (!savedToken) {
+            console.error(`token not found`, savedRepo._id)
+            return
+        }
+
+        let token = savedToken.token
+        // If the token is expired or will expire in the next 5 minutes, refresh it
+        const expiresAt = new Date(savedToken.expiresAt)
+        const nowPlus5Min = new Date(Date.now() + 1000 * 60 * 5)
+        if (expiresAt < nowPlus5Min) {
+            console.log(`refreshing token`, savedRepo._id)
+            token = await ctx.runAction(internal.githubAuth.generateGithubAppInstallationToken, {
+                owner: savedRepo.owner,
+                repo: savedRepo.repo,
+            })
+        }
+
+        let octo = new Octokit({ auth: token })
+        let issues = await octo.rest.issues.listForRepo({
+            owner: savedRepo.owner,
+            repo: savedRepo.repo,
+        })
+
+        for (let issue of issues.data) {
+            let labels: string[] = []
+            for (let label of issue.labels ?? []) {
+                if (typeof label === 'string') {
+                    labels.push(label)
+                } else if (label.name) {
+                    labels.push(label.name)
+                }
+            }
+
+            let assignees: string[] = []
+            for (let assignee of issue.assignees ?? []) {
+                if (assignee.login) {
+                    assignees.push(assignee.login)
+                }
+            }
+
+            await ctx.runMutation(internal.functions.upsertIssue, {
+                owner: savedRepo.owner,
+                repo: savedRepo.repo,
+                githubId: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issue.state,
+                body: issue.body ?? undefined,
+                author: {
+                    login: issue.user?.login ?? '',
+                    id: issue.user?.id ?? 0,
+                },
+                labels,
+                assignees,
+                createdAt: issue.created_at,
+                updatedAt: issue.updated_at,
+                closedAt: issue.closed_at ?? undefined,
+                comments: issue.comments ?? undefined,
+            })
+        }
     },
 })

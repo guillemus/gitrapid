@@ -1,8 +1,10 @@
-import { useAuthToken } from '@convex-dev/auth/react'
+import { useAuthActions, useAuthToken } from '@convex-dev/auth/react'
 import { ConvexQueryClient } from '@convex-dev/react-query'
-import { QueryClient } from '@tanstack/react-query'
+import { api } from '@convex/_generated/api'
+import { QueryClient, queryOptions } from '@tanstack/react-query'
 import { ConvexHttpClient } from 'convex/browser'
 import { ConvexReactClient } from 'convex/react'
+import { useNavigate } from 'react-router'
 
 export const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL!)
 
@@ -29,3 +31,13 @@ export const queryClient = new QueryClient({
 })
 
 convexQueryClient.connect(queryClient)
+
+export function useLogout() {
+    const authActions = useAuthActions()
+    const navigate = useNavigate()
+
+    return async () => {
+        await authActions.signOut()
+        navigate('/login')
+    }
+}

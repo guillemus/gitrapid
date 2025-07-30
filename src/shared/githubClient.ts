@@ -221,6 +221,14 @@ export class GithubClient {
     checkRateLimits() {
         return this.jsonRequest<GetRateLimitResponse>('/rate_limit')
     }
+
+    // createInstallationToken(installationId: string) {
+    //     let client = new Octokit({
+    //         auth:
+    //     })
+
+    //     client.apps.getInstallation
+    // }
 }
 
 export type RefAndPath = {
