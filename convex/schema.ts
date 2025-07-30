@@ -18,6 +18,7 @@ export default defineSchema({
 
     installations: defineTable({
         userDataId: v.id('usersData'),
+        suspended: v.boolean(),
         repoId: v.id('repos'),
         installationId: v.string(), // GitHub installation ID
     })

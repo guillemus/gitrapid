@@ -254,7 +254,7 @@ export async function parseRefAndPath(
 
         let commit = await client.getCommit(owner, repo, acc)
         if (commit.error) {
-            if (!!lastValidRef) {
+            if (lastValidRef) {
                 break
             }
             continue

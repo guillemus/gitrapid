@@ -60,6 +60,9 @@ export async function handleEvent(ctx: Ctx, eventType: string, body: string) {
         await handleIssues(ctx, payload)
     } else {
         console.log('Unhandled event:', eventType)
+
+        // @ts-ignore
+        console.log('Type / action:', { action: payload?.action, type: payload?.type })
     }
 }
 
@@ -90,7 +93,24 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
             githubUserId: userId,
             repos: repoData,
         })
-    }
+    } else if (installation.action === 'deleted') {
+        await ctx.scheduler.runAfter(0, internal.functions.deleteInstallation, {
+            installationId,
+        })
+    } else if (installation.action === 'new_permissions_accepted') {
+        // we don't care here, just adding it for completeness
+        // I mean, we might want to do something in the future, but for now we don't
+    } else if (installation.action === 'suspend') {
+        await ctx.scheduler.runAfter(0, internal.functions.setInstallationSuspended, {
+            installationId,
+            suspended: true,
+        })
+    } else if (installation.action === 'unsuspend') {
+        await ctx.scheduler.runAfter(0, internal.functions.setInstallationSuspended, {
+            installationId,
+            suspended: false,
+        })
+    } else installation satisfies never
 }
 
 async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDeletedEvent) {

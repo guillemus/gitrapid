@@ -3,8 +3,8 @@ import type { Id } from './_generated/dataModel'
 import {
     internalMutation,
     internalQuery,
-    MutationCtx,
     query,
+    type MutationCtx,
     type QueryCtx,
 } from './_generated/server'
 import { parseRefAndPath } from './utils'
@@ -792,7 +792,12 @@ async function addInstallationMutation(
         .filter((i) => i.eq(i.field('repoId'), args.repoId))
         .first()
     if (!existing) {
-        await ctx.db.insert('installations', args)
+        await ctx.db.insert('installations', {
+            installationId: args.installationId,
+            userDataId: args.userDataId,
+            repoId: args.repoId,
+            suspended: false,
+        })
     }
 }
 
@@ -804,23 +809,6 @@ export const addInstallation = internalMutation({
     },
     async handler(ctx, args) {
         return await addInstallationMutation(ctx, args)
-    },
-})
-
-export const removeInstallation = internalMutation({
-    args: {
-        userDataId: v.id('usersData'),
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        let existing = await ctx.db
-            .query('installations')
-            .withIndex('by_userDataId', (q) => q.eq('userDataId', args.userDataId))
-            .filter((i) => i.eq(i.field('repoId'), args.repoId))
-            .first()
-        if (existing) {
-            await ctx.db.delete(existing._id)
-        }
     },
 })
 
@@ -862,5 +850,38 @@ export const handleInstallationCreated = internalMutation({
         }
 
         console.log(`Successfully processed installation for user ${authAccount.userId}`)
+    },
+})
+
+export const deleteInstallation = internalMutation({
+    args: {
+        installationId: v.string(),
+    },
+    async handler(ctx, args) {
+        let installation = await ctx.db
+            .query('installations')
+            .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+            .first()
+
+        if (installation) {
+            await ctx.db.delete(installation._id)
+        }
+    },
+})
+
+export const setInstallationSuspended = internalMutation({
+    args: {
+        installationId: v.string(),
+        suspended: v.boolean(),
+    },
+    async handler(ctx, args) {
+        let installation = await ctx.db
+            .query('installations')
+            .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+            .first()
+
+        if (installation) {
+            await ctx.db.patch(installation._id, { suspended: args.suspended })
+        }
     },
 })
