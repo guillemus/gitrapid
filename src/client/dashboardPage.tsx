@@ -1,6 +1,7 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useQuery } from 'convex/react'
+import { Card, CardContent } from '@/components/ui/card'
 import { api } from '@convex/_generated/api'
+import { useQuery } from 'convex/react'
+import { Link } from 'react-router'
 
 export function DashboardPage() {
     let repos = useQuery(api.functions.listInstalledRepos)
@@ -23,12 +24,12 @@ export function DashboardPage() {
                                         <CardContent className="p-4">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <a
-                                                        href={`/${repo.owner}/${repo.repo}`}
+                                                    <Link
+                                                        to={`/${repo.owner}/${repo.repo}`}
                                                         className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
                                                     >
                                                         {repo.owner}/{repo.repo}
-                                                    </a>
+                                                    </Link>
                                                     <div className="mt-1 text-sm text-gray-600">
                                                         Repository by {repo.owner}
                                                     </div>

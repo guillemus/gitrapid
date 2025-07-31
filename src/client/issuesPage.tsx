@@ -2,6 +2,7 @@ import { api } from '@convex/_generated/api'
 import { useQuery } from 'convex/react'
 import { useGithubParams } from './utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Link } from 'react-router'
 
 export function IssuesPage() {
     let params = useGithubParams()
@@ -37,12 +38,12 @@ export function IssuesPage() {
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <CardTitle className="text-lg">
-                                                <a
-                                                    href={`/${params.owner}/${params.repo}/issues/${issue.number}`}
+                                                <Link
+                                                    to={`/${params.owner}/${params.repo}/issues/${issue.number}`}
                                                     className="text-blue-600 hover:text-blue-800 hover:underline"
                                                 >
                                                     {issue.title}
-                                                </a>
+                                                </Link>
                                             </CardTitle>
                                             <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600">
                                                 <span>#{issue.number}</span>
