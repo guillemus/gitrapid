@@ -117,6 +117,7 @@ export function useMutable<T extends object>(initial: T): T {
 }
 
 import { createAuthClient } from 'better-auth/react'
+import { useParams } from 'react-router'
 
 export const authClient = createAuthClient()
 
@@ -127,4 +128,23 @@ export function useDefined<T>(t?: T) {
     }
 
     return ref.current
+}
+
+export type GithubParams = {
+    owner: string
+    repo: string
+    refAndPath: string
+}
+
+export function useGithubParams(): GithubParams {
+    let params = useParams()
+
+    let owner = params.owner
+    if (!owner) throw new Error(':owner required')
+    let repo = params.repo
+    if (!repo) throw new Error(':repo required')
+
+    let refAndPath = params['*'] ?? ''
+
+    return { owner, repo, refAndPath }
 }

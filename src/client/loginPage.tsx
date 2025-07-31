@@ -5,13 +5,7 @@ export function LoginPage() {
     const { signIn } = useAuthActions()
 
     return (
-        <Button
-            onClick={() =>
-                signIn('github', {
-                    redirectTo: '/dash',
-                })
-            }
-        >
+        <Button onClick={() => signIn('github', { redirectTo: '/dash' })}>
             Sign in with GitHub
         </Button>
     )

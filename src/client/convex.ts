@@ -1,7 +1,6 @@
 import { useAuthActions, useAuthToken } from '@convex-dev/auth/react'
 import { ConvexQueryClient } from '@convex-dev/react-query'
-import { api } from '@convex/_generated/api'
-import { QueryClient, queryOptions } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { ConvexHttpClient } from 'convex/browser'
 import { ConvexReactClient } from 'convex/react'
 import { useNavigate } from 'react-router'

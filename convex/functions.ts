@@ -7,7 +7,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from './_generated/server'
-import { getUserIdentity, parseRefAndPath } from './utils'
+import { getUserId, parseRefAndPath } from './utils'
 
 export const getRepo = internalQuery({
     args: {
@@ -256,7 +256,7 @@ export const getRefsAndCurrent = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        await getUserIdentity(ctx.auth)
+        await getUserId(ctx)
 
         let savedRepo = await ctx.db
             .query('repos')
@@ -486,7 +486,7 @@ export const getRepoPage = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        await getUserIdentity(ctx.auth)
+        // await getUserId(ctx)
 
         let savedRepo = await ctx.db
             .query('repos')
@@ -539,20 +539,13 @@ export const getRepoPage = query({
             commitId = ref.commit
         }
 
-        let fileContents = await ctx.db
+        let fileContentsP = ctx.db
             .query('files')
             .withIndex('by_repo_and_commit', (f) =>
                 f.eq('repo', savedRepo._id).eq('commit', commitId),
             )
             .filter((f) => f.eq(f.field('filename'), parsed.path))
             .first()
-
-        if (!fileContents) {
-            console.error(
-                `getRepoPage: file not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
-            )
-            return null
-        }
 
         let filenames = await ctx.db
             .query('filenames')
@@ -561,6 +554,14 @@ export const getRepoPage = query({
         if (!filenames) {
             console.error(
                 `getRepoPage: filenames not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
+            )
+            return null
+        }
+
+        let fileContents = await fileContentsP
+        if (!fileContents) {
+            console.error(
+                `getRepoPage: file not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
             )
             return null
         }
@@ -583,7 +584,7 @@ export const getFile = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        await getUserIdentity(ctx.auth)
+        // await getUserId(ctx)
 
         let savedRepo = await ctx.db
             .query('repos')
@@ -886,6 +887,141 @@ export const setInstallationSuspended = internalMutation({
 
         if (installation) {
             await ctx.db.patch(installation._id, { suspended: args.suspended })
+        }
+    },
+})
+
+export const listInstalledRepos = query({
+    async handler(ctx) {
+        let userId = await getUserId(ctx)
+
+        let usersDataId = await ctx.db
+            .query('usersData')
+            .withIndex('by_userId', (u) => u.eq('userId', userId))
+            .first()
+        if (!usersDataId) {
+            console.log('No usersDataId found for user', userId)
+            return null
+        }
+
+        let installations = await ctx.db
+            .query('installations')
+            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .collect()
+
+        let repos
+        repos = await Promise.all(installations.map((i) => ctx.db.get(i.repoId)))
+        repos = repos.filter((r) => r !== null)
+
+        return repos
+    },
+})
+
+export const listIssues = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+
+        let usersDataId = await ctx.db
+            .query('usersData')
+            .withIndex('by_userId', (u) => u.eq('userId', userId))
+            .first()
+
+        if (!usersDataId) {
+            console.log('No usersDataId found for user', userId)
+            return null
+        }
+
+        let installations = await ctx.db
+            .query('installations')
+            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .collect()
+
+        let repo = await ctx.db
+            .query('repos')
+            .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
+            .first()
+        if (!repo) {
+            console.log('No repo found for user', userId)
+            return null
+        }
+
+        let repoId = installations.find((i) => i.repoId === repo._id)?.repoId
+        if (!repoId) {
+            console.log('No repoId found for user', userId)
+            return null
+        }
+
+        let issues = await ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (i) => i.eq('repo', repoId))
+            .collect()
+
+        return issues
+    },
+})
+
+export const getIssue = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        issueNumber: v.number(),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+
+        let usersDataId = await ctx.db
+            .query('usersData')
+            .withIndex('by_userId', (u) => u.eq('userId', userId))
+            .first()
+
+        if (!usersDataId) {
+            console.log('No usersDataId found for user', userId)
+            return null
+        }
+
+        let installations = await ctx.db
+            .query('installations')
+            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .collect()
+
+        let repo = await ctx.db
+            .query('repos')
+            .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
+            .first()
+        if (!repo) {
+            console.log('No repo found for user', userId)
+            return null
+        }
+
+        let repoId = installations.find((i) => i.repoId === repo._id)?.repoId
+        if (!repoId) {
+            console.log('No repoId found for user', userId)
+            return null
+        }
+
+        let issue = await ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (i) =>
+                i.eq('repo', repoId).eq('number', args.issueNumber),
+            )
+            .first()
+        if (!issue) {
+            console.log('No issue found for user', userId)
+            return null
+        }
+
+        let comments = await ctx.db
+            .query('issueComments')
+            .withIndex('by_issue', (c) => c.eq('issueId', issue._id))
+            .collect()
+
+        return {
+            issue,
+            comments,
         }
     },
 })

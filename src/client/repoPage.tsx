@@ -9,29 +9,16 @@ import {
 } from '@primer/octicons-react'
 import { useQuery } from 'convex/react'
 import { useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import { CodeBlock } from './codeBlock'
 import { queryClient, useConvexHttp } from './convex'
-import { useDefined, useMutable, useTanstackQuery } from './utils'
-
-type GithubParams = {
-    owner: string
-    repo: string
-    refAndPath: string
-}
-
-function useGithubParams(): GithubParams {
-    let params = useParams()
-
-    let owner = params.owner
-    if (!owner) throw new Error(':owner required')
-    let repo = params.repo
-    if (!repo) throw new Error(':repo required')
-
-    let refAndPath = params['*'] ?? ''
-
-    return { owner, repo, refAndPath }
-}
+import {
+    useDefined,
+    useGithubParams,
+    useMutable,
+    useTanstackQuery,
+    type GithubParams,
+} from './utils'
 
 type FileTreeNode = {
     name: string
@@ -179,12 +166,13 @@ function FileTreeNode({
 function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()
 
-    let query = useQuery(api.functions.getRepoPage, {
-        owner: params.owner,
-        repo: params.repo,
-        refAndPath: params.refAndPath,
-    })
-    query = useDefined(query)
+    let { data: query } = useTanstackQuery(
+        convexQuery(api.functions.getRepoPage, {
+            owner: params.owner,
+            repo: params.repo,
+            refAndPath: params.refAndPath,
+        }),
+    )
 
     let files = preloadedFiles ?? query?.files
     let commitId = query?.commitId
@@ -225,10 +213,11 @@ export function RepoPage() {
             return query
         },
         enabled: !loaded.value && !!convexHttp,
+        staleTime: Infinity,
     })
 
     return (
-        <div className="flex h-screen">
+        <div className="flex flex-1">
             <div className="h-full w-60 overflow-y-auto">
                 <Sidebar preloadedFiles={page.data?.files}></Sidebar>
             </div>

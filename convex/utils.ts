@@ -1,3 +1,4 @@
+import { getAuthUserId } from '@convex-dev/auth/server'
 import type {
     FunctionReference,
     FunctionReturnType,
@@ -107,11 +108,11 @@ type Auth = {
     getUserIdentity: () => Promise<UserIdentity | null>
 }
 
-export async function getUserIdentity(auth: Auth) {
-    let userIdentity = await auth.getUserIdentity()
-    if (!userIdentity) {
+export async function getUserId(ctx: { auth: Auth }) {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) {
         throw new Error('User not authenticated')
     }
 
-    return userIdentity
+    return userId
 }
