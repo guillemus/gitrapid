@@ -136,8 +136,6 @@ export const updateHead = internalAction({
     },
 
     async handler(ctx, { owner, repo }) {
-        console.log('processing repo', owner, repo)
-
         let savedRepo = await ctx.runQuery(internal.functions.getRepo, {
             owner,
             repo,
@@ -164,7 +162,18 @@ export const updateHead = internalAction({
             return
         }
 
+        let savedRefs = await ctx.runQuery(internal.functions.getRefs, { owner, repo })
+        if (!savedRefs) {
+            console.log('no saved refs found for', owner, repo)
+            return
+        }
+
         let commitSha = mainRef.data.object.sha
+        let savedRefHead = savedRefs.find((r) => r.ref === mainRef.data.ref && r.isTag === false)
+        if (!savedRefHead) {
+            console.log('no saved ref head found for', owner, repo, mainRef.data.ref)
+            return
+        }
 
         console.log('main ref sha', commitSha)
         let treeRes = await githubClient.getRepoTree(savedRepo.owner, savedRepo.repo, commitSha)
@@ -218,7 +227,7 @@ export const updateHead = internalAction({
 
         await ctx.runMutation(internal.functions.updateRepoHead, {
             repoId: savedRepo._id,
-            head: commitId,
+            head: savedRefHead._id,
         })
     },
 })

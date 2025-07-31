@@ -13,7 +13,7 @@ export default defineSchema({
         owner: v.string(),
         repo: v.string(),
         private: v.boolean(),
-        head: v.optional(v.id('commits')),
+        head: v.optional(v.id('refs')),
     }).index('by_owner_and_repo', ['owner', 'repo']),
 
     installations: defineTable({

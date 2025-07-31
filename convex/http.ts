@@ -5,6 +5,7 @@ import { auth } from './auth'
 import { handleEvent } from './githubWebhooks'
 
 const http = httpRouter()
+
 const webhooks = new Webhooks({
     secret: process.env.AUTH_GITHUB_WEBHOOK_SECRET!,
 })

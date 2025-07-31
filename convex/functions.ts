@@ -183,7 +183,7 @@ export const insertRepo = internalMutation({
         owner: v.string(),
         repo: v.string(),
         private: v.boolean(),
-        head: v.optional(v.id('commits')),
+        head: v.optional(v.id('refs')),
     },
     async handler(ctx, args) {
         return ctx.db.insert('repos', args)
@@ -477,6 +477,8 @@ export const insertFile = internalMutation({
     },
 })
 
+// fixme: getRepoPage is too complex? There might be better ways to do this
+
 export const getRepoPage = query({
     args: {
         owner: v.string(),
@@ -513,10 +515,13 @@ export const getRepoPage = query({
             return null
         }
 
+        let currentRef: string
         let commitId: Id<'commits'>
         if (parsed.ref === 'HEAD') {
-            if (savedRepo.head) {
-                commitId = savedRepo.head
+            let headRef = refs.find((ref) => ref._id === savedRepo.head)
+            if (headRef) {
+                currentRef = headRef.ref
+                commitId = headRef.commit
             } else {
                 console.log(`getRepoPage: head not found - owner: ${owner}, repo: ${repo}`)
                 return null
@@ -530,6 +535,7 @@ export const getRepoPage = query({
                 return null
             }
 
+            currentRef = ref.ref
             commitId = ref.commit
         }
 
@@ -560,7 +566,7 @@ export const getRepoPage = query({
         }
 
         return {
-            ref: parsed.ref,
+            ref: currentRef,
             commitId,
             fileContents: fileContents.content,
             repoId: savedRepo._id,
@@ -635,7 +641,7 @@ export const getFile = query({
 export const updateRepoHead = internalMutation({
     args: {
         repoId: v.id('repos'),
-        head: v.id('commits'),
+        head: v.id('refs'),
     },
     async handler(ctx, { repoId, head }) {
         await ctx.db.patch(repoId, { head })
