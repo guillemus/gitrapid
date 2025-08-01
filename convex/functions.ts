@@ -613,3 +613,9 @@ export const getInstallationToken = internalQuery({
         return installationToken
     },
 })
+
+export const listAllRepos = internalQuery({
+    async handler(ctx) {
+        return await ctx.db.query('repos').collect()
+    },
+})

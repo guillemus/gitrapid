@@ -14,11 +14,15 @@ export default defineSchema({
         repo: v.string(),
         private: v.boolean(),
         head: v.optional(v.id('refs')),
+    }).index('by_owner_and_repo', ['owner', 'repo']),
+
+    repoCounts: defineTable({
+        repoId: v.id('repos'),
         openIssues: v.number(),
         closedIssues: v.number(),
         openPullRequests: v.number(),
         closedPullRequests: v.number(),
-    }).index('by_owner_and_repo', ['owner', 'repo']),
+    }).index('by_repoId', ['repoId']),
 
     installations: defineTable({
         userDataId: v.id('usersData'),

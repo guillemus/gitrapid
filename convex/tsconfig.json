@@ -29,6 +29,6 @@
     "noEmit": true
 
   },
-  "include": ["./**/*", "../src/shared/githubClient.ts"],
+  "include": ["./**/*"],
   "exclude": ["./_generated"]
 }

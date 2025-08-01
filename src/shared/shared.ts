@@ -1,36 +1,3 @@
-import type { GetContentResponse } from './githubClient'
-
-export function transformFileContentsResponse(fileContents: GetContentResponse) {
-    if (Array.isArray(fileContents)) {
-        type FolderContents = {
-            name: string
-            path: string
-            isDir: boolean
-        }
-        const contents: FolderContents[] = []
-        for (const file of fileContents) {
-            contents.push({
-                isDir: file.type === 'dir',
-                name: file.name,
-                path: file.path,
-            })
-        }
-
-        return { type: 'folder', contents: contents } as const
-    }
-
-    if (fileContents.type === 'file') {
-        return {
-            type: 'file',
-            name: fileContents.name,
-            path: fileContents.path,
-            contents: fileContents.content,
-        } as const
-    }
-
-    return null
-}
-
 export type Success<T> = {
     data: T
     error: null

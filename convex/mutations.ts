@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
-import { api } from './_generated/api'
+import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { internalMutation, type MutationCtx } from './_generated/server'
+import { internalAction, internalMutation, type MutationCtx } from './_generated/server'
 
 export const insertRefs = internalMutation({
     args: {
@@ -118,24 +118,6 @@ export const upsertCommitsAndRefs = internalMutation({
                 })
             }
         }
-    },
-})
-
-export const insertRepo = internalMutation({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        private: v.boolean(),
-        head: v.optional(v.id('refs')),
-    },
-    async handler(ctx, args) {
-        return ctx.db.insert('repos', {
-            ...args,
-            openIssues: 0,
-            closedIssues: 0,
-            openPullRequests: 0,
-            closedPullRequests: 0,
-        })
     },
 })
 
@@ -417,24 +399,28 @@ export const setInstallationSuspended = internalMutation({
     },
 })
 
-export const updateRepoCounts = internalMutation({
+export const fixRepoCounts = internalAction({
     async handler(ctx) {
-        let repos = await ctx.db.query('repos').collect()
+        let repos = await ctx.runQuery(internal.functions.listAllRepos)
         for (const repo of repos) {
             let issues = await ctx.runQuery(api.functions.listIssues, {
                 owner: repo.owner,
                 repo: repo.repo,
             })
             if (!issues) {
+                console.log(`No issues found for repo ${repo.owner}/${repo.repo}`)
                 continue
             }
 
             let openIssues = issues.filter((issue) => issue.state === 'open')
             let closedIssues = issues.filter((issue) => issue.state === 'closed')
 
-            await ctx.db.patch(repo._id, {
+            await ctx.runMutation(internal.mutations.upsertRepoCounts, {
+                repoId: repo._id,
                 openIssues: openIssues.length,
                 closedIssues: closedIssues.length,
+                openPullRequests: 0,
+                closedPullRequests: 0,
             })
         }
     },
@@ -475,12 +461,35 @@ async function upsertRepoMutation(
         await ctx.db.patch(existing._id, { private: args.private })
         return existing._id
     } else {
-        return await ctx.db.insert('repos', {
-            ...args,
+        let repoId = await ctx.db.insert('repos', args)
+        await ctx.db.insert('repoCounts', {
+            repoId,
             openIssues: 0,
             closedIssues: 0,
             openPullRequests: 0,
             closedPullRequests: 0,
         })
+        return repoId
     }
 }
+
+export const upsertRepoCounts = internalMutation({
+    args: {
+        repoId: v.id('repos'),
+        openIssues: v.number(),
+        closedIssues: v.number(),
+        openPullRequests: v.number(),
+        closedPullRequests: v.number(),
+    },
+    async handler(ctx, args) {
+        let existing = await ctx.db
+            .query('repoCounts')
+            .withIndex('by_repoId', (q) => q.eq('repoId', args.repoId))
+            .first()
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+        } else {
+            await ctx.db.insert('repoCounts', args)
+        }
+    },
+})
