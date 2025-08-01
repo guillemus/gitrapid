@@ -122,7 +122,7 @@ export const updateRepoRefs = internalAction({
         }
 
         console.log('upserting refs for', owner, repoName, fetchedRefs.length, 'refs')
-        await ctx.runMutation(internal.functions.upsertCommitsAndRefs, {
+        await ctx.runMutation(internal.mutations.upsertCommitsAndRefs, {
             repo: repoId,
             refs: fetchedRefs,
         })
@@ -182,7 +182,7 @@ export const updateHead = internalAction({
             return
         }
 
-        let commitId = await ctx.runMutation(internal.functions.insertCommit, {
+        let commitId = await ctx.runMutation(internal.mutations.insertCommit, {
             repoId: savedRepo._id,
             sha: commitSha,
         })
@@ -190,7 +190,7 @@ export const updateHead = internalAction({
         let fileList = treeRes.data.tree.map((f) => f.path)
 
         console.log('inserting filenames for', commitId)
-        await ctx.runMutation(internal.functions.insertFilenames, { commitId, fileList })
+        await ctx.runMutation(internal.mutations.insertFilenames, { commitId, fileList })
 
         for (let file of fileList) {
             console.log('getting file', file)
@@ -217,7 +217,7 @@ export const updateHead = internalAction({
             let fileContent = atob(fileRes.data.content)
 
             console.log('inserting file', file)
-            await ctx.runMutation(internal.functions.insertFile, {
+            await ctx.runMutation(internal.mutations.insertFile, {
                 repoId: savedRepo._id,
                 commitId: commitId,
                 filename: file,
@@ -225,7 +225,7 @@ export const updateHead = internalAction({
             })
         }
 
-        await ctx.runMutation(internal.functions.updateRepoHead, {
+        await ctx.runMutation(internal.mutations.updateRepoHead, {
             repoId: savedRepo._id,
             head: savedRefHead._id,
         })
@@ -316,7 +316,12 @@ export const syncIssues = internalAction({
                 }
             }
 
-            await ctx.runMutation(internal.functions.upsertIssue, {
+            if (issue.state !== 'open' && issue.state !== 'closed') {
+                console.error(`unknown issue state`, issue.state)
+                continue
+            }
+
+            await ctx.runMutation(internal.mutations.upsertIssue, {
                 owner: savedRepo.owner,
                 repo: savedRepo.repo,
                 githubId: issue.id,

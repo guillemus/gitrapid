@@ -14,6 +14,10 @@ export default defineSchema({
         repo: v.string(),
         private: v.boolean(),
         head: v.optional(v.id('refs')),
+        openIssues: v.number(),
+        closedIssues: v.number(),
+        openPullRequests: v.number(),
+        closedPullRequests: v.number(),
     }).index('by_owner_and_repo', ['owner', 'repo']),
 
     installations: defineTable({
@@ -67,7 +71,7 @@ export default defineSchema({
         githubId: v.number(),
         number: v.number(), // Issue number in the repo
         title: v.string(),
-        state: v.string(), // "open" | "closed"
+        state: v.union(v.literal('open'), v.literal('closed')),
         body: v.optional(v.string()),
         author: v.object({
             login: v.string(),

@@ -30,7 +30,7 @@ export const generateGithubAppInstallationToken = internalAction({
             installation_id: installationId,
         })
 
-        await ctx.runMutation(internal.functions.saveInstallationToken, {
+        await ctx.runMutation(internal.mutations.saveInstallationToken, {
             owner,
             repo,
             token: accessToken.data.token,

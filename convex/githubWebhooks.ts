@@ -88,25 +88,25 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
     }
 
     if (installation.action === 'created') {
-        await ctx.scheduler.runAfter(0, internal.functions.handleInstallationCreated, {
+        await ctx.scheduler.runAfter(0, internal.mutations.handleInstallationCreated, {
             installationId,
             githubUserId: userId,
             repos: repoData,
         })
     } else if (installation.action === 'deleted') {
-        await ctx.scheduler.runAfter(0, internal.functions.deleteInstallation, {
+        await ctx.scheduler.runAfter(0, internal.mutations.deleteInstallation, {
             installationId,
         })
     } else if (installation.action === 'new_permissions_accepted') {
         // we don't care here, just adding it for completeness
         // I mean, we might want to do something in the future, but for now we don't
     } else if (installation.action === 'suspend') {
-        await ctx.scheduler.runAfter(0, internal.functions.setInstallationSuspended, {
+        await ctx.scheduler.runAfter(0, internal.mutations.setInstallationSuspended, {
             installationId,
             suspended: true,
         })
     } else if (installation.action === 'unsuspend') {
-        await ctx.scheduler.runAfter(0, internal.functions.setInstallationSuspended, {
+        await ctx.scheduler.runAfter(0, internal.mutations.setInstallationSuspended, {
             installationId,
             suspended: false,
         })
@@ -134,7 +134,7 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
     const { issue, repository, action } = payload
 
-    await ctx.scheduler.runAfter(0, internal.functions.upsertIssue, {
+    await ctx.scheduler.runAfter(0, internal.mutations.upsertIssue, {
         owner: repository.owner.login,
         repo: repository.name,
         githubId: issue.id,

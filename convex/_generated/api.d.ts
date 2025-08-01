@@ -21,6 +21,7 @@ import type * as githubAuth from "../githubAuth.js";
 import type * as githubWebhooks from "../githubWebhooks.js";
 import type * as http from "../http.js";
 import type * as jwt from "../jwt.js";
+import type * as mutations from "../mutations.js";
 import type * as utils from "../utils.js";
 
 /**
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   githubWebhooks: typeof githubWebhooks;
   http: typeof http;
   jwt: typeof jwt;
+  mutations: typeof mutations;
   utils: typeof utils;
 }>;
 export declare const api: FilterApi<
