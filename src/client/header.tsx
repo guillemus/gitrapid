@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Authenticated, Unauthenticated } from 'convex/react'
-import { Link } from 'react-router'
 import { useLogout } from './convex'
+import { FastLink } from '@/components/ui/link'
 
 export function Header(props: { owner?: string; repo?: string }) {
     const authActions = useAuthActions()
@@ -16,15 +16,20 @@ export function Header(props: { owner?: string; repo?: string }) {
 
                     {props.owner && props.repo && (
                         <span className="flex items-center gap-2 text-sm text-gray-500">
-                            <span>
-                                {props.owner}/{props.repo}
-                            </span>
-                            <Link
+                            <FastLink
+                                to={`/${props.owner}/${props.repo}`}
+                                className="text-blue-600 hover:underline"
+                            >
+                                <span>
+                                    {props.owner}/{props.repo}
+                                </span>
+                            </FastLink>
+                            <FastLink
                                 to={`/${props.owner}/${props.repo}/issues`}
                                 className="ml-2 text-blue-600 hover:underline"
                             >
                                 Issues
-                            </Link>
+                            </FastLink>
                         </span>
                     )}
                 </div>

@@ -1,15 +1,26 @@
-import { ConvexAuthProvider } from '@convex-dev/auth/react'
+import { ConvexAuthProvider, useAuthToken } from '@convex-dev/auth/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useParams } from 'react-router'
 import { convex, queryClient } from './convex'
 import { DashboardPage } from './dashboardPage'
-import { LoginPage } from './loginPage'
-import { RepoPage } from './repoPage'
 import { Header } from './header'
 import { IssuesPage } from './issuesPage'
+import { LoginPage } from './loginPage'
+import { RepoPage } from './repoPage'
 import { SingleIssuePage } from './singleIssuePage'
-import { Authenticated, Unauthenticated } from 'convex/react'
+
+function AuthenticatedWithToken(props: { children: React.ReactNode }) {
+    let convexAuth = useConvexAuth()
+    let token = useAuthToken()
+
+    if (convexAuth.isAuthenticated || token) {
+        return props.children
+    }
+
+    return null
+}
 
 function AppLayout() {
     let params = useParams()
@@ -19,9 +30,9 @@ function AppLayout() {
             <div>
                 <Header owner={params.owner} repo={params.repo} />
             </div>
-            <Authenticated>
+            <AuthenticatedWithToken>
                 <Outlet></Outlet>
-            </Authenticated>
+            </AuthenticatedWithToken>
             <Unauthenticated>
                 <Navigate to="/login" />
             </Unauthenticated>

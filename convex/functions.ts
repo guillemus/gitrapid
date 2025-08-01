@@ -964,7 +964,7 @@ export const listIssues = query({
     },
 })
 
-export const getIssue = query({
+export const getIssueWithComments = query({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -1023,5 +1023,11 @@ export const getIssue = query({
             issue,
             comments,
         }
+    },
+})
+
+export const pingMe = query({
+    async handler(ctx) {
+        return 'pong'
     },
 })

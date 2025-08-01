@@ -1,8 +1,25 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryKey } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
 // This exists bc of naming conflict with convex.
 export const useTanstackQuery = useQuery
+
+// An infinitely non stale query. This is only useful on first load, after that
+// the result from this function should be discarded.
+export function useFirstLoadQuery<T>(args: {
+    queryKey: QueryKey
+    queryFn: (c: ConvexHttpClient) => Promise<T>
+}) {
+    let convexHttp = useConvexHttp()
+    return (
+        useTanstackQuery({
+            queryKey: args.queryKey,
+            queryFn: () => args.queryFn(convexHttp!),
+            enabled: !!convexHttp,
+            staleTime: Infinity,
+        }).data ?? null
+    )
+}
 
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()
@@ -118,6 +135,8 @@ export function useMutable<T extends object>(initial: T): T {
 
 import { createAuthClient } from 'better-auth/react'
 import { useParams } from 'react-router'
+import { useConvexHttp } from './convex'
+import type { ConvexHttpClient } from 'convex/browser'
 
 export const authClient = createAuthClient()
 

@@ -1,16 +1,31 @@
 import { api } from '@convex/_generated/api'
-import { useQuery } from 'convex/react'
-import { useGithubParams } from './utils'
+import { useFirstLoadQuery, useGithubParams, useTanstackQuery } from './utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from 'react-router'
+import { convexQuery } from '@convex-dev/react-query'
+import { queryClient } from './convex'
+import { FastLink } from '@/components/ui/link'
 
 export function IssuesPage() {
     let params = useGithubParams()
 
-    let issues = useQuery(api.functions.listIssues, {
-        owner: params.owner,
-        repo: params.repo,
+    let firstLoad = useFirstLoadQuery({
+        queryKey: ['issues', params.owner, params.repo],
+        queryFn: (c) =>
+            c.query(api.functions.listIssues, {
+                owner: params.owner,
+                repo: params.repo,
+            }),
     })
+
+    let { data: issues } = useTanstackQuery(
+        convexQuery(api.functions.listIssues, {
+            owner: params.owner,
+            repo: params.repo,
+        }),
+    )
+
+    let data = issues ?? firstLoad
 
     return (
         <div className="p-6">
@@ -22,28 +37,40 @@ export function IssuesPage() {
             </div>
 
             <div className="space-y-4">
-                {!issues && <p>Loading issues...</p>}
-                {issues?.length === 0 && (
+                {!data && <p>Loading issues...</p>}
+                {data?.length === 0 && (
                     <Card>
                         <CardContent className="p-6 text-center">
                             <p className="text-gray-500">No issues found.</p>
                         </CardContent>
                     </Card>
                 )}
-                {issues && issues.length > 0 && (
+                {data && data.length > 0 && (
                     <div className="space-y-3">
-                        {issues.map((issue) => (
+                        {data.map((issue) => (
                             <Card key={issue._id} className="transition-all hover:shadow-md">
                                 <CardHeader className="pb-3">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <CardTitle className="text-lg">
-                                                <Link
+                                                <FastLink
                                                     to={`/${params.owner}/${params.repo}/issues/${issue.number}`}
                                                     className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                    onMouseOver={() => {
+                                                        queryClient.prefetchQuery(
+                                                            convexQuery(
+                                                                api.functions.getIssueWithComments,
+                                                                {
+                                                                    owner: params.owner,
+                                                                    repo: params.repo,
+                                                                    issueNumber: issue.number,
+                                                                },
+                                                            ),
+                                                        )
+                                                    }}
                                                 >
                                                     {issue.title}
-                                                </Link>
+                                                </FastLink>
                                             </CardTitle>
                                             <div className="mt-2 flex items-center space-x-4 text-sm text-gray-600">
                                                 <span>#{issue.number}</span>
