@@ -3,10 +3,13 @@ import { useAuthActions } from '@convex-dev/auth/react'
 import { Authenticated, Unauthenticated } from 'convex/react'
 import { useLogout } from './convex'
 import { FastLink } from '@/components/ui/link'
+import { useImperativeHandle } from 'react'
+import { useLocation } from 'react-router'
 
 export function Header(props: { owner?: string; repo?: string }) {
     const authActions = useAuthActions()
     const logout = useLogout()
+    let path = useLocation().pathname
 
     return (
         <header className={'w-full border-b bg-white dark:bg-gray-950'}>
@@ -34,6 +37,15 @@ export function Header(props: { owner?: string; repo?: string }) {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    <a
+                        href={`https://github.com${path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded px-2 py-1 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-black dark:hover:bg-gray-800 dark:hover:text-white"
+                    >
+                        View on GitHub
+                    </a>
+
                     <Authenticated>
                         <Button variant="outline" size="sm" onClick={logout}>
                             Sign out
