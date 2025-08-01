@@ -921,6 +921,7 @@ export const listIssues = query({
     args: {
         owner: v.string(),
         repo: v.string(),
+        search: v.optional(v.string()),
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
@@ -955,10 +956,18 @@ export const listIssues = query({
             return null
         }
 
-        let issues = await ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (i) => i.eq('repo', repoId))
-            .collect()
+        let issues
+        issues = ctx.db.query('issues')
+        if (args.search) {
+            let search = args.search
+            issues = issues.withSearchIndex('search_issues', (i) =>
+                i.search('title', search).eq('repo', repoId),
+            )
+        } else {
+            issues = issues.withIndex('by_repo_and_number', (i) => i.eq('repo', repoId))
+        }
+
+        issues = await issues.collect()
 
         return issues
     },

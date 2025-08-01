@@ -1,10 +1,17 @@
-import { api } from '@convex/_generated/api'
-import { useFirstLoadQuery, useGithubParams, useTanstackQuery } from './utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Link } from 'react-router'
-import { convexQuery } from '@convex-dev/react-query'
-import { queryClient } from './convex'
 import { FastLink } from '@/components/ui/link'
+import { convexQuery } from '@convex-dev/react-query'
+import { api } from '@convex/_generated/api'
+import { queryClient } from './convex'
+import {
+    useDebounce,
+    useFirstLoadQuery,
+    useGithubParams,
+    useMutable,
+    useTanstackQuery,
+} from './utils'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 export function IssuesPage() {
     let params = useGithubParams()
@@ -18,10 +25,14 @@ export function IssuesPage() {
             }),
     })
 
+    let search = useMutable({ value: undefined as string | undefined })
+    let debouncedSearch = useDebounce(search.value, 150)
+
     let { data: issues } = useTanstackQuery(
         convexQuery(api.functions.listIssues, {
             owner: params.owner,
             repo: params.repo,
+            search: debouncedSearch,
         }),
     )
 
@@ -30,10 +41,22 @@ export function IssuesPage() {
     return (
         <div className="p-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold">Issues</h1>
-                <p className="text-gray-600">
-                    Issues for {params.owner}/{params.repo}
-                </p>
+                <div className="flex items-center justify-between">
+                    <h1 className="text-2xl font-bold">Issues</h1>
+                    <p className="text-gray-600">
+                        Issues for {params.owner}/{params.repo}
+                    </p>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2">
+                    <Input
+                        placeholder="Search issues"
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        value={search.value}
+                        onChange={(e) => (search.value = e.target.value)}
+                    />
+                    <Button onClick={() => (search.value = undefined)}>Clear</Button>
+                </div>
             </div>
 
             <div className="space-y-4">

@@ -1,10 +1,9 @@
 import { Button } from '@/components/ui/button'
+import { FastLink } from '@/components/ui/link'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Authenticated, Unauthenticated } from 'convex/react'
-import { useLogout } from './convex'
-import { FastLink } from '@/components/ui/link'
-import { useImperativeHandle } from 'react'
 import { useLocation } from 'react-router'
+import { useLogout } from './convex'
 
 export function Header(props: { owner?: string; repo?: string }) {
     const authActions = useAuthActions()

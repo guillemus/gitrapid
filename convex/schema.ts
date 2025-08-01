@@ -80,6 +80,10 @@ export default defineSchema({
         closedAt: v.optional(v.string()),
         comments: v.optional(v.number()),
     })
+        .searchIndex('search_issues', {
+            searchField: 'title',
+            filterFields: ['repo'],
+        })
         .index('by_repo_and_number', ['repo', 'number'])
         .index('by_github_id', ['githubId']),
 
