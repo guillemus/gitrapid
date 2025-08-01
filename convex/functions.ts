@@ -587,3 +587,29 @@ export const getIssueWithComments = query({
         }
     },
 })
+
+export const getInstallationToken = internalQuery({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+    },
+    async handler(ctx, args) {
+        let repo = await ctx.db
+            .query('repos')
+            .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
+            .first()
+        if (!repo) {
+            return null
+        }
+
+        let installationToken = await ctx.db
+            .query('installationAccessTokens')
+            .withIndex('by_repo_id', (i) => i.eq('repoId', repo._id))
+            .first()
+        if (!installationToken) {
+            return null
+        }
+
+        return installationToken
+    },
+})
