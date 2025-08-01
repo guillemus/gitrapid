@@ -1025,9 +1025,3 @@ export const getIssueWithComments = query({
         }
     },
 })
-
-export const pingMe = query({
-    async handler(ctx) {
-        return 'pong'
-    },
-})
