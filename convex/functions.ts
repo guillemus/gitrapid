@@ -964,7 +964,7 @@ export const listIssues = query({
     },
 })
 
-export const getIssue = query({
+export const getIssueWithComments = query({
     args: {
         owner: v.string(),
         repo: v.string(),

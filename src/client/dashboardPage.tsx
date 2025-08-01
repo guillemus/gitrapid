@@ -1,9 +1,17 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useQuery } from 'convex/react'
+import { Card, CardContent } from '@/components/ui/card'
+import { FastLink } from '@/components/ui/link'
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
+import { useFirstLoadQuery, useTanstackQuery } from './utils'
 
 export function DashboardPage() {
-    let repos = useQuery(api.functions.listInstalledRepos)
+    let firstLoad = useFirstLoadQuery({
+        queryKey: ['dashboard'],
+        queryFn: (c) => c.query(api.functions.listInstalledRepos, {}),
+    })
+
+    let { data: repos } = useTanstackQuery(convexQuery(api.functions.listInstalledRepos, {}))
+    let data = repos ?? firstLoad
 
     return (
         <div className="p-6">
@@ -11,11 +19,11 @@ export function DashboardPage() {
                 <CardContent>
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold">Your installed repositories</h3>
-                        {repos?.length === 0 && <p>No repositories installed yet.</p>}
-                        {!repos && <p>Loading...</p>}
-                        {repos && (
+                        {data?.length === 0 && <p>No repositories installed yet.</p>}
+                        {!data && <p>Loading...</p>}
+                        {data && (
                             <div className="grid grid-cols-6 gap-3">
-                                {repos.map((repo: any) => (
+                                {data.map((repo: any) => (
                                     <Card
                                         key={`${repo.owner}/${repo.repo}`}
                                         className="transition-all hover:shadow-md"
@@ -23,12 +31,12 @@ export function DashboardPage() {
                                         <CardContent className="p-4">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <a
-                                                        href={`/${repo.owner}/${repo.repo}`}
+                                                    <FastLink
+                                                        to={`/${repo.owner}/${repo.repo}`}
                                                         className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
                                                     >
                                                         {repo.owner}/{repo.repo}
-                                                    </a>
+                                                    </FastLink>
                                                     <div className="mt-1 text-sm text-gray-600">
                                                         Repository by {repo.owner}
                                                     </div>

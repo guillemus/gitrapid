@@ -1,7 +1,8 @@
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { api } from '@convex/_generated/api'
-import { useQuery } from 'convex/react'
 import { useParams } from 'react-router'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useFirstLoadQuery, useTanstackQuery } from './utils'
+import { convexQuery } from '@convex-dev/react-query'
 
 function usePageParams() {
     let params = useParams()
@@ -19,13 +20,18 @@ function usePageParams() {
 export function SingleIssuePage() {
     let { owner, repo, issueNumber } = usePageParams()
 
-    let result = useQuery(api.functions.getIssue, {
-        owner,
-        repo,
-        issueNumber,
+    let firstLoad = useFirstLoadQuery({
+        queryKey: ['issue', owner, repo, issueNumber],
+        queryFn: (c) => c.query(api.functions.getIssueWithComments, { owner, repo, issueNumber }),
     })
 
-    if (!result) {
+    let { data: issue } = useTanstackQuery(
+        convexQuery(api.functions.getIssueWithComments, { owner, repo, issueNumber }),
+    )
+
+    let data = issue ?? firstLoad
+
+    if (!data) {
         return (
             <div className="p-6">
                 <p>Loading issue...</p>
@@ -33,35 +39,33 @@ export function SingleIssuePage() {
         )
     }
 
-    const { issue, comments } = result
-
     return (
         <div className="p-6">
             {/* Issue Header */}
             <div className="mb-6">
                 <div className="mb-2 flex items-center space-x-2">
-                    <h1 className="text-2xl font-bold">{issue.title}</h1>
+                    <h1 className="text-2xl font-bold">{data.issue.title}</h1>
                     <span
                         className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                            issue.state === 'open'
+                            data.issue.state === 'open'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-purple-100 text-purple-800'
                         }`}
                     >
-                        {issue.state}
+                        {data.issue.state}
                     </span>
                 </div>
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <span>#{issue.number}</span>
-                    <span>opened by {issue.author.login}</span>
-                    <span>{new Date(issue.createdAt).toLocaleDateString()}</span>
-                    <span>updated {new Date(issue.updatedAt).toLocaleDateString()}</span>
-                    {issue.closedAt && (
-                        <span>closed {new Date(issue.closedAt).toLocaleDateString()}</span>
+                    <span>#{data.issue.number}</span>
+                    <span>opened by {data.issue.author.login}</span>
+                    <span>{new Date(data.issue.createdAt).toLocaleDateString()}</span>
+                    <span>updated {new Date(data.issue.updatedAt).toLocaleDateString()}</span>
+                    {data.issue.closedAt && (
+                        <span>closed {new Date(data.issue.closedAt).toLocaleDateString()}</span>
                     )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                    {issue.labels?.map((label) => (
+                    {data.issue.labels?.map((label) => (
                         <span
                             key={label}
                             className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800"
@@ -69,7 +73,7 @@ export function SingleIssuePage() {
                             {label}
                         </span>
                     ))}
-                    {issue.assignees?.map((assignee) => (
+                    {data.issue.assignees?.map((assignee) => (
                         <span
                             key={assignee}
                             className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
@@ -81,36 +85,37 @@ export function SingleIssuePage() {
             </div>
 
             {/* Issue Body */}
-            {issue.body && (
+            {data.issue.body && (
                 <Card className="mb-6">
                     <CardHeader>
                         <div className="flex items-center space-x-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
                                 <span className="text-sm font-medium text-blue-800">
-                                    {issue.author.login?.[0]?.toUpperCase()}
+                                    {data.issue.author.login?.[0]?.toUpperCase()}
                                 </span>
                             </div>
                             <div>
-                                <p className="font-medium">{issue.author.login}</p>
+                                <p className="font-medium">{data.issue.author.login}</p>
                                 <p className="text-sm text-gray-600">
-                                    commented on {new Date(issue.createdAt).toLocaleDateString()}
+                                    commented on{' '}
+                                    {new Date(data.issue.createdAt).toLocaleDateString()}
                                 </p>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div className="prose max-w-none">
-                            <pre className="font-sans whitespace-pre-wrap">{issue.body}</pre>
+                            <pre className="font-sans whitespace-pre-wrap">{data.issue.body}</pre>
                         </div>
                     </CardContent>
                 </Card>
             )}
 
             {/* Comments */}
-            {comments && comments.length > 0 && (
+            {data.comments && data.comments.length > 0 && (
                 <div className="space-y-4">
-                    <h2 className="text-lg font-semibold">Comments ({comments.length})</h2>
-                    {comments.map((comment) => (
+                    <h2 className="text-lg font-semibold">Comments ({data.comments.length})</h2>
+                    {data.comments.map((comment) => (
                         <Card key={comment._id} className={comment.isDeleted ? 'opacity-50' : ''}>
                             <CardHeader>
                                 <div className="flex items-center justify-between">
@@ -164,7 +169,7 @@ export function SingleIssuePage() {
             )}
 
             {/* No comments state */}
-            {comments && comments.length === 0 && (
+            {data.comments && data.comments.length === 0 && (
                 <Card>
                     <CardContent className="p-6 text-center">
                         <p className="text-gray-500">No comments yet.</p>
