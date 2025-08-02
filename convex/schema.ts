@@ -5,10 +5,6 @@ import { v } from 'convex/values'
 export default defineSchema({
     ...authTables,
 
-    usersData: defineTable({
-        userId: v.id('users'),
-    }).index('by_userId', ['userId']),
-
     repos: defineTable({
         owner: v.string(),
         repo: v.string(),
@@ -25,12 +21,12 @@ export default defineSchema({
     }).index('by_repoId', ['repoId']),
 
     installations: defineTable({
-        userDataId: v.id('usersData'),
+        userId: v.id('users'),
         suspended: v.boolean(),
         repoId: v.id('repos'),
         installationId: v.string(), // GitHub installation ID
     })
-        .index('by_userDataId', ['userDataId'])
+        .index('by_userId', ['userId'])
         .index('by_repoId', ['repoId'])
         .index('by_installationId', ['installationId']),
 

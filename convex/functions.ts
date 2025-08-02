@@ -448,18 +448,15 @@ export const listInstalledRepos = query({
     async handler(ctx) {
         let userId = await getUserId(ctx)
 
-        let usersDataId = await ctx.db
-            .query('usersData')
-            .withIndex('by_userId', (u) => u.eq('userId', userId))
-            .first()
-        if (!usersDataId) {
-            console.log('No usersDataId found for user', userId)
+        let user = await ctx.db.get(userId)
+        if (!user) {
+            console.log('No user found for user', userId)
             return null
         }
 
         let installations = await ctx.db
             .query('installations')
-            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .withIndex('by_userId', (i) => i.eq('userId', userId))
             .collect()
 
         let repos
@@ -479,19 +476,15 @@ export const listIssues = query({
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
-        let usersDataId = await ctx.db
-            .query('usersData')
-            .withIndex('by_userId', (u) => u.eq('userId', userId))
-            .first()
-
-        if (!usersDataId) {
-            console.log('No usersDataId found for user', userId)
+        let user = await ctx.db.get(userId)
+        if (!user) {
+            console.log('No user found for user', userId)
             return null
         }
 
         let installations = await ctx.db
             .query('installations')
-            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .withIndex('by_userId', (i) => i.eq('userId', userId))
             .collect()
 
         let repo = await ctx.db
@@ -535,19 +528,9 @@ export const getIssueWithComments = query({
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
-        let usersDataId = await ctx.db
-            .query('usersData')
-            .withIndex('by_userId', (u) => u.eq('userId', userId))
-            .first()
-
-        if (!usersDataId) {
-            console.log('No usersDataId found for user', userId)
-            return null
-        }
-
         let installations = await ctx.db
             .query('installations')
-            .withIndex('by_userDataId', (i) => i.eq('userDataId', usersDataId._id))
+            .withIndex('by_userId', (i) => i.eq('userId', userId))
             .collect()
 
         let repo = await ctx.db

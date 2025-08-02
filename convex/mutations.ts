@@ -294,29 +294,9 @@ export const upsertRepo = internalMutation({
     },
 })
 
-async function upsertUsersDataMutation(ctx: MutationCtx, args: { userId: Id<'users'> }) {
-    let existing = await ctx.db
-        .query('usersData')
-        .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-        .first()
-    if (existing) return existing._id
-
-    let inserted = await ctx.db.insert('usersData', { userId: args.userId })
-    return inserted
-}
-
-export const upsertUsersData = internalMutation({
-    args: {
-        userId: v.id('users'),
-    },
-    async handler(ctx, args) {
-        return await upsertUsersDataMutation(ctx, args)
-    },
-})
-
 export const addInstallation = internalMutation({
     args: {
-        userDataId: v.id('usersData'),
+        userId: v.id('users'),
         repoId: v.id('repos'),
         installationId: v.string(),
     },
@@ -350,13 +330,11 @@ export const handleInstallationCreated = internalMutation({
             return
         }
 
-        let userDataId = await upsertUsersDataMutation(ctx, { userId: authAccount.userId })
-
         for (const repoData of args.repos) {
             const repoId = await upsertRepoMutation(ctx, repoData)
 
             await addInstallationMutation(ctx, {
-                userDataId,
+                userId: authAccount.userId,
                 repoId,
                 installationId: args.installationId,
             })
@@ -429,20 +407,20 @@ export const fixRepoCounts = internalAction({
 async function addInstallationMutation(
     ctx: MutationCtx,
     args: {
-        userDataId: Id<'usersData'>
+        userId: Id<'users'>
         repoId: Id<'repos'>
         installationId: string
     },
 ) {
     let existing = await ctx.db
         .query('installations')
-        .withIndex('by_userDataId', (q) => q.eq('userDataId', args.userDataId))
+        .withIndex('by_userId', (q) => q.eq('userId', args.userId))
         .filter((i) => i.eq(i.field('repoId'), args.repoId))
         .first()
     if (!existing) {
         await ctx.db.insert('installations', {
             installationId: args.installationId,
-            userDataId: args.userDataId,
+            userId: args.userId,
             repoId: args.repoId,
             suspended: false,
         })

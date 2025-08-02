@@ -21,6 +21,7 @@
     "@clerk/clerk-react": "^5.38.0",
     "@convex-dev/aggregate": "^0.1.21",
     "@convex-dev/auth": "^0.0.87",
+    "@convex-dev/migrations": "^0.2.9",
     "@convex-dev/react-query": "0.0.0-alpha.11",
     "@fontsource/geist-sans": "5.2.5",
     "@isomorphic-git/lightning-fs": "^4.6.2",
@@ -71,7 +72,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "4.1.11",
     "tree-sitter-cli": "^0.25.8",
-    "typescript": "5.8.3",
+    "typescript": "5.9.2",
     "valtio": "2.1.5",
     "zod": "4.0.14"
   },
