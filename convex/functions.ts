@@ -602,3 +602,9 @@ export const listAllRepos = internalQuery({
         return await ctx.db.query('repos').collect()
     },
 })
+
+export const getRepos = query({
+    async handler(ctx, args) {
+        return await ctx.db.query('repos').collect()
+    },
+})

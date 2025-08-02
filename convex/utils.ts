@@ -1,10 +1,14 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { ConvexHttpClient } from 'convex/browser'
 import type {
     FunctionReference,
     FunctionReturnType,
     OptionalRestArgs,
     UserIdentity,
 } from 'convex/server'
+import { v } from 'convex/values'
+import { RequestError } from 'octokit'
+import type { ActionCtx } from './_generated/server'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -115,4 +119,109 @@ export async function getUserId(ctx: { auth: Auth }) {
     }
 
     return userId
+}
+
+export type Success<T> = {
+    data: T
+    error: null
+}
+
+export type Failure<E> = {
+    data: null
+    error: E
+}
+
+export type Result<T, E = Error> = Success<T> | Failure<E>
+export type ResultP<T, E = Error> = Promise<Result<T, E>>
+
+export function ok<T>(val: T): Success<T> {
+    return { data: val, error: null }
+}
+
+export function err(msg: string): Failure<Error> {
+    return { data: null, error: new Error(msg) }
+}
+
+export function failure<T>(val: T): Failure<T> {
+    return { data: null, error: val }
+}
+
+export async function tryCatch<T, E = Error>(promise: Promise<T>): ResultP<T, E> {
+    try {
+        const data = await promise
+        return { data, error: null }
+    } catch (error) {
+        return { data: null, error: error as E }
+    }
+}
+
+export function unwrap<T, E>(res: Result<T, E>): T {
+    if (res.error) {
+        throw res.error
+    }
+
+    return res.data as T
+}
+
+export async function octoCatch<T>(promise: Promise<{ data: T }>): ResultP<T, RequestError> {
+    try {
+        let res = await promise
+        return ok(res.data)
+    } catch (error) {
+        if (error instanceof RequestError) {
+            return failure(error)
+        }
+
+        throw error
+    }
+}
+
+export function addSecret<T extends object>(obj: T): T & { secret: string } {
+    return {
+        secret: process.env['AUTH_GITHUB_WEBHOOK_SECRET']!,
+        ...obj,
+    } as T & { secret: string }
+}
+
+export function withSecret<T extends object>(obj: T) {
+    return {
+        secret: v.string(),
+        ...obj,
+    }
+}
+
+export function protectFn(args: { secret: string }) {
+    if (args.secret !== process.env['AUTH_GITHUB_WEBHOOK_SECRET']) {
+        throw new Error('Not available')
+    }
+}
+
+export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
+    return {
+        runQuery: async (query, ...args) => {
+            // @ts-ignore
+            return await client.query(query, ...args)
+        },
+        runMutation: async (mutation, ...args) => {
+            // @ts-ignore
+            return await client.mutation(mutation, ...args)
+        },
+        runAction: async (action, ...args) => {
+            // @ts-ignore
+            return await client.action(action, ...args)
+        },
+
+        get auth(): any {
+            throw new Error('not implemented')
+        },
+        get scheduler(): any {
+            throw new Error('not implemented')
+        },
+        get storage(): any {
+            throw new Error('not implemented')
+        },
+        get vectorSearch(): any {
+            throw new Error('not implemented')
+        },
+    }
 }

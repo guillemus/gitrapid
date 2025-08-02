@@ -5,6 +5,12 @@ import { v } from 'convex/values'
 export default defineSchema({
     ...authTables,
 
+    // pats are personal access tokens for users.
+    pats: defineTable({
+        userId: v.id('users'),
+        token: v.string(),
+    }).index('by_user_id', ['userId']),
+
     repos: defineTable({
         owner: v.string(),
         repo: v.string(),
@@ -42,9 +48,6 @@ export default defineSchema({
         sha: v.string(),
     }).index('by_repo_and_sha', ['repo', 'sha']),
 
-    // refs are dynamic pointers to commits. When the user selects a ref, this
-    // will be 'dereferenced' back to a pointer, which will get all the files.
-    // This table is also useful to separate filename from ref when parsing a github path.
     refs: defineTable({
         repo: v.id('repos'),
         commit: v.id('commits'),

@@ -1,7 +1,8 @@
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 import { api, internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { internalAction, internalMutation, type MutationCtx } from './_generated/server'
+import type { WithoutSystemFields } from 'convex/server'
 
 export const insertRefs = internalMutation({
     args: {
@@ -224,8 +225,7 @@ export const saveInstallationToken = internalMutation({
 
 export const upsertIssue = internalMutation({
     args: {
-        owner: v.string(),
-        repo: v.string(),
+        repo: v.id('repos'),
         githubId: v.number(),
         number: v.number(),
         title: v.string(),
@@ -240,65 +240,40 @@ export const upsertIssue = internalMutation({
         comments: v.optional(v.number()),
     },
     async handler(ctx, args) {
-        // Find the repo by owner and repo
-        const repo = await ctx.db
-            .query('repos')
-            .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-            .unique()
-        if (!repo) throw new Error(`Repo not found: ${args.owner}/${args.repo}`)
-
-        // Upsert the issue
-        const existing = await ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) =>
-                q.eq('repo', repo._id).eq('number', args.number),
-            )
-            .unique()
-        const issueData = {
-            repo: repo._id,
-            githubId: args.githubId,
-            number: args.number,
-            title: args.title,
-            state: args.state,
-            body: args.body,
-            author: args.author,
-            labels: args.labels,
-            assignees: args.assignees,
-            createdAt: args.createdAt,
-            updatedAt: args.updatedAt,
-            closedAt: args.closedAt,
-            comments: args.comments,
-        }
-        if (existing) {
-            await ctx.db.patch(existing._id, issueData)
-
-            if (existing.state === args.state) return
-
-            let repoCounts = await ctx.db
-                .query('repoCounts')
-                .withIndex('by_repoId', (q) => q.eq('repoId', repo._id))
-                .unique()
-            if (!repoCounts) {
-                await ctx.db.insert('repoCounts', {
-                    repoId: repo._id,
-                    openIssues: 0,
-                    closedIssues: 0,
-                    openPullRequests: 0,
-                    closedPullRequests: 0,
-                })
-            }
-
-            // if (args.state === 'open') {
-            //     if (repoCounts) {
-            //         await ctx.db.patch(repoCounts._id, { openIssues: repoCounts.openIssues + 1 })
-            //     }
-            // } else {
-            // }
-        } else {
-            await ctx.db.insert('issues', issueData)
-        }
+        return await upsertIssueMutation(ctx, args)
     },
 })
+
+export async function upsertIssueMutation(
+    ctx: MutationCtx,
+    args: WithoutSystemFields<Doc<'issues'>>,
+) {
+    const existing = await ctx.db
+        .query('issues')
+        .withIndex('by_repo_and_number', (q) => q.eq('repo', args.repo).eq('number', args.number))
+        .unique()
+    if (existing) {
+        await ctx.db.patch(existing._id, args)
+
+        if (existing.state === args.state) return
+
+        let repoCounts = await ctx.db
+            .query('repoCounts')
+            .withIndex('by_repoId', (q) => q.eq('repoId', args.repo))
+            .unique()
+        if (!repoCounts) {
+            await ctx.db.insert('repoCounts', {
+                repoId: args.repo,
+                openIssues: 0,
+                closedIssues: 0,
+                openPullRequests: 0,
+                closedPullRequests: 0,
+            })
+        }
+    } else {
+        await ctx.db.insert('issues', args)
+    }
+}
 
 export const upsertRepo = internalMutation({
     args: {

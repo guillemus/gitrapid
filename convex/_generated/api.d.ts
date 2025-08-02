@@ -18,6 +18,7 @@ import type * as http from "../http.js";
 import type * as jwt from "../jwt.js";
 import type * as migrations from "../migrations.js";
 import type * as mutations from "../mutations.js";
+import type * as protected_ from "../protected.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   jwt: typeof jwt;
   migrations: typeof migrations;
   mutations: typeof mutations;
+  protected: typeof protected_;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
