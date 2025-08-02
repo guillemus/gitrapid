@@ -18,7 +18,7 @@ export const getInstallationToken = internalQuery({
         let token = await ctx.db
             .query('installationAccessTokens')
             .withIndex('by_repo_id', (q) => q.eq('repoId', repo._id))
-            .first()
+            .unique()
         if (!token) {
             console.error(`token not found`, repoId)
             return null

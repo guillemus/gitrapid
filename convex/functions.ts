@@ -13,7 +13,7 @@ export const getRepo = internalQuery({
         return ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-            .first()
+            .unique()
     },
 })
 
@@ -62,7 +62,7 @@ export const getFiles = internalQuery({
         return ctx.db
             .query('filenames')
             .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .first()
+            .unique()
     },
 })
 
@@ -100,7 +100,7 @@ export const getRefs = internalQuery({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             console.error(`getRefs: repo not found - owner: ${args.owner}, repo: ${args.repo}`)
             return []
@@ -125,7 +125,7 @@ export const getRefsAndCurrent = query({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             return null
         }
@@ -149,7 +149,7 @@ export const separateRefFromPath = internalQuery({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             return null
         }
@@ -203,7 +203,7 @@ export const commitIdFromPath = internalQuery({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             return null
         }
@@ -227,7 +227,7 @@ export const filesAndCommitIdFromPath = internalQuery({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             return null
         }
@@ -241,7 +241,7 @@ export const filesAndCommitIdFromPath = internalQuery({
         let files = await ctx.db
             .query('filenames')
             .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .first()
+            .unique()
 
         return {
             files: files ? files.files : [],
@@ -259,7 +259,7 @@ export const getRepoAndRefs = internalQuery({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             console.error(`getRepoAndRefs: repo not found - owner: ${owner}, repo: ${repo}`)
             return null
@@ -296,7 +296,7 @@ export const getRepoPage = query({
         let savedRepo = await ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (r) => r.eq('owner', owner).eq('repo', repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             console.error(`getRepoPage: repo not found - owner: ${owner}, repo: ${repo}`)
             return null
@@ -350,12 +350,12 @@ export const getRepoPage = query({
                 f.eq('repo', savedRepo._id).eq('commit', commitId),
             )
             .filter((f) => f.eq(f.field('filename'), parsed.path))
-            .first()
+            .unique()
 
         let filenames = await ctx.db
             .query('filenames')
             .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .first()
+            .unique()
         if (!filenames) {
             console.error(
                 `getRepoPage: filenames not found - owner: ${owner}, repo: ${repo}, ref: ${parsed.ref}, path: ${parsed.path}`,
@@ -394,7 +394,7 @@ export const getFile = query({
         let savedRepo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), owner) && r.eq(r.field('repo'), repo))
-            .first()
+            .unique()
         if (!savedRepo) {
             return null
         }
@@ -431,7 +431,7 @@ export const getFile = query({
                 f.eq('repo', savedRepo._id).eq('commit', ref.commit),
             )
             .filter((f) => f.eq(f.field('filename'), parsed.path))
-            .first()
+            .unique()
 
         if (!fileContents) {
             console.error(
@@ -490,7 +490,7 @@ export const listIssues = query({
         let repo = await ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
-            .first()
+            .unique()
         if (!repo) {
             console.log('No repo found for user', userId)
             return null
@@ -536,7 +536,7 @@ export const getIssueWithComments = query({
         let repo = await ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
-            .first()
+            .unique()
         if (!repo) {
             console.log('No repo found for user', userId)
             return null
@@ -553,7 +553,7 @@ export const getIssueWithComments = query({
             .withIndex('by_repo_and_number', (i) =>
                 i.eq('repo', repoId).eq('number', args.issueNumber),
             )
-            .first()
+            .unique()
         if (!issue) {
             console.log('No issue found for user', userId)
             return null
@@ -580,7 +580,7 @@ export const getInstallationToken = internalQuery({
         let repo = await ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
-            .first()
+            .unique()
         if (!repo) {
             return null
         }
@@ -588,7 +588,7 @@ export const getInstallationToken = internalQuery({
         let installationToken = await ctx.db
             .query('installationAccessTokens')
             .withIndex('by_repo_id', (i) => i.eq('repoId', repo._id))
-            .first()
+            .unique()
         if (!installationToken) {
             return null
         }

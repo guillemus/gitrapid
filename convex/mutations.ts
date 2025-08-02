@@ -20,7 +20,7 @@ export const insertRefs = internalMutation({
             let saved = await ctx.db
                 .query('commits')
                 .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId).eq('sha', ref.sha))
-                .first()
+                .unique()
 
             if (!saved) {
                 console.error(`ref ${ref.ref} with inexistent sha ${ref.sha}`)
@@ -47,7 +47,7 @@ export const insertCommits = internalMutation({
             let saved = await ctx.db
                 .query('commits')
                 .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId).eq('sha', commit))
-                .first()
+                .unique()
 
             if (saved) {
                 continue
@@ -77,7 +77,7 @@ export const upsertCommitsAndRefs = internalMutation({
             let savedCommit = await ctx.db
                 .query('commits')
                 .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repo).eq('sha', ref.sha))
-                .first()
+                .unique()
 
             let commitId = savedCommit?._id
             if (!commitId) {
@@ -130,7 +130,7 @@ export const insertFilenames = internalMutation({
         let saved = await ctx.db
             .query('filenames')
             .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .first()
+            .unique()
 
         if (saved) {
             return saved._id
@@ -149,7 +149,7 @@ export const insertCommit = internalMutation({
         let saved = await ctx.db
             .query('commits')
             .withIndex('by_repo_and_sha', (c) => c.eq('repo', repoId).eq('sha', sha))
-            .first()
+            .unique()
 
         if (saved) {
             return saved._id
@@ -170,7 +170,7 @@ export const insertFile = internalMutation({
             .query('files')
             .withIndex('by_repo_and_commit', (f) => f.eq('repo', repoId).eq('commit', commitId))
             .filter((f) => f.eq(f.field('filename'), filename))
-            .first()
+            .unique()
 
         if (saved) {
             await ctx.db.patch(saved._id, { content })
@@ -201,7 +201,7 @@ export const saveInstallationToken = internalMutation({
         let repo = await ctx.db
             .query('repos')
             .filter((q) => q.eq(q.field('owner'), args.owner) && q.eq(q.field('repo'), args.repo))
-            .first()
+            .unique()
         if (!repo) {
             return null
         }
@@ -209,7 +209,7 @@ export const saveInstallationToken = internalMutation({
         let existingToken = await ctx.db
             .query('installationAccessTokens')
             .withIndex('by_repo_id', (q) => q.eq('repoId', repo._id))
-            .first()
+            .unique()
         if (existingToken) {
             await ctx.db.delete(existingToken._id)
         }
@@ -244,7 +244,7 @@ export const upsertIssue = internalMutation({
         const repo = await ctx.db
             .query('repos')
             .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-            .first()
+            .unique()
         if (!repo) throw new Error(`Repo not found: ${args.owner}/${args.repo}`)
 
         // Upsert the issue
@@ -253,7 +253,7 @@ export const upsertIssue = internalMutation({
             .withIndex('by_repo_and_number', (q) =>
                 q.eq('repo', repo._id).eq('number', args.number),
             )
-            .first()
+            .unique()
         const issueData = {
             repo: repo._id,
             githubId: args.githubId,
@@ -274,9 +274,26 @@ export const upsertIssue = internalMutation({
 
             if (existing.state === args.state) return
 
-            if (args.state === 'open') {
-            } else {
+            let repoCounts = await ctx.db
+                .query('repoCounts')
+                .withIndex('by_repoId', (q) => q.eq('repoId', repo._id))
+                .unique()
+            if (!repoCounts) {
+                await ctx.db.insert('repoCounts', {
+                    repoId: repo._id,
+                    openIssues: 0,
+                    closedIssues: 0,
+                    openPullRequests: 0,
+                    closedPullRequests: 0,
+                })
             }
+
+            // if (args.state === 'open') {
+            //     if (repoCounts) {
+            //         await ctx.db.patch(repoCounts._id, { openIssues: repoCounts.openIssues + 1 })
+            //     }
+            // } else {
+            // }
         } else {
             await ctx.db.insert('issues', issueData)
         }
@@ -323,7 +340,7 @@ export const handleInstallationCreated = internalMutation({
             .withIndex('providerAndAccountId', (q) =>
                 q.eq('provider', 'github').eq('providerAccountId', args.githubUserId.toString()),
             )
-            .first()
+            .unique()
 
         if (!authAccount) {
             console.log(`User with GitHub ID ${args.githubUserId} not found in auth system.`)
@@ -352,7 +369,7 @@ export const deleteInstallation = internalMutation({
         let installation = await ctx.db
             .query('installations')
             .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
-            .first()
+            .unique()
 
         if (installation) {
             await ctx.db.delete(installation._id)
@@ -369,7 +386,7 @@ export const setInstallationSuspended = internalMutation({
         let installation = await ctx.db
             .query('installations')
             .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
-            .first()
+            .unique()
 
         if (installation) {
             await ctx.db.patch(installation._id, { suspended: args.suspended })
@@ -416,7 +433,7 @@ async function addInstallationMutation(
         .query('installations')
         .withIndex('by_userId', (q) => q.eq('userId', args.userId))
         .filter((i) => i.eq(i.field('repoId'), args.repoId))
-        .first()
+        .unique()
     if (!existing) {
         await ctx.db.insert('installations', {
             installationId: args.installationId,
@@ -434,7 +451,7 @@ async function upsertRepoMutation(
     let existing = await ctx.db
         .query('repos')
         .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-        .first()
+        .unique()
     if (existing) {
         await ctx.db.patch(existing._id, { private: args.private })
         return existing._id
@@ -463,7 +480,7 @@ export const upsertRepoCounts = internalMutation({
         let existing = await ctx.db
             .query('repoCounts')
             .withIndex('by_repoId', (q) => q.eq('repoId', args.repoId))
-            .first()
+            .unique()
         if (existing) {
             await ctx.db.patch(existing._id, args)
         } else {
