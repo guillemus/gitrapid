@@ -372,9 +372,9 @@ export const setInstallationSuspended = appInternalMutation({
 
 export const fixRepoCounts = internalAction({
     async handler(ctx) {
-        let repos = await ctx.runQuery(internal.functions.listAllRepos)
+        let repos = await ctx.runQuery(internal.queries.listAllRepos)
         for (const repo of repos) {
-            let issues = await ctx.runQuery(api.functions.listIssues, {
+            let issues = await ctx.runQuery(api.queries.listIssues, {
                 owner: repo.owner,
                 repo: repo.repo,
             })

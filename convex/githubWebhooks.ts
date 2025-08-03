@@ -135,7 +135,7 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
     const { issue, repository, action } = payload
 
-    let repo = await ctx.runQuery(internal.functions.getRepo, {
+    let repo = await ctx.runQuery(internal.queries.getRepo, {
         owner: repository.owner.login,
         repo: repository.name,
     })

@@ -20,7 +20,7 @@ export const generateGithubAppInstallationToken = internalAction({
     },
 
     async handler(ctx, { owner, repo }): Promise<string> {
-        let existingToken = await ctx.runQuery(internal.functions.getInstallationToken, {
+        let existingToken = await ctx.runQuery(internal.queries.getInstallationToken, {
             owner,
             repo,
         })
