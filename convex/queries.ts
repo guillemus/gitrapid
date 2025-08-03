@@ -372,7 +372,7 @@ export const getRepoPage = query({
         return {
             ref: currentRef,
             commitId,
-            fileContents: fileContents.content,
+            fileContents,
             repoId: savedRepo._id,
             refs: refs,
             files: filenames.files,
@@ -438,7 +438,7 @@ export const getFile = query({
             return null
         }
 
-        return fileContents.content
+        return fileContents
     },
 })
 

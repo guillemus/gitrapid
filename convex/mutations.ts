@@ -159,28 +159,6 @@ export const insertCommit = appInternalMutation({
     },
 })
 
-export const insertFile = appInternalMutation({
-    args: {
-        repoId: v.id('repos'),
-        commitId: v.id('commits'),
-        filename: v.string(),
-        content: v.string(),
-    },
-    async handler(ctx, { repoId, commitId, filename, content }) {
-        let saved = await ctx.db
-            .query('files')
-            .withIndex('by_repo_and_commit', (f) => f.eq('repo', repoId).eq('commit', commitId))
-            .filter((f) => f.eq(f.field('filename'), filename))
-            .unique()
-
-        if (saved) {
-            await ctx.db.patch(saved._id, { content })
-            return saved._id
-        }
-        return await ctx.db.insert('files', { repo: repoId, commit: commitId, filename, content })
-    },
-})
-
 export const updateRepoHead = appInternalMutation({
     args: {
         repoId: v.id('repos'),

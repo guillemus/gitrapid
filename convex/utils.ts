@@ -214,8 +214,23 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
         get auth(): any {
             throw new Error('not implemented')
         },
-        get scheduler(): any {
-            throw new Error('not implemented')
+
+        scheduler: {
+            runAfter: async (delay, action, ...args) => {
+                let cancelId = setTimeout(() => {
+                    // @ts-ignore
+                    client.action(action, ...args)
+                }, delay)
+
+                // We should not use this
+                return cancelId as any
+            },
+            runAt: async (date, action, ...args) => {
+                throw new Error('not implemented')
+            },
+            cancel: async (id) => {
+                throw new Error('not implemented')
+            },
         },
         get storage(): any {
             throw new Error('not implemented')

@@ -2,11 +2,11 @@
 // they are more like laptop-to-server, so this dramatically speeds up development.
 
 import { v } from 'convex/values'
-import { query } from './_generated/server'
+import { action, query } from './_generated/server'
 import { upsertIssueMutation } from './mutations'
 import { protectFn, withSecret } from './utils'
 import { appMutation } from './triggers'
-import { filesSchema } from 'schema'
+import { filesSchema } from './schema'
 
 export const getPat = query({
     args: withSecret({
@@ -27,6 +27,7 @@ export const upsertRepo = appMutation({
     args: withSecret({
         owner: v.string(),
         repo: v.string(),
+        private: v.boolean(),
     }),
 
     async handler(ctx, args) {
@@ -40,7 +41,11 @@ export const upsertRepo = appMutation({
             return repo._id
         }
 
-        return ctx.db.insert('repos', { owner: args.owner, repo: args.repo, private: false })
+        return ctx.db.insert('repos', {
+            owner: args.owner,
+            repo: args.repo,
+            private: args.private,
+        })
     },
 })
 

@@ -1,12 +1,13 @@
-import { Octokit } from '@octokit/rest'
+import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest'
+import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { type ActionCtx, internalAction, internalQuery } from './_generated/server'
-import { addSecret, octoCatch } from './utils'
-import type { WithoutSystemFields } from 'convex/server'
+import { addSecret, failure, octoCatch, ok } from './utils'
 
-const MAX_FILE_SIZE = 500 * 1024 // 500 KB in bytes
+// max doc size should be less than 1mb, max doc size for convex
+export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes
 
 export const getInstallationToken = internalQuery({
     args: {
@@ -139,14 +140,6 @@ export async function downloadPublicRepoAction(
         throw new Error('PAT not found')
     }
 
-    let repoId = await ctx.runMutation(
-        api.protected.upsertRepo,
-        addSecret({
-            owner: args.owner,
-            repo: args.repo,
-        }),
-    )
-
     // fixme: we also need to create table that keeps track of the download status
 
     let octo = new Octokit({ auth: pat.token })
@@ -203,9 +196,24 @@ export async function downloadPublicRepoAction(
         }
     }
 
+    let repoId = await ctx.runMutation(
+        api.protected.upsertRepo,
+        addSecret({
+            owner: args.owner,
+            repo: args.repo,
+            private: false,
+        }),
+    )
+
     console.log(`${repoSlug}: repo license is supported, proceeding with download`)
 
     console.log(`${repoSlug}: downloading commits`)
+    await ctx.scheduler.runAfter(0, internal.actions.downloadPublicRepoCommitsWithGitCloneAction, {
+        owner: args.owner,
+        repo: args.repo,
+        private: false,
+    })
+
     await downloadCommits(ctx, octo, repoSlug, repoId, args)
 
     console.log(`${repoSlug}: downloading refs`)
@@ -284,7 +292,7 @@ async function downloadRefs(
     }
 }
 
-async function downloadCommits(
+export async function downloadCommits(
     ctx: ActionCtx,
     octo: Octokit,
     repoSlug: string,
@@ -310,7 +318,8 @@ async function downloadCommits(
                 addSecret({ repoId, sha: commit.sha }),
             )
 
-            let tree = await octoCatch(
+            let tree
+            tree = await octoCatch(
                 octo.rest.git.getTree({
                     owner: args.owner,
                     repo: args.repo,
@@ -322,90 +331,159 @@ async function downloadCommits(
                 throw tree.error
             }
 
+            tree = tree.data.tree
+
             console.log(`${repoSlug}/${commit.sha}: got tree, downloading its files`)
 
-            let filenames = tree.data.tree.map((file) => file.path)
+            let filenames = tree.map((file) => file.path)
             await ctx.runMutation(
                 api.protected.insertFilenames,
                 addSecret({ commitId, fileList: filenames }),
             )
 
-            for (let filename of filenames) {
-                console.log(`${repoSlug}/${commit.sha}: downloading file`, filename)
+            let batches = batchTreeFiles(tree)
 
-                let file = await octoCatch(
-                    octo.rest.repos.getContent({
-                        owner: args.owner,
-                        repo: args.repo,
-                        ref: commit.sha,
-                        path: filename,
-                    }),
-                )
-                if (file.error) {
-                    console.error(`${repoSlug}/${commit.sha}: file not found`, filename)
-                    console.error('message', file.error.message)
-                    console.error('status', file.error.status)
-                    continue
-                }
+            for (let batch of batches) {
+                let ps = batch.map(async ({ path: filename }) => {
+                    console.log(`${repoSlug}/${commit.sha}: downloading file`, filename)
 
-                if (Array.isArray(file.data)) {
-                    console.error(`${repoSlug}/${commit.sha}: file is an array`, filename)
-                    continue
-                }
-
-                if (file.data.type === 'submodule') {
-                    await ctx.runMutation(
-                        api.protected.insertFile,
-                        addSecret({
-                            repo: repoId,
-                            commit: commitId,
-                            filename,
-                            value: {
-                                type: 'submodule',
-                                submodule_git_url: file.data.submodule_git_url,
-                            },
+                    let file = await octoCatch(
+                        octo.rest.repos.getContent({
+                            owner: args.owner,
+                            repo: args.repo,
+                            ref: commit.sha,
+                            path: filename,
                         }),
                     )
-                } else if (file.data.type === 'symlink') {
-                    await ctx.runMutation(
-                        api.protected.insertFile,
-                        addSecret({
-                            repo: repoId,
-                            commit: commitId,
-                            filename,
-                            value: { type: 'symlink', target: file.data.target },
-                        }),
-                    )
-                } else if (file.data.type === 'file') {
-                    let content = file.data.content
-                    if (file.data.size > MAX_FILE_SIZE) {
-                        console.error(
-                            `${repoSlug}/${commit.sha}: file is too large, saving metadta only`,
-                        )
-                        content = ''
+                    if (file.error) {
+                        console.error(`${repoSlug}/${commit.sha}: file not found`, filename)
+                        console.error('message', file.error.message)
+                        console.error('status', file.error.status)
+                        return null
                     }
 
-                    let fileDoc: WithoutSystemFields<Doc<'files'>> = {
-                        commit: commitId,
-                        repo: repoId,
-                        filename,
-                        value: {
-                            type: 'file',
-                            content,
-                            encoding: file.data.encoding,
-                            size: file.data.size,
-                            url: file.data.url,
-                            download_url: file.data.download_url ?? undefined,
-                            git_url: file.data.git_url ?? undefined,
-                            html_url: file.data.html_url ?? undefined,
-                        },
+                    let parsed = githubFileToFileDoc(commitId, repoId, filename, file.data)
+                    if (parsed.error === 'invalid-file-type') {
+                        console.error(`${repoSlug}/${commit.sha}: invalid file type`, filename)
+                        return null
                     }
+
+                    let fileDoc = parsed.data
 
                     await ctx.runMutation(api.protected.insertFile, addSecret(fileDoc))
-                }
+                })
+
+                await Promise.allSettled(ps)
             }
         }
     }
+}
+
+function githubFileToFileDoc(
+    commitId: Id<'commits'>,
+    repoId: Id<'repos'>,
+    filename: string,
+    file: RestEndpointMethodTypes['repos']['getContent']['response']['data'],
+) {
+    if (Array.isArray(file)) {
+        return failure('invalid-file-type' as const)
+    }
+
+    let fileDoc: WithoutSystemFields<Doc<'files'>>
+    if (file.type === 'submodule') {
+        fileDoc = {
+            commit: commitId,
+            repo: repoId,
+            filename,
+            value: {
+                type: 'submodule',
+                submodule_git_url: file.submodule_git_url,
+            },
+        }
+    } else if (file.type === 'symlink') {
+        fileDoc = {
+            commit: commitId,
+            repo: repoId,
+            filename,
+            value: {
+                type: 'symlink',
+                target: file.target,
+            },
+        }
+    } else if (file.type === 'file') {
+        let content = file.content
+        if (file.size > MAX_FILE_SIZE) {
+            content = ''
+        }
+
+        fileDoc = {
+            commit: commitId,
+            repo: repoId,
+            filename,
+            value: {
+                type: 'file',
+                content,
+                encoding: file.encoding,
+                size: file.size,
+                url: file.url,
+                download_url: file.download_url ?? undefined,
+                git_url: file.git_url ?? undefined,
+                html_url: file.html_url ?? undefined,
+            },
+        }
+    } else {
+        return failure('invalid-file-type' as const)
+    }
+
+    return ok(fileDoc)
+}
+
+type TreeFile = {
+    path: string
+    mode: string
+    type: string
+    sha: string
+    size?: number
+    url?: string
+}
+
+// The requirements are:
+// - All files from a batch should not sum more than MAX_FILE_SIZE of size all together.
+// - The batch should not have more than 10 files
+export function batchTreeFiles(tree: TreeFile[]) {
+    const batches: TreeFile[][] = []
+    let currentBatch: TreeFile[] = []
+    let currentBatchSize = 0
+
+    for (const file of tree) {
+        // Use file.size if present, otherwise treat as 0
+        const fileSize = file.size ?? 0
+
+        // If adding this file would exceed batch size or batch length, start a new batch
+        if (
+            currentBatch.length >= 10 ||
+            (currentBatchSize + fileSize > MAX_FILE_SIZE && currentBatch.length > 0)
+        ) {
+            batches.push(currentBatch)
+            currentBatch = []
+            currentBatchSize = 0
+        }
+
+        // If the file itself is too big, put it in its own batch
+        if (fileSize > MAX_FILE_SIZE) {
+            batches.push([file])
+            continue
+        }
+
+        currentBatch.push(file)
+        currentBatchSize += fileSize
+    }
+
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch)
+    }
+
+    return batches
 }
 
 export async function downloadIssues(
@@ -414,7 +492,6 @@ export async function downloadIssues(
     repoSlug: string,
     repoId: Id<'repos'>,
     args: {
-        userId: Id<'users'>
         owner: string
         repo: string
     },
@@ -539,4 +616,33 @@ export async function syncPublicRepoAction(
             console.log(event)
         }
     }
+}
+
+export const downloadPublicRepoCommitsWithGitCloneAction = internalAction({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        private: v.boolean(),
+    },
+
+    async handler(ctx, args) {
+        return downloadPublicRepoCommitsWithGitClone(ctx, args)
+    },
+})
+
+export async function downloadPublicRepoCommitsWithGitClone(
+    ctx: ActionCtx,
+    args: {
+        owner: string
+        repo: string
+        private: boolean
+    },
+) {
+    console.log('downloadPublicRepoCommitsWithGitClone', args)
+    let repoId = await ctx.runMutation(
+        api.protected.upsertRepo,
+        addSecret({ owner: args.owner, repo: args.repo, private: args.private }),
+    )
+
+    debugger
 }

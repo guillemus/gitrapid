@@ -222,7 +222,9 @@ export function RepoPage() {
                 <Sidebar preloadedFiles={page.data?.files}></Sidebar>
             </div>
             <div className="flex-1 overflow-auto">
-                <Code preloadedFileContents={page.data?.fileContents}></Code>
+                <p>files not yet implemented</p>
+                {/* fixme: needs to handle multiple file types */}
+                {/* <Code preloadedFileContents={page.data?.fileContents}></Code> */}
             </div>
         </div>
     )
