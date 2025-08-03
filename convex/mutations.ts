@@ -1,9 +1,8 @@
 import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
-import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { internalAction, type MutationCtx } from './_generated/server'
-import { appInternalMutation } from './utils'
+import { type MutationCtx } from './_generated/server'
+import { appInternalMutation } from './triggers'
 
 export const insertRefs = appInternalMutation({
     args: {
@@ -255,22 +254,6 @@ export async function upsertIssueMutation(
         .unique()
     if (existing) {
         await ctx.db.patch(existing._id, args)
-
-        if (existing.state === args.state) return
-
-        let repoCounts = await ctx.db
-            .query('repoCounts')
-            .withIndex('by_repoId', (q) => q.eq('repoId', args.repo))
-            .unique()
-        if (!repoCounts) {
-            await ctx.db.insert('repoCounts', {
-                repoId: args.repo,
-                openIssues: 0,
-                closedIssues: 0,
-                openPullRequests: 0,
-                closedPullRequests: 0,
-            })
-        }
     } else {
         await ctx.db.insert('issues', args)
     }

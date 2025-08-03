@@ -6,10 +6,10 @@
         "jsx": "react-jsx",
         "noUncheckedIndexedAccess": true,
         "jsxImportSource": "react",
-        "baseUrl": ".",
         "paths": {
-            "@/*": ["src/*"],
-            "@convex/*": ["convex/*"],
+            "*": ["./*"],
+            "@/*": ["./src/*"],
+            "@convex/*": ["./convex/*"],
         }
     }
 }

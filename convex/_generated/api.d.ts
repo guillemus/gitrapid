@@ -19,6 +19,7 @@ import type * as migrations from "../migrations.js";
 import type * as mutations from "../mutations.js";
 import type * as protected_ from "../protected.js";
 import type * as queries from "../queries.js";
+import type * as triggers from "../triggers.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   mutations: typeof mutations;
   protected: typeof protected_;
   queries: typeof queries;
+  triggers: typeof triggers;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

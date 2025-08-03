@@ -4,7 +4,8 @@
 import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { upsertIssueMutation } from './mutations'
-import { appMutation, protectFn, withSecret } from './utils'
+import { protectFn, withSecret } from './utils'
+import { appMutation } from './triggers'
 
 export const getPat = query({
     args: withSecret({

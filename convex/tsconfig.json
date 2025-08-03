@@ -16,9 +16,9 @@
     "verbatimModuleSyntax": true,
 
 
-    "baseUrl": ".",
     "paths": {
-        "@convex/*": ["*"],
+        "*":[ "./*"],
+        "@convex/*": ["."],
     },
 
     /* These compiler options are required by Convex */
