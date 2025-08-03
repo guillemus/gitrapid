@@ -1,9 +1,10 @@
 import { Octokit } from '@octokit/rest'
 import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { type ActionCtx, internalAction, internalQuery } from './_generated/server'
 import { addSecret, octoCatch } from './utils'
+import type { WithoutSystemFields } from 'convex/server'
 
 export const getInstallationToken = internalQuery({
     args: {
@@ -357,33 +358,68 @@ export async function downloadIssues(
 
     for await (let { data: issues } of allIssues) {
         for (let issue of issues) {
-            // await ctx.runMutation(
-            //     api.protected.upsertIssue,
-            //     addSecret({
-            //         // repoId,
-            //         // author: {
-            //         //     login: issue.user?.login ?? '',
-            //         //     id: issue.user?.id ?? 0,
-            //         // },
-            //         // labels: issue.labels ?? [],
-            //         // assignees: issue.assignees ?? [],
-            //         // createdAt: issue.created_at,
-            //         // updatedAt: issue.updated_at,
-            //         // closedAt: issue.closed_at ?? undefined,
-            //         // githubId: issue.id,
-            //         // number: issue.number,
-            //         // title: issue.title,
-            //         // state: issue.state,
-            //         // body: issue.body ?? undefined,
-            //         // author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-            //         // labels: issue.labels ?? [],
-            //         // assignees: issue.assignees ?? [],
-            //         // createdAt: issue.created_at,
-            //         // updatedAt: issue.updated_at,
-            //         // closedAt: issue.closed_at ?? undefined,
-            //         // comments: issue.comments ?? undefined,
-            //     }),
-            // )
+            if (issue.state !== 'open' && issue.state !== 'closed') {
+                console.error(`unknown issue state`, issue.state)
+                continue
+            }
+
+            let labels: string[] = []
+            for (let label of issue.labels ?? []) {
+                if (typeof label === 'string') {
+                    labels.push(label)
+                } else if (label.name) {
+                    labels.push(label.name)
+                }
+            }
+
+            let issueDoc: WithoutSystemFields<Doc<'issues'>> = {
+                repo: repoId,
+                author: {
+                    login: issue.user?.login ?? '',
+                    id: issue.user?.id ?? 0,
+                },
+                assignees: issue.assignees?.map((assignee) => assignee.login) ?? [],
+                body: issue.body ?? undefined,
+                labels,
+                createdAt: issue.created_at,
+                githubId: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issue.state,
+                updatedAt: issue.updated_at,
+                closedAt: issue.closed_at ?? undefined,
+                comments: issue.comments ?? undefined,
+            }
+
+            let issueId = await ctx.runMutation(api.protected.upsertIssue, addSecret(issueDoc))
+            if (!issueId) {
+                console.error(`failed to upsert issue`, issue.id)
+                continue
+            }
+
+            let issueComments = octo.paginate.iterator(octo.rest.issues.listComments, {
+                owner: args.owner,
+                repo: args.repo,
+                issue_number: issue.number,
+            })
+
+            for await (let { data: comments } of issueComments) {
+                for (let comment of comments) {
+                    let commentDoc: WithoutSystemFields<Doc<'issueComments'>> = {
+                        issueId,
+                        githubId: comment.id,
+                        author: {
+                            id: comment.user?.id ?? 0,
+                            login: comment.user?.login ?? '',
+                        },
+                        body: comment.body ?? '',
+                        createdAt: comment.created_at,
+                        updatedAt: comment.updated_at,
+                    }
+
+                    await ctx.runMutation(api.protected.upsertIssueComment, addSecret(commentDoc))
+                }
+            }
         }
     }
 }

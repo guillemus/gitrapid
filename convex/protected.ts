@@ -153,3 +153,19 @@ export const upsertIssue = appMutation({
         return await upsertIssueMutation(ctx, args)
     },
 })
+
+export const upsertIssueComment = appMutation({
+    args: withSecret({
+        issueId: v.id('issues'),
+        githubId: v.number(),
+        author: v.object({ id: v.number(), login: v.string() }),
+        body: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+    }),
+    async handler(ctx, args) {
+        protectFn(args)
+
+        return ctx.db.insert('issueComments', args)
+    },
+})

@@ -253,9 +253,9 @@ export async function upsertIssueMutation(
         .withIndex('by_repo_and_number', (q) => q.eq('repo', args.repo).eq('number', args.number))
         .unique()
     if (existing) {
-        await ctx.db.patch(existing._id, args)
+        return await ctx.db.patch(existing._id, args)
     } else {
-        await ctx.db.insert('issues', args)
+        return await ctx.db.insert('issues', args)
     }
 }
 

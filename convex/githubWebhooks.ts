@@ -144,6 +144,15 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
         return
     }
 
+    let labels: string[] = []
+    for (let label of issue.labels ?? []) {
+        if (typeof label === 'string') {
+            labels.push(label)
+        } else if (label.name) {
+            labels.push(label.name)
+        }
+    }
+
     await ctx.scheduler.runAfter(0, internal.mutations.upsertIssue, {
         repo: repo._id,
         githubId: issue.id,
@@ -155,9 +164,7 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
             login: issue.user.login,
             id: issue.user.id,
         },
-        labels:
-            issue.labels?.map((label) => (typeof label === 'string' ? label : label.name)) ??
-            undefined,
+        labels,
         assignees: issue.assignees?.map((assignee) => assignee.login) ?? undefined,
         createdAt: issue.created_at,
         updatedAt: issue.updated_at,
