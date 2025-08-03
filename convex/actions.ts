@@ -149,6 +149,10 @@ export async function downloadPublicRepoAction(
 
     let octo = new Octokit({ auth: pat.token })
 
+    let repoSlug = `${args.owner}/${args.repo}`
+
+    console.log(`${repoSlug}: checking token validity`)
+
     let repo
     repo = await octoCatch(octo.rest.repos.get(args))
     if (repo.error) {
@@ -157,7 +161,7 @@ export async function downloadPublicRepoAction(
 
         if (isUnauthorized && badCredentials) {
             // fixme: we should actually tell the user somehow that the provided token is invalid
-            throw new Error('Bad credentials')
+            throw new Error(`${repoSlug}: bad credentials`)
         }
 
         throw repo.error
@@ -168,8 +172,10 @@ export async function downloadPublicRepoAction(
     // if repo is private the user has probably made a mistake. This is probably not possible if we've done a good job with the PATs.
     if (repo.private) {
         // fixme: we should actually tell the user somehow that the repo is private
-        throw new Error('Repo is private')
+        throw new Error(`${repoSlug}: repo is private`)
     }
+
+    console.log(`${repoSlug}: repo is public`)
 
     {
         // check license, can we store the code?
@@ -179,7 +185,7 @@ export async function downloadPublicRepoAction(
         )
         if (license.error) {
             if (license.error.status === 404) {
-                throw new Error(`Repo license not found`)
+                throw new Error(`${args.owner}/${args.repo}: repo license not found`)
             }
             throw license.error
         }
@@ -188,21 +194,29 @@ export async function downloadPublicRepoAction(
 
         let spdxId = license.license?.spdx_id
         if (!spdxId) {
-            throw new Error(`Repo license not found`)
+            throw new Error(`${args.owner}/${args.repo}: repo license not found`)
         }
         if (!['MIT', 'Apache-2.0', 'BSD-3-Clause'].includes(spdxId)) {
             throw new Error(`Repo license ${spdxId} is not supported for public code download`)
         }
     }
 
-    await downloadCommits(ctx, octo, repoId, args)
-    await downloadRefs(ctx, octo, repoId, args)
-    await downloadIssues(ctx, octo, repoId, args)
+    console.log(`${repoSlug}: repo license is supported, proceeding with download`)
+
+    console.log(`${repoSlug}: downloading commits`)
+    await downloadCommits(ctx, octo, repoSlug, repoId, args)
+
+    console.log(`${repoSlug}: downloading refs`)
+    await downloadRefs(ctx, octo, repoSlug, repoId, args)
+
+    console.log(`${repoSlug}: downloading issues`)
+    await downloadIssues(ctx, octo, repoSlug, repoId, args)
 }
 
 async function downloadRefs(
     ctx: ActionCtx,
     octo: Octokit,
+    repoSlug: string,
     repoId: Id<'repos'>,
     args: {
         userId: Id<'users'>
@@ -210,6 +224,8 @@ async function downloadRefs(
         repo: string
     },
 ) {
+    console.log(`${repoSlug}: downloading branches`)
+
     // get all repo branch / tag refs
     let allRefHeads = octo.paginate.iterator(octo.rest.git.listMatchingRefs, {
         owner: args.owner,
@@ -219,6 +235,8 @@ async function downloadRefs(
 
     for await (let { data: refs } of allRefHeads) {
         for (let ref of refs) {
+            console.log(`${repoSlug}: downloading branch`, ref.ref)
+
             // trim 'refs/heads/' substring
             let branchName = ref.ref.replace('refs/heads/', '')
             let commitSha = ref.object.sha
@@ -235,6 +253,8 @@ async function downloadRefs(
         }
     }
 
+    console.log(`${repoSlug}: downloading tags`)
+
     let allRefTags = octo.paginate.iterator(octo.rest.git.listMatchingRefs, {
         owner: args.owner,
         repo: args.repo,
@@ -243,6 +263,8 @@ async function downloadRefs(
 
     for await (let { data: refs } of allRefTags) {
         for (let ref of refs) {
+            console.log(`${repoSlug}: downloading tag`, ref.ref)
+
             // trim 'refs/tags/' substring
             let tagName = ref.ref.replace('refs/tags/', '')
             let commitSha = ref.object.sha
@@ -263,6 +285,7 @@ async function downloadRefs(
 async function downloadCommits(
     ctx: ActionCtx,
     octo: Octokit,
+    repoSlug: string,
     repoId: Id<'repos'>,
     args: {
         userId: Id<'users'>
@@ -278,9 +301,7 @@ async function downloadCommits(
 
     for await (let { data: commits } of allCommits) {
         for (let commit of commits) {
-            // To get the complete filetree for the commit, use the tree SHA from the commit object.
-            // First, get the tree SHA from the commit:
-            const treeSha = commit.commit.tree.sha
+            console.log(`${repoSlug}/${commit.sha}: downloading commit`)
 
             let commitId = await ctx.runMutation(
                 api.protected.upsertCommit,
@@ -291,13 +312,15 @@ async function downloadCommits(
                 octo.rest.git.getTree({
                     owner: args.owner,
                     repo: args.repo,
-                    tree_sha: treeSha,
+                    tree_sha: commit.commit.tree.sha,
                     recursive: 'true',
                 }),
             )
             if (tree.error) {
                 throw tree.error
             }
+
+            console.log(`${repoSlug}/${commit.sha}: got tree, downloading its files`)
 
             let filenames = tree.data.tree.map((file) => file.path)
             await ctx.runMutation(
@@ -306,6 +329,8 @@ async function downloadCommits(
             )
 
             for (let filename of filenames) {
+                console.log(`${repoSlug}/${commit.sha}: downloading file`, filename)
+
                 let file = await octoCatch(
                     octo.rest.repos.getContent({
                         owner: args.owner,
@@ -315,19 +340,19 @@ async function downloadCommits(
                     }),
                 )
                 if (file.error) {
-                    console.error(`file not found`, filename)
+                    console.error(`${repoSlug}/${commit.sha}: file not found`, filename)
                     console.error('message', file.error.message)
                     console.error('status', file.error.status)
                     continue
                 }
 
                 if (Array.isArray(file.data)) {
-                    console.error(`file is an array`, filename)
+                    console.error(`${repoSlug}/${commit.sha}: file is an array`, filename)
                     continue
                 }
 
                 if (file.data.type !== 'file') {
-                    console.error(`file is not a file (lol)`, filename)
+                    console.error(`${repoSlug}/${commit.sha}: file is not a file`, filename)
                     continue
                 }
 
@@ -344,6 +369,7 @@ async function downloadCommits(
 export async function downloadIssues(
     ctx: ActionCtx,
     octo: Octokit,
+    repoSlug: string,
     repoId: Id<'repos'>,
     args: {
         userId: Id<'users'>
@@ -359,9 +385,11 @@ export async function downloadIssues(
     for await (let { data: issues } of allIssues) {
         for (let issue of issues) {
             if (issue.state !== 'open' && issue.state !== 'closed') {
-                console.error(`unknown issue state`, issue.state)
+                console.error(`${repoSlug}: unknown issue state`, issue.state)
                 continue
             }
+
+            console.log(`${repoSlug}: downloading issue`, issue.number)
 
             let labels: string[] = []
             for (let label of issue.labels ?? []) {
@@ -393,9 +421,11 @@ export async function downloadIssues(
 
             let issueId = await ctx.runMutation(api.protected.upsertIssue, addSecret(issueDoc))
             if (!issueId) {
-                console.error(`failed to upsert issue`, issue.id)
+                console.error(`${repoSlug}: failed to upsert issue`, issue.id)
                 continue
             }
+
+            console.log(`${repoSlug}: downloading issue comments for issue`, issue.number)
 
             let issueComments = octo.paginate.iterator(octo.rest.issues.listComments, {
                 owner: args.owner,
@@ -405,6 +435,7 @@ export async function downloadIssues(
 
             for await (let { data: comments } of issueComments) {
                 for (let comment of comments) {
+                    console.log(`${repoSlug}: downloading issue comment`, comment.id)
                     let commentDoc: WithoutSystemFields<Doc<'issueComments'>> = {
                         issueId,
                         githubId: comment.id,

@@ -282,8 +282,6 @@ export const getRepoAndRefs = internalQuery({
     },
 })
 
-// fixme: getRepoPage is too complex? There might be better ways to do this
-
 export const getRepoPage = query({
     args: {
         owner: v.string(),
