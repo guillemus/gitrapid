@@ -1,10 +1,11 @@
-import { v, type Infer } from 'convex/values'
+import type { WithoutSystemFields } from 'convex/server'
+import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { internalAction, internalMutation, type MutationCtx } from './_generated/server'
-import type { WithoutSystemFields } from 'convex/server'
+import { internalAction, type MutationCtx } from './_generated/server'
+import { appInternalMutation } from './utils'
 
-export const insertRefs = internalMutation({
+export const insertRefs = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         refs: v.array(
@@ -38,7 +39,7 @@ export const insertRefs = internalMutation({
     },
 })
 
-export const insertCommits = internalMutation({
+export const insertCommits = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         commits: v.array(v.string()),
@@ -62,7 +63,7 @@ export const insertCommits = internalMutation({
     },
 })
 
-export const upsertCommitsAndRefs = internalMutation({
+export const upsertCommitsAndRefs = appInternalMutation({
     args: {
         repo: v.id('repos'),
         refs: v.array(
@@ -122,7 +123,7 @@ export const upsertCommitsAndRefs = internalMutation({
     },
 })
 
-export const insertFilenames = internalMutation({
+export const insertFilenames = appInternalMutation({
     args: {
         commitId: v.id('commits'),
         fileList: v.array(v.string()),
@@ -141,7 +142,7 @@ export const insertFilenames = internalMutation({
     },
 })
 
-export const insertCommit = internalMutation({
+export const insertCommit = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         sha: v.string(),
@@ -159,7 +160,7 @@ export const insertCommit = internalMutation({
     },
 })
 
-export const insertFile = internalMutation({
+export const insertFile = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         commitId: v.id('commits'),
@@ -181,7 +182,7 @@ export const insertFile = internalMutation({
     },
 })
 
-export const updateRepoHead = internalMutation({
+export const updateRepoHead = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         head: v.id('refs'),
@@ -191,7 +192,7 @@ export const updateRepoHead = internalMutation({
     },
 })
 
-export const saveInstallationToken = internalMutation({
+export const saveInstallationToken = appInternalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -223,7 +224,7 @@ export const saveInstallationToken = internalMutation({
     },
 })
 
-export const upsertIssue = internalMutation({
+export const upsertIssue = appInternalMutation({
     args: {
         repo: v.id('repos'),
         githubId: v.number(),
@@ -275,7 +276,7 @@ export async function upsertIssueMutation(
     }
 }
 
-export const upsertRepo = internalMutation({
+export const upsertRepo = appInternalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -286,7 +287,7 @@ export const upsertRepo = internalMutation({
     },
 })
 
-export const addInstallation = internalMutation({
+export const addInstallation = appInternalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -297,7 +298,7 @@ export const addInstallation = internalMutation({
     },
 })
 
-export const handleInstallationCreated = internalMutation({
+export const handleInstallationCreated = appInternalMutation({
     args: {
         installationId: v.string(),
         githubUserId: v.number(),
@@ -336,7 +337,7 @@ export const handleInstallationCreated = internalMutation({
     },
 })
 
-export const deleteInstallation = internalMutation({
+export const deleteInstallation = appInternalMutation({
     args: {
         installationId: v.string(),
     },
@@ -352,7 +353,7 @@ export const deleteInstallation = internalMutation({
     },
 })
 
-export const setInstallationSuspended = internalMutation({
+export const setInstallationSuspended = appInternalMutation({
     args: {
         installationId: v.string(),
         suspended: v.boolean(),
@@ -443,7 +444,7 @@ async function upsertRepoMutation(
     }
 }
 
-export const upsertRepoCounts = internalMutation({
+export const upsertRepoCounts = appInternalMutation({
     args: {
         repoId: v.id('repos'),
         openIssues: v.number(),

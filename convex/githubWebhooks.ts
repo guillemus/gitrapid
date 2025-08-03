@@ -12,7 +12,7 @@ import type {
     WebhookEvent,
 } from '@octokit/webhooks-types'
 import type { GenericActionCtx } from 'convex/server'
-import { internal } from './_generated/api'
+import { api, internal } from './_generated/api'
 
 type IssueWebhookEvent =
     | IssuesOpenedEvent
@@ -131,12 +131,21 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
         installationsToRemove,
     })
 }
+
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
     const { issue, repository, action } = payload
 
-    await ctx.scheduler.runAfter(0, internal.mutations.upsertIssue, {
+    let repo = await ctx.runQuery(internal.functions.getRepo, {
         owner: repository.owner.login,
         repo: repository.name,
+    })
+    if (!repo) {
+        console.log('Repo not found', repository.owner.login, repository.name)
+        return
+    }
+
+    await ctx.scheduler.runAfter(0, internal.mutations.upsertIssue, {
+        repo: repo._id,
         githubId: issue.id,
         number: issue.number,
         title: issue.title,

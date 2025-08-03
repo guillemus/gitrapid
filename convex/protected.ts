@@ -2,9 +2,9 @@
 // they are more like laptop-to-server, so this dramatically speeds up development.
 
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import { query } from './_generated/server'
 import { upsertIssueMutation } from './mutations'
-import { protectFn, withSecret } from './utils'
+import { appMutation, protectFn, withSecret } from './utils'
 
 export const getPat = query({
     args: withSecret({
@@ -21,7 +21,7 @@ export const getPat = query({
     },
 })
 
-export const upsertRepo = mutation({
+export const upsertRepo = appMutation({
     args: withSecret({
         owner: v.string(),
         repo: v.string(),
@@ -42,7 +42,7 @@ export const upsertRepo = mutation({
     },
 })
 
-export const upsertCommit = mutation({
+export const upsertCommit = appMutation({
     args: withSecret({
         repoId: v.id('repos'),
         sha: v.string(),
@@ -66,7 +66,7 @@ export const upsertCommit = mutation({
     },
 })
 
-export const insertFilenames = mutation({
+export const insertFilenames = appMutation({
     args: withSecret({
         commitId: v.id('commits'),
         fileList: v.array(v.string()),
@@ -82,7 +82,7 @@ export const insertFilenames = mutation({
     },
 })
 
-export const insertFile = mutation({
+export const insertFile = appMutation({
     args: withSecret({
         repoId: v.id('repos'),
         commitId: v.id('commits'),
@@ -102,7 +102,7 @@ export const insertFile = mutation({
     },
 })
 
-export const upsertRef = mutation({
+export const upsertRef = appMutation({
     args: withSecret({
         repoId: v.id('repos'),
         commitId: v.id('commits'),
@@ -132,7 +132,7 @@ export const upsertRef = mutation({
     },
 })
 
-export const upsertIssue = mutation({
+export const upsertIssue = appMutation({
     args: withSecret({
         repo: v.id('repos'),
         githubId: v.number(),
