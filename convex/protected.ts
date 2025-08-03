@@ -6,6 +6,7 @@ import { query } from './_generated/server'
 import { upsertIssueMutation } from './mutations'
 import { protectFn, withSecret } from './utils'
 import { appMutation } from './triggers'
+import { filesSchema } from 'schema'
 
 export const getPat = query({
     args: withSecret({
@@ -84,21 +85,16 @@ export const insertFilenames = appMutation({
 })
 
 export const insertFile = appMutation({
-    args: withSecret({
-        repoId: v.id('repos'),
-        commitId: v.id('commits'),
-        filename: v.string(),
-        content: v.string(),
-    }),
+    args: withSecret(filesSchema),
 
     async handler(ctx, args) {
         protectFn(args)
 
         return ctx.db.insert('files', {
-            repo: args.repoId,
-            commit: args.commitId,
+            commit: args.commit,
+            repo: args.repo,
             filename: args.filename,
-            content: args.content,
+            value: args.value,
         })
     },
 })

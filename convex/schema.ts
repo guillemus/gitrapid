@@ -2,6 +2,34 @@ import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
+export const filesSchema = {
+    repo: v.id('repos'),
+    commit: v.id('commits'),
+    filename: v.string(),
+    value: v.union(
+        v.object({
+            type: v.literal('file'),
+            encoding: v.string(),
+            size: v.number(),
+            url: v.string(),
+            content: v.string(),
+            git_url: v.optional(v.string()),
+            html_url: v.optional(v.string()),
+            download_url: v.optional(v.string()),
+        }),
+        v.object({
+            type: v.literal('symlink'),
+            target: v.string(),
+        }),
+        v.object({
+            type: v.literal('submodule'),
+            submodule_git_url: v.string(),
+        }),
+    ),
+}
+
+const filesTable = defineTable(filesSchema).index('by_repo_and_commit', ['repo', 'commit'])
+
 export default defineSchema({
     ...authTables,
 
@@ -62,12 +90,7 @@ export default defineSchema({
         files: v.array(v.string()),
     }).index('by_commit', ['commit']),
 
-    files: defineTable({
-        repo: v.id('repos'),
-        commit: v.id('commits'),
-        filename: v.string(),
-        content: v.string(),
-    }).index('by_repo_and_commit', ['repo', 'commit']),
+    files: filesTable,
 
     issues: defineTable({
         repo: v.id('repos'),

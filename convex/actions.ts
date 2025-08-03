@@ -6,6 +6,8 @@ import { type ActionCtx, internalAction, internalQuery } from './_generated/serv
 import { addSecret, octoCatch } from './utils'
 import type { WithoutSystemFields } from 'convex/server'
 
+const MAX_FILE_SIZE = 500 * 1024 // 500 KB in bytes
+
 export const getInstallationToken = internalQuery({
     args: {
         repoId: v.id('repos'),
@@ -351,16 +353,56 @@ async function downloadCommits(
                     continue
                 }
 
-                if (file.data.type !== 'file') {
-                    console.error(`${repoSlug}/${commit.sha}: file is not a file`, filename)
-                    continue
-                }
+                if (file.data.type === 'submodule') {
+                    await ctx.runMutation(
+                        api.protected.insertFile,
+                        addSecret({
+                            repo: repoId,
+                            commit: commitId,
+                            filename,
+                            value: {
+                                type: 'submodule',
+                                submodule_git_url: file.data.submodule_git_url,
+                            },
+                        }),
+                    )
+                } else if (file.data.type === 'symlink') {
+                    await ctx.runMutation(
+                        api.protected.insertFile,
+                        addSecret({
+                            repo: repoId,
+                            commit: commitId,
+                            filename,
+                            value: { type: 'symlink', target: file.data.target },
+                        }),
+                    )
+                } else if (file.data.type === 'file') {
+                    let content = file.data.content
+                    if (file.data.size > MAX_FILE_SIZE) {
+                        console.error(
+                            `${repoSlug}/${commit.sha}: file is too large, saving metadta only`,
+                        )
+                        content = ''
+                    }
 
-                let content = file.data.content
-                await ctx.runMutation(
-                    api.protected.insertFile,
-                    addSecret({ repoId, commitId, filename, content }),
-                )
+                    let fileDoc: WithoutSystemFields<Doc<'files'>> = {
+                        commit: commitId,
+                        repo: repoId,
+                        filename,
+                        value: {
+                            type: 'file',
+                            content,
+                            encoding: file.data.encoding,
+                            size: file.data.size,
+                            url: file.data.url,
+                            download_url: file.data.download_url ?? undefined,
+                            git_url: file.data.git_url ?? undefined,
+                            html_url: file.data.html_url ?? undefined,
+                        },
+                    }
+
+                    await ctx.runMutation(api.protected.insertFile, addSecret(fileDoc))
+                }
             }
         }
     }
