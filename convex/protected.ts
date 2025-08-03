@@ -1,17 +1,10 @@
-import { customQuery } from 'convex-helpers/server/customFunctions'
+// Protected functions are meant to be called server-to-server. In development
+// they are more like laptop-to-server, so this dramatically speeds up development.
+
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
-import { protectFn, withSecret } from './utils'
 import { upsertIssueMutation } from './mutations'
-
-export const queryWithSecret = customQuery(query, {
-    args: withSecret({}),
-    input: (_ctx, args) => {
-        protectFn(args)
-
-        return { ctx: {}, args: {} }
-    },
-})
+import { protectFn, withSecret } from './utils'
 
 export const getPat = query({
     args: withSecret({

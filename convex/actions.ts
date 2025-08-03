@@ -37,6 +37,15 @@ export const syncIssues = internalAction({
     },
 
     async handler(ctx, { owner, repo }) {
+        let repoId = await ctx.runMutation(
+            api.protected.upsertRepo,
+            addSecret({
+                owner,
+                repo,
+                private: false,
+            }),
+        )
+
         let token = await ctx.runAction(internal.githubAuth.generateGithubAppInstallationToken, {
             owner,
             repo,
@@ -68,8 +77,7 @@ export const syncIssues = internalAction({
             }
 
             await ctx.runMutation(internal.mutations.upsertIssue, {
-                owner,
-                repo,
+                repo: repoId,
                 githubId: issue.id,
                 number: issue.number,
                 title: issue.title,
@@ -349,33 +357,33 @@ export async function downloadIssues(
 
     for await (let { data: issues } of allIssues) {
         for (let issue of issues) {
-            await ctx.runMutation(
-                api.protected.upsertIssue,
-                addSecret({
-                    // repoId,
-                    // author: {
-                    //     login: issue.user?.login ?? '',
-                    //     id: issue.user?.id ?? 0,
-                    // },
-                    // labels: issue.labels ?? [],
-                    // assignees: issue.assignees ?? [],
-                    // createdAt: issue.created_at,
-                    // updatedAt: issue.updated_at,
-                    // closedAt: issue.closed_at ?? undefined,
-                    // githubId: issue.id,
-                    // number: issue.number,
-                    // title: issue.title,
-                    // state: issue.state,
-                    // body: issue.body ?? undefined,
-                    // author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-                    // labels: issue.labels ?? [],
-                    // assignees: issue.assignees ?? [],
-                    // createdAt: issue.created_at,
-                    // updatedAt: issue.updated_at,
-                    // closedAt: issue.closed_at ?? undefined,
-                    // comments: issue.comments ?? undefined,
-                }),
-            )
+            // await ctx.runMutation(
+            //     api.protected.upsertIssue,
+            //     addSecret({
+            //         // repoId,
+            //         // author: {
+            //         //     login: issue.user?.login ?? '',
+            //         //     id: issue.user?.id ?? 0,
+            //         // },
+            //         // labels: issue.labels ?? [],
+            //         // assignees: issue.assignees ?? [],
+            //         // createdAt: issue.created_at,
+            //         // updatedAt: issue.updated_at,
+            //         // closedAt: issue.closed_at ?? undefined,
+            //         // githubId: issue.id,
+            //         // number: issue.number,
+            //         // title: issue.title,
+            //         // state: issue.state,
+            //         // body: issue.body ?? undefined,
+            //         // author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
+            //         // labels: issue.labels ?? [],
+            //         // assignees: issue.assignees ?? [],
+            //         // createdAt: issue.created_at,
+            //         // updatedAt: issue.updated_at,
+            //         // closedAt: issue.closed_at ?? undefined,
+            //         // comments: issue.comments ?? undefined,
+            //     }),
+            // )
         }
     }
 }
