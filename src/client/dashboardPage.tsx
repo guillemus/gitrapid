@@ -7,10 +7,10 @@ import { useFirstLoadQuery, useTanstackQuery } from './utils'
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({
         queryKey: ['dashboard'],
-        queryFn: (c) => c.query(api.functions.listInstalledRepos, {}),
+        queryFn: (c) => c.query(api.queries.listInstalledRepos, {}),
     })
 
-    let { data: repos } = useTanstackQuery(convexQuery(api.functions.listInstalledRepos, {}))
+    let { data: repos } = useTanstackQuery(convexQuery(api.queries.listInstalledRepos, {}))
     let data = repos ?? firstLoad
 
     return (

@@ -26,7 +26,7 @@ let ctx: Context = {
 async function downloadMyRepo(ctx: Context) {
     let git = simpleGit()
 
-    const repo = await ctx.runQuery(internal.functions.getRepoAndRefs, {
+    const repo = await ctx.runQuery(internal.queries.getRepoAndRefs, {
         owner: 'alarbada',
         repo: 'gitrapid.com',
     })

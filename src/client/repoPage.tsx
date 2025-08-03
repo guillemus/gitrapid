@@ -101,7 +101,7 @@ function FileTreeNode({
     const state = useMutable({ expanded: false })
     const navigate = useNavigate()
 
-    let query = useQuery(api.functions.getRepoPage, {
+    let query = useQuery(api.queries.getRepoPage, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: params.refAndPath,
@@ -167,7 +167,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()
 
     let { data: query } = useTanstackQuery(
-        convexQuery(api.functions.getRepoPage, {
+        convexQuery(api.queries.getRepoPage, {
             owner: params.owner,
             repo: params.repo,
             refAndPath: params.refAndPath,
@@ -202,7 +202,7 @@ export function RepoPage() {
         queryFn: async () => {
             if (!convexHttp) return
 
-            let query = await convexHttp.query(api.functions.getRepoPage, {
+            let query = await convexHttp.query(api.queries.getRepoPage, {
                 owner: params.owner,
                 repo: params.repo,
                 refAndPath: params.refAndPath,
@@ -230,7 +230,7 @@ export function RepoPage() {
 
 function useFetchFileOptions(refAndPath: string) {
     let params = useGithubParams()
-    return convexQuery(api.functions.getFile, {
+    return convexQuery(api.queries.getFile, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: refAndPath,

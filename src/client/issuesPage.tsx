@@ -19,7 +19,7 @@ export function IssuesPage() {
     let firstLoad = useFirstLoadQuery({
         queryKey: ['issues', params.owner, params.repo],
         queryFn: (c) =>
-            c.query(api.functions.listIssues, {
+            c.query(api.queries.listIssues, {
                 owner: params.owner,
                 repo: params.repo,
             }),
@@ -29,7 +29,7 @@ export function IssuesPage() {
     let debouncedSearch = useDebounce(search.value, 150)
 
     let { data: issues } = useTanstackQuery(
-        convexQuery(api.functions.listIssues, {
+        convexQuery(api.queries.listIssues, {
             owner: params.owner,
             repo: params.repo,
             search: debouncedSearch,
@@ -82,7 +82,7 @@ export function IssuesPage() {
                                                     onMouseOver={() => {
                                                         queryClient.prefetchQuery(
                                                             convexQuery(
-                                                                api.functions.getIssueWithComments,
+                                                                api.queries.getIssueWithComments,
                                                                 {
                                                                     owner: params.owner,
                                                                     repo: params.repo,

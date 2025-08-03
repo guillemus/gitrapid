@@ -22,11 +22,11 @@ export function SingleIssuePage() {
 
     let firstLoad = useFirstLoadQuery({
         queryKey: ['issue', owner, repo, issueNumber],
-        queryFn: (c) => c.query(api.functions.getIssueWithComments, { owner, repo, issueNumber }),
+        queryFn: (c) => c.query(api.queries.getIssueWithComments, { owner, repo, issueNumber }),
     })
 
     let { data: issue } = useTanstackQuery(
-        convexQuery(api.functions.getIssueWithComments, { owner, repo, issueNumber }),
+        convexQuery(api.queries.getIssueWithComments, { owner, repo, issueNumber }),
     )
 
     let data = issue ?? firstLoad

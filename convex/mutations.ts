@@ -370,33 +370,6 @@ export const setInstallationSuspended = appInternalMutation({
     },
 })
 
-export const fixRepoCounts = internalAction({
-    async handler(ctx) {
-        let repos = await ctx.runQuery(internal.queries.listAllRepos)
-        for (const repo of repos) {
-            let issues = await ctx.runQuery(api.queries.listIssues, {
-                owner: repo.owner,
-                repo: repo.repo,
-            })
-            if (!issues) {
-                console.log(`No issues found for repo ${repo.owner}/${repo.repo}`)
-                continue
-            }
-
-            let openIssues = issues.filter((issue) => issue.state === 'open')
-            let closedIssues = issues.filter((issue) => issue.state === 'closed')
-
-            await ctx.runMutation(internal.mutations.upsertRepoCounts, {
-                repoId: repo._id,
-                openIssues: openIssues.length,
-                closedIssues: closedIssues.length,
-                openPullRequests: 0,
-                closedPullRequests: 0,
-            })
-        }
-    },
-})
-
 async function addInstallationMutation(
     ctx: MutationCtx,
     args: {
@@ -443,24 +416,3 @@ async function upsertRepoMutation(
         return repoId
     }
 }
-
-export const upsertRepoCounts = appInternalMutation({
-    args: {
-        repoId: v.id('repos'),
-        openIssues: v.number(),
-        closedIssues: v.number(),
-        openPullRequests: v.number(),
-        closedPullRequests: v.number(),
-    },
-    async handler(ctx, args) {
-        let existing = await ctx.db
-            .query('repoCounts')
-            .withIndex('by_repoId', (q) => q.eq('repoId', args.repoId))
-            .unique()
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-        } else {
-            await ctx.db.insert('repoCounts', args)
-        }
-    },
-})

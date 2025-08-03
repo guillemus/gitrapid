@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "deploy": "railway up --ci",
+    "dev:convex": "convex dev --typecheck disable",
     "dev": "astro dev --port 3000",
     "build": "astro build",
     "lint": "eslint ./src ./convex",
