@@ -3,11 +3,12 @@ import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { auth } from './auth'
 import { handleEvent } from './githubWebhooks'
+import { env } from './env'
 
 const http = httpRouter()
 
 const webhooks = new Webhooks({
-    secret: process.env.AUTH_GITHUB_WEBHOOK_SECRET!,
+    secret: env.AUTH_GITHUB_WEBHOOK_SECRET!,
 })
 
 auth.addHttpRoutes(http)

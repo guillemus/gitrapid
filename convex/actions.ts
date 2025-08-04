@@ -3,33 +3,8 @@ import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { type ActionCtx, internalAction, internalQuery } from './_generated/server'
+import { type ActionCtx, internalAction } from './_generated/server'
 import { addSecret, batchTreeFiles, failure, MAX_FILE_SIZE, octoCatch, ok } from './utils'
-
-export const getInstallationToken = internalQuery({
-    args: {
-        repoId: v.id('repos'),
-    },
-
-    async handler(ctx, { repoId }) {
-        let repo = await ctx.db.get(repoId)
-        if (!repo) {
-            console.error(`repo not found`, repoId)
-            return null
-        }
-
-        let token = await ctx.db
-            .query('installationAccessTokens')
-            .withIndex('by_repo_id', (q) => q.eq('repoId', repo._id))
-            .unique()
-        if (!token) {
-            console.error(`token not found`, repoId)
-            return null
-        }
-
-        return token
-    },
-})
 
 export const syncIssues = internalAction({
     args: {
@@ -96,19 +71,6 @@ export const syncIssues = internalAction({
                 comments: issue.comments ?? undefined,
             })
         }
-    },
-})
-
-export const getPat = internalQuery({
-    args: {
-        userId: v.id('users'),
-    },
-
-    async handler(ctx, { userId }) {
-        return ctx.db
-            .query('pats')
-            .withIndex('by_user_id', (q) => q.eq('userId', userId))
-            .unique()
     },
 })
 

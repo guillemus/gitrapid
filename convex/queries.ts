@@ -23,96 +23,6 @@ export const getAllRepos = internalQuery({
     },
 })
 
-export const getRepoRefs = internalQuery({
-    args: {
-        repoId: v.id('repos'),
-    },
-    handler: async (ctx, args) => {
-        let refs = await ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (r) => r.eq('repo', args.repoId))
-            .collect()
-        return refs
-    },
-})
-
-export const getRefAndPath = internalQuery({
-    args: v.object({
-        repoId: v.id('repos'),
-        refAndPath: v.string(),
-    }),
-    async handler(ctx, args) {
-        let refs = await ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (r) => r.eq('repo', args.repoId))
-            .collect()
-
-        return parseRefAndPath(
-            refs.map((ref) => ref.ref),
-            args.refAndPath,
-        )
-    },
-})
-
-export const getFiles = internalQuery({
-    args: {
-        commitId: v.id('commits'),
-    },
-    async handler(ctx, { commitId }) {
-        return ctx.db
-            .query('filenames')
-            .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .unique()
-    },
-})
-
-export const urlWithFilenames = internalQuery({
-    args: {
-        filenamesId: v.id('filenames'),
-    },
-    async handler(ctx, { filenamesId }) {
-        let filenames = await ctx.db.get(filenamesId)
-        if (!filenames) {
-            return null
-        }
-
-        let commitId = filenames.commit
-        let commit = await ctx.db.get(commitId)
-        if (!commit) {
-            return null
-        }
-
-        let repo = await ctx.db.get(commit.repo)
-        if (!repo) {
-            return null
-        }
-
-        return `http://localhost:3000/${repo.owner}/${repo.repo}/blob/${commit.sha}`
-    },
-})
-
-export const getRefs = internalQuery({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-    },
-    async handler(ctx, args) {
-        let savedRepo = await ctx.db
-            .query('repos')
-            .filter((r) => r.eq(r.field('owner'), args.owner) && r.eq(r.field('repo'), args.repo))
-            .unique()
-        if (!savedRepo) {
-            console.error(`getRefs: repo not found - owner: ${args.owner}, repo: ${args.repo}`)
-            return []
-        }
-
-        return ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (r) => r.eq('repo', savedRepo._id))
-            .collect()
-    },
-})
-
 export const getRefsAndCurrent = query({
     args: {
         owner: v.string(),
@@ -569,32 +479,6 @@ export const getIssueWithComments = query({
     },
 })
 
-export const getInstallationToken = internalQuery({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-    },
-    async handler(ctx, args) {
-        let repo = await ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (r) => r.eq('owner', args.owner).eq('repo', args.repo))
-            .unique()
-        if (!repo) {
-            return null
-        }
-
-        let installationToken = await ctx.db
-            .query('installationAccessTokens')
-            .withIndex('by_repo_id', (i) => i.eq('repoId', repo._id))
-            .unique()
-        if (!installationToken) {
-            return null
-        }
-
-        return installationToken
-    },
-})
-
 export const listAllRepos = internalQuery({
     async handler(ctx) {
         return await ctx.db.query('repos').collect()
@@ -604,5 +488,43 @@ export const listAllRepos = internalQuery({
 export const getRepos = query({
     async handler(ctx, args) {
         return await ctx.db.query('repos').collect()
+    },
+})
+
+export const getInstallationToken = internalQuery({
+    args: {
+        repoId: v.id('repos'),
+    },
+
+    async handler(ctx, { repoId }) {
+        let repo = await ctx.db.get(repoId)
+        if (!repo) {
+            console.error(`repo not found`, repoId)
+            return null
+        }
+
+        let token = await ctx.db
+            .query('installationAccessTokens')
+            .withIndex('by_repo_id', (q) => q.eq('repoId', repo._id))
+            .unique()
+        if (!token) {
+            console.error(`token not found`, repoId)
+            return null
+        }
+
+        return token
+    },
+})
+
+export const getPat = internalQuery({
+    args: {
+        userId: v.id('users'),
+    },
+
+    async handler(ctx, { userId }) {
+        return ctx.db
+            .query('pats')
+            .withIndex('by_user_id', (q) => q.eq('userId', userId))
+            .unique()
     },
 })

@@ -1,11 +1,12 @@
 'use node'
 
+import { env } from './env'
 import jwt from 'jsonwebtoken'
 
 // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app#about-json-web-tokens-jwts
 export function createGithubAppJwt() {
-    let secret = process.env.AUTH_GITHUB_PRIVATE_KEY!
-    let issuer = process.env.AUTH_GITHUB_ID
+    let secret = env.AUTH_GITHUB_PRIVATE_KEY!
+    let issuer = env.AUTH_GITHUB_ID
 
     let signed = jwt.sign(
         {

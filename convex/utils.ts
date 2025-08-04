@@ -8,7 +8,9 @@ import type {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
+import { Octokit } from '@octokit/rest'
 import type { ActionCtx } from './_generated/server'
+import { env } from './env'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -180,7 +182,7 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): ResultP<T, Re
 
 export function addSecret<T extends object>(obj: T): T & { secret: string } {
     return {
-        secret: process.env['AUTH_GITHUB_WEBHOOK_SECRET']!,
+        secret: env.AUTH_GITHUB_WEBHOOK_SECRET!,
         ...obj,
     } as T & { secret: string }
 }
@@ -193,7 +195,7 @@ export function withSecret<T extends object>(obj: T) {
 }
 
 export function protectFn(args: { secret: string }) {
-    if (args.secret !== process.env['AUTH_GITHUB_WEBHOOK_SECRET']) {
+    if (args.secret !== env.AUTH_GITHUB_WEBHOOK_SECRET) {
         throw new Error('Not available')
     }
 }
@@ -293,3 +295,70 @@ export function batchTreeFiles(tree: TreeFile[]) {
 
 // max doc size should be less than 1mb, max doc size for convex
 export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes
+
+export async function validateRepo(octo: Octokit, args: { owner: string; repo: string }) {
+    let repoSlug = `${args.owner}/${args.repo}`
+
+    let repo
+    repo = await octoCatch(octo.rest.repos.get(args))
+    if (repo.error) {
+        let isUnauthorized = repo.error.status === 401
+        let badCredentials = repo.error.message.includes('Bad credentials')
+
+        if (isUnauthorized && badCredentials) {
+            return failure('bad-credentials')
+        }
+
+        return repo
+    }
+
+    console.log(`${repoSlug}: token is valid`)
+
+    repo = repo.data
+
+    // if repo is private the user has probably made a mistake. This is probably
+    // not possible if we've done a good job with the PATs.
+
+    if (repo.private) {
+        return failure('private-repo')
+    }
+
+    console.log(`${repoSlug}: repo is public, checking license`)
+
+    // check license, can we store the code?
+    let license
+    license = await octoCatch(octo.rest.licenses.getForRepo({ owner: args.owner, repo: args.repo }))
+    if (license.error) {
+        if (license.error.status === 404) {
+            return failure('license-not-found')
+        }
+
+        return license
+    }
+
+    license = license.data
+
+    let spdxId = license.license?.spdx_id
+    if (!spdxId) {
+        return failure('license-not-found')
+    }
+    if (!['MIT', 'Apache-2.0', 'BSD-3-Clause'].includes(spdxId)) {
+        return failure(
+            new RepoError(
+                spdxId,
+                `Repo license ${spdxId} is not supported for public code download`,
+            ),
+        )
+    }
+
+    console.log(`${repoSlug}: license ${spdxId} is supported`)
+
+    return ok(repo)
+}
+
+export class RepoError {
+    constructor(
+        public spdxId: string,
+        public message: string,
+    ) {}
+}

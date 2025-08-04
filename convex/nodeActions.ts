@@ -10,7 +10,7 @@ import { api, internal } from './_generated/api'
 import type { Doc } from './_generated/dataModel'
 import { internalAction, type ActionCtx } from './_generated/server'
 import { createGithubAppJwt } from './jwt'
-import { addSecret, batchTreeFiles, MAX_FILE_SIZE, tryCatch } from './utils'
+import { addSecret, batchTreeFiles, MAX_FILE_SIZE, tryCatch, validateRepo } from './utils'
 
 export const logGithubAppJwt = internalAction({
     async handler() {
@@ -26,9 +26,16 @@ export const generateGithubAppInstallationToken = internalAction({
     },
 
     async handler(ctx, { owner, repo }): Promise<string> {
-        let existingToken = await ctx.runQuery(internal.queries.getInstallationToken, {
+        let savedRepo = await ctx.runQuery(internal.queries.getRepo, {
             owner,
             repo,
+        })
+        if (!savedRepo) {
+            throw new Error('Repo not found')
+        }
+
+        let existingToken = await ctx.runQuery(internal.queries.getInstallationToken, {
+            repoId: savedRepo._id,
         })
         if (!existingToken) {
             throw new Error('No installation token found')
@@ -89,13 +96,40 @@ export async function downloadPublicRepoCommitsWithGitCloneAction(
     const repoDir = '/tmp/repository'
     const gitDir = '/tmp/repository/.git'
 
+    let pat = await ctx.runQuery(api.protected.getFirstPat, addSecret({}))
+    if (!pat) {
+        throw new Error('PAT not found')
+    }
+
+    let octo = new Octokit({ auth: pat.token })
+
+    let repo = await validateRepo(octo, args)
+    if (repo.error) {
+        throw repo.error
+    }
+
     await git.clone({
         fs,
         http,
         dir: repoDir,
         url: `https://github.com/${args.owner}/${args.repo}.git`,
+        onAuth() {
+            return {
+                username: pat.token,
+                password: '',
+            }
+        },
+        onAuthSuccess: (url, auth) => {
+            console.log('Auth successful for:', url)
+        },
+        onAuthFailure: (url, auth) => {
+            console.log('Auth failed for:', url)
+            return { cancel: true } // This will throw an error
+        },
     })
     console.timeEnd('clone time')
+
+    console.log('clone done')
 
     let repoSlug = `${args.owner}/${args.repo}`
 
@@ -112,13 +146,11 @@ export async function downloadPublicRepoCommitsWithGitCloneAction(
     console.log(`${repoSlug}: downloading commits with isomorphic-git`)
 
     // Get all commits using git.log
-    console.time('log time')
     let commits = await git.log({
         fs,
         dir: repoDir,
         depth: undefined, // Get all commits
     })
-    console.timeEnd('log time')
 
     console.log(`${repoSlug}: found ${commits.length} commits`)
 

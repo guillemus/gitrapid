@@ -1,10 +1,10 @@
-import {
-    mutation as rawMutation,
-    internalMutation as rawInternalMutation,
-} from './_generated/server'
-import type { DataModel, Id } from './_generated/dataModel'
-import { Triggers } from 'convex-helpers/server/triggers'
 import { customCtx, customMutation } from 'convex-helpers/server/customFunctions'
+import { Triggers } from 'convex-helpers/server/triggers'
+import type { DataModel, Id } from './_generated/dataModel'
+import {
+    internalMutation as rawInternalMutation,
+    mutation as rawMutation,
+} from './_generated/server'
 
 const triggers = new Triggers<DataModel>()
 

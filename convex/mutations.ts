@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import { type MutationCtx } from './_generated/server'
 import { appInternalMutation } from './triggers'
+import { issuesSchema } from 'schema'
 
 export const insertRefs = appInternalMutation({
     args: {
@@ -20,7 +21,7 @@ export const insertRefs = appInternalMutation({
         for (let ref of args.refs) {
             let saved = await ctx.db
                 .query('commits')
-                .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId).eq('sha', ref.sha))
+                .withIndex('by_repo_and_sha', (c) => c.eq('repoId', args.repoId).eq('sha', ref.sha))
                 .unique()
 
             if (!saved) {
@@ -29,143 +30,12 @@ export const insertRefs = appInternalMutation({
             }
 
             await ctx.db.insert('refs', {
-                repo: args.repoId,
-                commit: saved._id,
+                repoId: args.repoId,
+                name: ref.ref,
+                commitId: saved._id,
                 isTag: ref.isTag,
-                ref: ref.ref,
             })
         }
-    },
-})
-
-export const insertCommits = appInternalMutation({
-    args: {
-        repoId: v.id('repos'),
-        commits: v.array(v.string()),
-    },
-    async handler(ctx, args) {
-        for (let commit of args.commits) {
-            let saved = await ctx.db
-                .query('commits')
-                .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repoId).eq('sha', commit))
-                .unique()
-
-            if (saved) {
-                continue
-            }
-
-            await ctx.db.insert('commits', {
-                repo: args.repoId,
-                sha: commit,
-            })
-        }
-    },
-})
-
-export const upsertCommitsAndRefs = appInternalMutation({
-    args: {
-        repo: v.id('repos'),
-        refs: v.array(
-            v.object({
-                sha: v.string(),
-                ref: v.string(),
-                isTag: v.boolean(),
-            }),
-        ),
-    },
-    async handler(ctx, args) {
-        for (let ref of args.refs) {
-            let savedCommit = await ctx.db
-                .query('commits')
-                .withIndex('by_repo_and_sha', (c) => c.eq('repo', args.repo).eq('sha', ref.sha))
-                .unique()
-
-            let commitId = savedCommit?._id
-            if (!commitId) {
-                commitId = await ctx.db.insert('commits', {
-                    repo: args.repo,
-                    sha: ref.sha,
-                })
-            }
-
-            let savedRefs = await ctx.db
-                .query('refs')
-                .withIndex('by_repo_and_commit', (ref) =>
-                    ref.eq('repo', args.repo).eq('commit', commitId),
-                )
-                .collect()
-
-            if (!savedRefs.length) {
-                await ctx.db.insert('refs', {
-                    commit: commitId,
-                    ref: ref.ref,
-                    repo: args.repo,
-                    isTag: ref.isTag,
-                })
-                continue
-            }
-
-            let savedRef = savedRefs.filter((r) => r.ref === ref.ref)[0]
-            if (savedRef) {
-                await ctx.db.patch(savedRef._id, {
-                    commit: commitId,
-                })
-            } else {
-                await ctx.db.insert('refs', {
-                    repo: args.repo,
-                    ref: ref.ref,
-                    commit: commitId,
-                    isTag: ref.isTag,
-                })
-            }
-        }
-    },
-})
-
-export const insertFilenames = appInternalMutation({
-    args: {
-        commitId: v.id('commits'),
-        fileList: v.array(v.string()),
-    },
-    async handler(ctx, { commitId, fileList }) {
-        let saved = await ctx.db
-            .query('filenames')
-            .withIndex('by_commit', (f) => f.eq('commit', commitId))
-            .unique()
-
-        if (saved) {
-            return saved._id
-        }
-
-        return await ctx.db.insert('filenames', { commit: commitId, files: fileList })
-    },
-})
-
-export const insertCommit = appInternalMutation({
-    args: {
-        repoId: v.id('repos'),
-        sha: v.string(),
-    },
-    async handler(ctx, { repoId, sha }) {
-        let saved = await ctx.db
-            .query('commits')
-            .withIndex('by_repo_and_sha', (c) => c.eq('repo', repoId).eq('sha', sha))
-            .unique()
-
-        if (saved) {
-            return saved._id
-        }
-        return await ctx.db.insert('commits', { repo: repoId, sha })
-    },
-})
-
-export const updateRepoHead = appInternalMutation({
-    args: {
-        repoId: v.id('repos'),
-        head: v.id('refs'),
-    },
-    async handler(ctx, { repoId, head }) {
-        await ctx.db.patch(repoId, { head })
     },
 })
 
@@ -202,21 +72,7 @@ export const saveInstallationToken = appInternalMutation({
 })
 
 export const upsertIssue = appInternalMutation({
-    args: {
-        repo: v.id('repos'),
-        githubId: v.number(),
-        number: v.number(),
-        title: v.string(),
-        state: v.union(v.literal('open'), v.literal('closed')),
-        body: v.optional(v.string()),
-        author: v.object({ login: v.string(), id: v.number() }),
-        labels: v.optional(v.array(v.string())),
-        assignees: v.optional(v.array(v.string())),
-        createdAt: v.string(),
-        updatedAt: v.string(),
-        closedAt: v.optional(v.string()),
-        comments: v.optional(v.number()),
-    },
+    args: issuesSchema,
     async handler(ctx, args) {
         return await upsertIssueMutation(ctx, args)
     },
@@ -228,7 +84,9 @@ export async function upsertIssueMutation(
 ) {
     const existing = await ctx.db
         .query('issues')
-        .withIndex('by_repo_and_number', (q) => q.eq('repo', args.repo).eq('number', args.number))
+        .withIndex('by_repo_and_number', (q) =>
+            q.eq('repoId', args.repoId).eq('number', args.number),
+        )
         .unique()
     if (existing) {
         return await ctx.db.patch(existing._id, args)
