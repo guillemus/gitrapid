@@ -142,6 +142,8 @@ export function err(msg: string): Failure<Error> {
     return { data: null, error: new Error(msg) }
 }
 
+export function failure<T extends string>(val: T): Failure<T>
+export function failure<T extends object>(val: T): Failure<T>
 export function failure<T>(val: T): Failure<T> {
     return { data: null, error: val }
 }
@@ -240,3 +242,54 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
         },
     }
 }
+
+export type TreeFile = {
+    path: string
+    mode: string
+    type: string
+    sha: string
+    size?: number
+    url?: string
+}
+
+// The requirements are:
+// - All files from a batch should not sum more than MAX_FILE_SIZE of size all together.
+// - The batch should not have more than 10 files
+export function batchTreeFiles(tree: TreeFile[]) {
+    const batches: TreeFile[][] = []
+    let currentBatch: TreeFile[] = []
+    let currentBatchSize = 0
+
+    for (const file of tree) {
+        // Use file.size if present, otherwise treat as 0
+        const fileSize = file.size ?? 0
+
+        // If adding this file would exceed batch size or batch length, start a new batch
+        if (
+            currentBatch.length >= 10 ||
+            (currentBatchSize + fileSize > MAX_FILE_SIZE && currentBatch.length > 0)
+        ) {
+            batches.push(currentBatch)
+            currentBatch = []
+            currentBatchSize = 0
+        }
+
+        // If the file itself is too big, put it in its own batch
+        if (fileSize > MAX_FILE_SIZE) {
+            batches.push([file])
+            continue
+        }
+
+        currentBatch.push(file)
+        currentBatchSize += fileSize
+    }
+
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch)
+    }
+
+    return batches
+}
+
+// max doc size should be less than 1mb, max doc size for convex
+export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes

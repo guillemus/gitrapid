@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { batchTreeFiles, MAX_FILE_SIZE } from './actions'
+import { batchTreeFiles, MAX_FILE_SIZE } from './utils'
 
 // fixme: reenable getRefAndPath tests
 

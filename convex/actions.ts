@@ -4,10 +4,7 @@ import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { type ActionCtx, internalAction, internalQuery } from './_generated/server'
-import { addSecret, failure, octoCatch, ok } from './utils'
-
-// max doc size should be less than 1mb, max doc size for convex
-export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes
+import { addSecret, batchTreeFiles, failure, MAX_FILE_SIZE, octoCatch, ok } from './utils'
 
 export const getInstallationToken = internalQuery({
     args: {
@@ -50,7 +47,7 @@ export const syncIssues = internalAction({
             }),
         )
 
-        let token = await ctx.runAction(internal.githubAuth.generateGithubAppInstallationToken, {
+        let token = await ctx.runAction(internal.nodeActions.generateGithubAppInstallationToken, {
             owner,
             repo,
         })
@@ -208,10 +205,9 @@ export async function downloadPublicRepoAction(
     console.log(`${repoSlug}: repo license is supported, proceeding with download`)
 
     console.log(`${repoSlug}: downloading commits`)
-    await ctx.scheduler.runAfter(0, internal.actions.downloadPublicRepoCommitsWithGitCloneAction, {
+    await ctx.scheduler.runAfter(0, internal.nodeActions.downloadPublicRepoCommitsWithGitClone, {
         owner: args.owner,
         repo: args.repo,
-        private: false,
     })
 
     await downloadCommits(ctx, octo, repoSlug, repoId, args)
@@ -359,13 +355,16 @@ export async function downloadCommits(
                         console.error(`${repoSlug}/${commit.sha}: file not found`, filename)
                         console.error('message', file.error.message)
                         console.error('status', file.error.status)
-                        return null
+                        return
                     }
 
                     let parsed = githubFileToFileDoc(commitId, repoId, filename, file.data)
                     if (parsed.error === 'invalid-file-type') {
                         console.error(`${repoSlug}/${commit.sha}: invalid file type`, filename)
-                        return null
+                        return
+                    } else if (parsed.error === 'file-is-array') {
+                        console.error(`${repoSlug}/${commit.sha}: file is an array`, filename)
+                        return
                     }
 
                     let fileDoc = parsed.data
@@ -386,7 +385,7 @@ function githubFileToFileDoc(
     file: RestEndpointMethodTypes['repos']['getContent']['response']['data'],
 ) {
     if (Array.isArray(file)) {
-        return failure('invalid-file-type' as const)
+        return failure('file-is-array')
     }
 
     let fileDoc: WithoutSystemFields<Doc<'files'>>
@@ -432,58 +431,10 @@ function githubFileToFileDoc(
             },
         }
     } else {
-        return failure('invalid-file-type' as const)
+        return failure('invalid-file-type')
     }
 
     return ok(fileDoc)
-}
-
-type TreeFile = {
-    path: string
-    mode: string
-    type: string
-    sha: string
-    size?: number
-    url?: string
-}
-
-// The requirements are:
-// - All files from a batch should not sum more than MAX_FILE_SIZE of size all together.
-// - The batch should not have more than 10 files
-export function batchTreeFiles(tree: TreeFile[]) {
-    const batches: TreeFile[][] = []
-    let currentBatch: TreeFile[] = []
-    let currentBatchSize = 0
-
-    for (const file of tree) {
-        // Use file.size if present, otherwise treat as 0
-        const fileSize = file.size ?? 0
-
-        // If adding this file would exceed batch size or batch length, start a new batch
-        if (
-            currentBatch.length >= 10 ||
-            (currentBatchSize + fileSize > MAX_FILE_SIZE && currentBatch.length > 0)
-        ) {
-            batches.push(currentBatch)
-            currentBatch = []
-            currentBatchSize = 0
-        }
-
-        // If the file itself is too big, put it in its own batch
-        if (fileSize > MAX_FILE_SIZE) {
-            batches.push([file])
-            continue
-        }
-
-        currentBatch.push(file)
-        currentBatchSize += fileSize
-    }
-
-    if (currentBatch.length > 0) {
-        batches.push(currentBatch)
-    }
-
-    return batches
 }
 
 export async function downloadIssues(
@@ -616,33 +567,4 @@ export async function syncPublicRepoAction(
             console.log(event)
         }
     }
-}
-
-export const downloadPublicRepoCommitsWithGitCloneAction = internalAction({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        private: v.boolean(),
-    },
-
-    async handler(ctx, args) {
-        return downloadPublicRepoCommitsWithGitClone(ctx, args)
-    },
-})
-
-export async function downloadPublicRepoCommitsWithGitClone(
-    ctx: ActionCtx,
-    args: {
-        owner: string
-        repo: string
-        private: boolean
-    },
-) {
-    console.log('downloadPublicRepoCommitsWithGitClone', args)
-    let repoId = await ctx.runMutation(
-        api.protected.upsertRepo,
-        addSecret({ owner: args.owner, repo: args.repo, private: args.private }),
-    )
-
-    debugger
 }

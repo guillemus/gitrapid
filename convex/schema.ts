@@ -28,10 +28,13 @@ export const filesSchema = {
     ),
 }
 
-const filesTable = defineTable(filesSchema).index('by_repo_and_commit', ['repo', 'commit'])
+const filesTable = {
+    files: defineTable(filesSchema).index('by_repo_and_commit', ['repo', 'commit']),
+}
 
 export default defineSchema({
     ...authTables,
+    ...filesTable,
 
     // pats are personal access tokens for users.
     pats: defineTable({
@@ -89,8 +92,6 @@ export default defineSchema({
         commit: v.id('commits'),
         files: v.array(v.string()),
     }).index('by_commit', ['commit']),
-
-    files: filesTable,
 
     issues: defineTable({
         repo: v.id('repos'),

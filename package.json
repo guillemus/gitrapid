@@ -4,10 +4,10 @@
   "version": "0.0.1",
   "scripts": {
     "deploy": "railway up --ci",
-    "dev:convex": "convex dev --typecheck disable",
-    "dev:tsc": "tsc --watch",
-    "dev:tscgo": "tsgo --watch",
+    "cx": "convex dev --typecheck disable",
+    "ts": "tsgo --watch",
     "dev": "astro dev --port 3000",
+    "dev:tsc": "tsc --watch",
     "build": "astro build",
     "lint": "eslint ./src ./convex",
     "format": "prettier ./src --write",

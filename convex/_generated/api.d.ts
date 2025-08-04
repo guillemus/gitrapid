@@ -11,12 +11,12 @@
 import type * as actions from "../actions.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
-import type * as githubAuth from "../githubAuth.js";
 import type * as githubWebhooks from "../githubWebhooks.js";
 import type * as http from "../http.js";
 import type * as jwt from "../jwt.js";
 import type * as migrations from "../migrations.js";
 import type * as mutations from "../mutations.js";
+import type * as nodeActions from "../nodeActions.js";
 import type * as protected_ from "../protected.js";
 import type * as queries from "../queries.js";
 import type * as triggers from "../triggers.js";
@@ -40,12 +40,12 @@ declare const fullApi: ApiFromModules<{
   actions: typeof actions;
   auth: typeof auth;
   crons: typeof crons;
-  githubAuth: typeof githubAuth;
   githubWebhooks: typeof githubWebhooks;
   http: typeof http;
   jwt: typeof jwt;
   migrations: typeof migrations;
   mutations: typeof mutations;
+  nodeActions: typeof nodeActions;
   protected: typeof protected_;
   queries: typeof queries;
   triggers: typeof triggers;
