@@ -4,16 +4,16 @@
 import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { upsertIssueMutation } from './mutations'
+import {
+    blobsSchema,
+    commitsSchema,
+    issuesSchema,
+    refsSchema,
+    treeEntriesSchema,
+    treesSchema,
+} from './schema'
 import { appMutation } from './triggers'
 import { protectFn, withSecret } from './utils'
-import {
-    issuesSchema,
-    blobsSchema,
-    treesSchema,
-    treeEntriesSchema,
-    commitsSchema,
-    refsSchema,
-} from 'schema'
 
 export const getPat = query({
     args: withSecret({
@@ -168,7 +168,7 @@ export const upsertTreeEntry = appMutation({
             .withIndex('by_repo_and_tree', (q) =>
                 q.eq('repoId', args.repoId).eq('treeId', args.treeId),
             )
-            .filter((q) => q.eq(q.field('value.name'), args.value.name))
+            .filter((q) => q.eq(q.field('name'), args.name))
             .unique()
 
         if (existing) {
@@ -178,7 +178,9 @@ export const upsertTreeEntry = appMutation({
         return ctx.db.insert('treeEntries', {
             repoId: args.repoId,
             treeId: args.treeId,
-            value: args.value,
+            mode: args.mode,
+            name: args.name,
+            object: args.object,
         })
     },
 })
@@ -202,7 +204,6 @@ export const upsertCommit = appMutation({
             repoId: args.repoId,
             sha: args.sha,
             treeId: args.treeId,
-            parentCommitIds: args.parentCommitIds,
             message: args.message,
             author: args.author,
             committer: args.committer,

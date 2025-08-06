@@ -53,7 +53,7 @@ export const syncIssues = internalAction({
             }
 
             await ctx.runMutation(internal.mutations.upsertIssue, {
-                repo: repoId,
+                repoId,
                 githubId: issue.id,
                 number: issue.number,
                 title: issue.title,
@@ -181,75 +181,6 @@ export async function downloadPublicRepoAction(
     await downloadIssues(ctx, octo, repoSlug, repoId, args)
 }
 
-async function downloadRefs(
-    ctx: ActionCtx,
-    octo: Octokit,
-    repoSlug: string,
-    repoId: Id<'repos'>,
-    args: {
-        userId: Id<'users'>
-        owner: string
-        repo: string
-    },
-) {
-    console.log(`${repoSlug}: downloading branches`)
-
-    // get all repo branch / tag refs
-    let allRefHeads = octo.paginate.iterator(octo.rest.git.listMatchingRefs, {
-        owner: args.owner,
-        repo: args.repo,
-        ref: 'heads',
-    })
-
-    for await (let { data: refs } of allRefHeads) {
-        for (let ref of refs) {
-            console.log(`${repoSlug}: downloading branch`, ref.ref)
-
-            // trim 'refs/heads/' substring
-            let branchName = ref.ref.replace('refs/heads/', '')
-            let commitSha = ref.object.sha
-
-            let commitId = await ctx.runMutation(
-                api.protected.upsertCommit,
-                addSecret({ repoId, sha: commitSha }),
-            )
-
-            await ctx.runMutation(
-                api.protected.upsertRef,
-                addSecret({ repoId, commitId, ref: branchName, isTag: false }),
-            )
-        }
-    }
-
-    console.log(`${repoSlug}: downloading tags`)
-
-    let allRefTags = octo.paginate.iterator(octo.rest.git.listMatchingRefs, {
-        owner: args.owner,
-        repo: args.repo,
-        ref: 'tags',
-    })
-
-    for await (let { data: refs } of allRefTags) {
-        for (let ref of refs) {
-            console.log(`${repoSlug}: downloading tag`, ref.ref)
-
-            // trim 'refs/tags/' substring
-            let tagName = ref.ref.replace('refs/tags/', '')
-            let commitSha = ref.object.sha
-
-            let commitId = await ctx.runMutation(
-                api.protected.upsertCommit,
-                addSecret({ repoId, sha: commitSha }),
-            )
-
-            await ctx.runMutation(
-                api.protected.upsertRef,
-                addSecret({ repoId, commitId, ref: tagName, isTag: true }),
-            )
-        }
-    }
-}
-
 export async function downloadCommits(
     ctx: ActionCtx,
     octo: Octokit,
@@ -305,14 +236,14 @@ export async function downloadCommits(
                 let ps = batch.map(async ({ path: filename }) => {
                     console.log(`${repoSlug}/${commit.sha}: downloading file`, filename)
 
-                    let file = await octoCatch(
-                        octo.rest.repos.getContent({
-                            owner: args.owner,
-                            repo: args.repo,
-                            ref: commit.sha,
-                            path: filename,
-                        }),
-                    )
+                    let params = {
+                        owner: args.owner,
+                        repo: args.repo,
+                        ref: commit.sha,
+                        path: filename,
+                    }
+
+                    let file = await octoCatch(octo.rest.repos.getContent(params))
                     if (file.error) {
                         console.error(`${repoSlug}/${commit.sha}: file not found`, filename)
                         console.error('message', file.error.message)

@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import { type MutationCtx } from './_generated/server'
 import { appInternalMutation } from './triggers'
-import { issuesSchema } from 'schema'
+import { issuesSchema } from './schema'
 
 export const insertRefs = appInternalMutation({
     args: {

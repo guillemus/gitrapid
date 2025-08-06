@@ -22,7 +22,7 @@ triggers.register('issues', async (ctx, change) => {
     }
 
     if (change.operation === 'delete') {
-        let repoCounts = await getRepoCounts(change.oldDoc.repo)
+        let repoCounts = await getRepoCounts(change.oldDoc.repoId)
         if (!repoCounts) return
 
         if (change.oldDoc.state === 'open') {
@@ -35,7 +35,7 @@ triggers.register('issues', async (ctx, change) => {
             })
         }
     } else if (change.operation === 'insert') {
-        let repoCounts = await getRepoCounts(change.newDoc.repo)
+        let repoCounts = await getRepoCounts(change.newDoc.repoId)
         if (!repoCounts) return
 
         if (change.newDoc.state === 'open') {
@@ -52,7 +52,7 @@ triggers.register('issues', async (ctx, change) => {
             return
         }
 
-        let repoCounts = await getRepoCounts(change.oldDoc.repo)
+        let repoCounts = await getRepoCounts(change.oldDoc.repoId)
         if (!repoCounts) return
 
         if (change.newDoc.state === 'open') {

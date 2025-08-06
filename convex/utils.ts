@@ -140,16 +140,49 @@ export function ok<T>(val: T): Success<T> {
     return { data: val, error: null }
 }
 
+/**
+ * Convenient utility to create Failure.
+ */
 export function err(msg: string): Failure<Error> {
     return { data: null, error: new Error(msg) }
 }
 
+/**
+ * Returns an explicit error. The function overloads allows the producer to
+ * return const types, so that pattern matching errors is very simple
+ */
 export function failure<T extends string>(val: T): Failure<T>
 export function failure<T extends object>(val: T): Failure<T>
 export function failure<T>(val: T): Failure<T> {
     return { data: null, error: val }
 }
 
+/**
+ * Wrap an error with additional context, similar to Go's fmt.Errorf("context: %w", err).
+ * If the environment supports Error.cause, use it. Otherwise, attach as .cause.
+ */
+export function wrap(context: string, error: unknown): Failure<Error> {
+    if (error instanceof Error) {
+        // Use the ES2022 cause property if available
+        try {
+            // @ts-ignore
+            return new Error(context, { cause: error })
+        } catch {
+            // Fallback for environments without Error.cause
+            const wrapped = new Error(`${context}: ${error.message}`)
+            // @ts-ignore
+            wrapped.cause = error
+            return failure(wrapped)
+        }
+    } else {
+        // If err is not an Error, just stringify it
+        return err(`${context}: ${String(err)}`)
+    }
+}
+
+/**
+ * Try to run a promise and return a Result.
+ */
 export async function tryCatch<T, E = Error>(promise: Promise<T>): ResultP<T, E> {
     try {
         const data = await promise
@@ -159,6 +192,10 @@ export async function tryCatch<T, E = Error>(promise: Promise<T>): ResultP<T, E>
     }
 }
 
+/**
+ * Unwraps a Result. Use this to throw an error, or for compatibility with other
+ * libraries / frameworks that expect thrown exceptions.
+ */
 export function unwrap<T, E>(res: Result<T, E>): T {
     if (res.error) {
         throw res.error
