@@ -8,7 +8,6 @@ import type {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
-import { Octokit } from '@octokit/rest'
 import type { ActionCtx } from './_generated/server'
 import { env } from './env'
 
@@ -21,72 +20,6 @@ export interface Context {
         mutation: Mutation,
         ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>>
-}
-
-// fixme: this could be better modelled as a parse result of type 'head', type 'commit', etc
-// so that there's no confusion
-
-type RefAndPath = {
-    ref: string
-    path: string
-    isCommit: boolean
-}
-
-const commitShaRegex = /^[a-f0-9]{40}$/i
-
-export function parseRefAndPath(repoRefs: string[], refAndPath: string): RefAndPath | null {
-    let repoRefsSet = new Set(repoRefs)
-
-    let parts = refAndPath.split('/')
-    let acc = ''
-    let lastValidRef = ''
-
-    if (refAndPath === '') {
-        return {
-            ref: 'HEAD',
-            path: 'README.md',
-            isCommit: false,
-        }
-    }
-
-    let firstPart = parts[0]
-
-    if (firstPart && commitShaRegex.test(firstPart)) {
-        let path = parts.slice(1).join('/')
-        if (path === '') {
-            path = 'README.md'
-        }
-
-        return { ref: firstPart, path, isCommit: true }
-    }
-
-    for (let part of parts) {
-        if (acc === '') {
-            acc = part
-        } else {
-            acc = `${acc}/${part}`
-        }
-
-        if (repoRefsSet.has(acc)) {
-            lastValidRef = acc
-            continue
-        }
-
-        if (lastValidRef !== '') {
-            let path = refAndPath.slice(lastValidRef.length)
-            if (path.startsWith('/')) {
-                path = path.slice(1)
-            }
-            return { ref: lastValidRef, path, isCommit: false }
-        }
-    }
-
-    // Handle case where the entire string is a valid ref (no path)
-    if (repoRefsSet.has(refAndPath)) {
-        return { ref: refAndPath, path: 'README.md', isCommit: false }
-    }
-
-    return null
 }
 
 export async function withExponentialBackoff<T>(
@@ -114,7 +47,7 @@ type Auth = {
     getUserIdentity: () => Promise<UserIdentity | null>
 }
 
-export async function getUserId(ctx: { auth: Auth }) {
+export async function parseUserId(ctx: { auth: Auth }) {
     const userId = await getAuthUserId(ctx)
     if (!userId) {
         throw new Error('User not authenticated')
@@ -332,70 +265,3 @@ export function batchTreeFiles(tree: TreeFile[]) {
 
 // max doc size should be less than 1mb, max doc size for convex
 export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes
-
-export async function validateRepo(octo: Octokit, args: { owner: string; repo: string }) {
-    let repoSlug = `${args.owner}/${args.repo}`
-
-    let repo
-    repo = await octoCatch(octo.rest.repos.get(args))
-    if (repo.error) {
-        let isUnauthorized = repo.error.status === 401
-        let badCredentials = repo.error.message.includes('Bad credentials')
-
-        if (isUnauthorized && badCredentials) {
-            return failure('bad-credentials')
-        }
-
-        return repo
-    }
-
-    console.log(`${repoSlug}: token is valid`)
-
-    repo = repo.data
-
-    // if repo is private the user has probably made a mistake. This is probably
-    // not possible if we've done a good job with the PATs.
-
-    if (repo.private) {
-        return failure('private-repo')
-    }
-
-    console.log(`${repoSlug}: repo is public, checking license`)
-
-    // check license, can we store the code?
-    let license
-    license = await octoCatch(octo.rest.licenses.getForRepo({ owner: args.owner, repo: args.repo }))
-    if (license.error) {
-        if (license.error.status === 404) {
-            return failure('license-not-found')
-        }
-
-        return license
-    }
-
-    license = license.data
-
-    let spdxId = license.license?.spdx_id
-    if (!spdxId) {
-        return failure('license-not-found')
-    }
-    if (!['MIT', 'Apache-2.0', 'BSD-3-Clause'].includes(spdxId)) {
-        return failure(
-            new RepoError(
-                spdxId,
-                `Repo license ${spdxId} is not supported for public code download`,
-            ),
-        )
-    }
-
-    console.log(`${repoSlug}: license ${spdxId} is supported`)
-
-    return ok(repo)
-}
-
-export class RepoError {
-    constructor(
-        public spdxId: string,
-        public message: string,
-    ) {}
-}

@@ -4,6 +4,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import { type MutationCtx } from './_generated/server'
 import { appInternalMutation } from './triggers'
 import { issuesSchema } from './schema'
+import { Repos, Installations } from './models/models'
 
 export const insertRefs = appInternalMutation({
     args: {
@@ -32,7 +33,7 @@ export const insertRefs = appInternalMutation({
             await ctx.db.insert('refs', {
                 repoId: args.repoId,
                 name: ref.ref,
-                commitId: saved._id,
+                commitSha: saved.sha,
                 isTag: ref.isTag,
             })
         }
@@ -95,14 +96,14 @@ export async function upsertIssueMutation(
     }
 }
 
-export const upsertRepo = appInternalMutation({
+export const getOrCreateRepo = appInternalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
         private: v.boolean(),
     },
     async handler(ctx, args) {
-        return await upsertRepoMutation(ctx, args)
+        return await Repos.getOrCreate(ctx, args)
     },
 })
 
@@ -113,7 +114,12 @@ export const addInstallation = appInternalMutation({
         installationId: v.string(),
     },
     async handler(ctx, args) {
-        return await addInstallationMutation(ctx, args)
+        return await Installations.getOrCreate(ctx, {
+            userId: args.userId,
+            repoId: args.repoId,
+            installationId: args.installationId,
+            suspended: false,
+        })
     },
 })
 
@@ -145,10 +151,11 @@ export const handleInstallationCreated = appInternalMutation({
         for (const repoData of args.repos) {
             const repoId = await upsertRepoMutation(ctx, repoData)
 
-            await addInstallationMutation(ctx, {
+            await Installations.getOrCreate(ctx, {
                 userId: authAccount.userId,
                 repoId,
                 installationId: args.installationId,
+                suspended: false,
             })
         }
 
@@ -158,12 +165,15 @@ export const handleInstallationCreated = appInternalMutation({
 
 export const deleteInstallation = appInternalMutation({
     args: {
-        installationId: v.string(),
+        userId: v.id('users'),
+        repoId: v.id('repos'),
     },
     async handler(ctx, args) {
         let installation = await ctx.db
             .query('installations')
-            .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+            .withIndex('by_userId_repoId', (q) =>
+                q.eq('userId', args.userId).eq('repoId', args.repoId),
+            )
             .unique()
 
         if (installation) {
@@ -174,13 +184,16 @@ export const deleteInstallation = appInternalMutation({
 
 export const setInstallationSuspended = appInternalMutation({
     args: {
-        installationId: v.string(),
+        userId: v.id('users'),
+        repoId: v.id('repos'),
         suspended: v.boolean(),
     },
     async handler(ctx, args) {
         let installation = await ctx.db
             .query('installations')
-            .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+            .withIndex('by_userId_repoId', (q) =>
+                q.eq('userId', args.userId).eq('repoId', args.repoId),
+            )
             .unique()
 
         if (installation) {
@@ -188,29 +201,6 @@ export const setInstallationSuspended = appInternalMutation({
         }
     },
 })
-
-async function addInstallationMutation(
-    ctx: MutationCtx,
-    args: {
-        userId: Id<'users'>
-        repoId: Id<'repos'>
-        installationId: string
-    },
-) {
-    let existing = await ctx.db
-        .query('installations')
-        .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-        .filter((i) => i.eq(i.field('repoId'), args.repoId))
-        .unique()
-    if (!existing) {
-        await ctx.db.insert('installations', {
-            installationId: args.installationId,
-            userId: args.userId,
-            repoId: args.repoId,
-            suspended: false,
-        })
-    }
-}
 
 async function upsertRepoMutation(
     ctx: MutationCtx,

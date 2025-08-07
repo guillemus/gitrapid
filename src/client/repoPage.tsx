@@ -89,15 +89,7 @@ function buildFileTree(filePaths: string[]): FileTreeNode[] {
     return root
 }
 
-function FileTreeNode({
-    node,
-    params,
-    commitId,
-}: {
-    commitId?: Id<'commits'>
-    node: FileTreeNode
-    params: GithubParams
-}) {
+function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubParams }) {
     const state = useMutable({ expanded: false })
     const navigate = useNavigate()
 
@@ -132,12 +124,7 @@ function FileTreeNode({
                 {state.expanded && node.children && (
                     <div style={{ marginLeft: '20px' }}>
                         {node.children.map((child) => (
-                            <FileTreeNode
-                                commitId={commitId}
-                                key={child.path}
-                                node={child}
-                                params={params}
-                            />
+                            <FileTreeNode key={child.path} node={child} params={params} />
                         ))}
                     </div>
                 )}
@@ -174,9 +161,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
         }),
     )
 
-    let files = preloadedFiles ?? query?.files
-    let commitId = query?.commitId
-
+    let files = preloadedFiles ?? query?.filenames
     let fileTree = useMemo(() => buildFileTree(files ?? []), [files])
 
     return (
@@ -184,7 +169,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
             {/* <RefSelector /> */}
             <div className="p-2">
                 {fileTree.map((node) => (
-                    <FileTreeNode commitId={commitId} key={node.path} node={node} params={params} />
+                    <FileTreeNode key={node.path} node={node} params={params} />
                 ))}
             </div>
         </div>
@@ -219,7 +204,7 @@ export function RepoPage() {
     return (
         <div className="flex flex-1">
             <div className="h-full w-60 overflow-y-auto">
-                <Sidebar preloadedFiles={page.data?.files}></Sidebar>
+                <Sidebar preloadedFiles={page.data?.filenames}></Sidebar>
             </div>
             <div className="flex-1 overflow-auto">
                 <p>files not yet implemented</p>

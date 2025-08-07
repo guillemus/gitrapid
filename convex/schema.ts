@@ -21,6 +21,16 @@ export const repoCountsSchema = {
 
 const repoCounts = defineTable(repoCountsSchema).index('by_repoId', ['repoId'])
 
+export const refsSchema = {
+    repoId: v.id('repos'),
+    name: v.string(), // e.g., "refs/heads/main" or "refs/tags/v1.0.0"
+    commitSha: v.string(),
+    isTag: v.optional(v.boolean()), // true for tags, false/undefined for branches
+}
+const refs = defineTable(refsSchema)
+    .index('by_repo_and_name', ['repoId', 'name'])
+    .index('by_repo_and_commit', ['repoId', 'commitSha'])
+
 const githubPerson = v.object({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
@@ -29,23 +39,13 @@ const githubPerson = v.object({
 
 export const commitsSchema = {
     repoId: v.id('repos'),
-    treeId: v.id('trees'), // Root tree
-    sha: v.string(), // Commit SHA
+    treeSha: v.string(),
+    sha: v.string(),
     message: v.string(),
     author: v.optional(githubPerson),
     committer: v.optional(githubPerson),
 }
 const commits = defineTable(commitsSchema).index('by_repo_and_sha', ['repoId', 'sha'])
-
-export const refsSchema = {
-    repoId: v.id('repos'),
-    name: v.string(), // e.g., "refs/heads/main" or "refs/tags/v1.0.0"
-    commitId: v.id('commits'), // Reference to commit
-    isTag: v.optional(v.boolean()), // true for tags, false/undefined for branches
-}
-const refs = defineTable(refsSchema)
-    .index('by_repo_and_name', ['repoId', 'name'])
-    .index('by_repo_and_commit', ['repoId', 'commitId'])
 
 export const treesSchema = {
     repoId: v.id('repos'),
@@ -55,21 +55,17 @@ const trees = defineTable(treesSchema).index('by_repo_and_sha', ['repoId', 'sha'
 
 export const treeEntriesSchema = {
     repoId: v.id('repos'),
-    treeId: v.id('trees'), // Parent tree
-    name: v.string(),
+    rootTreeSha: v.string(),
+    entrySha: v.string(), // Blob or tree sha
+    path: v.string(),
     mode: v.string(),
-    object: v.union(
-        v.object({
-            type: v.literal('blob'), // Regular file
-            blobId: v.id('blobs'), // Reference to blob
-        }),
-        v.object({
-            type: v.literal('tree'), // Directory
-            treeId: v.id('trees'), // Reference to tree
-        }),
-    ),
+    entryType: v.union(v.literal('blob'), v.literal('tree')),
 }
-const treeEntries = defineTable(treeEntriesSchema).index('by_repo_and_tree', ['repoId', 'treeId'])
+const treeEntries = defineTable(treeEntriesSchema).index('by_repo_tree_and_path', [
+    'repoId',
+    'rootTreeSha',
+    'path',
+])
 
 export const blobsSchema = {
     repoId: v.id('repos'),
@@ -154,11 +150,8 @@ export default defineSchema({
         userId: v.id('users'),
         suspended: v.boolean(),
         repoId: v.id('repos'),
-        installationId: v.string(), // GitHub installation ID
-    })
-        .index('by_userId', ['userId'])
-        .index('by_repoId', ['repoId'])
-        .index('by_installationId', ['installationId']),
+        installationId: v.string(),
+    }).index('by_userId_repoId', ['userId', 'repoId']),
 
     installationAccessTokens: defineTable({
         repoId: v.id('repos'),

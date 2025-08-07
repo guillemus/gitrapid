@@ -1,70 +1,49 @@
 import { customCtx, customMutation } from 'convex-helpers/server/customFunctions'
 import { Triggers } from 'convex-helpers/server/triggers'
-import type { DataModel, Id } from './_generated/dataModel'
+import type { DataModel } from './_generated/dataModel'
 import {
     internalMutation as rawInternalMutation,
     mutation as rawMutation,
 } from './_generated/server'
+import { RepoCounts } from './models/models'
+
+// fixme: I can just delete this and handle on the models.ts layer instead
 
 const triggers = new Triggers<DataModel>()
 
 triggers.register('issues', async (ctx, change) => {
-    async function getRepoCounts(repoId: Id<'repos'>) {
-        let repo = await ctx.db.get(repoId)
-        if (!repo) return
-
-        let repoCounts = await ctx.db
-            .query('repoCounts')
-            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
-            .unique()
-
-        return repoCounts
-    }
-
     if (change.operation === 'delete') {
-        let repoCounts = await getRepoCounts(change.oldDoc.repoId)
-        if (!repoCounts) return
+        let counts = await RepoCounts.getByRepoId(ctx, change.oldDoc.repoId)
+        if (!counts) return
 
         if (change.oldDoc.state === 'open') {
-            await ctx.db.patch(repoCounts._id, {
-                openIssues: repoCounts.openIssues - 1,
-            })
+            await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues - 1)
         } else {
-            await ctx.db.patch(repoCounts._id, {
-                closedIssues: repoCounts.closedIssues - 1,
-            })
+            await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues - 1)
         }
     } else if (change.operation === 'insert') {
-        let repoCounts = await getRepoCounts(change.newDoc.repoId)
-        if (!repoCounts) return
+        let counts = await RepoCounts.getByRepoId(ctx, change.newDoc.repoId)
+        if (!counts) return
 
         if (change.newDoc.state === 'open') {
-            await ctx.db.patch(repoCounts._id, {
-                openIssues: repoCounts.openIssues + 1,
-            })
+            await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
         } else {
-            await ctx.db.patch(repoCounts._id, {
-                closedIssues: repoCounts.closedIssues + 1,
-            })
+            await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
         }
     } else if (change.operation === 'update') {
         if (change.oldDoc.state === change.newDoc.state) {
             return
         }
 
-        let repoCounts = await getRepoCounts(change.oldDoc.repoId)
-        if (!repoCounts) return
+        let counts = await RepoCounts.getByRepoId(ctx, change.oldDoc.repoId)
+        if (!counts) return
 
         if (change.newDoc.state === 'open') {
-            await ctx.db.patch(repoCounts._id, {
-                openIssues: repoCounts.openIssues + 1,
-                closedIssues: repoCounts.closedIssues - 1,
-            })
+            await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
+            await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues - 1)
         } else {
-            await ctx.db.patch(repoCounts._id, {
-                openIssues: repoCounts.openIssues - 1,
-                closedIssues: repoCounts.closedIssues + 1,
-            })
+            await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues - 1)
+            await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
         }
     }
 })
