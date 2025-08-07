@@ -51,6 +51,12 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
 
     await ctx.runMutation(api.protected.upsertRefs, addSecret({ refs: upsertRefDocs }))
 
+    // Set the repo head to the default branch
+    await ctx.runMutation(
+        api.protected.setRepoHead,
+        addSecret({ repoId, headRefName: defaultBranch }),
+    )
+
     console.log(`${owner}/${repo}: Latest commit on ${defaultBranch}: ${commitSha.slice(0, 7)}`)
 
     let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {

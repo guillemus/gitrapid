@@ -68,6 +68,13 @@ export const Refs = {
             .unique()
     },
 
+    async getByRepoAndName(ctx: QueryCtx, repoId: Id<'repos'>, name: string) {
+        return ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_name', (q) => q.eq('repoId', repoId).eq('name', name))
+            .unique()
+    },
+
     async getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
         return ctx.db
             .query('refs')
@@ -316,4 +323,12 @@ export async function getUserInstallationToken(
     }
 
     return await InstallationAccessTokens.getByRepoId(ctx, repoId)
+}
+
+export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRefName: string) {
+    // check first if ref exists
+    let ref = await Refs.getByRepoAndName(ctx, repoId, headRefName)
+    if (!ref) return null
+
+    return await ctx.db.patch(repoId, { headId: ref._id })
 }

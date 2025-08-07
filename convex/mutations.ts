@@ -4,7 +4,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import { type MutationCtx } from './_generated/server'
 import { appInternalMutation } from './triggers'
 import { issuesSchema } from './schema'
-import { Repos, Installations } from './models/models'
+import * as models from './models/models'
 
 export const insertRefs = appInternalMutation({
     args: {
@@ -103,7 +103,7 @@ export const getOrCreateRepo = appInternalMutation({
         private: v.boolean(),
     },
     async handler(ctx, args) {
-        return await Repos.getOrCreate(ctx, args)
+        return await models.Repos.getOrCreate(ctx, args)
     },
 })
 
@@ -114,7 +114,7 @@ export const addInstallation = appInternalMutation({
         installationId: v.string(),
     },
     async handler(ctx, args) {
-        return await Installations.getOrCreate(ctx, {
+        return await models.Installations.getOrCreate(ctx, {
             userId: args.userId,
             repoId: args.repoId,
             installationId: args.installationId,
@@ -151,7 +151,7 @@ export const handleInstallationCreated = appInternalMutation({
         for (const repoData of args.repos) {
             const repoId = await upsertRepoMutation(ctx, repoData)
 
-            await Installations.getOrCreate(ctx, {
+            await models.Installations.getOrCreate(ctx, {
                 userId: authAccount.userId,
                 repoId,
                 installationId: args.installationId,
@@ -225,3 +225,13 @@ async function upsertRepoMutation(
         return repoId
     }
 }
+
+export const setRepoHead = appInternalMutation({
+    args: {
+        repoId: v.id('repos'),
+        headRefName: v.string(),
+    },
+    async handler(ctx, args) {
+        return await models.setRepoHead(ctx, args.repoId, args.headRefName)
+    },
+})

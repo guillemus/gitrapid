@@ -12,7 +12,7 @@ import {
     Trees,
 } from './models/models'
 import { parseRefAndPath } from './services/repoPageService'
-import { parseUserId } from './utils'
+import { err, failure, ok, parseUserId } from './utils'
 
 export const getRepo = internalQuery({
     args: {
@@ -38,86 +38,38 @@ export const getRepoPage = query({
 
         let savedRepo = await Repos.getByOwnerAndRepo(ctx, owner, repo)
         if (!savedRepo) {
-            throw new Error(`getRepoPage: repo not found - owner: ${owner}, repo: ${repo}`)
+            throw new Error(
+                `getRepoPage: repo not found - owner: ${owner}, repo: ${repo}` as string,
+            )
         }
         let repoId = savedRepo._id
 
         let refs = await Refs.getRefsFromRepo(ctx, repoId)
         let headRef = refs.find((ref) => ref._id === savedRepo.headId)
         if (!headRef) {
-            throw new Error(`getRepoPage: head ref not found - owner: ${owner}, repo: ${repo}`)
+            throw new Error(
+                `getRepoPage: head ref not found - owner: ${owner}, repo: ${repo}` as string,
+            )
         }
 
         let parsedRefAndPath = parseRefAndPath(refs, headRef, refAndPath)
         if (!parsedRefAndPath) {
             throw new Error(
-                `getRepoPage: error parsing ref and path - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+                `getRepoPage: error parsing ref and path - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}` as string,
             )
         }
 
         let commit = await Commits.getByRepoAndSha(ctx, repoId, parsedRefAndPath.ref.commitSha)
         if (!commit) {
             throw new Error(
-                `getRepoPage: commit not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+                `getRepoPage: commit not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}` as string,
             )
         }
 
         let tree = await Trees.getByRepoAndSha(ctx, repoId, commit.treeSha)
         if (!tree) {
             throw new Error(
-                `getRepoPage: tree not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
-            )
-        }
-
-        let treeEntries = await TreeEntries.getByRepoAndTree(ctx, repoId, tree.sha)
-        let filenames = treeEntries.map((t) => t.path)
-
-        return {
-            ref: parsedRefAndPath.ref,
-            path: parsedRefAndPath.path,
-            filenames,
-            repoId,
-        }
-    },
-})
-
-export const getFile = query({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        refAndPath: v.string(),
-    },
-    async handler(ctx, { owner, repo, refAndPath }) {
-        let savedRepo = await Repos.getByOwnerAndRepo(ctx, owner, repo)
-        if (!savedRepo) {
-            throw new Error(`getRepoPage: repo not found - owner: ${owner}, repo: ${repo}`)
-        }
-        let repoId = savedRepo._id
-
-        let refs = await Refs.getRefsFromRepo(ctx, repoId)
-        let headRef = refs.find((ref) => ref._id === savedRepo.headId)
-        if (!headRef) {
-            throw new Error(`getRepoPage: head ref not found - owner: ${owner}, repo: ${repo}`)
-        }
-
-        let parsedRefAndPath = parseRefAndPath(refs, headRef, refAndPath)
-        if (!parsedRefAndPath) {
-            throw new Error(
-                `getRepoPage: error parsing ref and path - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
-            )
-        }
-
-        let commit = await Commits.getByRepoAndSha(ctx, repoId, parsedRefAndPath.ref.commitSha)
-        if (!commit) {
-            throw new Error(
-                `getRepoPage: commit not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
-            )
-        }
-
-        let tree = await Trees.getByRepoAndSha(ctx, repoId, commit.treeSha)
-        if (!tree) {
-            throw new Error(
-                `getRepoPage: tree not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+                `getRepoPage: tree not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}` as string,
             )
         }
 
@@ -125,18 +77,25 @@ export const getFile = query({
         let treeEntry = treeEntries.find((t) => t.path === parsedRefAndPath.path)
         if (!treeEntry) {
             throw new Error(
-                `getRepoPage: tree entry not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+                `getRepoPage: tree entry not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}` as string,
             )
         }
+        let filenames = treeEntries.map((t) => t.path)
 
         let blob = await Blobs.getByRepoAndSha(ctx, repoId, treeEntry.entrySha)
         if (!blob) {
             throw new Error(
-                `getRepoPage: blob not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}`,
+                `getRepoPage: blob not found - owner: ${owner}, repo: ${repo}, refAndPath: ${refAndPath}` as string,
             )
         }
 
-        return blob.content
+        return {
+            ref: parsedRefAndPath.ref,
+            path: parsedRefAndPath.path,
+            filenames,
+            repoId,
+            fileContents: blob.content,
+        }
     },
 })
 

@@ -118,3 +118,15 @@ export const upsertRefs = appMutation({
         return models.Refs.upsertMany(ctx, args.refs)
     },
 })
+
+export const setRepoHead = appMutation({
+    args: withSecret({
+        repoId: v.id('repos'),
+        headRefName: v.string(),
+    }),
+    async handler(ctx, args) {
+        protectFn(args)
+
+        return models.setRepoHead(ctx, args.repoId, args.headRefName)
+    },
+})

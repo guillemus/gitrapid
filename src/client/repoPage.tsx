@@ -1,6 +1,5 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import {
     ChevronDownIcon,
     ChevronRightIcon,
@@ -10,8 +9,7 @@ import {
 import { useQuery } from 'convex/react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { CodeBlock } from './codeBlock'
-import { queryClient, useConvexHttp } from './convex'
+import { useConvexHttp } from './convex'
 import {
     useDefined,
     useGithubParams,
@@ -102,8 +100,6 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
 
     let ref = query?.ref
 
-    let fetchFileOptions = useFetchFileOptions(`${ref}/${node.path}`)
-
     if (node.isDir) {
         return (
             <div>
@@ -134,9 +130,6 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
 
     return (
         <button
-            onMouseEnter={() => {
-                queryClient.prefetchQuery(fetchFileOptions)
-            }}
             onMouseDown={() => {
                 navigate(`/${params.owner}/${params.repo}/blob/${ref}/${node.path}`)
             }}
@@ -182,7 +175,7 @@ export function RepoPage() {
     const convexHttp = useConvexHttp()
 
     let loaded = useMutable({ value: false })
-    let page = useTanstackQuery({
+    let { data: page, error } = useTanstackQuery({
         queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
         queryFn: async () => {
             if (!convexHttp) return
@@ -201,39 +194,27 @@ export function RepoPage() {
         staleTime: Infinity,
     })
 
+    if (error) {
+        return (
+            <div className="flex flex-1 items-center justify-center text-red-600">
+                <div>
+                    <div className="mb-2 font-bold">Error loading repository page</div>
+                    <div className="text-sm">{error.message}</div>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-1">
             <div className="h-full w-60 overflow-y-auto">
-                <Sidebar preloadedFiles={page.data?.filenames}></Sidebar>
+                <Sidebar preloadedFiles={page?.filenames}></Sidebar>
             </div>
             <div className="flex-1 overflow-auto">
-                <p>files not yet implemented</p>
-                {/* fixme: needs to handle multiple file types */}
-                {/* <Code preloadedFileContents={page.data?.fileContents}></Code> */}
+                <pre>
+                    <code>{page?.fileContents}</code>
+                </pre>
             </div>
-        </div>
-    )
-}
-
-function useFetchFileOptions(refAndPath: string) {
-    let params = useGithubParams()
-    return convexQuery(api.queries.getFile, {
-        owner: params.owner,
-        repo: params.repo,
-        refAndPath: refAndPath,
-    })
-}
-
-function Code(props: { preloadedFileContents?: string }) {
-    let params = useGithubParams()
-    let { data: file } = useTanstackQuery(useFetchFileOptions(params.refAndPath))
-
-    // fixme: should be parsed, this is bad.
-    let contents: any = props.preloadedFileContents ?? file
-
-    return (
-        <div>
-            <CodeBlock code={contents ?? ''}></CodeBlock>
         </div>
     )
 }
