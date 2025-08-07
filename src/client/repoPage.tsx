@@ -9,7 +9,6 @@ import {
 import { useQuery } from 'convex/react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { useConvexHttp } from './convex'
 import {
     useDefined,
     useFirstLoadQuery,

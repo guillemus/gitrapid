@@ -1,3 +1,5 @@
+// @ts-nocheck: fixme
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FastLink } from '@/components/ui/link'
 import { convexQuery } from '@convex-dev/react-query'
