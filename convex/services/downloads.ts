@@ -3,12 +3,14 @@ import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import { addSecret, failure, octoCatch, ok } from '@convex/utils'
 import type { Octokit } from '@octokit/rest'
+import { Buffer } from 'buffer'
 
 type DownloadRepoConfig = {
     ctx: ActionCtx
     octo: Octokit
     owner: string
     repo: string
+    overrideCommits?: boolean
 }
 
 export async function downloadRepo(cfg: DownloadRepoConfig) {
@@ -75,7 +77,7 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
                 api.protected.isCommitWritten,
                 addSecret({ repoId, sha: commit.sha }),
             )
-            if (isCommitWritten) {
+            if (isCommitWritten && !cfg.overrideCommits) {
                 console.log(`${owner}/${repo}: Commit ${commit.sha.slice(0, 7)} already written`)
                 continue
             }
@@ -176,9 +178,27 @@ async function processTreeEntry(
         }
 
         let blobData = blob.data
-        let blobContent = blobData.content
-        let blobEncoding = blobData.encoding
+        let blobContentBase64 = blobData.content
         let blobSize = blobData.size ?? 0
+
+        // GitHub returns base64 via API. Decode to UTF-8 if the bytes are valid UTF-8; otherwise keep base64.
+        let storedContent: string
+        let storedEncoding: 'utf-8' | 'base64'
+        try {
+            const decoded = Buffer.from(blobContentBase64 ?? '', 'base64')
+            const asUtf8 = decoded.toString('utf8')
+            const reencoded = Buffer.from(asUtf8, 'utf8')
+            if (decoded.equals(reencoded)) {
+                storedContent = asUtf8
+                storedEncoding = 'utf-8'
+            } else {
+                storedContent = blobContentBase64 ?? ''
+                storedEncoding = 'base64'
+            }
+        } catch (_) {
+            storedContent = blobContentBase64 ?? ''
+            storedEncoding = 'base64'
+        }
 
         // fixme: we should check if the blob is too big (convex doesn't like > 1mb docs)
         // fixme: 2 mutations could be 1 instead
@@ -196,12 +216,12 @@ async function processTreeEntry(
         )
 
         await ctx.runMutation(
-            api.protected.getOrCreateBlob,
+            api.protected.upsertBlob,
             addSecret({
                 repoId,
                 sha: treeEntry.sha,
-                content: blobContent,
-                encoding: blobEncoding,
+                content: storedContent,
+                encoding: storedEncoding,
                 size: blobSize,
             }),
         )

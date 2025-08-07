@@ -208,6 +208,13 @@ export const Blobs = {
         }
         return ctx.db.insert('blobs', args)
     },
+    async patchOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
+        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
+        if (existing) {
+            return ctx.db.patch(existing._id, args)
+        }
+        return ctx.db.insert('blobs', args)
+    },
 }
 
 export const Trees = {

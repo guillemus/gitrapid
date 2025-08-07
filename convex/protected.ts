@@ -64,6 +64,14 @@ export const getOrCreateBlob = appMutation({
     },
 })
 
+export const upsertBlob = appMutation({
+    args: withSecret(schemas.blobsSchema),
+    async handler(ctx, { secret, ...args }) {
+        protectFn({ secret })
+        return await models.Blobs.patchOrCreate(ctx, args)
+    },
+})
+
 export const getOrCreateTree = appMutation({
     args: withSecret(schemas.treesSchema),
 

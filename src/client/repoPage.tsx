@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router'
 import { useConvexHttp } from './convex'
 import {
     useDefined,
+    useFirstLoadQuery,
     useGithubParams,
     useMutable,
     useTanstackQuery,
@@ -131,7 +132,8 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
     return (
         <button
             onMouseDown={() => {
-                navigate(`/${params.owner}/${params.repo}/blob/${ref}/${node.path}`)
+                const refName = ref?.name ?? ''
+                navigate(`/${params.owner}/${params.repo}/blob/${refName}/${node.path}`)
             }}
             className="flex w-full cursor-pointer items-center rounded p-1 text-left text-gray-700 hover:bg-gray-50"
         >
@@ -172,38 +174,15 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
 export function RepoPage() {
     let params = useGithubParams()
 
-    const convexHttp = useConvexHttp()
-
-    let loaded = useMutable({ value: false })
-    let { data: page, error } = useTanstackQuery({
+    let page = useFirstLoadQuery({
         queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
-        queryFn: async () => {
-            if (!convexHttp) return
-
-            let query = await convexHttp.query(api.queries.getRepoPage, {
+        queryFn: async (client) =>
+            client.query(api.queries.getRepoPage, {
                 owner: params.owner,
                 repo: params.repo,
                 refAndPath: params.refAndPath,
-            })
-
-            loaded.value = true
-
-            return query
-        },
-        enabled: !loaded.value && !!convexHttp,
-        staleTime: Infinity,
+            }),
     })
-
-    if (error) {
-        return (
-            <div className="flex flex-1 items-center justify-center text-red-600">
-                <div>
-                    <div className="mb-2 font-bold">Error loading repository page</div>
-                    <div className="text-sm">{error.message}</div>
-                </div>
-            </div>
-        )
-    }
 
     return (
         <div className="flex flex-1">
