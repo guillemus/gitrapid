@@ -25,11 +25,22 @@ export const Repos = {
             return repo._id
         }
 
-        return ctx.db.insert('repos', {
+        let repoId = await ctx.db.insert('repos', {
             owner: args.owner,
             repo: args.repo,
             private: args.private,
         })
+
+        // Ensure a matching repoCounts row exists
+        await RepoCounts.getOrCreate(ctx, {
+            repoId,
+            openIssues: 0,
+            closedIssues: 0,
+            openPullRequests: 0,
+            closedPullRequests: 0,
+        })
+
+        return repoId
     },
 }
 
@@ -146,7 +157,52 @@ export const Issues = {
             return issue._id
         }
 
-        return ctx.db.insert('issues', args)
+        let id = await ctx.db.insert('issues', args)
+
+        // Update repo counts on insert
+        let counts = await RepoCounts.getByRepoId(ctx, args.repoId)
+        if (counts) {
+            if (args.state === 'open') {
+                await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
+            } else {
+                await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
+            }
+        }
+
+        return id
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
+        let existing = await this.getByRepoAndNumber(ctx, args)
+        if (existing) {
+            // Adjust counts if state changed
+            if (existing.state !== args.state) {
+                let counts = await RepoCounts.getByRepoId(ctx, existing.repoId)
+                if (counts) {
+                    if (args.state === 'open') {
+                        await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
+                        await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues - 1)
+                    } else {
+                        await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues - 1)
+                        await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
+                    }
+                }
+            }
+            await ctx.db.patch(existing._id, args)
+            return existing._id
+        }
+
+        // Insert new issue and bump counts
+        let id = await ctx.db.insert('issues', args)
+        let counts = await RepoCounts.getByRepoId(ctx, args.repoId)
+        if (counts) {
+            if (args.state === 'open') {
+                await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
+            } else {
+                await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
+            }
+        }
+        return id
     },
 }
 

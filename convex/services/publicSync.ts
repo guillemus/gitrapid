@@ -37,8 +37,6 @@ export async function syncPublicRepo(cfg: SyncPublicRepoConfig) {
 
     let headRef = await ctx.runQuery(api.protected.getRef, addSecret({ refId: savedRepo.headId }))
 
-    // octo.
-
     // request to refs tags to check if new tags pushed
     // what happens if tag is removed? does it change the etag thingy?
 

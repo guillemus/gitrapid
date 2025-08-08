@@ -1,12 +1,11 @@
 import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
-import { type MutationCtx } from './_generated/server'
-import { appInternalMutation } from './triggers'
+import { type MutationCtx, internalMutation } from './_generated/server'
 import { issuesSchema } from './schema'
 import * as models from './models/models'
 
-export const insertRefs = appInternalMutation({
+export const insertRefs = internalMutation({
     args: {
         repoId: v.id('repos'),
         refs: v.array(
@@ -40,7 +39,7 @@ export const insertRefs = appInternalMutation({
     },
 })
 
-export const saveInstallationToken = appInternalMutation({
+export const saveInstallationToken = internalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -72,7 +71,7 @@ export const saveInstallationToken = appInternalMutation({
     },
 })
 
-export const upsertIssue = appInternalMutation({
+export const upsertIssue = internalMutation({
     args: issuesSchema,
     async handler(ctx, args) {
         return await upsertIssueMutation(ctx, args)
@@ -83,20 +82,11 @@ export async function upsertIssueMutation(
     ctx: MutationCtx,
     args: WithoutSystemFields<Doc<'issues'>>,
 ) {
-    const existing = await ctx.db
-        .query('issues')
-        .withIndex('by_repo_and_number', (q) =>
-            q.eq('repoId', args.repoId).eq('number', args.number),
-        )
-        .unique()
-    if (existing) {
-        return await ctx.db.patch(existing._id, args)
-    } else {
-        return await ctx.db.insert('issues', args)
-    }
+    // Use model-level upsert to also maintain repoCounts
+    return await models.Issues.upsert(ctx, args)
 }
 
-export const getOrCreateRepo = appInternalMutation({
+export const getOrCreateRepo = internalMutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -107,7 +97,7 @@ export const getOrCreateRepo = appInternalMutation({
     },
 })
 
-export const addInstallation = appInternalMutation({
+export const addInstallation = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -123,7 +113,7 @@ export const addInstallation = appInternalMutation({
     },
 })
 
-export const handleInstallationCreated = appInternalMutation({
+export const handleInstallationCreated = internalMutation({
     args: {
         installationId: v.string(),
         githubUserId: v.number(),
@@ -163,7 +153,7 @@ export const handleInstallationCreated = appInternalMutation({
     },
 })
 
-export const deleteInstallation = appInternalMutation({
+export const deleteInstallation = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -182,7 +172,7 @@ export const deleteInstallation = appInternalMutation({
     },
 })
 
-export const setInstallationSuspended = appInternalMutation({
+export const setInstallationSuspended = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -226,7 +216,7 @@ async function upsertRepoMutation(
     }
 }
 
-export const setRepoHead = appInternalMutation({
+export const setRepoHead = internalMutation({
     args: {
         repoId: v.id('repos'),
         headRefName: v.string(),
