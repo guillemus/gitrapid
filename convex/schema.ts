@@ -158,4 +158,20 @@ export default defineSchema({
         token: v.string(),
         expiresAt: v.string(),
     }).index('by_repo_id', ['repoId']),
+
+    // Per-repo sync state for incremental single-repo syncs
+    syncStates: defineTable({
+        repoId: v.id('repos'),
+        repoMetaEtag: v.optional(v.string()),
+        refsEtagHeads: v.optional(v.string()),
+        refsEtagTags: v.optional(v.string()),
+        issuesSince: v.optional(v.string()),
+        commentsSince: v.optional(v.string()),
+        syncError: v.optional(
+            v.object({
+                code: v.string(),
+                message: v.optional(v.string()),
+            }),
+        ),
+    }).index('by_repoId', ['repoId']),
 })

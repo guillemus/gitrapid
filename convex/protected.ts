@@ -80,3 +80,26 @@ export const getRef = protectedQuery({
     args: { refId: v.id('refs') },
     handler: (ctx, args) => models.Refs.get(ctx, args.refId),
 })
+
+export const getOrCreateSyncState = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, args) => models.SyncStates.getOrCreate(ctx, { repoId: args.repoId }),
+})
+
+export const getSyncState = protectedQuery({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, args) => models.SyncStates.getByRepoId(ctx, args.repoId),
+})
+
+export const upsertSyncState = protectedMutation({
+    args: {
+        repoId: v.id('repos'),
+        repoMetaEtag: v.optional(v.string()),
+        refsEtagHeads: v.optional(v.string()),
+        refsEtagTags: v.optional(v.string()),
+        issuesSince: v.optional(v.string()),
+        commentsSince: v.optional(v.string()),
+        syncError: v.optional(v.object({ code: v.string(), message: v.optional(v.string()) })),
+    },
+    handler: (ctx, args) => models.SyncStates.upsert(ctx, args),
+})

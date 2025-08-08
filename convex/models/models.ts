@@ -22,7 +22,7 @@ export const Repos = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
         let repo = await this.getByOwnerAndRepo(ctx, args.owner, args.repo)
         if (repo) {
-            return repo._id
+            return repo
         }
 
         let repoId = await ctx.db.insert('repos', {
@@ -40,7 +40,35 @@ export const Repos = {
             closedPullRequests: 0,
         })
 
-        return repoId
+        return await ctx.db.get(repoId)
+    },
+}
+
+export const SyncStates = {
+    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
+        return ctx.db
+            .query('syncStates')
+            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
+            .unique()
+    },
+
+    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'syncStates'>) {
+        let existing = await this.getByRepoId(ctx, args.repoId)
+        if (existing) return existing
+
+        let id = await ctx.db.insert('syncStates', args)
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'syncStates'>) {
+        let existing = await this.getByRepoId(ctx, args.repoId)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
+        }
+
+        let id = await ctx.db.insert('syncStates', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -54,9 +82,10 @@ export const RepoCounts = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repoCounts'>) {
         let existing = await this.getByRepoId(ctx, args.repoId)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('repoCounts', args)
+        let id = await ctx.db.insert('repoCounts', args)
+        return await ctx.db.get(id)
     },
 
     async setOpenIssues(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
@@ -109,28 +138,69 @@ export const Refs = {
             await this.patchOrCreate(ctx, ref)
         }
     },
+    /**
+     * Reconcile the refs table for a given repository to match the desired set of refs.
+     *
+     * This function ensures that the refs in the database for the specified repoId
+     * exactly match the refs provided in `desiredRefs`:
+     *   - Any refs in the database that are not present in `desiredRefs` (by name) are deleted.
+     *   - All refs in `desiredRefs` are upserted (inserted or updated) into the database.
+     *
+     * This is typically used to synchronize the refs table with the current state of
+     * refs (branches/tags) as reported by GitHub or another source of truth.
+     */
+    async reconcile(
+        ctx: MutationCtx,
+        repoId: Id<'repos'>,
+        desiredRefs: Array<Pick<UpsertDoc<'refs'>, 'name' | 'commitSha' | 'isTag'>>,
+    ) {
+        let desiredNames = new Set(desiredRefs.map((r) => r.name))
+        let existing = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
+            .collect()
+
+        for (let ref of existing) {
+            if (!desiredNames.has(ref.name)) {
+                await ctx.db.delete(ref._id)
+            }
+        }
+
+        await this.upsertMany(
+            ctx,
+            desiredRefs.map((r) => ({
+                repoId,
+                name: r.name,
+                commitSha: r.commitSha,
+                isTag: r.isTag,
+            })),
+        )
+    },
 
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'refs'>) {
         let ref = await this.getByRepoAndCommit(ctx, args.repoId, args.commitSha)
         if (ref) {
-            return ref._id
+            return ref
         }
 
-        return ctx.db.insert('refs', {
+        let id = await ctx.db.insert('refs', {
             repoId: args.repoId,
             commitSha: args.commitSha,
             name: args.name,
             isTag: args.isTag ?? false,
         })
+        return await ctx.db.get(id)
     },
 
     async patchOrCreate(ctx: MutationCtx, args: UpsertDoc<'refs'>) {
         let ref = await this.getByRepoAndCommit(ctx, args.repoId, args.commitSha)
         if (ref) {
-            return ctx.db.patch(ref._id, args)
+            await ctx.db.patch(ref._id, args)
+            return await ctx.db.get(ref._id)
         }
 
-        return ctx.db.insert('refs', args)
+        let id = await ctx.db.insert('refs', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -154,7 +224,7 @@ export const Issues = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
         let issue = await this.getByRepoAndNumber(ctx, args)
         if (issue) {
-            return issue._id
+            return issue
         }
 
         let id = await ctx.db.insert('issues', args)
@@ -169,7 +239,7 @@ export const Issues = {
             }
         }
 
-        return id
+        return await ctx.db.get(id)
     },
 
     async upsert(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
@@ -189,7 +259,7 @@ export const Issues = {
                 }
             }
             await ctx.db.patch(existing._id, args)
-            return existing._id
+            return await ctx.db.get(existing._id)
         }
 
         // Insert new issue and bump counts
@@ -202,7 +272,7 @@ export const Issues = {
                 await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
             }
         }
-        return id
+        return await ctx.db.get(id)
     },
 }
 
@@ -224,10 +294,11 @@ export const Installations = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installations'>) {
         let existing = await this.getByUserIdAndRepoId(ctx, args.userId, args.repoId)
         if (existing) {
-            return existing._id
+            return existing
         }
 
-        return ctx.db.insert('installations', args)
+        let id = await ctx.db.insert('installations', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -244,9 +315,10 @@ export const PAT = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'pats'>) {
         let existing = await this.getByUserId(ctx, args.userId)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('pats', args)
+        let id = await ctx.db.insert('pats', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -271,16 +343,19 @@ export const Blobs = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
         let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('blobs', args)
+        let id = await ctx.db.insert('blobs', args)
+        return await ctx.db.get(id)
     },
     async patchOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
         let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
         if (existing) {
-            return ctx.db.patch(existing._id, args)
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
         }
-        return ctx.db.insert('blobs', args)
+        let id = await ctx.db.insert('blobs', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -294,9 +369,10 @@ export const Trees = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'trees'>) {
         let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('trees', args)
+        let id = await ctx.db.insert('trees', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -332,9 +408,10 @@ export const TreeEntries = {
             args.path,
         )
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('treeEntries', args)
+        let id = await ctx.db.insert('treeEntries', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -348,9 +425,10 @@ export const Commits = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'commits'>) {
         let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('commits', args)
+        let id = await ctx.db.insert('commits', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -364,9 +442,20 @@ export const IssueComments = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'issueComments'>) {
         let existing = await this.getByGithubId(ctx, args.githubId)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('issueComments', args)
+        let id = await ctx.db.insert('issueComments', args)
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'issueComments'>) {
+        let existing = await this.getByGithubId(ctx, args.githubId)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
+        }
+        let id = await ctx.db.insert('issueComments', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -380,9 +469,10 @@ export const InstallationAccessTokens = {
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installationAccessTokens'>) {
         let existing = await this.getByRepoId(ctx, args.repoId)
         if (existing) {
-            return existing._id
+            return existing
         }
-        return ctx.db.insert('installationAccessTokens', args)
+        let id = await ctx.db.insert('installationAccessTokens', args)
+        return await ctx.db.get(id)
     },
 }
 

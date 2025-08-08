@@ -201,10 +201,10 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
                 // We should not use this
                 return cancelId as any
             },
-            runAt: async (date, action, ...args) => {
+            runAt: async (_date, _action, ..._args) => {
                 throw new Error('not implemented')
             },
-            cancel: async (id) => {
+            cancel: async (_id) => {
                 throw new Error('not implemented')
             },
         },
@@ -219,7 +219,7 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
 
 export const protectedQuery = customQuery(query, {
     args: { secret: v.string() },
-    async input(ctx, args) {
+    async input(_ctx, args) {
         protectFn(args)
         return { ctx: {}, args: {} }
     },
@@ -227,7 +227,7 @@ export const protectedQuery = customQuery(query, {
 
 export const protectedMutation = customMutation(mutation, {
     args: { secret: v.string() },
-    async input(ctx, args) {
+    async input(_ctx, args) {
         protectFn(args)
         return { ctx: {}, args: {} }
     },

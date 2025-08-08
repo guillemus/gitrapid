@@ -1,9 +1,10 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { addSecret, failure, octoCatch, ok } from '@convex/utils'
+import { addSecret, err, failure, octoCatch, ok } from '@convex/utils'
 import type { Octokit } from '@octokit/rest'
 import { Buffer } from 'buffer'
+import { getAllRefs } from './github'
 
 type DownloadRepoConfig = {
     ctx: ActionCtx
@@ -20,30 +21,45 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
 
     let repoResult = await validateRepo(octo, { owner, repo })
     if (repoResult.error) {
-        console.error('Error validating repo:', repoResult.error)
-        return
+        return repoResult.error
     }
 
     console.log(`${owner}/${repo}: Processing repository`)
 
-    const repoId = await ctx.runMutation(
+    const repoDoc = await ctx.runMutation(
         api.protected.getOrCreateRepo,
         addSecret({ owner, repo, private: false }),
     )
+    if (!repoDoc) {
+        return err(`${owner}/${repo}: Failed to upsert repo`)
+    }
+
+    const repoId = repoDoc._id
     console.log(`${owner}/${repo}: Upserted repo with ID: ${repoId}`)
 
     console.log(`${owner}/${repo}: Getting default branch`)
 
-    const { data: repoData } = await octo.repos.get({
-        owner,
-        repo,
-    })
-    const defaultBranch = repoData.default_branch
+    let repoMeta = await octoCatch(octo.repos.get({ owner, repo }))
+    if (repoMeta.error) {
+        return failure({
+            code: 'repo-get-failed',
+            message: repoMeta.error.message,
+        })
+    }
+    const defaultBranch = repoMeta.data.default_branch
 
     console.log(`${owner}/${repo}: Getting all refs`)
+    let refs = await getAllRefs(octo, { owner, repo })
+    if (refs.error) {
+        return err(`${owner}/${repo}: Failed to get refs: ${refs.error.message}`)
+    }
 
-    let upsertRefDocs = await getAllRefs(cfg, repoId)
-
+    let upsertRefDocs = refs.data.map((r) => ({
+        repoId,
+        isTag: r.isTag,
+        name: r.name,
+        commitSha: r.commitSha,
+    }))
     await ctx.runMutation(api.protected.upsertRefs, addSecret({ refs: upsertRefDocs }))
 
     // Set the repo head to the default branch
@@ -59,6 +75,8 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
     console.log(`${owner}/${repo}: Downloading issues`)
     await downloadIssues(cfg, repoId)
     console.log(`${owner}/${repo}: Issue download complete`)
+
+    return ok({ repoId })
 }
 
 type TreeEntry = {
@@ -88,8 +106,7 @@ async function processTreeEntry(
         })
         blob = await octoCatch(blob)
         if (blob.error) {
-            console.error('Error fetching blob:', blob.error)
-            return
+            return err(`${owner}/${repo}: Failed to get blob: ${blob.error.message}`)
         }
 
         let blobData = blob.data
@@ -162,7 +179,7 @@ async function processTreeEntry(
         )
     }
 
-    return newTreeEntry
+    return ok(newTreeEntry)
 }
 
 /**
@@ -230,30 +247,6 @@ class ErrLicenseNotSupported {
     constructor(public spdxId: string) {}
 }
 
-async function getAllRefs(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
-    let { octo, owner, repo } = cfg
-
-    let allBranches
-    allBranches = await octo.rest.git.listMatchingRefs({ owner, repo, ref: 'heads' })
-    allBranches = allBranches.data.map((ref) => ({
-        repoId,
-        isTag: false,
-        name: ref.ref.replace('refs/heads/', ''),
-        commitSha: ref.object.sha,
-    }))
-
-    let allTags
-    allTags = await octo.rest.git.listMatchingRefs({ owner, repo, ref: 'tags' })
-    allTags = allTags.data.map((ref) => ({
-        repoId,
-        isTag: true,
-        name: ref.ref.replace('refs/tags/', ''),
-        commitSha: ref.object.sha,
-    }))
-
-    return [...allBranches, ...allTags]
-}
-
 async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
     let { octo, owner, repo, ctx } = cfg
 
@@ -302,16 +295,16 @@ async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
 
             let treeId = writtenTrees.get(rootTreeSha)
             if (!treeId) {
-                treeId = await ctx.runMutation(
+                const treeDoc = await ctx.runMutation(
                     api.protected.getOrCreateTree,
                     addSecret({ repoId, sha: rootTreeSha }),
                 )
-                writtenTrees.set(rootTreeSha, treeId)
+                if (treeDoc) writtenTrees.set(rootTreeSha, treeDoc._id)
             }
 
             let commitId = writtenCommits.get(commit.sha)
             if (!commitId) {
-                commitId = await ctx.runMutation(
+                const commitDoc = await ctx.runMutation(
                     api.protected.getOrCreateCommit,
                     addSecret({
                         repoId,
@@ -322,7 +315,7 @@ async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                         committer: commit.commit.committer ?? undefined,
                     }),
                 )
-                writtenCommits.set(commit.sha, commitId)
+                if (commitDoc) writtenCommits.set(commit.sha, commitDoc._id)
             }
 
             for (let treeEntry of githubTree.tree) {
@@ -334,9 +327,19 @@ async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                 }
 
                 let newTreeEntry = await processTreeEntry(cfg, treeEntry, rootTreeSha, repoId)
-                if (newTreeEntry) {
-                    writtenTreeEntries.set(treeEntry.sha, newTreeEntry)
+                if (newTreeEntry.error) {
+                    console.error(
+                        `${owner}/${repo}: Failed to process tree entry: ${treeEntry.path}`,
+                        newTreeEntry.error,
+                    )
+                    continue
                 }
+                if (!newTreeEntry.data) {
+                    console.error(`${owner}/${repo}: No tree entry created for ${treeEntry.path}`)
+                    continue
+                }
+
+                writtenTreeEntries.set(treeEntry.sha, newTreeEntry.data._id)
             }
         }
     }
@@ -395,10 +398,12 @@ async function downloadIssues(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                 comments: issue.comments ?? undefined,
             }
 
-            const issueId = await ctx.runMutation(
+            const issueDoc = await ctx.runMutation(
                 api.protected.getOrCreateIssue,
                 addSecret(issueArgs),
             )
+            if (!issueDoc) continue
+            const issueId = issueDoc._id
 
             if (issue.comments > 0) {
                 console.log(`${owner}/${repo}: Processing ${issue.comments} comments`)
