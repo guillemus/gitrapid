@@ -5,6 +5,7 @@
     "compilerOptions": {
         "jsx": "react-jsx",
         "noUncheckedIndexedAccess": true,
+        "noImplicitThis": true,
         "jsxImportSource": "react",
         "paths": {
             "@/*": ["./src/*"],

@@ -40,13 +40,6 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
     })
     const defaultBranch = repoData.default_branch
 
-    const { data: refData } = await octo.git.getRef({
-        owner,
-        repo,
-        ref: `heads/${defaultBranch}`,
-    })
-    const commitSha = refData.object.sha
-
     console.log(`${owner}/${repo}: Getting all refs`)
 
     let upsertRefDocs = await getAllRefs(cfg, repoId)
@@ -59,91 +52,13 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
         addSecret({ repoId, headRefName: defaultBranch }),
     )
 
-    console.log(`${owner}/${repo}: Latest commit on ${defaultBranch}: ${commitSha.slice(0, 7)}`)
+    console.log(`${owner}/${repo}: Downloading commits`)
+    await downloadCommits(cfg, repoId)
+    console.log(`${owner}/${repo}: Commit download complete`)
 
-    let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
-        owner,
-        repo,
-        per_page: 100,
-    })
-
-    let writtenTrees = new Map<string, Id<'trees'>>()
-    let writtenTreeEntries = new Map<string, Id<'treeEntries'>>()
-    let writtenCommits = new Map<string, Id<'commits'>>()
-
-    for await (const { data: commitsPage } of allCommits) {
-        for (const commit of commitsPage) {
-            let isCommitWritten = await ctx.runMutation(
-                api.protected.isCommitWritten,
-                addSecret({ repoId, sha: commit.sha }),
-            )
-            if (isCommitWritten && !cfg.overrideCommits) {
-                console.log(`${owner}/${repo}: Commit ${commit.sha.slice(0, 7)} already written`)
-                continue
-            }
-
-            console.log(`${owner}/${repo}: Processing commit: ${commit.sha.slice(0, 7)}`)
-            let rootTreeSha = commit.commit.tree.sha
-
-            let githubTree
-            githubTree = octo.git.getTree({
-                owner,
-                repo,
-                tree_sha: rootTreeSha,
-                recursive: 'true',
-            })
-            githubTree = await octoCatch(githubTree)
-            if (githubTree.error) {
-                console.error('Error fetching tree:', githubTree.error)
-                continue
-            }
-
-            githubTree = githubTree.data
-            if (githubTree.truncated) {
-                // fixme: we should somehow download the tree in another way
-                throw new Error('Tree too big to process: GitHub tree is truncated')
-            }
-
-            let treeId = writtenTrees.get(rootTreeSha)
-            if (!treeId) {
-                treeId = await ctx.runMutation(
-                    api.protected.getOrCreateTree,
-                    addSecret({ repoId, sha: rootTreeSha }),
-                )
-                writtenTrees.set(rootTreeSha, treeId)
-            }
-
-            let commitId = writtenCommits.get(commit.sha)
-            if (!commitId) {
-                commitId = await ctx.runMutation(
-                    api.protected.getOrCreateCommit,
-                    addSecret({
-                        repoId,
-                        treeSha: rootTreeSha,
-                        message: commit.commit.message,
-                        sha: commit.sha,
-                        author: commit.commit.author ?? undefined,
-                        committer: commit.commit.committer ?? undefined,
-                    }),
-                )
-                writtenCommits.set(commit.sha, commitId)
-            }
-
-            for (let treeEntry of githubTree.tree) {
-                console.log(`${owner}/${repo}: Processing tree entry: ${treeEntry.path}`)
-
-                let treeEntryId = writtenTreeEntries.get(treeEntry.sha)
-                if (treeEntryId) {
-                    continue
-                }
-
-                let newTreeEntry = await processTreeEntry(cfg, treeEntry, rootTreeSha, repoId)
-                if (newTreeEntry) {
-                    writtenTreeEntries.set(treeEntry.sha, newTreeEntry)
-                }
-            }
-        }
-    }
+    console.log(`${owner}/${repo}: Downloading issues`)
+    await downloadIssues(cfg, repoId)
+    console.log(`${owner}/${repo}: Issue download complete`)
 }
 
 type TreeEntry = {
@@ -337,4 +252,185 @@ async function getAllRefs(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
     }))
 
     return [...allBranches, ...allTags]
+}
+
+async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
+    let { octo, owner, repo, ctx } = cfg
+
+    let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
+        owner,
+        repo,
+        per_page: 100,
+    })
+
+    let writtenTrees = new Map<string, Id<'trees'>>()
+    let writtenTreeEntries = new Map<string, Id<'treeEntries'>>()
+    let writtenCommits = new Map<string, Id<'commits'>>()
+
+    for await (const { data: commitsPage } of allCommits) {
+        for (const commit of commitsPage) {
+            let isCommitWritten = await ctx.runMutation(
+                api.protected.isCommitWritten,
+                addSecret({ repoId, sha: commit.sha }),
+            )
+            if (isCommitWritten && !cfg.overrideCommits) {
+                console.log(`${owner}/${repo}: Commit ${commit.sha.slice(0, 7)} already written`)
+                continue
+            }
+
+            console.log(`${owner}/${repo}: Processing commit: ${commit.sha.slice(0, 7)}`)
+            let rootTreeSha = commit.commit.tree.sha
+
+            let githubTree
+            githubTree = octo.git.getTree({
+                owner,
+                repo,
+                tree_sha: rootTreeSha,
+                recursive: 'true',
+            })
+            githubTree = await octoCatch(githubTree)
+            if (githubTree.error) {
+                console.error('Error fetching tree:', githubTree.error)
+                continue
+            }
+
+            githubTree = githubTree.data
+            if (githubTree.truncated) {
+                // fixme: we should somehow download the tree in another way
+                throw new Error('Tree too big to process: GitHub tree is truncated')
+            }
+
+            let treeId = writtenTrees.get(rootTreeSha)
+            if (!treeId) {
+                treeId = await ctx.runMutation(
+                    api.protected.getOrCreateTree,
+                    addSecret({ repoId, sha: rootTreeSha }),
+                )
+                writtenTrees.set(rootTreeSha, treeId)
+            }
+
+            let commitId = writtenCommits.get(commit.sha)
+            if (!commitId) {
+                commitId = await ctx.runMutation(
+                    api.protected.getOrCreateCommit,
+                    addSecret({
+                        repoId,
+                        treeSha: rootTreeSha,
+                        message: commit.commit.message,
+                        sha: commit.sha,
+                        author: commit.commit.author ?? undefined,
+                        committer: commit.commit.committer ?? undefined,
+                    }),
+                )
+                writtenCommits.set(commit.sha, commitId)
+            }
+
+            for (let treeEntry of githubTree.tree) {
+                console.log(`${owner}/${repo}: Processing tree entry: ${treeEntry.path}`)
+
+                let treeEntryId = writtenTreeEntries.get(treeEntry.sha)
+                if (treeEntryId) {
+                    continue
+                }
+
+                let newTreeEntry = await processTreeEntry(cfg, treeEntry, rootTreeSha, repoId)
+                if (newTreeEntry) {
+                    writtenTreeEntries.set(treeEntry.sha, newTreeEntry)
+                }
+            }
+        }
+    }
+}
+
+async function downloadIssues(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
+    let { octo, owner, repo, ctx } = cfg
+
+    const issuesIterator = octo.paginate.iterator(octo.rest.issues.listForRepo, {
+        owner,
+        repo,
+        per_page: 100,
+        state: 'all',
+    })
+
+    for await (const { data: issuesPage } of issuesIterator) {
+        for (const issue of issuesPage) {
+            console.log(`${owner}/${repo}: Processing issue: ${issue.number}`)
+
+            // Build labels
+            let labels: string[] = []
+            for (let label of issue.labels ?? []) {
+                if (typeof label === 'string') {
+                    labels.push(label)
+                } else if (label.name) {
+                    labels.push(label.name)
+                }
+            }
+
+            const assignees = issue.assignees?.map((a) => a.login) ?? undefined
+
+            let issueState: 'open' | 'closed'
+            if (issue.state === 'closed' || issue.state === 'open') {
+                issueState = issue.state
+            } else {
+                console.error(`${owner}/${repo}: Unknown issue state: ${issue.state}`)
+                continue
+            }
+
+            const issueArgs = {
+                repoId,
+                githubId: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issueState,
+                body: issue.body ?? undefined,
+                author: {
+                    login: issue.user?.login ?? 'ghost',
+                    id: issue.user?.id ?? 0,
+                },
+                labels,
+                assignees,
+                createdAt: issue.created_at,
+                updatedAt: issue.updated_at,
+                closedAt: issue.closed_at ?? undefined,
+                comments: issue.comments ?? undefined,
+            }
+
+            const issueId = await ctx.runMutation(
+                api.protected.getOrCreateIssue,
+                addSecret(issueArgs),
+            )
+
+            if (issue.comments > 0) {
+                console.log(`${owner}/${repo}: Processing ${issue.comments} comments`)
+
+                const commentsIter = octo.paginate.iterator(octo.rest.issues.listComments, {
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    per_page: 100,
+                })
+
+                for await (const { data: commentsPage } of commentsIter) {
+                    for (const comment of commentsPage) {
+                        const commentArgs = {
+                            issueId,
+                            githubId: comment.id,
+                            author: {
+                                login: comment.user?.login ?? 'ghost',
+                                id: comment.user?.id ?? 0,
+                            },
+                            body: comment.body ?? '',
+                            createdAt: comment.created_at,
+                            updatedAt: comment.updated_at,
+                        }
+
+                        await ctx.runMutation(
+                            api.protected.getOrCreateIssueComment,
+                            addSecret(commentArgs),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

@@ -10,3 +10,4 @@ Specifically, use the following utilities where appropriate:
 - `octoCatch` for handling Octokit API errors.
 Do not throw raw errors or return ad-hoc error objects; always use these utilities for consistency and reliability.
 If you need to propagate an error, prefer returning a Result type or using `unwrap` to rethrow in a controlled way.
+Do not use `try {} catch {}` statements, always prefer using the `if (result.error)` approach. 
