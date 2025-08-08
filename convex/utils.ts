@@ -9,7 +9,9 @@ import type {
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import type { ActionCtx } from './_generated/server'
+import { mutation, query } from './_generated/server'
 import { env } from './env'
+import { customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -166,7 +168,7 @@ export function withSecret<T extends object>(obj: T) {
 
 export function protectFn(args: { secret: string }) {
     if (args.secret !== env.AUTH_GITHUB_WEBHOOK_SECRET) {
-        throw new Error('Not available')
+        throw new Error('Not available') // security by obscurity
     }
 }
 
@@ -215,53 +217,18 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
     }
 }
 
-export type TreeFile = {
-    path: string
-    mode: string
-    type: string
-    sha: string
-    size?: number
-    url?: string
-}
+export const protectedQuery = customQuery(query, {
+    args: { secret: v.string() },
+    async input(ctx, args) {
+        protectFn(args)
+        return { ctx: {}, args: {} }
+    },
+})
 
-// The requirements are:
-// - All files from a batch should not sum more than MAX_FILE_SIZE of size all together.
-// - The batch should not have more than 10 files
-export function batchTreeFiles(tree: TreeFile[]) {
-    const batches: TreeFile[][] = []
-    let currentBatch: TreeFile[] = []
-    let currentBatchSize = 0
-
-    for (const file of tree) {
-        // Use file.size if present, otherwise treat as 0
-        const fileSize = file.size ?? 0
-
-        // If adding this file would exceed batch size or batch length, start a new batch
-        if (
-            currentBatch.length >= 10 ||
-            (currentBatchSize + fileSize > MAX_FILE_SIZE && currentBatch.length > 0)
-        ) {
-            batches.push(currentBatch)
-            currentBatch = []
-            currentBatchSize = 0
-        }
-
-        // If the file itself is too big, put it in its own batch
-        if (fileSize > MAX_FILE_SIZE) {
-            batches.push([file])
-            continue
-        }
-
-        currentBatch.push(file)
-        currentBatchSize += fileSize
-    }
-
-    if (currentBatch.length > 0) {
-        batches.push(currentBatch)
-    }
-
-    return batches
-}
-
-// max doc size should be less than 1mb, max doc size for convex
-export const MAX_FILE_SIZE = 800 * 1024 // 800 KB in bytes
+export const protectedMutation = customMutation(mutation, {
+    args: { secret: v.string() },
+    async input(ctx, args) {
+        protectFn(args)
+        return { ctx: {}, args: {} }
+    },
+})

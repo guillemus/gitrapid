@@ -1,5 +1,4 @@
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import { addSecret, err } from '@convex/utils'
 import type { Octokit } from '@octokit/rest'
@@ -30,12 +29,15 @@ export async function syncPublicRepo(cfg: SyncPublicRepoConfig) {
             repo: cfg.repo,
         }),
     )
-    if (!savedRepo) {
-        return err('Repo not found')
-    }
+    if (!savedRepo) return err('repo not found')
+    if (!savedRepo.headId) return err('repo has no head')
 
     // request to refs heads and compare the current head of the repository
     // if the head has changed, we need to sync commits
+
+    let headRef = await ctx.runQuery(api.protected.getRef, addSecret({ refId: savedRepo.headId }))
+
+    // octo.
 
     // request to refs tags to check if new tags pushed
     // what happens if tag is removed? does it change the etag thingy?

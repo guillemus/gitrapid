@@ -66,6 +66,10 @@ export const RepoCounts = {
 }
 
 export const Refs = {
+    async get(ctx: QueryCtx, id: Id<'refs'>) {
+        return ctx.db.get(id)
+    },
+
     async getByRepoAndCommit(ctx: QueryCtx, repoId: Id<'repos'>, commitSha: string) {
         return ctx.db
             .query('refs')
