@@ -20,6 +20,7 @@ import type * as nodeActions from "../nodeActions.js";
 import type * as protected_ from "../protected.js";
 import type * as queries from "../queries.js";
 import type * as services_downloads from "../services/downloads.js";
+import type * as services_publicSync from "../services/publicSync.js";
 import type * as services_repoPageService from "../services/repoPageService.js";
 import type * as triggers from "../triggers.js";
 import type * as utils from "../utils.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   protected: typeof protected_;
   queries: typeof queries;
   "services/downloads": typeof services_downloads;
+  "services/publicSync": typeof services_publicSync;
   "services/repoPageService": typeof services_repoPageService;
   triggers: typeof triggers;
   utils: typeof utils;

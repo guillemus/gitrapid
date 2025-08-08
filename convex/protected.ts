@@ -29,6 +29,16 @@ export const getOrCreateRepo = appMutation({
     },
 })
 
+export const getRepo = query({
+    args: withSecret({ owner: v.string(), repo: v.string() }),
+
+    async handler(ctx, args) {
+        protectFn(args)
+
+        return models.Repos.get(ctx, args.owner, args.repo)
+    },
+})
+
 export const getOrCreateRef = appMutation({
     args: withSecret(schemas.refsSchema),
 

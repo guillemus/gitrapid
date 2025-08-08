@@ -1,4 +1,68 @@
-import type { Doc } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { QueryCtx } from '@convex/_generated/server'
+import * as models from '@convex/models/models'
+import { err, ok } from '@convex/utils'
+
+export async function getRepoPageQuery(
+    ctx: QueryCtx,
+    userId: Id<'users'>,
+    owner: string,
+    repo: string,
+    refAndPath: string,
+) {
+    let savedRepo = await models.Repos.getByOwnerAndRepo(ctx, owner, repo)
+    if (!savedRepo) {
+        return err(`getRepoPage: repo not found ${owner}/${repo}`)
+    }
+    let repoId = savedRepo._id
+
+    let installation = await models.Installations.getByUserIdAndRepoId(ctx, userId, repoId)
+    if (!installation) {
+        return err(`getRepoPage: user ${userId} not authorized to this page`)
+    }
+
+    let refs = await models.Refs.getRefsFromRepo(ctx, repoId)
+    let headRef = refs.find((ref) => ref._id === savedRepo.headId)
+    if (!headRef) {
+        return err(`getRepoPage: head ref not found ${owner}/${repo}`)
+    }
+
+    let parsedRefAndPath = parseRefAndPath(refs, headRef, refAndPath)
+    if (!parsedRefAndPath) {
+        return err(`getRepoPage: error parsing ref and path ${owner}/${repo} ${refAndPath}`)
+    }
+
+    let commit = await models.Commits.getByRepoAndSha(ctx, repoId, parsedRefAndPath.ref.commitSha)
+    if (!commit) {
+        return err(`getRepoPage: commit not found ${owner}/${repo} ${refAndPath}`)
+    }
+
+    let tree = await models.Trees.getByRepoAndSha(ctx, repoId, commit.treeSha)
+    if (!tree) {
+        return err(`getRepoPage: tree not found ${owner}/${repo} ${refAndPath}`)
+    }
+
+    let treeEntries = await models.TreeEntries.getByRepoAndTree(ctx, repoId, tree.sha)
+    let treeEntry = treeEntries.find((t) => t.path === parsedRefAndPath.path)
+    if (!treeEntry) {
+        return err(`getRepoPage: tree entry not found ${owner}/${repo} ${refAndPath}`)
+    }
+
+    let filenames = treeEntries.map((t) => t.path)
+
+    let blob = await models.Blobs.getByRepoAndSha(ctx, repoId, treeEntry.entrySha)
+    if (!blob) {
+        return err(`getRepoPage: blob not found ${owner}/${repo} ${refAndPath}`)
+    }
+
+    return ok({
+        ref: parsedRefAndPath.ref,
+        path: parsedRefAndPath.path,
+        filenames,
+        repoId,
+        fileContents: blob.content,
+    })
+}
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
 

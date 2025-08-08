@@ -14,9 +14,14 @@ The app will work as close as possible to the github ui on the front end.
 
 We use tailwindcss with shadcn ui for ui components.
 
-# typescript typing rules
+# typescript
+
+Prefer using `let` to `const` when declaring variables. 
+
+## typing rules
 
 We must **never** use the TypeScript `any` type or the `as any` cast anywhere in the codebase. Code must be as strictly typed as possible.
 
 - **No `any` / `as any`**: Avoid `any` in all forms. Prefer `unknown` plus narrowing, explicit interfaces/types, generics, or type predicates.
 - **If a complex external type is missing**: add a well-scoped type declaration, wrap with `unknown` and write narrowing logic, or open an issue documenting why a safe type can't be expressed yet.
+

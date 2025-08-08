@@ -12,6 +12,13 @@ export const Repos = {
             .unique()
     },
 
+    async get(ctx: QueryCtx, owner: string, repo: string) {
+        return ctx.db
+            .query('repos')
+            .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
+            .unique()
+    },
+
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
         let repo = await this.getByOwnerAndRepo(ctx, args.owner, args.repo)
         if (repo) {
