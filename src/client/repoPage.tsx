@@ -17,7 +17,7 @@ import {
     useTanstackQuery,
     type GithubParams,
 } from './utils'
-import { useConvexHttp } from './convex'
+import { queryClient, useConvexHttp } from './convex'
 
 type FileTreeNode = {
     name: string
@@ -88,8 +88,12 @@ function buildFileTree(filePaths: string[]): FileTreeNode[] {
     return root
 }
 
-function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubParams }) {
-    const state = useMutable({ expanded: false })
+type FileTreeNodeProps = {
+    node: FileTreeNode
+    params: GithubParams
+}
+
+function FileTreeNode({ node, params }: FileTreeNodeProps) {
     const navigate = useNavigate()
 
     let { data: query } = useTanstackQuery(
@@ -101,25 +105,26 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
     )
 
     let ref = query?.ref
+    const expanded = useMutable({ value: false })
 
     if (node.isDir) {
         return (
             <div>
                 <button
                     onClick={() => {
-                        state.expanded = !state.expanded
+                        expanded.value = !expanded.value
                     }}
                     className="flex w-full cursor-pointer items-center rounded p-1 text-left text-gray-700 hover:bg-gray-50"
                 >
                     <span className="mr-1 flex-shrink-0">
-                        {state.expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                        {expanded.value ? <ChevronDownIcon /> : <ChevronRightIcon />}
                     </span>
                     <span className="mr-1">
                         <FileDirectoryIcon />
                     </span>
                     <span className="min-w-0 truncate">{node.name}</span>
                 </button>
-                {state.expanded && node.children && (
+                {expanded.value && node.children && (
                     <div style={{ marginLeft: '20px' }}>
                         {node.children.map((child) => (
                             <FileTreeNode key={child.path} node={child} params={params} />
@@ -132,6 +137,16 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
 
     return (
         <button
+            onMouseOver={() => {
+                const refName = ref?.name ?? ''
+                queryClient.prefetchQuery(
+                    convexQuery(api.queries.getRepoPage, {
+                        owner: params.owner,
+                        repo: params.repo,
+                        refAndPath: `${refName}/${node.path}`,
+                    }),
+                )
+            }}
             onMouseDown={() => {
                 const refName = ref?.name ?? ''
                 navigate(`/${params.owner}/${params.repo}/blob/${refName}/${node.path}`)
@@ -156,8 +171,9 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
             refAndPath: params.refAndPath,
         }),
     )
+    query = useDefined(query)
 
-    let files = useDefined(preloadedFiles ?? query?.filenames)
+    let files = preloadedFiles ?? query?.filenames
     let fileTree = useMemo(() => buildFileTree(files ?? []), [files])
 
     return (
