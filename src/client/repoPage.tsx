@@ -17,6 +17,7 @@ import {
     useTanstackQuery,
     type GithubParams,
 } from './utils'
+import { useConvexHttp } from './convex'
 
 type FileTreeNode = {
     name: string
@@ -91,12 +92,13 @@ function FileTreeNode({ node, params }: { node: FileTreeNode; params: GithubPara
     const state = useMutable({ expanded: false })
     const navigate = useNavigate()
 
-    let query = useQuery(api.queries.getRepoPage, {
-        owner: params.owner,
-        repo: params.repo,
-        refAndPath: params.refAndPath,
-    })
-    query = useDefined(query)
+    let { data: query } = useTanstackQuery(
+        convexQuery(api.queries.getRepoPage, {
+            owner: params.owner,
+            repo: params.repo,
+            refAndPath: params.refAndPath,
+        }),
+    )
 
     let ref = query?.ref
 
@@ -155,7 +157,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
         }),
     )
 
-    let files = preloadedFiles ?? query?.filenames
+    let files = useDefined(preloadedFiles ?? query?.filenames)
     let fileTree = useMemo(() => buildFileTree(files ?? []), [files])
 
     return (
@@ -175,12 +177,13 @@ export function RepoPage() {
 
     let page = useFirstLoadQuery({
         queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
-        queryFn: async (client) =>
-            client.query(api.queries.getRepoPage, {
+        queryFn: async (client) => {
+            return client.query(api.queries.getRepoPage, {
                 owner: params.owner,
                 repo: params.repo,
                 refAndPath: params.refAndPath,
-            }),
+            })
+        },
     })
 
     return (
@@ -189,10 +192,28 @@ export function RepoPage() {
                 <Sidebar preloadedFiles={page?.filenames}></Sidebar>
             </div>
             <div className="flex-1 overflow-auto">
-                <pre>
-                    <code>{page?.fileContents}</code>
-                </pre>
+                <FileContents preloadedFileContents={page?.fileContents}></FileContents>
             </div>
         </div>
+    )
+}
+
+function FileContents({ preloadedFileContents }: { preloadedFileContents?: string }) {
+    let params = useGithubParams()
+
+    let { data: query } = useTanstackQuery(
+        convexQuery(api.queries.getRepoPage, {
+            owner: params.owner,
+            repo: params.repo,
+            refAndPath: params.refAndPath,
+        }),
+    )
+
+    let fileContents = preloadedFileContents ?? query?.fileContents
+
+    return (
+        <pre>
+            <code>{fileContents}</code>
+        </pre>
     )
 }

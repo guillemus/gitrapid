@@ -4,18 +4,28 @@ import { useEffect, useRef } from 'react'
 // This exists bc of naming conflict with convex.
 export const useTanstackQuery = useQuery
 
-// An infinitely non stale query. This is only useful on first load, after that
-// the result from this function should be discarded.
+const $firstLoad = proxy({ value: false })
+
+/**
+ * A query that will execute on first load only. After execution it will be
+ * forever disabled.
+ */
 export function useFirstLoadQuery<T>(args: {
     queryKey: QueryKey
     queryFn: (c: ConvexHttpClient) => Promise<T>
 }) {
     let convexHttp = useConvexHttp()
+    let firstLoad = useSnapshot($firstLoad)
+
     return (
         useTanstackQuery({
             queryKey: args.queryKey,
-            queryFn: () => args.queryFn(convexHttp!),
-            enabled: !!convexHttp,
+            queryFn: async () => {
+                let res = await args.queryFn(convexHttp!)
+                $firstLoad.value = true
+                return res
+            },
+            enabled: !!convexHttp && !firstLoad.value,
             staleTime: Infinity,
         }).data ?? null
     )
@@ -125,7 +135,7 @@ export function useClickOutside(onclickOutside: () => void) {
     return containerRef
 }
 
-import { proxy } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 import { useProxy } from 'valtio/utils'
 
 export function useMutable<T extends object>(initial: T): T {
@@ -134,9 +144,9 @@ export function useMutable<T extends object>(initial: T): T {
 }
 
 import { createAuthClient } from 'better-auth/react'
+import type { ConvexHttpClient } from 'convex/browser'
 import { useParams } from 'react-router'
 import { useConvexHttp } from './convex'
-import type { ConvexHttpClient } from 'convex/browser'
 
 export const authClient = createAuthClient()
 
