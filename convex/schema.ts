@@ -132,6 +132,8 @@ export const syncStatesSchema = {
     refsEtagTags: v.optional(v.string()),
     issuesSince: v.optional(v.string()),
     commentsSince: v.optional(v.string()),
+    backfillDone: v.optional(v.boolean()),
+    lastSuccessAt: v.optional(v.string()),
     syncError: v.optional(v.string()),
 }
 

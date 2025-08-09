@@ -6,7 +6,10 @@ alwaysApply: true
 
 # mission
 
-gitrapid is an alternative github ui that focuses entirely on making the github ui way faster. It syncs repository state in a convex database. 
+gitrapid is an alternative github ui that focuses entirely on making the github ui way faster. It syncs repository state in a convex database.
+
+There are 2 types of repositories for my app, public and private. Public repositories need to be synced by smart polling public apis.
+Private repos instead are synced using github webhooks. Both might use the same initial download code logic.
 
 The app will work as close as possible to the github ui on the front end.
 

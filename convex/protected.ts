@@ -110,3 +110,8 @@ export const upsertSyncState = protectedMutation({
     args: schemas.syncStatesSchema,
     handler: (ctx, args) => models.SyncStates.upsert(ctx, args),
 })
+
+export const getInstallationTokenForUserRepo = protectedQuery({
+    args: { userId: v.id('users'), repoId: v.id('repos') },
+    handler: (ctx, args) => models.getUserInstallationToken(ctx, args.userId, args.repoId),
+})

@@ -19,10 +19,9 @@ import type * as mutations from "../mutations.js";
 import type * as nodeActions from "../nodeActions.js";
 import type * as protected_ from "../protected.js";
 import type * as queries from "../queries.js";
-import type * as services_downloads from "../services/downloads.js";
 import type * as services_github from "../services/github.js";
-import type * as services_publicSync from "../services/publicSync.js";
 import type * as services_repoPageService from "../services/repoPageService.js";
+import type * as services_sync from "../services/sync.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -51,10 +50,9 @@ declare const fullApi: ApiFromModules<{
   nodeActions: typeof nodeActions;
   protected: typeof protected_;
   queries: typeof queries;
-  "services/downloads": typeof services_downloads;
   "services/github": typeof services_github;
-  "services/publicSync": typeof services_publicSync;
   "services/repoPageService": typeof services_repoPageService;
+  "services/sync": typeof services_sync;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
