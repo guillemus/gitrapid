@@ -1,9 +1,9 @@
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { addSecret, err, failure, octoCatch, ok } from '@convex/utils'
-import { getAllRefs as githubGetAllRefs } from './github'
+import { addSecret, err, octoCatch, ok } from '@convex/utils'
 import type { Octokit } from '@octokit/rest'
+import { getAllRefs } from './github'
 
 type SyncPublicRepoConfig = {
     ctx: ActionCtx
@@ -38,20 +38,19 @@ export async function syncPublicRepo(cfg: SyncPublicRepoConfig) {
         api.protected.getOrCreateSyncState,
         addSecret({ repoId: savedRepo._id }),
     )
+    if (!syncState) return err('failed to get sync state')
 
-    let result = await trySyncPublicRepo({
-        ...cfg,
-        repoId: savedRepo._id,
-        issuesSince: syncState?.issuesSince,
-        commentsSince: syncState?.commentsSince,
-    })
+    let result = await trySyncPublicRepo(cfg, savedRepo._id, syncState)
 
-    if (result.error) {
+    if (result.isErr) {
         await ctx.runMutation(
             api.protected.upsertSyncState,
-            addSecret({ repoId: savedRepo._id, syncError: result.error }),
+            addSecret({
+                repoId: savedRepo._id,
+                syncError: result.error,
+            }),
         )
-        return failure(result.error)
+        return err(`failed to upsert sync state: ${result.error}`)
     }
 
     await ctx.runMutation(
@@ -62,19 +61,17 @@ export async function syncPublicRepo(cfg: SyncPublicRepoConfig) {
     return ok('synced')
 }
 
-type TrySyncCfg = SyncPublicRepoConfig & {
-    repoId: Id<'repos'>
-    issuesSince?: string
-    commentsSince?: string
-}
-
-async function trySyncPublicRepo(cfg: TrySyncCfg) {
-    let { ctx, octo, repoId } = cfg
+async function trySyncPublicRepo(
+    cfg: SyncPublicRepoConfig,
+    repoId: Id<'repos'>,
+    syncState: Doc<'syncStates'>,
+) {
+    let { ctx, octo } = cfg
 
     // Phase 1: Repo metadata and head
     let repoRes = await octoCatch(octo.repos.get({ owner: cfg.owner, repo: cfg.repo }))
-    if (repoRes.error) {
-        return failure({ code: 'repo-get-failed', message: repoRes.error.message })
+    if (repoRes.isErr) {
+        return err(`failed to get repo: ${repoRes.error.error()}`)
     }
     let defaultBranch = repoRes.data.default_branch
     if (defaultBranch) {
@@ -85,10 +82,11 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
     }
 
     // Phase 2: Refs (branches + tags)
-    let refs = await githubGetAllRefs(octo, { owner: cfg.owner, repo: cfg.repo })
-    if (refs.error) {
-        return failure({ code: 'refs-list-failed', message: refs.error.message })
+    let refs = await getAllRefs(octo, { owner: cfg.owner, repo: cfg.repo })
+    if (refs.isErr) {
+        return err(`failed to get refs: ${refs.error}`)
     }
+
     let desiredRefs = refs.data
     await ctx.runMutation(
         api.protected.upsertRefs,
@@ -104,7 +102,7 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
         repo: cfg.repo,
         per_page: 100,
         state: 'all',
-        since: cfg.issuesSince,
+        since: syncState.issuesSince,
     })
     let lastIssueUpdated: string | undefined
     for await (let { data: issuesPage } of issuesIter) {
@@ -114,6 +112,7 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
                 if (typeof label === 'string') labels.push(label)
                 else if (label.name) labels.push(label.name)
             }
+
             let issueState: 'open' | 'closed'
             if (issue.state === 'open' || issue.state === 'closed') issueState = issue.state
             else continue
@@ -127,7 +126,7 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
                     title: issue.title,
                     state: issueState,
                     body: issue.body ?? undefined,
-                    author: { login: issue.user?.login ?? 'ghost', id: issue.user?.id ?? 0 },
+                    author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
                     labels,
                     assignees: issue.assignees?.map((a) => a.login) ?? undefined,
                     createdAt: issue.created_at,
@@ -149,7 +148,7 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
                     repo: cfg.repo,
                     issue_number: issue.number,
                     per_page: 100,
-                    since: cfg.commentsSince,
+                    since: syncState.commentsSince,
                 })
                 let lastCommentUpdated: string | undefined
                 for await (let { data: commentsPage } of commentsIter) {
@@ -160,7 +159,7 @@ async function trySyncPublicRepo(cfg: TrySyncCfg) {
                                 issueId,
                                 githubId: comment.id,
                                 author: {
-                                    login: comment.user?.login ?? 'ghost',
+                                    login: comment.user?.login ?? '',
                                     id: comment.user?.id ?? 0,
                                 },
                                 body: comment.body ?? '',

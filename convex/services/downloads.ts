@@ -20,8 +20,8 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
     console.log(`${owner}/${repo}: Validating repository`)
 
     let repoResult = await validateRepo(octo, { owner, repo })
-    if (repoResult.error) {
-        return repoResult.error
+    if (repoResult.isErr) {
+        return err(`${owner}/${repo}: Failed to validate repo: ${repoResult.error}`)
     }
 
     console.log(`${owner}/${repo}: Processing repository`)
@@ -40,18 +40,15 @@ export async function downloadRepo(cfg: DownloadRepoConfig) {
     console.log(`${owner}/${repo}: Getting default branch`)
 
     let repoMeta = await octoCatch(octo.repos.get({ owner, repo }))
-    if (repoMeta.error) {
-        return failure({
-            code: 'repo-get-failed',
-            message: repoMeta.error.message,
-        })
+    if (repoMeta.isErr) {
+        return err(`${owner}/${repo}: Failed to get repo meta: ${repoMeta.error.error()}`)
     }
     const defaultBranch = repoMeta.data.default_branch
 
     console.log(`${owner}/${repo}: Getting all refs`)
     let refs = await getAllRefs(octo, { owner, repo })
-    if (refs.error) {
-        return err(`${owner}/${repo}: Failed to get refs: ${refs.error.message}`)
+    if (refs.isErr) {
+        return err(`${owner}/${repo}: Failed to get refs: ${refs.error}`)
     }
 
     let upsertRefDocs = refs.data.map((r) => ({
@@ -105,8 +102,8 @@ async function processTreeEntry(
             file_sha: treeEntry.sha,
         })
         blob = await octoCatch(blob)
-        if (blob.error) {
-            return err(`${owner}/${repo}: Failed to get blob: ${blob.error.message}`)
+        if (blob.isErr) {
+            return err(`${owner}/${repo}: Failed to get blob: ${blob.error.error()}`)
         }
 
         let blobData = blob.data
@@ -193,9 +190,9 @@ async function validateRepo(octo: Octokit, args: { owner: string; repo: string }
 
     let repo
     repo = await octoCatch(octo.rest.repos.get(args))
-    if (repo.error) {
+    if (repo.isErr) {
         let isUnauthorized = repo.error.status === 401
-        let badCredentials = repo.error.message.includes('Bad credentials')
+        let badCredentials = repo.error.error().includes('Bad credentials')
 
         if (isUnauthorized && badCredentials) {
             return failure('bad-credentials')
@@ -220,7 +217,7 @@ async function validateRepo(octo: Octokit, args: { owner: string; repo: string }
     // check license, can we store the code?
     let license
     license = await octoCatch(octo.rest.licenses.getForRepo({ owner: args.owner, repo: args.repo }))
-    if (license.error) {
+    if (license.isErr) {
         if (license.error.status === 404) {
             return failure('license-not-found')
         }
@@ -282,8 +279,8 @@ async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                 recursive: 'true',
             })
             githubTree = await octoCatch(githubTree)
-            if (githubTree.error) {
-                console.error('Error fetching tree:', githubTree.error)
+            if (githubTree.isErr) {
+                console.error('Error fetching tree:', githubTree.error.error())
                 continue
             }
 
@@ -327,7 +324,7 @@ async function downloadCommits(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                 }
 
                 let newTreeEntry = await processTreeEntry(cfg, treeEntry, rootTreeSha, repoId)
-                if (newTreeEntry.error) {
+                if (newTreeEntry.isErr) {
                     console.error(
                         `${owner}/${repo}: Failed to process tree entry: ${treeEntry.path}`,
                         newTreeEntry.error,
@@ -387,7 +384,7 @@ async function downloadIssues(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                 state: issueState,
                 body: issue.body ?? undefined,
                 author: {
-                    login: issue.user?.login ?? 'ghost',
+                    login: issue.user?.login ?? '',
                     id: issue.user?.id ?? 0,
                 },
                 labels,
@@ -421,7 +418,7 @@ async function downloadIssues(cfg: DownloadRepoConfig, repoId: Id<'repos'>) {
                             issueId,
                             githubId: comment.id,
                             author: {
-                                login: comment.user?.login ?? 'ghost',
+                                login: comment.user?.login ?? '',
                                 id: comment.user?.id ?? 0,
                             },
                             body: comment.body ?? '',

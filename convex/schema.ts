@@ -125,6 +125,18 @@ const issueComments = defineTable(issueCommentsSchema)
     .index('by_issue', ['issueId'])
     .index('by_github_id', ['githubId'])
 
+export const syncStatesSchema = {
+    repoId: v.id('repos'),
+    repoMetaEtag: v.optional(v.string()),
+    refsEtagHeads: v.optional(v.string()),
+    refsEtagTags: v.optional(v.string()),
+    issuesSince: v.optional(v.string()),
+    commentsSince: v.optional(v.string()),
+    syncError: v.optional(v.string()),
+}
+
+const syncStates = defineTable(syncStatesSchema).index('by_repoId', ['repoId'])
+
 export default defineSchema({
     ...authTables,
 
@@ -159,19 +171,5 @@ export default defineSchema({
         expiresAt: v.string(),
     }).index('by_repo_id', ['repoId']),
 
-    // Per-repo sync state for incremental single-repo syncs
-    syncStates: defineTable({
-        repoId: v.id('repos'),
-        repoMetaEtag: v.optional(v.string()),
-        refsEtagHeads: v.optional(v.string()),
-        refsEtagTags: v.optional(v.string()),
-        issuesSince: v.optional(v.string()),
-        commentsSince: v.optional(v.string()),
-        syncError: v.optional(
-            v.object({
-                code: v.string(),
-                message: v.optional(v.string()),
-            }),
-        ),
-    }).index('by_repoId', ['repoId']),
+    syncStates,
 })

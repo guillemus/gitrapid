@@ -1,0 +1,58 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+### Error handling (from `convex/utils.ts`)
+
+All error handling should follow go style error handling.
+We return new errors with `err`, and we return string literal / structured errors using `failure`.
+
+### Examples (generic, focused on error handling)
+
+```typescript
+// Service example: prefer returning Result<T, E>
+async function serviceFetchSomething() {
+    // External SDK call: treat as boundary and use tryCatch
+    let res = await tryCatch(fetchFromThirdParty())
+    if (res.isErr) return err(`failed fetching ${res.error}`)
+
+    // Business validation → structured failure
+    if (!res.data) return failure('not-found')
+
+    return ok(res.data)
+}
+
+// Caller unwraps or pattern-matches the Result
+async function caller() {
+    let r = await serviceFetchSomething()
+    if (r.isErr) {
+        // Pattern match structured errors first
+        if (r.error === 'not-found') {
+            // handle not-found, we might in this case just return an error as string.
+            return err('we did not find thing')
+        }
+        // Generic error handling
+        return err(`'service error ${r.error}`, )
+    }
+    // success: r.data
+    return r.data
+}
+
+// Anti-patterns (don’t do this)
+// 1) Throwing inside library/service code — prefer returning Result
+async function badService() { throw new Error('boom') } // ✗
+async function goodService() { return err('boom') } // ✓
+
+// 2) Using raw try/catch for ordinary promise work — prefer tryCatch at boundaries
+// ✗
+try {
+    // avoid wrapping normal async flow in try/catch unless handling local cleanup
+    await fetchFromThirdParty()
+} catch (e) {
+}
+// ✓
+let maybe = await tryCatch(fetchFromThirdParty())
+if (maybe.isErr) { /* handle */ }
+```

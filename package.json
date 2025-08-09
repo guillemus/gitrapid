@@ -8,8 +8,6 @@
     "cx": "convex dev --typecheck disable",
     "ts": "tsgo --watch",
     "ts:build": "tsgo",
-    "scripts": "bun scripts/scripts.ts",
-    "scripts:debug": "pnpm tsx --inspect scripts/scripts.ts",
     "astro:dev": "astro dev --port 3000",
     "dev:tsc": "tsc --watch",
     "build": "astro build",

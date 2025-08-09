@@ -15,16 +15,6 @@ Short, example-free guide to adding Convex logic with strict typing and consiste
 - Use `v` from `convex/values` to define runtime arg schemas.
 - Never use `any`. If an external type is complex, use `unknown` and narrow or define a small local interface.
 - For inserts/patch-or-create, use `WithoutSystemFields<Doc<'table'>>` (see `UpsertDoc` alias in models) so `_id`/`_creationTime` are not required.
-- Prefer `let` over `const` per project style.
-
-### Error handling (from `convex/utils.ts`)
-
-- Use `Result` helpers: `ok`, `err`, `failure`, `tryCatch`, and `unwrap`.
-- Services should return `Result<T, E>`; public queries can `unwrap(result)` to raise a controlled error to the client.
-- Avoid raw `try { } catch { }` in app code; prefer `tryCatch(promise)` and then check `if (res.error) { ... }`.
-- Do not wrap `ctx.runQuery`/`ctx.runMutation` (or for‑await loops) with `tryCatch` unless you’re handling a specific boundary.
-
- 
 
 ### When to use which
 

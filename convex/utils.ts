@@ -58,72 +58,46 @@ export async function parseUserId(ctx: { auth: Auth }) {
     return userId
 }
 
-export type Success<T> = {
-    data: T
-    error: null
-}
+export type Success<T> = { isErr: false; data: T }
+export type Failure<E> = { isErr: true; error: E }
+export type Result<T, E> = Success<T> | Failure<E>
 
-export type Failure<E> = {
-    data: null
-    error: E
-}
-
-export type Result<T, E = Error> = Success<T> | Failure<E>
-export type ResultP<T, E = Error> = Promise<Result<T, E>>
+export type ResultP<T, E> = Promise<Result<T, E>>
 
 export function ok<T>(val: T): Success<T> {
-    return { data: val, error: null }
+    return { isErr: false, data: val }
 }
 
 /**
  * Convenient utility to create Failure.
  */
-export function err(msg: string): Failure<Error> {
-    return { data: null, error: new Error(msg) }
+export function err(msg: string): Failure<string> {
+    return { isErr: true, error: msg }
 }
 
 /**
  * Returns an explicit error. The function overloads allows the producer to
- * return const types, so that pattern matching errors is very simple
+ * return string literal types, so that pattern matching errors is very simple
  */
 export function failure<T extends string>(val: T): Failure<T>
 export function failure<T extends object>(val: T): Failure<T>
 export function failure<T>(val: T): Failure<T> {
-    return { data: null, error: val }
-}
-
-/**
- * Wrap an error with additional context, similar to Go's fmt.Errorf("context: %w", err).
- * If the environment supports Error.cause, use it. Otherwise, attach as .cause.
- */
-export function wrap(context: string, error: unknown): Failure<Error> {
-    if (error instanceof Error) {
-        // Use the ES2022 cause property if available
-        try {
-            // @ts-ignore
-            return new Error(context, { cause: error })
-        } catch {
-            // Fallback for environments without Error.cause
-            const wrapped = new Error(`${context}: ${error.message}`)
-            // @ts-ignore
-            wrapped.cause = error
-            return failure(wrapped)
-        }
-    } else {
-        // If err is not an Error, just stringify it
-        return err(`${context}: ${String(err)}`)
-    }
+    return { isErr: true, error: val }
 }
 
 /**
  * Try to run a promise and return a Result.
  */
-export async function tryCatch<T, E = Error>(promise: Promise<T>): ResultP<T, E> {
+export async function tryCatch<T>(promise: Promise<T>): ResultP<T, string> {
     try {
         const data = await promise
-        return { data, error: null }
+        return { isErr: false, data }
     } catch (error) {
-        return { data: null, error: error as E }
+        // @ts-expect-error: if it has a `message` property it is quite probable
+        // that it is an error
+        if (error?.message) return { isErr: true, error: error.message }
+
+        return { isErr: true, error: String(error) }
     }
 }
 
@@ -132,20 +106,30 @@ export async function tryCatch<T, E = Error>(promise: Promise<T>): ResultP<T, E>
  * libraries / frameworks that expect thrown exceptions.
  */
 export function unwrap<T, E>(res: Result<T, E>): T {
-    if (res.error) {
+    if (res.isErr) {
         throw res.error
     }
 
-    return res.data as T
+    return res.data
 }
 
-export async function octoCatch<T>(promise: Promise<{ data: T }>): ResultP<T, RequestError> {
+class OctoError extends RequestError {
+    constructor(err: RequestError) {
+        super(err.message, err.status, err)
+    }
+
+    error(): string {
+        return `octo request error: (status: ${this.status}) ${this.message}`
+    }
+}
+
+export async function octoCatch<T>(promise: Promise<{ data: T }>): ResultP<T, OctoError> {
     try {
         let res = await promise
         return ok(res.data)
     } catch (error) {
         if (error instanceof RequestError) {
-            return failure(error)
+            return failure(new OctoError(error))
         }
 
         throw error

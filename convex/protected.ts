@@ -71,6 +71,16 @@ export const upsertRefs = protectedMutation({
     handler: (ctx, args) => models.Refs.upsertMany(ctx, args.refs),
 })
 
+export const reconcileRefs = protectedMutation({
+    args: {
+        repoId: v.id('repos'),
+        refs: v.array(
+            v.object({ name: v.string(), commitSha: v.string(), isTag: v.optional(v.boolean()) }),
+        ),
+    },
+    handler: (ctx, args) => models.Refs.reconcile(ctx, args.repoId, args.refs),
+})
+
 export const setRepoHead = protectedMutation({
     args: { repoId: v.id('repos'), headRefName: v.string() },
     handler: (ctx, args) => models.setRepoHead(ctx, args.repoId, args.headRefName),
@@ -79,6 +89,11 @@ export const setRepoHead = protectedMutation({
 export const getRef = protectedQuery({
     args: { refId: v.id('refs') },
     handler: (ctx, args) => models.Refs.get(ctx, args.refId),
+})
+
+export const listRefsByRepo = protectedQuery({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, args) => models.Refs.getRefsFromRepo(ctx, args.repoId),
 })
 
 export const getOrCreateSyncState = protectedMutation({
@@ -92,14 +107,6 @@ export const getSyncState = protectedQuery({
 })
 
 export const upsertSyncState = protectedMutation({
-    args: {
-        repoId: v.id('repos'),
-        repoMetaEtag: v.optional(v.string()),
-        refsEtagHeads: v.optional(v.string()),
-        refsEtagTags: v.optional(v.string()),
-        issuesSince: v.optional(v.string()),
-        commentsSince: v.optional(v.string()),
-        syncError: v.optional(v.object({ code: v.string(), message: v.optional(v.string()) })),
-    },
+    args: schemas.syncStatesSchema,
     handler: (ctx, args) => models.SyncStates.upsert(ctx, args),
 })
