@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { FastLink } from '@/components/ui/link'
+import { Button } from '@/components/ui/button'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import { useFirstLoadQuery, useTanstackQuery } from './utils'
@@ -18,7 +19,18 @@ export function DashboardPage() {
             <Card>
                 <CardContent>
                     <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Your installed repositories</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Your installed repositories</h3>
+                            <Button asChild>
+                                <a
+                                    href="https://github.com/apps/gitrapid-com-dev/installations/new"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Install Repository
+                                </a>
+                            </Button>
+                        </div>
                         {data?.length === 0 && <p>No repositories installed yet.</p>}
                         {!data && <p>Loading...</p>}
                         {data && (

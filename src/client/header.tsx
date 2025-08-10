@@ -11,7 +11,7 @@ export function Header(props: { owner?: string; repo?: string }) {
     let path = useLocation().pathname
 
     return (
-        <header className={'w-full border-b bg-white dark:bg-gray-950'}>
+        <header className={'w-full border-b'}>
             <div className="flex h-16 items-center justify-between px-4">
                 <div className="flex items-center gap-2">
                     <span className="text-lg font-bold tracking-tight">gitrapid</span>

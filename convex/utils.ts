@@ -159,15 +159,15 @@ export function protectFn(args: { secret: string }) {
 export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
     return {
         runQuery: async (query, ...args) => {
-            // @ts-ignore
+            // @ts-expect-error
             return await client.query(query, ...args)
         },
         runMutation: async (mutation, ...args) => {
-            // @ts-ignore
+            // @ts-expect-error
             return await client.mutation(mutation, ...args)
         },
         runAction: async (action, ...args) => {
-            // @ts-ignore
+            // @ts-expect-error
             return await client.action(action, ...args)
         },
 
@@ -178,7 +178,7 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
         scheduler: {
             runAfter: async (delay, action, ...args) => {
                 let cancelId = setTimeout(() => {
-                    // @ts-ignore
+                    // @ts-expect-error
                     client.action(action, ...args)
                 }, delay)
 

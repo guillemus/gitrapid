@@ -1,5 +1,3 @@
-// @ts-nocheck: fixme
-
 import type {
     InstallationDeletedEvent,
     InstallationEvent,

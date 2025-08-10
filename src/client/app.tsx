@@ -6,10 +6,8 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useParams } from 'react
 import { convex, queryClient } from './convex'
 import { DashboardPage } from './dashboardPage'
 import { Header } from './header'
-import { IssuesPage } from './issuesPage'
 import { LoginPage } from './loginPage'
 import { RepoPage } from './repoPage'
-import { SingleIssuePage } from './singleIssuePage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()
@@ -50,8 +48,6 @@ function Router() {
                     <Route path="/:owner/:repo" element={<RepoPage />} />
                     <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
                     <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
-                    <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
-                    <Route path="/:owner/:repo/issues/:issueNumber" element={<SingleIssuePage />} />
                 </Route>
             </Routes>
         </BrowserRouter>
