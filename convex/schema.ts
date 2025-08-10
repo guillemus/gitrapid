@@ -165,7 +165,9 @@ export default defineSchema({
         suspended: v.boolean(),
         repoId: v.id('repos'),
         installationId: v.string(),
-    }).index('by_userId_repoId', ['userId', 'repoId']),
+    })
+        .index('by_userId_repoId', ['userId', 'repoId'])
+        .index('by_installationId', ['installationId']),
 
     installationAccessTokens: defineTable({
         repoId: v.id('repos'),

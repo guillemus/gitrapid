@@ -291,6 +291,13 @@ export const Installations = {
             .collect()
     },
 
+    async getByInstallationId(ctx: QueryCtx, installationId: string) {
+        return ctx.db
+            .query('installations')
+            .withIndex('by_installationId', (q) => q.eq('installationId', installationId))
+            .unique()
+    },
+
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installations'>) {
         let existing = await this.getByUserIdAndRepoId(ctx, args.userId, args.repoId)
         if (existing) {
@@ -299,6 +306,43 @@ export const Installations = {
 
         let id = await ctx.db.insert('installations', args)
         return await ctx.db.get(id)
+    },
+
+    async deleteByUserAndRepo(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
+        let installation = await this.getByUserIdAndRepoId(ctx, userId, repoId)
+        if (installation) {
+            await ctx.db.delete(installation._id)
+        }
+    },
+
+    async setSuspendedByUserAndRepo(
+        ctx: MutationCtx,
+        userId: Id<'users'>,
+        repoId: Id<'repos'>,
+        suspended: boolean,
+    ) {
+        let installation = await this.getByUserIdAndRepoId(ctx, userId, repoId)
+        if (installation) {
+            await ctx.db.patch(installation._id, { suspended })
+        }
+    },
+
+    async deleteByInstallationId(ctx: MutationCtx, installationId: string) {
+        let installation = await this.getByInstallationId(ctx, installationId)
+        if (installation) {
+            await ctx.db.delete(installation._id)
+        }
+    },
+
+    async setSuspendedByInstallationId(
+        ctx: MutationCtx,
+        installationId: string,
+        suspended: boolean,
+    ) {
+        let installation = await this.getByInstallationId(ctx, installationId)
+        if (installation) {
+            await ctx.db.patch(installation._id, { suspended })
+        }
     },
 }
 
@@ -495,4 +539,39 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
     if (!ref) return null
 
     return await ctx.db.patch(repoId, { headId: ref._id })
+}
+
+export async function createInstallation(
+    ctx: MutationCtx,
+    args: {
+        installationId: string
+        githubUserId: number
+        repos: { owner: string; repo: string; private: boolean }[]
+    },
+) {
+    const authAccount = await AuthAccounts.getByProviderAndAccountId(
+        ctx,
+        args.githubUserId.toString(),
+    )
+    if (!authAccount) {
+        console.log(`User with GitHub ID ${args.githubUserId} not found in auth system.`)
+        return
+    }
+
+    for (const repoData of args.repos) {
+        const repo = await Repos.getOrCreate(ctx, repoData)
+        if (!repo) {
+            console.log(`Failed to create repo ${repoData.owner}/${repoData.repo}`)
+            continue
+        }
+
+        await Installations.getOrCreate(ctx, {
+            userId: authAccount.userId,
+            repoId: repo._id,
+            installationId: args.installationId,
+            suspended: false,
+        })
+    }
+
+    console.log(`Successfully processed installation for user ${authAccount.userId}`)
 }
