@@ -1,18 +1,10 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import {
-    addSecret,
-    err,
-    octoCatch,
-    ok,
-    runProtectedMutation,
-    runProtectedQuery,
-} from '@convex/utils'
+import { addSecret, err, octoCatch, ok } from '@convex/utils'
 import { Octokit } from '@octokit/rest'
 import { Buffer } from 'buffer'
 import { getAllRefs } from './github'
-import type { FunctionReference, OptionalRestArgs } from 'convex/server'
 
 type SyncRepoConfig = {
     ctx: ActionCtx
