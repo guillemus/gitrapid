@@ -64,8 +64,10 @@ export type Result<T, E> = Success<T> | Failure<E>
 
 export type ResultP<T, E> = Promise<Result<T, E>>
 
-export function ok<T>(val: T): Success<T> {
-    return { isErr: false, data: val }
+export function ok(): Success<void>
+export function ok<T>(val: T): Success<T>
+export function ok<T = void>(val?: T): Success<T> {
+    return { isErr: false, data: val as T }
 }
 
 /**

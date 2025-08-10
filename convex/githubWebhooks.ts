@@ -12,7 +12,7 @@ import type {
     WebhookEvent,
 } from '@octokit/webhooks-types'
 import type { GenericActionCtx } from 'convex/server'
-import { api, internal } from './_generated/api'
+import { internal } from './_generated/api'
 
 type IssueWebhookEvent =
     | IssuesOpenedEvent

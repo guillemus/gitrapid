@@ -146,8 +146,11 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
     }
 
     console.log('backfilling commits')
+
     let commitsRes = await backfillCommits({ ...cfg, ctx, repoId: savedRepo._id })
-    if (commitsRes.isErr) return err(`failed to backfill commits: ${commitsRes.error}`)
+    if (commitsRes.isErr) {
+        return err(`failed to backfill commits: ${commitsRes.error}`)
+    }
 
     console.log('backfilled commits')
 
@@ -311,7 +314,7 @@ async function runIncrementalSync(
         )
     }
 
-    return ok('incremental-complete')
+    return ok()
 }
 
 // Private backfill helpers (commits + issues) modeled on downloads.ts
