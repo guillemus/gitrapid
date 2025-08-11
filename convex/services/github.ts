@@ -1,4 +1,6 @@
+import type { ActionCtx } from '@convex/_generated/server'
 import { err, isErr, octoCatch } from '@convex/utils'
+import { App } from '@octokit/app'
 import type { Octokit } from '@octokit/rest'
 
 export type GitRefInfo = {

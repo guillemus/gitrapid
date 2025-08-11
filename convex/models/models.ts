@@ -295,10 +295,12 @@ export const Installations = {
             .collect()
     },
 
-    async getByInstallationId(ctx: QueryCtx, installationId: number) {
+    async getByGithubInstallationId(ctx: QueryCtx, githubInstallationId: number) {
         return ctx.db
             .query('installations')
-            .withIndex('by_installationId', (q) => q.eq('installationId', installationId))
+            .withIndex('by_githubInstallationId', (q) =>
+                q.eq('githubInstallationId', githubInstallationId),
+            )
             .unique()
     },
 
@@ -306,6 +308,17 @@ export const Installations = {
         let existing = await this.getByUserIdAndRepoId(ctx, args.userId, args.repoId)
         if (existing) {
             return existing
+        }
+
+        let id = await ctx.db.insert('installations', args)
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'installations'>) {
+        let existing = await this.getByGithubInstallationId(ctx, args.githubInstallationId)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
         }
 
         let id = await ctx.db.insert('installations', args)
@@ -331,19 +344,19 @@ export const Installations = {
         }
     },
 
-    async deleteByInstallationId(ctx: MutationCtx, installationId: number) {
-        let installation = await this.getByInstallationId(ctx, installationId)
+    async deleteByGithubInstallationId(ctx: MutationCtx, githubInstallationId: number) {
+        let installation = await this.getByGithubInstallationId(ctx, githubInstallationId)
         if (installation) {
             await ctx.db.delete(installation._id)
         }
     },
 
-    async setSuspendedByInstallationId(
+    async setSuspendedByGithubInstallationId(
         ctx: MutationCtx,
-        installationId: number,
+        githubInstallationId: number,
         suspended: boolean,
     ) {
-        let installation = await this.getByInstallationId(ctx, installationId)
+        let installation = await this.getByGithubInstallationId(ctx, githubInstallationId)
         if (installation) {
             await ctx.db.patch(installation._id, { suspended })
         }
@@ -379,6 +392,14 @@ export const AuthAccounts = {
             )
             .unique()
     },
+}
+
+/**
+ * Get the stored user ID from a GitHub user ID.
+ */
+export async function getUserIdFromGithubUserId(ctx: QueryCtx, githubUserId: number) {
+    let account = await AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString())
+    return account?.userId
 }
 
 export const Blobs = {
@@ -508,17 +529,28 @@ export const IssueComments = {
 }
 
 export const InstallationAccessTokens = {
-    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
+    async getByInstallationId(ctx: QueryCtx, installationId: Id<'installations'>) {
         return ctx.db
             .query('installationAccessTokens')
-            .withIndex('by_repo_id', (q) => q.eq('repoId', repoId))
+            .withIndex('by_installationId', (q) => q.eq('installationId', installationId))
             .unique()
     },
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installationAccessTokens'>) {
-        let existing = await this.getByRepoId(ctx, args.repoId)
+        let existing = await this.getByInstallationId(ctx, args.installationId)
         if (existing) {
             return existing
         }
+        let id = await ctx.db.insert('installationAccessTokens', args)
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'installationAccessTokens'>) {
+        let existing = await this.getByInstallationId(ctx, args.installationId)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
+        }
+
         let id = await ctx.db.insert('installationAccessTokens', args)
         return await ctx.db.get(id)
     },
@@ -534,7 +566,7 @@ export async function getUserInstallationToken(
         return null
     }
 
-    return await InstallationAccessTokens.getByRepoId(ctx, repoId)
+    return await InstallationAccessTokens.getByInstallationId(ctx, installation._id)
 }
 
 export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRefName: string) {
@@ -548,7 +580,7 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
 export async function createInstallation(
     ctx: MutationCtx,
     args: {
-        installationId: number
+        githubInstallationId: number
         githubUserId: number
         repos: { owner: string; repo: string; private: boolean }[]
     },
@@ -572,7 +604,7 @@ export async function createInstallation(
         await Installations.getOrCreate(ctx, {
             userId: authAccount.userId,
             repoId: repo._id,
-            installationId: args.installationId,
+            githubInstallationId: args.githubInstallationId,
             suspended: false,
         })
     }

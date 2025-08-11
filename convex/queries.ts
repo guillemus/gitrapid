@@ -1,19 +1,8 @@
 import { v } from 'convex/values'
-import { internalQuery, query } from './_generated/server'
-import { getUserInstallationToken, Installations, Issues, Repos } from './models/models'
+import { query } from './_generated/server'
+import { Installations, Issues, Repos } from './models/models'
 import { getRepoPageQuery } from './services/repoPageService'
 import { parseUserId, unwrap } from './utils'
-
-export const getRepo = internalQuery({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-    },
-
-    handler: async (ctx, args) => {
-        return Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-    },
-})
 
 export const getRepoPage = query({
     args: {
@@ -87,16 +76,6 @@ export const getIssueWithComments = query({
             issue,
             comments,
         }
-    },
-})
-
-export const getInstallationToken = internalQuery({
-    args: {
-        userId: v.id('users'),
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        return getUserInstallationToken(ctx, args.userId, args.repoId)
     },
 })
 

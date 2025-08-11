@@ -1,10 +1,70 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { addSecret, err, isErr, octoCatch } from '@convex/utils'
+import { SECRET, err, isErr, octoCatch, wrap } from '@convex/utils'
 import { Octokit } from '@octokit/rest'
 import { Buffer } from 'buffer'
 import { getAllRefs } from './github'
+
+async function getFreshInstallationToken(ctx: ActionCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
+    // first, query for installation tokens
+    // if none found / expired / close to be expired, create a new one
+    // otherwise, return that one
+
+    let installationToken = await ctx.runQuery(api.protected.getInstallationTokenForUserRepo, {
+        ...SECRET,
+        userId,
+        repoId,
+    })
+    if (!installationToken) {
+        // this means that the
+    } else if (installationToken.expiresAt) {
+    }
+}
+
+type InstallRepoCfg = {
+    ctx: ActionCtx
+    githubUserId: number
+    installationId: number
+    repo: string
+    owner: string
+    private: boolean
+}
+
+export async function installRepo(cfg: InstallRepoCfg) {
+    let { ctx, githubUserId, installationId, repo, owner } = cfg
+    let userId = await ctx.runQuery(api.protected.getUserIdFromGithubUserId, {
+        ...SECRET,
+        githubUserId,
+    })
+    if (!userId) {
+        return err('user not found')
+    }
+
+    let createdRepo = await ctx.runMutation(api.protected.getOrCreateRepo, {
+        ...SECRET,
+        owner,
+        repo,
+        private: cfg.private,
+    })
+    if (!createdRepo) {
+        return err('failed to create repo')
+    }
+
+    let token = await ctx.runAction(api.nodeActions.createGithubInstallationToken, {
+        ...SECRET,
+        repoId: createdRepo._id,
+        userId,
+        githubInstallationId: installationId,
+    })
+    if (isErr(token)) {
+        return wrap('failed to create installation token', token)
+    }
+
+    let octo = new Octokit({ auth: token })
+
+    // kickoff backfilling
+}
 
 type SyncRepoConfig = {
     ctx: ActionCtx
@@ -16,18 +76,19 @@ type SyncRepoConfig = {
 export async function syncRepo(cfg: SyncRepoConfig) {
     let { ctx, owner, repo } = cfg
 
-    let savedRepo = await ctx.runQuery(
-        api.protected.getRepo,
-        addSecret({ owner: cfg.owner, repo: cfg.repo }),
-    )
+    let savedRepo = await ctx.runQuery(api.protected.getRepo, {
+        ...SECRET,
+        owner: cfg.owner,
+        repo: cfg.repo,
+    })
     if (!savedRepo) {
         return err('repo not found')
     }
 
-    let syncState = await ctx.runMutation(
-        api.protected.getOrCreateSyncState,
-        addSecret({ repoId: savedRepo._id }),
-    )
+    let syncState = await ctx.runMutation(api.protected.getOrCreateSyncState, {
+        ...SECRET,
+        repoId: savedRepo._id,
+    })
     if (!syncState) {
         return err('failed to get sync state')
     }
@@ -46,21 +107,20 @@ export async function syncRepo(cfg: SyncRepoConfig) {
     }
 
     if (isErr(result)) {
-        await ctx.runMutation(
-            api.protected.upsertSyncState,
-            addSecret({ repoId: savedRepo._id, syncError: result.error }),
-        )
-        return err(`syncRepo failed: ${result.error}`)
+        await ctx.runMutation(api.protected.upsertSyncState, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            syncError: result.error,
+        })
+        return wrap('sync repo failed', result)
     }
 
-    await ctx.runMutation(
-        api.protected.upsertSyncState,
-        addSecret({
-            repoId: savedRepo._id,
-            syncError: undefined,
-            lastSuccessAt: new Date().toISOString(),
-        }),
-    )
+    await ctx.runMutation(api.protected.upsertSyncState, {
+        ...SECRET,
+        repoId: savedRepo._id,
+        syncError: undefined,
+        lastSuccessAt: new Date().toISOString(),
+    })
 
     let durationMs = Date.now() - startedAt
     console.log(`${owner}/${repo}: sync success in ${durationMs}ms`)
@@ -75,19 +135,21 @@ type CreateOctokitClientCfg = {
 
 export async function createOctokitClient(cfg: CreateOctokitClientCfg) {
     // repo must exist; we need its privacy and id
-    let repoDoc = await cfg.ctx.runQuery(
-        api.protected.getRepo,
-        addSecret({ owner: cfg.owner, repo: cfg.repo }),
-    )
+    let repoDoc = await cfg.ctx.runQuery(api.protected.getRepo, {
+        ...SECRET,
+        owner: cfg.owner,
+        repo: cfg.repo,
+    })
     if (!repoDoc) return err('repo not found')
 
     if (repoDoc.private) {
         // Use installation token for this user + repo
-        let tokenDoc = await cfg.ctx.runQuery(
-            api.protected.getInstallationTokenForUserRepo,
-            addSecret({ userId: cfg.userId, repoId: repoDoc._id }),
-        )
-        if (!tokenDoc) return err('installation-token-not-found')
+        let tokenDoc = await cfg.ctx.runQuery(api.protected.getInstallationTokenForUserRepo, {
+            ...SECRET,
+            userId: cfg.userId,
+            repoId: repoDoc._id,
+        })
+        if (!tokenDoc) return err('installation token not found')
 
         let octo = new Octokit({ auth: tokenDoc.token })
         console.log(`${cfg.owner}/${cfg.repo}: Using token type: installation`)
@@ -95,7 +157,7 @@ export async function createOctokitClient(cfg: CreateOctokitClientCfg) {
     }
 
     // Public: use user PAT
-    let patDoc = await cfg.ctx.runQuery(api.protected.getPat, addSecret({ userId: cfg.userId }))
+    let patDoc = await cfg.ctx.runQuery(api.protected.getPat, { ...SECRET, userId: cfg.userId })
     if (!patDoc) return err('pat not found')
 
     let octo = new Octokit({ auth: patDoc.token })
@@ -119,26 +181,27 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
 
     let refs = await getAllRefs(octo, { owner, repo })
     if (isErr(refs)) {
-        return err(`failed to get refs: ${refs.error}`)
+        return wrap('failed to get refs', refs)
     }
 
     let desiredRefs = refs
-    await ctx.runMutation(
-        api.protected.upsertRefs,
-        addSecret({ refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })) }),
-    )
+    await ctx.runMutation(api.protected.upsertRefs, {
+        ...SECRET,
+        refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })),
+    })
 
-    await ctx.runMutation(
-        api.protected.setRepoHead,
-        addSecret({ repoId: savedRepo._id, headRefName: repoData.default_branch }),
-    )
+    await ctx.runMutation(api.protected.setRepoHead, {
+        ...SECRET,
+        repoId: savedRepo._id,
+        headRefName: repoData.default_branch,
+    })
 
     console.log('upserted refs')
 
     if (!savedRepo.private) {
         console.log('validating license')
         let license = await validatePublicLicense(octo, { owner, repo })
-        if (isErr(license)) return err(`license validation failed: ${license.error}`)
+        if (isErr(license)) return wrap('license validation failed', license)
 
         console.log('license validated')
     }
@@ -147,7 +210,7 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
 
     let commitsRes = await backfillCommits({ ...cfg, ctx, repoId: savedRepo._id })
     if (isErr(commitsRes)) {
-        return err(`failed to backfill commits: ${commitsRes.error}`)
+        return wrap('failed to backfill commits', commitsRes)
     }
 
     console.log('backfilled commits')
@@ -158,10 +221,11 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
 
     // Seed since-cursors from the latest observed timestamps
     // We do this during backfill issues pass already, but ensure state here too.
-    await ctx.runMutation(
-        api.protected.upsertSyncState,
-        addSecret({ repoId: savedRepo._id, backfillDone: true }),
-    )
+    await ctx.runMutation(api.protected.upsertSyncState, {
+        ...SECRET,
+        repoId: savedRepo._id,
+        backfillDone: true,
+    })
 }
 
 async function runIncrementalSync(
@@ -184,28 +248,30 @@ async function runIncrementalSync(
     }
     let defaultBranch = repoData.default_branch
     if (defaultBranch) {
-        await ctx.runMutation(
-            api.protected.setRepoHead,
-            addSecret({ repoId: savedRepo._id, headRefName: defaultBranch }),
-        )
+        await ctx.runMutation(api.protected.setRepoHead, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            headRefName: defaultBranch,
+        })
     }
 
     console.log('getting all refs')
 
     let refs = await getAllRefs(octo, { owner: cfg.owner, repo: cfg.repo })
     if (isErr(refs)) {
-        return err(`failed to get refs: ${refs.error}`)
+        return wrap('failed to get refs', refs)
     }
+
     let desiredRefs = refs
-    await ctx.runMutation(
-        api.protected.upsertRefs,
-        addSecret({ refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })) }),
-    )
+    await ctx.runMutation(api.protected.upsertRefs, {
+        ...SECRET,
+        refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })),
+    })
 
     console.log('backfilling commits')
 
     let commitsRes = await backfillCommits({ ...cfg, ctx, repoId: savedRepo._id })
-    if (isErr(commitsRes)) return err(`failed to backfill commits: ${commitsRes.error}`)
+    if (isErr(commitsRes)) return wrap('failed to backfill commits', commitsRes)
 
     console.log('backfilled commits')
 
@@ -235,24 +301,22 @@ async function runIncrementalSync(
 
             console.log('getting or creating issue', issue.number)
 
-            let issueDoc = await ctx.runMutation(
-                api.protected.getOrCreateIssue,
-                addSecret({
-                    repoId: savedRepo._id,
-                    githubId: issue.id,
-                    number: issue.number,
-                    title: issue.title,
-                    state: issueState,
-                    body: issue.body ?? undefined,
-                    author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-                    labels,
-                    assignees: issue.assignees?.map((a) => a.login) ?? undefined,
-                    createdAt: issue.created_at,
-                    updatedAt: issue.updated_at,
-                    closedAt: issue.closed_at ?? undefined,
-                    comments: issue.comments ?? undefined,
-                }),
-            )
+            let issueDoc = await ctx.runMutation(api.protected.getOrCreateIssue, {
+                ...SECRET,
+                repoId: savedRepo._id,
+                githubId: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issueState,
+                body: issue.body ?? undefined,
+                author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
+                labels,
+                assignees: issue.assignees?.map((a) => a.login) ?? undefined,
+                createdAt: issue.created_at,
+                updatedAt: issue.updated_at,
+                closedAt: issue.closed_at ?? undefined,
+                comments: issue.comments ?? undefined,
+            })
             console.log('issue upserted', issue.number)
 
             if (!issueDoc) continue
@@ -275,39 +339,39 @@ async function runIncrementalSync(
                 let lastCommentUpdated: string | undefined
                 for await (let { data: commentsPage } of commentsIter) {
                     for (let comment of commentsPage) {
-                        await ctx.runMutation(
-                            api.protected.getOrCreateIssueComment,
-                            addSecret({
-                                issueId,
-                                githubId: comment.id,
-                                author: {
-                                    login: comment.user?.login ?? '',
-                                    id: comment.user?.id ?? 0,
-                                },
-                                body: comment.body ?? '',
-                                createdAt: comment.created_at,
-                                updatedAt: comment.updated_at,
-                            }),
-                        )
+                        await ctx.runMutation(api.protected.getOrCreateIssueComment, {
+                            ...SECRET,
+                            issueId,
+                            githubId: comment.id,
+                            author: {
+                                login: comment.user?.login ?? '',
+                                id: comment.user?.id ?? 0,
+                            },
+                            body: comment.body ?? '',
+                            createdAt: comment.created_at,
+                            updatedAt: comment.updated_at,
+                        })
                         if (!lastCommentUpdated || comment.updated_at > lastCommentUpdated) {
                             lastCommentUpdated = comment.updated_at
                         }
                     }
                 }
                 if (lastCommentUpdated) {
-                    await ctx.runMutation(
-                        api.protected.upsertSyncState,
-                        addSecret({ repoId: savedRepo._id, commentsSince: lastCommentUpdated }),
-                    )
+                    await ctx.runMutation(api.protected.upsertSyncState, {
+                        ...SECRET,
+                        repoId: savedRepo._id,
+                        commentsSince: lastCommentUpdated,
+                    })
                 }
             }
         }
     }
     if (lastIssueUpdated) {
-        await ctx.runMutation(
-            api.protected.upsertSyncState,
-            addSecret({ repoId: savedRepo._id, issuesSince: lastIssueUpdated }),
-        )
+        await ctx.runMutation(api.protected.upsertSyncState, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            issuesSince: lastIssueUpdated,
+        })
     }
 }
 
@@ -348,10 +412,11 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
 
     for await (let { data: commitsPage } of allCommits) {
         for (let commit of commitsPage) {
-            let isCommitWritten = await ctx.runMutation(
-                api.protected.isCommitWritten,
-                addSecret({ repoId, sha: commit.sha }),
-            )
+            let isCommitWritten = await ctx.runMutation(api.protected.isCommitWritten, {
+                ...SECRET,
+                repoId,
+                sha: commit.sha,
+            })
             if (isCommitWritten) {
                 console.log('commit already written', commit.sha)
                 continue
@@ -381,26 +446,25 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
 
             let treeId = writtenTrees.get(rootTreeSha)
             if (!treeId) {
-                let treeDoc = await ctx.runMutation(
-                    api.protected.getOrCreateTree,
-                    addSecret({ repoId, sha: rootTreeSha }),
-                )
+                let treeDoc = await ctx.runMutation(api.protected.getOrCreateTree, {
+                    ...SECRET,
+                    repoId,
+                    sha: rootTreeSha,
+                })
                 if (treeDoc) writtenTrees.set(rootTreeSha, treeDoc._id)
             }
 
             let commitId = writtenCommits.get(commit.sha)
             if (!commitId) {
-                let commitDoc = await ctx.runMutation(
-                    api.protected.getOrCreateCommit,
-                    addSecret({
-                        repoId,
-                        treeSha: rootTreeSha,
-                        message: commit.commit.message,
-                        sha: commit.sha,
-                        author: commit.commit.author ?? undefined,
-                        committer: commit.commit.committer ?? undefined,
-                    }),
-                )
+                let commitDoc = await ctx.runMutation(api.protected.getOrCreateCommit, {
+                    ...SECRET,
+                    repoId,
+                    treeSha: rootTreeSha,
+                    message: commit.commit.message,
+                    sha: commit.sha,
+                    author: commit.commit.author ?? undefined,
+                    committer: commit.commit.committer ?? undefined,
+                })
                 if (commitDoc) writtenCommits.set(commit.sha, commitDoc._id)
             }
 
@@ -417,8 +481,9 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
                     rootTreeSha,
                     repoId,
                 )
-                if (isErr(processRes))
-                    return err(`failed to process tree entry: ${processRes.error}`)
+                if (isErr(processRes)) {
+                    return wrap('failed to process tree entry', processRes)
+                }
                 if (processRes) writtenTreeEntries.set(treeEntry.sha, processRes._id)
             }
         }
@@ -454,24 +519,22 @@ async function backfillIssues(cfg: PrivateBackfillCfg) {
             if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
             else continue
 
-            let issueDoc = await ctx.runMutation(
-                api.protected.getOrCreateIssue,
-                addSecret({
-                    repoId,
-                    githubId: issue.id,
-                    number: issue.number,
-                    title: issue.title,
-                    state: issueState,
-                    body: issue.body ?? undefined,
-                    author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-                    labels,
-                    assignees: issue.assignees?.map((a) => a.login) ?? undefined,
-                    createdAt: issue.created_at,
-                    updatedAt: issue.updated_at,
-                    closedAt: issue.closed_at ?? undefined,
-                    comments: issue.comments ?? undefined,
-                }),
-            )
+            let issueDoc = await ctx.runMutation(api.protected.getOrCreateIssue, {
+                ...SECRET,
+                repoId,
+                githubId: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issueState,
+                body: issue.body ?? undefined,
+                author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
+                labels,
+                assignees: issue.assignees?.map((a) => a.login) ?? undefined,
+                createdAt: issue.created_at,
+                updatedAt: issue.updated_at,
+                closedAt: issue.closed_at ?? undefined,
+                comments: issue.comments ?? undefined,
+            })
             if (!issueDoc) continue
 
             let issueId = issueDoc._id
@@ -491,20 +554,18 @@ async function backfillIssues(cfg: PrivateBackfillCfg) {
 
                 for await (let { data: commentsPage } of commentsIter) {
                     for (let comment of commentsPage) {
-                        await ctx.runMutation(
-                            api.protected.getOrCreateIssueComment,
-                            addSecret({
-                                issueId,
-                                githubId: comment.id,
-                                author: {
-                                    login: comment.user?.login ?? '',
-                                    id: comment.user?.id ?? 0,
-                                },
-                                body: comment.body ?? '',
-                                createdAt: comment.created_at,
-                                updatedAt: comment.updated_at,
-                            }),
-                        )
+                        await ctx.runMutation(api.protected.getOrCreateIssueComment, {
+                            ...SECRET,
+                            issueId,
+                            githubId: comment.id,
+                            author: {
+                                login: comment.user?.login ?? '',
+                                id: comment.user?.id ?? 0,
+                            },
+                            body: comment.body ?? '',
+                            createdAt: comment.created_at,
+                            updatedAt: comment.updated_at,
+                        })
                         if (!lastCommentUpdated || comment.updated_at > lastCommentUpdated) {
                             lastCommentUpdated = comment.updated_at
                         }
@@ -517,16 +578,18 @@ async function backfillIssues(cfg: PrivateBackfillCfg) {
     console.log('upserting sync state')
 
     if (lastIssueUpdated) {
-        await ctx.runMutation(
-            api.protected.upsertSyncState,
-            addSecret({ repoId, issuesSince: lastIssueUpdated }),
-        )
+        await ctx.runMutation(api.protected.upsertSyncState, {
+            ...SECRET,
+            repoId,
+            issuesSince: lastIssueUpdated,
+        })
     }
     if (lastCommentUpdated) {
-        await ctx.runMutation(
-            api.protected.upsertSyncState,
-            addSecret({ repoId, commentsSince: lastCommentUpdated }),
-        )
+        await ctx.runMutation(api.protected.upsertSyncState, {
+            ...SECRET,
+            repoId,
+            commentsSince: lastCommentUpdated,
+        })
     }
 
     console.log('sync state upserted')
@@ -581,47 +644,42 @@ async function processTreeEntry(
 
         console.log('storing blob', treeEntry.path)
 
-        newTreeEntry = await ctx.runMutation(
-            api.protected.getOrCreateTreeEntry,
-            addSecret({
-                entrySha: treeEntry.sha,
-                entryType: 'blob' as const,
-                mode: treeEntry.mode,
-                path: treeEntry.path,
-                rootTreeSha: rootTreeSha,
-                repoId,
-            }),
-        )
+        newTreeEntry = await ctx.runMutation(api.protected.getOrCreateTreeEntry, {
+            ...SECRET,
+            entrySha: treeEntry.sha,
+            entryType: 'blob' as const,
+            mode: treeEntry.mode,
+            path: treeEntry.path,
+            rootTreeSha: rootTreeSha,
+            repoId,
+        })
 
-        await ctx.runMutation(
-            api.protected.upsertBlob,
-            addSecret({
-                repoId,
-                sha: treeEntry.sha,
-                content: storedContent,
-                encoding: storedEncoding,
-                size: blobSize,
-            }),
-        )
+        await ctx.runMutation(api.protected.upsertBlob, {
+            ...SECRET,
+            repoId,
+            sha: treeEntry.sha,
+            content: storedContent,
+            encoding: storedEncoding,
+            size: blobSize,
+        })
     } else if (treeEntry.type === 'tree') {
         console.log('storing tree', treeEntry.path)
 
-        newTreeEntry = await ctx.runMutation(
-            api.protected.getOrCreateTreeEntry,
-            addSecret({
-                repoId,
-                rootTreeSha: rootTreeSha,
-                entrySha: treeEntry.sha,
-                entryType: 'tree' as const,
-                mode: treeEntry.mode,
-                path: treeEntry.path,
-            }),
-        )
+        newTreeEntry = await ctx.runMutation(api.protected.getOrCreateTreeEntry, {
+            ...SECRET,
+            repoId,
+            rootTreeSha: rootTreeSha,
+            entrySha: treeEntry.sha,
+            entryType: 'tree' as const,
+            mode: treeEntry.mode,
+            path: treeEntry.path,
+        })
 
-        await ctx.runMutation(
-            api.protected.getOrCreateTree,
-            addSecret({ repoId, sha: treeEntry.sha }),
-        )
+        await ctx.runMutation(api.protected.getOrCreateTree, {
+            ...SECRET,
+            repoId,
+            sha: treeEntry.sha,
+        })
     }
 
     return newTreeEntry

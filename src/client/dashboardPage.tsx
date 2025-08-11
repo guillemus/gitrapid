@@ -3,7 +3,7 @@ import { FastLink } from '@/components/ui/link'
 import { Button } from '@/components/ui/button'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
-import { useFirstLoadQuery, useTanstackQuery } from './utils'
+import { installationsHandle, useFirstLoadQuery, useTanstackQuery } from './utils'
 
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({
@@ -22,7 +22,7 @@ export function DashboardPage() {
                             <h3 className="text-lg font-semibold">Your installed repositories</h3>
                             <Button asChild>
                                 <a
-                                    href="https://github.com/apps/gitrapid-com-dev/installations/new"
+                                    href={`https://github.com/apps/${installationsHandle}/installations/new`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >

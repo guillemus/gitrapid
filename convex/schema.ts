@@ -161,19 +161,19 @@ export default defineSchema({
     }).index('by_user_id', ['userId']),
 
     installations: defineTable({
+        repoId: v.id('repos'),
         userId: v.id('users'),
         suspended: v.boolean(),
-        repoId: v.id('repos'),
-        installationId: v.number(),
+        githubInstallationId: v.number(),
     })
         .index('by_userId_repoId', ['userId', 'repoId'])
-        .index('by_installationId', ['installationId']),
+        .index('by_githubInstallationId', ['githubInstallationId']),
 
     installationAccessTokens: defineTable({
-        repoId: v.id('repos'),
+        installationId: v.id('installations'),
         token: v.string(),
         expiresAt: v.string(),
-    }).index('by_repo_id', ['repoId']),
+    }).index('by_installationId', ['installationId']),
 
     syncStates,
 })

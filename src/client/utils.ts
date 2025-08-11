@@ -177,3 +177,10 @@ export function useGithubParams(): GithubParams {
 
     return { owner, repo, refAndPath }
 }
+
+let _installationsHandle = 'gitrapid-com-dev'
+if (import.meta.env.PROD) {
+    _installationsHandle = 'gitrapid-com'
+}
+
+export const installationsHandle = _installationsHandle

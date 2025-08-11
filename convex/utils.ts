@@ -9,9 +9,9 @@ import type {
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import type { ActionCtx } from './_generated/server'
-import { mutation, query } from './_generated/server'
+import { mutation, query, action } from './_generated/server'
 import { env } from './env'
-import { customMutation, customQuery } from 'convex-helpers/server/customFunctions'
+import { customMutation, customQuery, customAction } from 'convex-helpers/server/customFunctions'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -63,8 +63,50 @@ export type Err<E = string> = { isErr: true; error: E }
 /**
  * Convenient utility to create Failure.
  */
-export function err(msg: string): Err {
+export function err<E>(msg: E): Err<E> {
     return { isErr: true, error: msg }
+}
+
+/**
+ * Wraps an error with a context. While we could just use `err`, when doing error wrapping we could have a refactor like the following
+ *
+ * ```typescript
+ *  function fn() {
+ *      return err("error happened")
+ *  }
+ *
+ *  function someFunc() {
+ *      let data = fn()
+ *      if (isErr(data)) {
+ *          return err(`someFunc: ${data.error}`)
+ *      }
+ *  }
+ * ```
+ *
+ * However, the problem with this is that we might refactor `fn()` to return an error object instead:
+ *
+ * ```typescript
+ *  function fn() {
+ *      return failure({ error: 'http auth error', code: 401, endpoint: '/auth'  })
+ *  }
+ * ```
+ *
+ * Typescript won't complain about implicitly converting `data.error` into the infamous `[object Object]`
+ *
+ * ```typescript
+ *  function someFunc() {
+ *      let data = fn()
+ *      if (isErr(data)) {
+ *          // error will be string "someFunc: [object Object]", which we don't want
+ *          return err(`someFunc: ${data.error}`)
+ *      }
+ *  }
+ * ```
+ *
+ * In order to prevent this, wrap will ensure that the passed error is a string.
+ */
+export function wrap(context: string, err: Err<string>): Err<string> {
+    return { isErr: true, error: `${context}: ${err.error}` }
 }
 
 export function isErr<T, E>(result: T | Err<E>): result is Err<E> {
@@ -103,6 +145,9 @@ export async function tryCatch<T>(promise: Promise<T>): Promise<T | Err> {
  */
 export function unwrap<T, E>(result: T | Err<E>): T {
     if (isErr(result)) {
+        if (typeof result.error === 'string') {
+            throw new Error(result.error)
+        }
         throw result.error
     }
 
@@ -129,26 +174,6 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<T | E
         }
 
         throw error
-    }
-}
-
-export function addSecret<T extends object>(obj: T): T & { secret: string } {
-    return {
-        secret: env.AUTH_GITHUB_WEBHOOK_SECRET!,
-        ...obj,
-    } as T & { secret: string }
-}
-
-export function withSecret<T extends object>(obj: T) {
-    return {
-        secret: v.string(),
-        ...obj,
-    }
-}
-
-export function protectFn(args: { secret: string }) {
-    if (args.secret !== env.AUTH_GITHUB_WEBHOOK_SECRET) {
-        throw new Error('Not available') // security by obscurity
     }
 }
 
@@ -197,6 +222,14 @@ export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
     }
 }
 
+export const SECRET = { secret: env.AUTH_GITHUB_WEBHOOK_SECRET! }
+
+export function protectFn(args: { secret: string }) {
+    if (args.secret !== env.AUTH_GITHUB_WEBHOOK_SECRET) {
+        throw new Error('>:(') // security by obscurity
+    }
+}
+
 export const protectedQuery = customQuery(query, {
     args: { secret: v.string() },
     async input(_ctx, args) {
@@ -206,6 +239,14 @@ export const protectedQuery = customQuery(query, {
 })
 
 export const protectedMutation = customMutation(mutation, {
+    args: { secret: v.string() },
+    async input(_ctx, args) {
+        protectFn(args)
+        return { ctx: {}, args: {} }
+    },
+})
+
+export const protectedAction = customAction(action, {
     args: { secret: v.string() },
     async input(_ctx, args) {
         protectFn(args)

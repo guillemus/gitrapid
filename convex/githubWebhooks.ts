@@ -12,7 +12,8 @@ import type {
     WebhookEvent,
 } from '@octokit/webhooks-types'
 import type { GenericActionCtx } from 'convex/server'
-import { internal } from './_generated/api'
+import { api } from './_generated/api'
+import { SECRET } from './utils'
 
 type IssueWebhookEvent =
     | IssuesOpenedEvent
@@ -67,12 +68,12 @@ export async function handleEvent(ctx: Ctx, eventType: string, body: string) {
 }
 
 async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
-    const installationId = installation.installation.id
+    const githubInstallationId = installation.installation.id
     const sender = installation.sender
     const userId = sender.id
     const repos = installation.repositories || []
 
-    let repoData = []
+    let installationRepos = []
     for (let repo of repos) {
         let owner = repo.full_name.split('/')[0]
         if (!owner) {
@@ -80,7 +81,7 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
             continue
         }
 
-        repoData.push({
+        installationRepos.push({
             owner,
             repo: repo.name,
             private: repo.private,
@@ -88,41 +89,37 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
     }
 
     if (installation.action === 'created') {
-        await ctx.scheduler.runAfter(0, internal.mutations.handleInstallationCreated, {
-            installationId,
+        await ctx.scheduler.runAfter(0, api.protected.createInstallation, {
+            ...SECRET,
+            githubInstallationId,
             githubUserId: userId,
-            repos: repoData,
+            repos: installationRepos,
         })
     } else if (installation.action === 'deleted') {
-        await ctx.scheduler.runAfter(0, internal.mutations.deleteInstallationByInstallationId, {
-            installationId,
+        await ctx.scheduler.runAfter(0, api.protected.deleteInstallationByInstallationId, {
+            ...SECRET,
+            githubInstallationId,
         })
     } else if (installation.action === 'new_permissions_accepted') {
         // we don't care here, just adding it for completeness
         // I mean, we might want to do something in the future, but for now we don't
     } else if (installation.action === 'suspend') {
-        await ctx.scheduler.runAfter(
-            0,
-            internal.mutations.setInstallationSuspendedByInstallationId,
-            {
-                installationId,
-                suspended: true,
-            },
-        )
+        await ctx.scheduler.runAfter(0, api.protected.setInstallationSuspendedByInstallationId, {
+            ...SECRET,
+            githubInstallationId,
+            suspended: true,
+        })
     } else if (installation.action === 'unsuspend') {
-        await ctx.scheduler.runAfter(
-            0,
-            internal.mutations.setInstallationSuspendedByInstallationId,
-            {
-                installationId,
-                suspended: false,
-            },
-        )
+        await ctx.scheduler.runAfter(0, api.protected.setInstallationSuspendedByInstallationId, {
+            ...SECRET,
+            githubInstallationId,
+            suspended: false,
+        })
     } else installation satisfies never
 }
 
 async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDeletedEvent) {
-    const installationId = installation.installation.id.toString()
+    const githubInstallationId = installation.installation.id
     const sender = installation.sender
     const userLogin = sender.login
     const userId = sender.id
@@ -132,7 +129,7 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
     const installationsToRemove = repos.map((repo) => ({
         githubRepoId: repo.id,
         githubUserId: userId,
-        installationId: installationId,
+        githubInstallationId,
     }))
 
     console.log('Installation removed event:', {
@@ -143,7 +140,8 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
     const { issue, repository, action } = payload
 
-    let repo = await ctx.runQuery(internal.queries.getRepo, {
+    let repo = await ctx.runQuery(api.protected.getRepo, {
+        ...SECRET,
         owner: repository.owner.login,
         repo: repository.name,
     })
@@ -161,7 +159,8 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
         }
     }
 
-    await ctx.scheduler.runAfter(0, internal.mutations.upsertIssue, {
+    await ctx.scheduler.runAfter(0, api.protected.upsertIssue, {
+        ...SECRET,
         repoId: repo._id,
         githubId: issue.id,
         number: issue.number,
