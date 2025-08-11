@@ -235,3 +235,11 @@ export const upsertInstallation = protectedMutation({
         }
     },
 })
+
+export const listUsers = protectedQuery({
+    args: {},
+    async handler(ctx) {
+        let users = await ctx.db.query('users').collect()
+        return users
+    },
+})

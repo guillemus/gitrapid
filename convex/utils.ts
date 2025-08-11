@@ -177,7 +177,9 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<T | E
     }
 }
 
-export function actionHttpClient(client: ConvexHttpClient): ActionCtx {
+export function createActionCtx(publicContextUrl: string): ActionCtx {
+    const client = new ConvexHttpClient(publicContextUrl)
+
     return {
         runQuery: async (query, ...args) => {
             // @ts-expect-error

@@ -1,23 +1,25 @@
-import { Octokit } from '@octokit/rest'
 import { v } from 'convex/values'
-import { api } from './_generated/api'
-import { err, octoCatch, protectedAction, SECRET, type Err } from './utils'
+import * as sync from './services/sync'
+import { protectedAction, unwrap } from './utils'
 
-export const deleteInstallation = protectedAction({
+export const installRepo = protectedAction({
     args: {
+        githubUserId: v.number(),
         installationId: v.number(),
+        repo: v.string(),
+        owner: v.string(),
+        private: v.boolean(),
     },
 
-    async handler(ctx, args): Promise<void | Err> {
-        let token = await ctx.runAction(api.nodeActions.createGithubAppToken, SECRET)
-        let octo = new Octokit({ auth: token })
-
-        let res = await octoCatch(
-            octo.rest.apps.deleteInstallation({ installation_id: args.installationId }),
-        )
-        if (res.isErr) {
-            console.error(res.error.error())
-            return err(res.error.error())
-        }
+    async handler(ctx, args) {
+        let install = await sync.installRepo({
+            ctx,
+            githubUserId: args.githubUserId,
+            installationId: args.installationId,
+            repo: args.repo,
+            owner: args.owner,
+            private: args.private,
+        })
+        unwrap(install)
     },
 })

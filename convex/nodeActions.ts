@@ -1,14 +1,16 @@
 'use node'
 
-import { Octokit } from '@octokit/rest'
+import { Octokit } from 'octokit'
 import { v } from 'convex/values'
 import jwt from 'jsonwebtoken'
 import { api } from './_generated/api'
-import { env } from './env'
 import { SECRET, err, isErr, octoCatch, protectedAction } from './utils'
+import { env } from './env'
+import { PRIVATE_KEY } from './keys'
 
-function jwtToken() {
-    let secret = env.AUTH_GITHUB_PRIVATE_KEY!
+// https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app#about-json-web-tokens-jwts
+export function jwtToken() {
+    let secret = PRIVATE_KEY
     let issuer = env.AUTH_GITHUB_ID
 
     let signed = jwt.sign(
@@ -26,7 +28,6 @@ function jwtToken() {
     return signed
 }
 
-// https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app#about-json-web-tokens-jwts
 export const createGithubAppToken = protectedAction({
     args: {},
     handler: jwtToken,

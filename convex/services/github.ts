@@ -1,7 +1,8 @@
+import { api } from '@convex/_generated/api'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, isErr, octoCatch } from '@convex/utils'
+import { err, isErr, octoCatch, SECRET } from '@convex/utils'
 import { App } from '@octokit/app'
-import type { Octokit } from '@octokit/rest'
+import { Octokit } from 'octokit'
 
 export type GitRefInfo = {
     name: string
@@ -30,4 +31,17 @@ export async function getAllRefs(octo: Octokit, args: { owner: string; repo: str
     ]
 
     return data
+}
+
+// Meant for debugging
+export async function logAllInstallations(ctx: ActionCtx) {
+    let jwt = await ctx.runAction(api.nodeActions.createGithubAppToken, SECRET)
+    console.log(jwt)
+
+    let octo = new Octokit({ auth: jwt })
+
+    let allInstallations = octo.paginate.iterator(octo.rest.apps.listInstallations)
+    for await (let installations of allInstallations) {
+        console.log(installations)
+    }
 }

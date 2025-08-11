@@ -89,20 +89,21 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
     }
 
     if (installation.action === 'created') {
-        await ctx.scheduler.runAfter(0, api.protected.createInstallation, {
-            ...SECRET,
-            githubInstallationId,
-            githubUserId: userId,
-            repos: installationRepos,
-        })
+        for (let repo of installationRepos) {
+            await ctx.scheduler.runAfter(0, api.actions.installRepo, {
+                ...SECRET,
+                installationId: githubInstallationId,
+                githubUserId: userId,
+                repo: repo.repo,
+                owner: repo.owner,
+                private: repo.private,
+            })
+        }
     } else if (installation.action === 'deleted') {
         await ctx.scheduler.runAfter(0, api.protected.deleteInstallationByInstallationId, {
             ...SECRET,
             githubInstallationId,
         })
-    } else if (installation.action === 'new_permissions_accepted') {
-        // we don't care here, just adding it for completeness
-        // I mean, we might want to do something in the future, but for now we don't
     } else if (installation.action === 'suspend') {
         await ctx.scheduler.runAfter(0, api.protected.setInstallationSuspendedByInstallationId, {
             ...SECRET,
@@ -115,6 +116,9 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
             githubInstallationId,
             suspended: false,
         })
+    } else if (installation.action === 'new_permissions_accepted') {
+        // we don't care here, just adding it for completeness
+        // I mean, we might want to do something in the future, but for now we don't
     } else installation satisfies never
 }
 
