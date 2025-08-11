@@ -12,11 +12,15 @@ export const Repos = {
             .unique()
     },
 
-    async get(ctx: QueryCtx, owner: string, repo: string) {
+    async getByOwnerRepo(ctx: QueryCtx, owner: string, repo: string) {
         return ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
             .unique()
+    },
+
+    async get(ctx: QueryCtx, repoId: Id<'repos'>) {
+        return ctx.db.get(repoId)
     },
 
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
@@ -284,14 +288,14 @@ export const Installations = {
             .unique()
     },
 
-    async listInstalledRepos(ctx: QueryCtx, userId: Id<'users'>) {
+    async listUserInstallations(ctx: QueryCtx, userId: Id<'users'>) {
         return ctx.db
             .query('installations')
             .withIndex('by_userId_repoId', (q) => q.eq('userId', userId))
             .collect()
     },
 
-    async getByInstallationId(ctx: QueryCtx, installationId: string) {
+    async getByInstallationId(ctx: QueryCtx, installationId: number) {
         return ctx.db
             .query('installations')
             .withIndex('by_installationId', (q) => q.eq('installationId', installationId))
@@ -327,7 +331,7 @@ export const Installations = {
         }
     },
 
-    async deleteByInstallationId(ctx: MutationCtx, installationId: string) {
+    async deleteByInstallationId(ctx: MutationCtx, installationId: number) {
         let installation = await this.getByInstallationId(ctx, installationId)
         if (installation) {
             await ctx.db.delete(installation._id)
@@ -336,7 +340,7 @@ export const Installations = {
 
     async setSuspendedByInstallationId(
         ctx: MutationCtx,
-        installationId: string,
+        installationId: number,
         suspended: boolean,
     ) {
         let installation = await this.getByInstallationId(ctx, installationId)
@@ -544,7 +548,7 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
 export async function createInstallation(
     ctx: MutationCtx,
     args: {
-        installationId: string
+        installationId: number
         githubUserId: number
         repos: { owner: string; repo: string; private: boolean }[]
     },

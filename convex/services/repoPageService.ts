@@ -1,7 +1,7 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import * as models from '@convex/models/models'
-import { err, ok } from '@convex/utils'
+import { err } from '@convex/utils'
 
 export async function getRepoPageQuery(
     ctx: QueryCtx,
@@ -55,13 +55,13 @@ export async function getRepoPageQuery(
         return err(`getRepoPage: blob not found ${owner}/${repo} ${refAndPath}`)
     }
 
-    return ok({
+    return {
         ref: parsedRefAndPath.ref,
         path: parsedRefAndPath.path,
         filenames,
         repoId,
         fileContents: blob.content,
-    })
+    }
 }
 
 const commitShaRegex = /^[a-f0-9]{40}$/i

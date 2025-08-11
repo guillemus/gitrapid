@@ -8,11 +8,10 @@ import { useFirstLoadQuery, useTanstackQuery } from './utils'
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({
         queryKey: ['dashboard'],
-        queryFn: (c) => c.query(api.queries.listInstalledRepos, {}),
+        queryFn: (c) => c.query(api.queries.getDashboardPage, {}),
     })
-
-    let { data: repos } = useTanstackQuery(convexQuery(api.queries.listInstalledRepos, {}))
-    let data = repos ?? firstLoad
+    let { data: page } = useTanstackQuery(convexQuery(api.queries.getDashboardPage, {}))
+    let data = page ?? firstLoad
 
     return (
         <div className="p-6">
@@ -35,7 +34,7 @@ export function DashboardPage() {
                         {!data && <p>Loading...</p>}
                         {data && (
                             <div className="grid grid-cols-6 gap-3">
-                                {data.map((repo: any) => (
+                                {data.map(({ repo, installation }) => (
                                     <Card
                                         key={`${repo.owner}/${repo.repo}`}
                                         className="transition-all hover:shadow-md"

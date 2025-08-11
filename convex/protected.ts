@@ -18,7 +18,7 @@ export const getOrCreateRepo = protectedMutation({
 
 export const getRepo = protectedQuery({
     args: { owner: v.string(), repo: v.string() },
-    handler: (ctx, args) => models.Repos.get(ctx, args.owner, args.repo),
+    handler: (ctx, args) => models.Repos.getByOwnerRepo(ctx, args.owner, args.repo),
 })
 
 export const getOrCreateRef = protectedMutation({

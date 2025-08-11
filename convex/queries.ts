@@ -33,7 +33,7 @@ export const listInstalledRepos = query({
     async handler(ctx) {
         let userId = await parseUserId(ctx)
 
-        return Installations.listInstalledRepos(ctx, userId)
+        return Installations.listUserInstallations(ctx, userId)
     },
 })
 
@@ -97,5 +97,22 @@ export const getInstallationToken = internalQuery({
     },
     async handler(ctx, args) {
         return getUserInstallationToken(ctx, args.userId, args.repoId)
+    },
+})
+
+export const getDashboardPage = query({
+    async handler(ctx) {
+        let userId = await parseUserId(ctx)
+
+        let installations = await Installations.listUserInstallations(ctx, userId)
+        let data = []
+        for (let installation of installations) {
+            let repo = await Repos.get(ctx, installation.repoId)
+            if (repo) {
+                data.push({ repo, installation })
+            }
+        }
+
+        return data
     },
 })

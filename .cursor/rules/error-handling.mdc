@@ -2,109 +2,79 @@
 description: When writing typescript code that involves error handling
 alwaysApply: false
 ---
-### Error handling — conventions for gitrapid
 
-- **Goal**: Keep error flow explicit, typed, and predictable. Prefer returning Result-style values (`ok`/`err`/`failure`) over throwing exceptions; use `tryCatch` at external boundaries only.
+### Error handling conventions
+
+- **Goal**: Keep error flow explicit, typed, and predictable. Return Result-style values using the single error shape and helpers rather than throwing inside business logic.
+
+- **Core primitives**
+  - `err(message: string)`: return contextual human-readable error.
+  - `failure(code: string)`: return a machine-matchable failure value (typically a string literal like `'not-found'`).
+  - `tryCatch(promise)`: boundary wrapper for IO/SDK calls that converts throws into `err(...)`.
+  - `unwrap(result)`: convert a result into its success value or cause a controlled bubble at very high-level boundaries.
+  - `isErr(value)`: helper to detect the error shape — prefer this over checking properties directly.
 
 - **Principles**
-  - **Prefer explicit Result types**: Services and library functions should return `Result<T, E>` (or equivalent `ok`/`err` objects). Avoid throwing from internal service code.
-  - **Use `failure` for structured errors** (machine-matchable codes). Use `err` for human-readable/contextual text.
-  - **Wrap errors with context** when propagating (provide action + source).
-  - **No `any`** in error values — prefer typed error shapes or string codes.
-  - **Minimize try/catch**: Use `tryCatch()` when calling third-party/IO boundaries. Avoid wrapping normal async control flow with try/catch.
-  - **Log/metrics at boundaries**: Log or emit metrics where you convert internal errors to system-level alerts/HTTP responses, not inside every small function.
+  - **Success is the success type**: Functions return either the success value (the given type) or an error.
+  - **Single error shape**: All failing functions return an `Err`-shaped result; callers inspect failures with `isErr(...)`.
+  - **Minimize throwing**: Throw only for programmer errors or unrecoverable initialization failures. External/IO errors should be converted with `tryCatch`.
+  - **Use `failure` for pattern-matchable conditions**: Use `failure('not-found')` (a literal error value) when callers should match on that exact error.
+  - **Use `err` for contextual propagation**: When propagating an unexpected error from a lower layer, wrap it with context: `return err(\`serviceX failed: ${e}\`)`.
 
-- **When to throw**
-  - Throw only for programmer errors (infrequent) or during local initialization where higher-level code cannot reasonably handle the failure.
-  - Runtime errors from external systems should be converted to `err`/`failure`.
-
-- **Pattern: boundary vs business logic**
-  - Boundary (external SDK, network, disk):
-    - Use `tryCatch()` and convert to `err` with context.
+- **Boundary vs business logic**
+  - Boundary code (network, disk, third-party SDKs)
+    - Use `tryCatch()` and convert to `err(...)`.
     - Example:
       ```ts
-      const res = await tryCatch(fetchFromThirdParty())
-      if (res.isErr) return err(`fetchFromThirdParty failed: ${res.error}`)
+      const got = await tryCatch(sdk.fetchThing())
+      if (isErr(got)) return err(`sdk.fetchThing failed: ${got.error}`)
       ```
-  - Business validation:
-    - Use `failure('code')` when callers should pattern-match the condition.
+  - Business validation
+    - Use `failure('some-literal')` for expected, matchable conditions.
     - Example:
       ```ts
-      if (!user) return failure('not-found')
+      if (!repo) return failure('not-found')
       ```
-  - Service/library internals:
-    - Return `err`/`failure`; do not throw.
 
 - **Wrapping errors**
   - Good:
     ```ts
-    const r = await serviceA()
-    if (r.isErr) return err(`serviceA failed: ${r.error}`)
+    const r = await doWork()
+    if (isErr(r)) return err(`doWork failed: ${r.error}`)
     ```
   - Bad:
     ```ts
-    // loses helpful context
-    if (r.isErr) return err(r.error)
+    if (isErr(r)) return err(r.error) // loses useful wrapping context
     ```
 
+- **When to throw**
+  - Only for programmer errors or initialization where higher-level code cannot meaningfully proceed. Otherwise return `err`/`failure`.
+
 - **Consuming callers**
-  - Pattern-match structured failures first:
+  - Pattern-match the returned error value directly (not a separate `code` field). Example:
     ```ts
     const r = await service()
-    if (r.isErr) {
-      if (r.error === 'not-found') { /* handle specially */ }
+    if (isErr(r)) {
+      if (r.error === 'not-found') { /* handle not-found */ }
       return err(`service error: ${r.error}`)
     }
     ```
-  - When you can't handle an error, wrap it with context before returning.
 
-- **Examples (short)**
-  - Good boundary usage:
+- **Operational**
+  - Convert `err`/`failure` to logs/alerts at the application boundary (cron wrapper, HTTP handler). Avoid leaking sensitive data.
+
+- **Anti-patterns**
+  - No try/catch wrapping normal async flows.
+  - No `err(r.error)` without adding wrapping context.
+  - Do not check error shapes via direct property checks; call `isErr(value)`.
+
+- **Short examples**
+  - Boundary:
     ```ts
-    // good: boundary uses tryCatch
-    const maybe = await tryCatch(sdk.getThing())
-    if (maybe.isErr) return err(`sdk.getThing: ${maybe.error}`)
+    const maybe = await tryCatch(externalSdk.get())
+    if (isErr(maybe)) return err(`externalSdk.get: ${maybe.error}`)
     ```
-  - Bad: throwing inside service logic
+  - Business:
     ```ts
-    // bad
-    throw new Error('boom')
-    // good
-    return err('boom')
+    if (!user) return failure('not-found')
     ```
-  - Failure vs err:
-    ```ts
-    // use failure for machine-checked conditions
-    if (!repoExists) return failure('repo-not-found')
-
-    // use err for contextual propagation
-    const res = await doWork()
-    if (res.isErr) return err(`doWork failed: ${res.error}`)
-    ```
-
-- **Types**
-  - Prefer narrow, explicit error unions:
-    ```ts
-    type ServiceError = 
-      | { kind: 'not-found' }
-      | { kind: 'validation'; field: string }
-      | { kind: 'internal'; message: string }
-    ```
-  - If you must interop with untyped libraries, convert their errors immediately to a typed shape.
-
-- **Testing**
-  - Unit tests should assert returned Result shapes, not catches/throws.
-
-- **Operational guidelines**
-  - Convert `err`/`failure` to logs/alerts at the application boundary (e.g., HTTP handler, cron wrapper).
-  - Avoid logging sensitive data.
-
-- **Anti-patterns (short)**
-  - No try/catch wrapping normal promise flows.
-  - No `err(r.error)` without added context.
-  - No `any` in errors or `as any` casts.
-// 3) Misusing err with adding error codes
-async function bad() { return err('code-file-not-found') } // bad
-async function good() { return err('file was not found') } // good
-async function also good() { return failure('code-file-not-found') }
-```

@@ -67,7 +67,7 @@ export async function handleEvent(ctx: Ctx, eventType: string, body: string) {
 }
 
 async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
-    const installationId = installation.installation.id.toString()
+    const installationId = installation.installation.id
     const sender = installation.sender
     const userId = sender.id
     const repos = installation.repositories || []

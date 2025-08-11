@@ -164,7 +164,7 @@ export default defineSchema({
         userId: v.id('users'),
         suspended: v.boolean(),
         repoId: v.id('repos'),
-        installationId: v.string(),
+        installationId: v.number(),
     })
         .index('by_userId_repoId', ['userId', 'repoId'])
         .index('by_installationId', ['installationId']),

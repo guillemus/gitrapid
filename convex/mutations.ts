@@ -21,7 +21,7 @@ export const addInstallation = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
-        installationId: v.string(),
+        installationId: v.number(),
     },
     handler: (ctx, args) =>
         models.Installations.getOrCreate(ctx, {
@@ -34,7 +34,7 @@ export const addInstallation = internalMutation({
 
 export const handleInstallationCreated = internalMutation({
     args: {
-        installationId: v.string(),
+        installationId: v.number(),
         githubUserId: v.number(),
         repos: v.array(
             v.object({
@@ -72,14 +72,14 @@ export const setInstallationSuspended = internalMutation({
 
 export const deleteInstallationByInstallationId = internalMutation({
     args: {
-        installationId: v.string(),
+        installationId: v.number(),
     },
     handler: (ctx, args) => models.Installations.deleteByInstallationId(ctx, args.installationId),
 })
 
 export const setInstallationSuspendedByInstallationId = internalMutation({
     args: {
-        installationId: v.string(),
+        installationId: v.number(),
         suspended: v.boolean(),
     },
     handler: (ctx, args) =>

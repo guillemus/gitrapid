@@ -1,7 +1,7 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { addSecret, err, octoCatch, ok } from '@convex/utils'
+import { addSecret, err, isErr, octoCatch } from '@convex/utils'
 import { Octokit } from '@octokit/rest'
 import { Buffer } from 'buffer'
 import { getAllRefs } from './github'
@@ -45,7 +45,7 @@ export async function syncRepo(cfg: SyncRepoConfig) {
         console.log(`${owner}/${repo}: incremental sync completed`)
     }
 
-    if (result.isErr) {
+    if (isErr(result)) {
         await ctx.runMutation(
             api.protected.upsertSyncState,
             addSecret({ repoId: savedRepo._id, syncError: result.error }),
@@ -64,8 +64,6 @@ export async function syncRepo(cfg: SyncRepoConfig) {
 
     let durationMs = Date.now() - startedAt
     console.log(`${owner}/${repo}: sync success in ${durationMs}ms`)
-
-    return ok('synced')
 }
 
 type CreateOctokitClientCfg = {
@@ -93,7 +91,7 @@ export async function createOctokitClient(cfg: CreateOctokitClientCfg) {
 
         let octo = new Octokit({ auth: tokenDoc.token })
         console.log(`${cfg.owner}/${cfg.repo}: Using token type: installation`)
-        return ok(octo)
+        return octo
     }
 
     // Public: use user PAT
@@ -103,28 +101,28 @@ export async function createOctokitClient(cfg: CreateOctokitClientCfg) {
     let octo = new Octokit({ auth: patDoc.token })
     console.log(`${cfg.owner}/${cfg.repo}: Using token type: PAT`)
 
-    return ok(octo)
+    return octo
 }
 
 async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) {
     let { ctx, octo, owner, repo } = cfg
 
-    let repoRes = await octoCatch(octo.repos.get({ owner, repo }))
-    if (repoRes.isErr) {
-        let isUnauthorized = repoRes.error.status === 401
-        let badCredentials = repoRes.error.error().includes('Bad credentials')
+    let repoData = await octoCatch(octo.repos.get({ owner, repo }))
+    if (isErr(repoData)) {
+        let isUnauthorized = repoData.error.status === 401
+        let badCredentials = repoData.error.error().includes('Bad credentials')
         if (isUnauthorized && badCredentials) {
             return err('bad credentials')
         }
-        return err(`failed to get repo: ${repoRes.error.error()}`)
+        return err(`failed to get repo: ${repoData.error.error()}`)
     }
 
     let refs = await getAllRefs(octo, { owner, repo })
-    if (refs.isErr) {
+    if (isErr(refs)) {
         return err(`failed to get refs: ${refs.error}`)
     }
 
-    let desiredRefs = refs.data
+    let desiredRefs = refs
     await ctx.runMutation(
         api.protected.upsertRefs,
         addSecret({ refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })) }),
@@ -132,15 +130,15 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
 
     await ctx.runMutation(
         api.protected.setRepoHead,
-        addSecret({ repoId: savedRepo._id, headRefName: repoRes.data.default_branch }),
+        addSecret({ repoId: savedRepo._id, headRefName: repoData.default_branch }),
     )
 
     console.log('upserted refs')
 
     if (!savedRepo.private) {
         console.log('validating license')
-        let licenseRes = await validatePublicLicense(octo, { owner, repo })
-        if (licenseRes.isErr) return err(`license validation failed: ${licenseRes.error}`)
+        let license = await validatePublicLicense(octo, { owner, repo })
+        if (isErr(license)) return err(`license validation failed: ${license.error}`)
 
         console.log('license validated')
     }
@@ -148,7 +146,7 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
     console.log('backfilling commits')
 
     let commitsRes = await backfillCommits({ ...cfg, ctx, repoId: savedRepo._id })
-    if (commitsRes.isErr) {
+    if (isErr(commitsRes)) {
         return err(`failed to backfill commits: ${commitsRes.error}`)
     }
 
@@ -164,8 +162,6 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
         api.protected.upsertSyncState,
         addSecret({ repoId: savedRepo._id, backfillDone: true }),
     )
-
-    return ok('backfill-complete')
 }
 
 async function runIncrementalSync(
@@ -177,16 +173,16 @@ async function runIncrementalSync(
 
     // Private repos rely on webhooks post-install; nothing to do
     if (savedRepo.private) {
-        return ok('private-repo: incremental sync skipped')
+        return
     }
 
     console.log('getting repo')
 
-    let repoRes = await octoCatch(octo.repos.get({ owner: cfg.owner, repo: cfg.repo }))
-    if (repoRes.isErr) {
-        return err(`failed to get repo: ${repoRes.error.error()}`)
+    let repoData = await octoCatch(octo.repos.get({ owner: cfg.owner, repo: cfg.repo }))
+    if (isErr(repoData)) {
+        return err(`failed to get repo: ${repoData.error.error()}`)
     }
-    let defaultBranch = repoRes.data.default_branch
+    let defaultBranch = repoData.default_branch
     if (defaultBranch) {
         await ctx.runMutation(
             api.protected.setRepoHead,
@@ -197,10 +193,10 @@ async function runIncrementalSync(
     console.log('getting all refs')
 
     let refs = await getAllRefs(octo, { owner: cfg.owner, repo: cfg.repo })
-    if (refs.isErr) {
+    if (isErr(refs)) {
         return err(`failed to get refs: ${refs.error}`)
     }
-    let desiredRefs = refs.data
+    let desiredRefs = refs
     await ctx.runMutation(
         api.protected.upsertRefs,
         addSecret({ refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })) }),
@@ -209,7 +205,7 @@ async function runIncrementalSync(
     console.log('backfilling commits')
 
     let commitsRes = await backfillCommits({ ...cfg, ctx, repoId: savedRepo._id })
-    if (commitsRes.isErr) return err(`failed to backfill commits: ${commitsRes.error}`)
+    if (isErr(commitsRes)) return err(`failed to backfill commits: ${commitsRes.error}`)
 
     console.log('backfilled commits')
 
@@ -313,8 +309,6 @@ async function runIncrementalSync(
             addSecret({ repoId: savedRepo._id, issuesSince: lastIssueUpdated }),
         )
     }
-
-    return ok()
 }
 
 // Private backfill helpers (commits + issues) modeled on downloads.ts
@@ -322,19 +316,21 @@ type PrivateBackfillCfg = SyncRepoConfig & { repoId: Id<'repos'> }
 
 async function validatePublicLicense(octo: Octokit, args: { owner: string; repo: string }) {
     let license = await octoCatch(octo.rest.licenses.getForRepo(args))
-    if (license.isErr) {
+    if (isErr(license)) {
         if (license.error.status === 404) {
-            return err('license-not-found')
+            return err('license not found')
+        } else {
+            return err(license.error.error())
         }
-        return err(license.error.error())
     }
 
-    let spdxId = license.data.license?.spdx_id
+    let spdxId = license.license?.spdx_id
     if (!spdxId) return err('license-not-found')
     if (!['MIT', 'Apache-2.0', 'BSD-3-Clause'].includes(spdxId)) {
         return err(`license-not-supported:${spdxId}`)
     }
-    return ok('license-ok')
+
+    return 'license-ok'
 }
 
 async function backfillCommits(cfg: PrivateBackfillCfg) {
@@ -365,19 +361,18 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
 
             let rootTreeSha = commit.commit.tree.sha
 
-            let githubTree
-            githubTree = octo.git.getTree({
+            let treeData
+            treeData = octo.git.getTree({
                 owner,
                 repo,
                 tree_sha: rootTreeSha,
                 recursive: 'true',
             })
-            githubTree = await octoCatch(githubTree)
-            if (githubTree.isErr) {
-                return err(`failed to get tree: ${githubTree.error.error()}`)
+            treeData = await octoCatch(treeData)
+            if (isErr(treeData)) {
+                return err(`failed to get tree: ${treeData.error.error()}`)
             }
 
-            let treeData = githubTree.data
             if (treeData.truncated) {
                 return err('tree too big to process: truncated')
             }
@@ -422,13 +417,14 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
                     rootTreeSha,
                     repoId,
                 )
-                if (processRes.isErr) return err(processRes.error)
-                if (processRes.data) writtenTreeEntries.set(treeEntry.sha, processRes.data._id)
+                if (isErr(processRes))
+                    return err(`failed to process tree entry: ${processRes.error}`)
+                if (processRes) writtenTreeEntries.set(treeEntry.sha, processRes._id)
             }
         }
     }
 
-    return ok('commits-complete')
+    return 'commits-complete'
 }
 
 async function backfillIssues(cfg: PrivateBackfillCfg) {
@@ -557,15 +553,13 @@ async function processTreeEntry(
     if (treeEntry.type === 'blob') {
         console.log('fetching blob', treeEntry.path)
 
-        let blob = octo.git.getBlob({ owner, repo, file_sha: treeEntry.sha })
-        let blobRes = await octoCatch(blob)
-        if (blobRes.isErr) {
-            return err(`failed to get blob: ${blobRes.error.error()}`)
+        let blob = await octoCatch(octo.git.getBlob({ owner, repo, file_sha: treeEntry.sha }))
+        if (isErr(blob)) {
+            return err(`failed to get blob: ${blob.error.error()}`)
         }
 
-        let blobData = blobRes.data
-        let blobContentBase64 = blobData.content
-        let blobSize = blobData.size ?? 0
+        let blobContentBase64 = blob.content
+        let blobSize = blob.size ?? 0
 
         let storedContent: string
         let storedEncoding: 'utf-8' | 'base64'
@@ -630,5 +624,5 @@ async function processTreeEntry(
         )
     }
 
-    return ok(newTreeEntry)
+    return newTreeEntry
 }
