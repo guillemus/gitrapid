@@ -11,6 +11,7 @@
 import type * as actions from "../actions.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as debug from "../debug.js";
 import type * as env from "../env.js";
 import type * as githubWebhooks from "../githubWebhooks.js";
 import type * as http from "../http.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   actions: typeof actions;
   auth: typeof auth;
   crons: typeof crons;
+  debug: typeof debug;
   env: typeof env;
   githubWebhooks: typeof githubWebhooks;
   http: typeof http;

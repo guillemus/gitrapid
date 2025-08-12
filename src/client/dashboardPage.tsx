@@ -1,9 +1,10 @@
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FastLink } from '@/components/ui/link'
-import { Button } from '@/components/ui/button'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import { installationsHandle, useFirstLoadQuery, useTanstackQuery } from './utils'
+import type { Doc } from '@convex/_generated/dataModel'
 
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({
@@ -26,45 +27,56 @@ export function DashboardPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
-                                    Install Repository
+                                    Install / Uninstall repositories
                                 </a>
                             </Button>
                         </div>
-                        {data?.length === 0 && <p>No repositories installed yet.</p>}
+                        {data && data.length === 0 && <p>No repositories installed yet.</p>}
                         {!data && <p>Loading...</p>}
-                        {data && (
-                            <div className="grid grid-cols-6 gap-3">
-                                {data.map(({ repo, installation }) => (
-                                    <Card
-                                        key={`${repo.owner}/${repo.repo}`}
-                                        className="transition-all hover:shadow-md"
-                                    >
-                                        <CardContent className="p-4">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <FastLink
-                                                        to={`/${repo.owner}/${repo.repo}`}
-                                                        className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                                                    >
-                                                        {repo.owner}/{repo.repo}
-                                                    </FastLink>
-                                                    <div className="mt-1 text-sm text-gray-600">
-                                                        Repository by {repo.owner}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                    {repo.private && (
-                                                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
-                                                            Private
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                        {data &&
+                            data.map(({ repo, installation }) => (
+                                <InstalledRepository
+                                    key={`${repo.owner}/${repo.repo}`}
+                                    repo={repo}
+                                    installation={installation}
+                                />
+                            ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+type InstalledRepositoryProps = {
+    repo: Doc<'repos'>
+    installation: Doc<'installations'>
+}
+
+function InstalledRepository(props: InstalledRepositoryProps) {
+    return (
+        <div className="grid grid-cols-6 gap-3">
+            <Card className="transition-all hover:shadow-md">
+                <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <FastLink
+                                to={`/${props.repo.owner}/${props.repo.repo}`}
+                                className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                                {props.repo.owner}/{props.repo.repo}
+                            </FastLink>
+                            <div className="mt-1 text-sm text-gray-600">
+                                Repository by {props.repo.owner}
                             </div>
-                        )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            {props.repo.private && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                    Private
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </CardContent>
             </Card>

@@ -111,7 +111,7 @@ export function wrap(context: string, err: Err<string>): Err<string> {
 
 export function isErr<T, E>(result: T | Err<E>): result is Err<E> {
     // @ts-expect-error
-    return result.isErr === true
+    return result?.isErr === true
 }
 
 /**

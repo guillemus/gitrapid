@@ -4,7 +4,7 @@
 import { v } from 'convex/values'
 import * as models from './models/models'
 import * as schemas from './schema'
-import { err, protectedMutation, protectedQuery } from './utils'
+import { err, protectedMutation, protectedQuery, unwrap } from './utils'
 
 export const getPat = protectedQuery({
     args: { userId: v.id('users') },
@@ -69,16 +69,6 @@ export const getOrCreateCommit = protectedMutation({
 export const upsertRefs = protectedMutation({
     args: { refs: v.array(v.object(schemas.refsSchema)) },
     handler: (ctx, args) => models.Refs.upsertMany(ctx, args.refs),
-})
-
-export const reconcileRefs = protectedMutation({
-    args: {
-        repoId: v.id('repos'),
-        refs: v.array(
-            v.object({ name: v.string(), commitSha: v.string(), isTag: v.optional(v.boolean()) }),
-        ),
-    },
-    handler: (ctx, args) => models.Refs.reconcile(ctx, args.repoId, args.refs),
 })
 
 export const setRepoHead = protectedMutation({
@@ -236,10 +226,17 @@ export const upsertInstallation = protectedMutation({
     },
 })
 
-export const listUsers = protectedQuery({
-    args: {},
-    async handler(ctx) {
-        let users = await ctx.db.query('users').collect()
-        return users
+export const deleteInstalledRepositoryData = protectedMutation({
+    args: {
+        githubInstallationId: v.number(),
+        githubUserId: v.number(),
+        repo: v.object({
+            owner: v.string(),
+            repo: v.string(),
+        }),
+    },
+    async handler(ctx, args) {
+        let result = await models.deleteInstalledRepositoryData(ctx, args)
+        unwrap(result)
     },
 })

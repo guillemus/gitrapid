@@ -17,18 +17,43 @@ export function useFirstLoadQuery<T>(args: {
     let convexHttp = useConvexHttp()
     let firstLoad = useSnapshot($firstLoad)
 
-    return (
-        useTanstackQuery({
-            queryKey: args.queryKey,
-            queryFn: async () => {
-                let res = await args.queryFn(convexHttp!)
-                $firstLoad.value = true
-                return res
-            },
-            enabled: !!convexHttp && !firstLoad.value,
-            staleTime: Infinity,
-        }).data ?? null
-    )
+    const { data } = useTanstackQuery({
+        queryKey: args.queryKey,
+        queryFn: async () => {
+            let res = await args.queryFn(convexHttp!)
+            $firstLoad.value = true
+            return res
+        },
+        enabled: !!convexHttp && !firstLoad.value,
+        staleTime: Infinity,
+    })
+
+    return data ?? null
+}
+
+export function usePageQuery<
+    Query extends FunctionReference<'query'>,
+    Args extends FunctionArgs<Query> | 'skip',
+>(queryKey: QueryKey, query: Query, args: Args) {
+    let convexHttp = useConvexHttp()
+    let firstLoad = useSnapshot($firstLoad)
+
+    const { data: firstLoadPage } = useTanstackQuery({
+        queryKey: queryKey,
+        queryFn: async () => {
+            // @ts-expect-error
+            let res = await convexHttp!.query(query, args)
+
+            $firstLoad.value = true
+            return res
+        },
+        enabled: !!convexHttp && !firstLoad.value,
+        staleTime: Infinity,
+    })
+
+    let { data: subscribedPage } = useTanstackQuery(convexQuery(query, args))
+
+    return subscribedPage ?? firstLoadPage
 }
 
 export function getLanguageFromExtension(filePath: string): string {
@@ -147,6 +172,8 @@ import { createAuthClient } from 'better-auth/react'
 import type { ConvexHttpClient } from 'convex/browser'
 import { useParams } from 'react-router'
 import { useConvexHttp } from './convex'
+import type { FunctionArgs, FunctionReference } from 'convex/server'
+import { convexQuery } from '@convex-dev/react-query'
 
 export const authClient = createAuthClient()
 

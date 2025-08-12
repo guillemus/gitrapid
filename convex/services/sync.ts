@@ -2,25 +2,9 @@ import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import { SECRET, err, isErr, octoCatch, wrap } from '@convex/utils'
-import { Octokit } from '@octokit/rest'
 import { Buffer } from 'buffer'
+import { Octokit } from 'octokit'
 import { getAllRefs } from './github'
-
-async function getFreshInstallationToken(ctx: ActionCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
-    // first, query for installation tokens
-    // if none found / expired / close to be expired, create a new one
-    // otherwise, return that one
-
-    let installationToken = await ctx.runQuery(api.protected.getInstallationTokenForUserRepo, {
-        ...SECRET,
-        userId,
-        repoId,
-    })
-    if (!installationToken) {
-        // this means that the
-    } else if (installationToken.expiresAt) {
-    }
-}
 
 type InstallRepoCfg = {
     ctx: ActionCtx
@@ -63,7 +47,37 @@ export async function installRepo(cfg: InstallRepoCfg) {
 
     let octo = new Octokit({ auth: token })
 
-    // kickoff backfilling
+    let syncState = await ctx.runMutation(api.protected.getOrCreateSyncState, {
+        ...SECRET,
+        repoId: createdRepo._id,
+    })
+    if (!syncState) {
+        return err('failed to get sync state')
+    }
+
+    console.log(`${owner}/${repo}: starting initial backfill`)
+    let backfill = await runInitialBackfill(
+        {
+            ...cfg,
+            octo,
+        },
+        createdRepo,
+    )
+    if (isErr(backfill)) {
+        await ctx.runMutation(api.protected.upsertSyncState, {
+            ...SECRET,
+            repoId: createdRepo._id,
+            syncError: backfill.error,
+        })
+        return wrap('sync repo failed', backfill)
+    }
+
+    await ctx.runMutation(api.protected.upsertSyncState, {
+        ...SECRET,
+        repoId: createdRepo._id,
+        syncError: undefined,
+        lastSuccessAt: new Date().toISOString(),
+    })
 }
 
 type SyncRepoConfig = {
@@ -126,50 +140,10 @@ export async function syncRepo(cfg: SyncRepoConfig) {
     console.log(`${owner}/${repo}: sync success in ${durationMs}ms`)
 }
 
-type CreateOctokitClientCfg = {
-    ctx: ActionCtx
-    userId: Id<'users'>
-    owner: string
-    repo: string
-}
-
-export async function createOctokitClient(cfg: CreateOctokitClientCfg) {
-    // repo must exist; we need its privacy and id
-    let repoDoc = await cfg.ctx.runQuery(api.protected.getRepo, {
-        ...SECRET,
-        owner: cfg.owner,
-        repo: cfg.repo,
-    })
-    if (!repoDoc) return err('repo not found')
-
-    if (repoDoc.private) {
-        // Use installation token for this user + repo
-        let tokenDoc = await cfg.ctx.runQuery(api.protected.getInstallationTokenForUserRepo, {
-            ...SECRET,
-            userId: cfg.userId,
-            repoId: repoDoc._id,
-        })
-        if (!tokenDoc) return err('installation token not found')
-
-        let octo = new Octokit({ auth: tokenDoc.token })
-        console.log(`${cfg.owner}/${cfg.repo}: Using token type: installation`)
-        return octo
-    }
-
-    // Public: use user PAT
-    let patDoc = await cfg.ctx.runQuery(api.protected.getPat, { ...SECRET, userId: cfg.userId })
-    if (!patDoc) return err('pat not found')
-
-    let octo = new Octokit({ auth: patDoc.token })
-    console.log(`${cfg.owner}/${cfg.repo}: Using token type: PAT`)
-
-    return octo
-}
-
 async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) {
     let { ctx, octo, owner, repo } = cfg
 
-    let repoData = await octoCatch(octo.repos.get({ owner, repo }))
+    let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
     if (isErr(repoData)) {
         let isUnauthorized = repoData.error.status === 401
         let badCredentials = repoData.error.error().includes('Bad credentials')
@@ -242,7 +216,7 @@ async function runIncrementalSync(
 
     console.log('getting repo')
 
-    let repoData = await octoCatch(octo.repos.get({ owner: cfg.owner, repo: cfg.repo }))
+    let repoData = await octoCatch(octo.rest.repos.get({ owner: cfg.owner, repo: cfg.repo }))
     if (isErr(repoData)) {
         return err(`failed to get repo: ${repoData.error.error()}`)
     }
@@ -427,7 +401,7 @@ async function backfillCommits(cfg: PrivateBackfillCfg) {
             let rootTreeSha = commit.commit.tree.sha
 
             let treeData
-            treeData = octo.git.getTree({
+            treeData = octo.rest.git.getTree({
                 owner,
                 repo,
                 tree_sha: rootTreeSha,
@@ -616,7 +590,7 @@ async function processTreeEntry(
     if (treeEntry.type === 'blob') {
         console.log('fetching blob', treeEntry.path)
 
-        let blob = await octoCatch(octo.git.getBlob({ owner, repo, file_sha: treeEntry.sha }))
+        let blob = await octoCatch(octo.rest.git.getBlob({ owner, repo, file_sha: treeEntry.sha }))
         if (isErr(blob)) {
             return err(`failed to get blob: ${blob.error.error()}`)
         }

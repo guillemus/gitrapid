@@ -1,6 +1,7 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import type { WithoutSystemFields } from 'convex/server'
+import { err, failure } from '../utils'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -46,6 +47,9 @@ export const Repos = {
 
         return await ctx.db.get(repoId)
     },
+    async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
+        await ctx.db.delete(repoId)
+    },
 }
 
 export const SyncStates = {
@@ -73,6 +77,12 @@ export const SyncStates = {
 
         let id = await ctx.db.insert('syncStates', args)
         return await ctx.db.get(id)
+    },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let existing = await this.getByRepoId(ctx, repoId)
+        if (existing) {
+            await ctx.db.delete(existing._id)
+        }
     },
 }
 
@@ -107,11 +117,27 @@ export const RepoCounts = {
     async setClosedPullRequests(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
         return ctx.db.patch(repoCountId, { closedPullRequests: count })
     },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let existing = await this.getByRepoId(ctx, repoId)
+        if (existing) {
+            await ctx.db.delete(existing._id)
+        }
+    },
 }
 
 export const Refs = {
     async get(ctx: QueryCtx, id: Id<'refs'>) {
         return ctx.db.get(id)
+    },
+
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let refs = await ctx.db
+            .query('refs')
+            .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let r of refs) {
+            await ctx.db.delete(r._id)
+        }
     },
 
     async getByRepoAndCommit(ctx: QueryCtx, repoId: Id<'repos'>, commitSha: string) {
@@ -141,44 +167,6 @@ export const Refs = {
         for (let ref of refs) {
             await this.patchOrCreate(ctx, ref)
         }
-    },
-    /**
-     * Reconcile the refs table for a given repository to match the desired set of refs.
-     *
-     * This function ensures that the refs in the database for the specified repoId
-     * exactly match the refs provided in `desiredRefs`:
-     *   - Any refs in the database that are not present in `desiredRefs` (by name) are deleted.
-     *   - All refs in `desiredRefs` are upserted (inserted or updated) into the database.
-     *
-     * This is typically used to synchronize the refs table with the current state of
-     * refs (branches/tags) as reported by GitHub or another source of truth.
-     */
-    async reconcile(
-        ctx: MutationCtx,
-        repoId: Id<'repos'>,
-        desiredRefs: Array<Pick<UpsertDoc<'refs'>, 'name' | 'commitSha' | 'isTag'>>,
-    ) {
-        let desiredNames = new Set(desiredRefs.map((r) => r.name))
-        let existing = await ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
-            .collect()
-
-        for (let ref of existing) {
-            if (!desiredNames.has(ref.name)) {
-                await ctx.db.delete(ref._id)
-            }
-        }
-
-        await this.upsertMany(
-            ctx,
-            desiredRefs.map((r) => ({
-                repoId,
-                name: r.name,
-                commitSha: r.commitSha,
-                isTag: r.isTag,
-            })),
-        )
     },
 
     async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'refs'>) {
@@ -278,6 +266,16 @@ export const Issues = {
         }
         return await ctx.db.get(id)
     },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let issues = await ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let issue of issues) {
+            await IssueComments.deleteByIssueId(ctx, issue._id)
+            await ctx.db.delete(issue._id)
+        }
+    },
 }
 
 export const Installations = {
@@ -342,6 +340,10 @@ export const Installations = {
         if (installation) {
             await ctx.db.patch(installation._id, { suspended })
         }
+    },
+
+    async delete(ctx: MutationCtx, installationId: Id<'installations'>) {
+        await ctx.db.delete(installationId)
     },
 
     async deleteByGithubInstallationId(ctx: MutationCtx, githubInstallationId: number) {
@@ -426,6 +428,15 @@ export const Blobs = {
         let id = await ctx.db.insert('blobs', args)
         return await ctx.db.get(id)
     },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let blobs = await ctx.db
+            .query('blobs')
+            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let b of blobs) {
+            await ctx.db.delete(b._id)
+        }
+    },
 }
 
 export const Trees = {
@@ -442,6 +453,15 @@ export const Trees = {
         }
         let id = await ctx.db.insert('trees', args)
         return await ctx.db.get(id)
+    },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let trees = await ctx.db
+            .query('trees')
+            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let t of trees) {
+            await ctx.db.delete(t._id)
+        }
     },
 }
 
@@ -482,6 +502,15 @@ export const TreeEntries = {
         let id = await ctx.db.insert('treeEntries', args)
         return await ctx.db.get(id)
     },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let entries = await ctx.db
+            .query('treeEntries')
+            .withIndex('by_repo_tree_and_path', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let e of entries) {
+            await ctx.db.delete(e._id)
+        }
+    },
 }
 
 export const Commits = {
@@ -498,6 +527,15 @@ export const Commits = {
         }
         let id = await ctx.db.insert('commits', args)
         return await ctx.db.get(id)
+    },
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let commits = await ctx.db
+            .query('commits')
+            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let c of commits) {
+            await ctx.db.delete(c._id)
+        }
     },
 }
 
@@ -526,6 +564,15 @@ export const IssueComments = {
         let id = await ctx.db.insert('issueComments', args)
         return await ctx.db.get(id)
     },
+    async deleteByIssueId(ctx: MutationCtx, issueId: Id<'issues'>) {
+        let comments = await ctx.db
+            .query('issueComments')
+            .withIndex('by_issue', (q) => q.eq('issueId', issueId))
+            .collect()
+        for (let c of comments) {
+            await ctx.db.delete(c._id)
+        }
+    },
 }
 
 export const InstallationAccessTokens = {
@@ -553,6 +600,12 @@ export const InstallationAccessTokens = {
 
         let id = await ctx.db.insert('installationAccessTokens', args)
         return await ctx.db.get(id)
+    },
+    async deleteByInstallationId(ctx: MutationCtx, installationId: Id<'installations'>) {
+        let token = await this.getByInstallationId(ctx, installationId)
+        if (token) {
+            await ctx.db.delete(token._id)
+        }
     },
 }
 
@@ -610,4 +663,60 @@ export async function createInstallation(
     }
 
     console.log(`Successfully processed installation for user ${authAccount.userId}`)
+}
+
+export async function deleteInstalledRepositoryData(
+    ctx: MutationCtx,
+    args: {
+        githubInstallationId: number
+        githubUserId: number
+        repo: { owner: string; repo: string }
+    },
+) {
+    // Resolve local user from GitHub user id
+    let authAccount = await AuthAccounts.getByProviderAndAccountId(
+        ctx,
+        args.githubUserId.toString(),
+    )
+    if (!authAccount) {
+        return err('auth account not found')
+    }
+
+    // Find repo
+    let repo = await Repos.getByOwnerAndRepo(ctx, args.repo.owner, args.repo.repo)
+    if (!repo) {
+        return err('repo not found')
+    }
+
+    // Verify the user actually has an installation for this repo
+    let installation = await Installations.getByUserIdAndRepoId(ctx, authAccount.userId, repo._id)
+    if (!installation) {
+        return err('installation not found')
+    }
+
+    // Ensure the installation matches the provided githubInstallationId
+    if (installation.githubInstallationId !== args.githubInstallationId) {
+        return err('installation does not match')
+    }
+
+    // Delete installation access token (if any) and installation row
+    await InstallationAccessTokens.deleteByInstallationId(ctx, installation._id)
+    await Installations.delete(ctx, installation._id)
+
+    // Delete sync state and repo counts
+    await SyncStates.deleteByRepoId(ctx, repo._id)
+    await RepoCounts.deleteByRepoId(ctx, repo._id)
+
+    // Delete issues (and their comments) via helper
+    await Issues.deleteByRepoId(ctx, repo._id)
+
+    // Delete refs, commits, tree entries, trees, blobs via helpers
+    await Refs.deleteByRepoId(ctx, repo._id)
+    await Commits.deleteByRepoId(ctx, repo._id)
+    await TreeEntries.deleteByRepoId(ctx, repo._id)
+    await Trees.deleteByRepoId(ctx, repo._id)
+    await Blobs.deleteByRepoId(ctx, repo._id)
+
+    // Finally delete the repo itself via helper
+    await Repos.deleteById(ctx, repo._id)
 }

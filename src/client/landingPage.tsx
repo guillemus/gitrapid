@@ -5,6 +5,11 @@ export function LandingPage() {
                 <div className="max-w-md">
                     <h1 className="text-5xl font-bold">GitRapid</h1>
                     <p className="py-6">A faster github experience</p>
+
+                    <a href="/dash" className="btn btn-primary">
+                        dashboard
+                    </a>
+
                     <div className="flex gap-4">
                         <a href="/alarbada/gitrapid.com" className="btn btn-primary">
                             alarbada/gitrapid.com
