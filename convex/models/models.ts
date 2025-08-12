@@ -5,6 +5,12 @@ import { err, failure } from '../utils'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
+export const Users = {
+    async get(ctx: QueryCtx, userId: Id<'users'>) {
+        return ctx.db.get(userId)
+    },
+}
+
 export const Repos = {
     async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
         return ctx.db
@@ -670,7 +676,6 @@ export async function deleteInstalledRepositoryData(
     args: {
         githubInstallationId: number
         githubUserId: number
-        repo: { owner: string; repo: string }
     },
 ) {
     // Resolve local user from GitHub user id
@@ -678,30 +683,28 @@ export async function deleteInstalledRepositoryData(
         ctx,
         args.githubUserId.toString(),
     )
-    if (!authAccount) {
-        return err('auth account not found')
-    }
+    if (!authAccount) return err('auth account not found')
 
-    // Find repo
-    let repo = await Repos.getByOwnerAndRepo(ctx, args.repo.owner, args.repo.repo)
-    if (!repo) {
-        return err('repo not found')
-    }
+    let user = await Users.get(ctx, authAccount.userId)
+    if (!user) return err('user not found')
 
     // Verify the user actually has an installation for this repo
-    let installation = await Installations.getByUserIdAndRepoId(ctx, authAccount.userId, repo._id)
-    if (!installation) {
-        return err('installation not found')
-    }
+    let installation = await Installations.getByGithubInstallationId(ctx, args.githubInstallationId)
+    if (!installation) return err('installation not found')
 
-    // Ensure the installation matches the provided githubInstallationId
-    if (installation.githubInstallationId !== args.githubInstallationId) {
-        return err('installation does not match')
+    let repo = await Repos.get(ctx, installation.repoId)
+    if (!repo) return err('repo not found')
+
+    if (installation.userId !== user._id) {
+        return err('user does not have access to this installation')
     }
 
     // Delete installation access token (if any) and installation row
     await InstallationAccessTokens.deleteByInstallationId(ctx, installation._id)
     await Installations.delete(ctx, installation._id)
+
+    // fixme: what if another user has installed this repository? we would still
+    // delete the whole thing, which we might not want
 
     // Delete sync state and repo counts
     await SyncStates.deleteByRepoId(ctx, repo._id)
