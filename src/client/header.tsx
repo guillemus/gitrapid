@@ -5,7 +5,7 @@ import { Authenticated, Unauthenticated } from 'convex/react'
 import { useLocation } from 'react-router'
 import { useLogout } from './convex'
 
-export function Header(props: { owner?: string; repo?: string }) {
+export function Header(props: { showDownloadStatus?: boolean; owner?: string; repo?: string }) {
     const authActions = useAuthActions()
     const logout = useLogout()
     let path = useLocation().pathname

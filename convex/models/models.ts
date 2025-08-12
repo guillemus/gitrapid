@@ -1,13 +1,61 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import type { WithoutSystemFields } from 'convex/server'
 import { err, ok } from '@convex/utils'
+import type { WithoutSystemFields } from 'convex/server'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
 export const Users = {
     async get(ctx: QueryCtx, userId: Id<'users'>) {
         return ctx.db.get(userId)
+    },
+}
+
+export const AuthAccounts = {
+    async getByProviderAndAccountId(ctx: QueryCtx, providerAccountId: string) {
+        return ctx.db
+            .query('authAccounts')
+            .withIndex('providerAndAccountId', (q) =>
+                q.eq('provider', 'github').eq('providerAccountId', providerAccountId),
+            )
+            .unique()
+    },
+}
+
+export const Blobs = {
+    async getByRepoAndSha(ctx: QueryCtx, repoId: Id<'repos'>, sha: string) {
+        return ctx.db
+            .query('blobs')
+            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId).eq('sha', sha))
+            .unique()
+    },
+    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
+        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
+        if (existing) {
+            return existing
+        }
+        let id = await ctx.db.insert('blobs', args)
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
+        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
+        }
+        let id = await ctx.db.insert('blobs', args)
+        return await ctx.db.get(id)
+    },
+
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let blobs = await ctx.db
+            .query('blobs')
+            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
+            .collect()
+        for (let b of blobs) {
+            await ctx.db.delete(b._id)
+        }
     },
 }
 
@@ -55,6 +103,34 @@ export const Repos = {
     },
     async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
         await ctx.db.delete(repoId)
+    },
+}
+
+export const RepoDownloadStatus = {
+    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
+        return ctx.db
+            .query('repoDownloadStatus')
+            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
+            .unique()
+    },
+
+    async getOrCreate(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let existing = await this.getByRepoId(ctx, repoId)
+        if (existing) return existing
+
+        let id = await ctx.db.insert('repoDownloadStatus', { repoId, status: 'initial' })
+        return await ctx.db.get(id)
+    },
+
+    async upsert(ctx: MutationCtx, args: UpsertDoc<'repoDownloadStatus'>) {
+        let existing = await this.getByRepoId(ctx, args.repoId)
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
+        }
+
+        let id = await ctx.db.insert('repoDownloadStatus', args)
+        return await ctx.db.get(id)
     },
 }
 
@@ -399,60 +475,6 @@ export const PAT = {
         }
         let id = await ctx.db.insert('pats', args)
         return await ctx.db.get(id)
-    },
-}
-
-export const AuthAccounts = {
-    async getByProviderAndAccountId(ctx: QueryCtx, providerAccountId: string) {
-        return ctx.db
-            .query('authAccounts')
-            .withIndex('providerAndAccountId', (q) =>
-                q.eq('provider', 'github').eq('providerAccountId', providerAccountId),
-            )
-            .unique()
-    },
-}
-
-/**
- * Get the stored user ID from a GitHub user ID.
- */
-export async function getUserIdFromGithubUserId(ctx: QueryCtx, githubUserId: number) {
-    let account = await AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString())
-    return account?.userId
-}
-
-export const Blobs = {
-    async getByRepoAndSha(ctx: QueryCtx, repoId: Id<'repos'>, sha: string) {
-        return ctx.db
-            .query('blobs')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId).eq('sha', sha))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('blobs', args)
-        return await ctx.db.get(id)
-    },
-    async patchOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-        let id = await ctx.db.insert('blobs', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let blobs = await ctx.db
-            .query('blobs')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let b of blobs) {
-            await ctx.db.delete(b._id)
-        }
     },
 }
 

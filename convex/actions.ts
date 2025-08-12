@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import * as sync from './services/sync'
+import { installRepoService } from './services/backfill'
 import { protectedAction, unwrap } from './utils'
 
 export const installRepo = protectedAction({
@@ -12,7 +12,7 @@ export const installRepo = protectedAction({
     },
 
     async handler(ctx, args) {
-        let install = await sync.installRepo({
+        let install = await installRepoService({
             ctx,
             githubUserId: args.githubUserId,
             installationId: args.installationId,

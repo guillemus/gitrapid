@@ -100,22 +100,30 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
             })
         }
     } else if (installation.action === 'deleted') {
-        await ctx.scheduler.runAfter(0, api.protected.deleteInstallationByInstallationId, {
+        await ctx.scheduler.runAfter(0, api.models.installations.deleteByGithubInstallationId, {
             ...SECRET,
             githubInstallationId,
         })
     } else if (installation.action === 'suspend') {
-        await ctx.scheduler.runAfter(0, api.protected.setInstallationSuspendedByInstallationId, {
-            ...SECRET,
-            githubInstallationId,
-            suspended: true,
-        })
+        await ctx.scheduler.runAfter(
+            0,
+            api.models.installations.setSuspendedByGithubInstallationId,
+            {
+                ...SECRET,
+                githubInstallationId,
+                suspended: true,
+            },
+        )
     } else if (installation.action === 'unsuspend') {
-        await ctx.scheduler.runAfter(0, api.protected.setInstallationSuspendedByInstallationId, {
-            ...SECRET,
-            githubInstallationId,
-            suspended: false,
-        })
+        await ctx.scheduler.runAfter(
+            0,
+            api.models.installations.setSuspendedByGithubInstallationId,
+            {
+                ...SECRET,
+                githubInstallationId,
+                suspended: false,
+            },
+        )
     } else if (installation.action === 'new_permissions_accepted') {
         // we don't care here, just adding it for completeness
         // I mean, we might want to do something in the future, but for now we don't
@@ -144,7 +152,7 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
     const { issue, repository, action } = payload
 
-    let repo = await ctx.runQuery(api.protected.getRepo, {
+    let repo = await ctx.runQuery(api.models.repos.getByOwnerRepo, {
         ...SECRET,
         owner: repository.owner.login,
         repo: repository.name,
@@ -163,7 +171,7 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
         }
     }
 
-    await ctx.scheduler.runAfter(0, api.protected.upsertIssue, {
+    await ctx.scheduler.runAfter(0, api.models.issues.upsert, {
         ...SECRET,
         repoId: repo._id,
         githubId: issue.id,

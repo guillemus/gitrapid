@@ -21,6 +21,19 @@ export const repoCountsSchema = {
 
 const repoCounts = defineTable(repoCountsSchema).index('by_repoId', ['repoId'])
 
+export const repoDownloadStatusSchema = {
+    repoId: v.id('repos'),
+    status: v.union(
+        v.literal('initial'),
+        v.literal('pending'),
+        v.literal('success'),
+        v.literal('error'),
+    ),
+    message: v.optional(v.string()),
+}
+
+const repoDownloadStatus = defineTable(repoDownloadStatusSchema).index('by_repoId', ['repoId'])
+
 export const refsSchema = {
     repoId: v.id('repos'),
     name: v.string(), // e.g., "refs/heads/main" or "refs/tags/v1.0.0"
@@ -139,11 +152,42 @@ export const syncStatesSchema = {
 
 const syncStates = defineTable(syncStatesSchema).index('by_repoId', ['repoId'])
 
+export const installationsSchema = {
+    repoId: v.id('repos'),
+    userId: v.id('users'),
+    suspended: v.boolean(),
+    githubInstallationId: v.number(),
+}
+
+const installations = defineTable(installationsSchema)
+    .index('by_userId_repoId', ['userId', 'repoId'])
+    .index('by_githubInstallationId', ['githubInstallationId'])
+
+export const installationAccessTokensSchema = {
+    installationId: v.id('installations'),
+    token: v.string(),
+    expiresAt: v.string(),
+}
+
+const installationAccessTokens = defineTable(installationAccessTokensSchema).index(
+    'by_installationId',
+    ['installationId'],
+)
+
+export const patsSchema = {
+    userId: v.id('users'),
+    token: v.string(),
+}
+
+const pats = defineTable(patsSchema).index('by_user_id', ['userId'])
+
 export default defineSchema({
     ...authTables,
 
     repos,
     repoCounts,
+    repoDownloadStatus,
+    syncStates,
 
     blobs,
     trees,
@@ -154,26 +198,7 @@ export default defineSchema({
     issues,
     issueComments,
 
-    // pats are personal access tokens for users.
-    pats: defineTable({
-        userId: v.id('users'),
-        token: v.string(),
-    }).index('by_user_id', ['userId']),
-
-    installations: defineTable({
-        repoId: v.id('repos'),
-        userId: v.id('users'),
-        suspended: v.boolean(),
-        githubInstallationId: v.number(),
-    })
-        .index('by_userId_repoId', ['userId', 'repoId'])
-        .index('by_githubInstallationId', ['githubInstallationId']),
-
-    installationAccessTokens: defineTable({
-        installationId: v.id('installations'),
-        token: v.string(),
-        expiresAt: v.string(),
-    }).index('by_installationId', ['installationId']),
-
-    syncStates,
+    pats,
+    installations,
+    installationAccessTokens,
 })

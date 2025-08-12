@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { Installations, Issues, Repos } from './models/models'
 import { getRepoPageQuery } from './services/repoPageService'
-import { parseUserId, unwrap } from './utils'
+import { getUserId, unwrap } from './utils'
 
 export const getRepoPage = query({
     args: {
@@ -11,7 +11,7 @@ export const getRepoPage = query({
         refAndPath: v.string(),
     },
     async handler(ctx, { owner, repo, refAndPath }) {
-        let userId = await parseUserId(ctx)
+        let userId = await getUserId(ctx)
 
         let result = await getRepoPageQuery(ctx, userId, owner, repo, refAndPath)
         return unwrap(result)
@@ -20,7 +20,7 @@ export const getRepoPage = query({
 
 export const listInstalledRepos = query({
     async handler(ctx) {
-        let userId = await parseUserId(ctx)
+        let userId = await getUserId(ctx)
 
         return Installations.listUserInstallations(ctx, userId)
     },
@@ -32,7 +32,7 @@ export const listIssues = query({
         search: v.optional(v.string()),
     },
     async handler(ctx, args) {
-        let userId = await parseUserId(ctx)
+        let userId = await getUserId(ctx)
 
         let installation = await Installations.getByUserIdAndRepoId(ctx, userId, args.repoId)
         if (!installation) {
@@ -49,7 +49,7 @@ export const getIssueWithComments = query({
         issueNumber: v.number(),
     },
     async handler(ctx, args) {
-        let userId = await parseUserId(ctx)
+        let userId = await getUserId(ctx)
 
         let installation = await Installations.getByUserIdAndRepoId(ctx, userId, args.repoId)
         if (!installation) {
@@ -81,7 +81,7 @@ export const getIssueWithComments = query({
 
 export const getDashboardPage = query({
     async handler(ctx) {
-        let userId = await parseUserId(ctx)
+        let userId = await getUserId(ctx)
 
         let installations = await Installations.listUserInstallations(ctx, userId)
         let data = []

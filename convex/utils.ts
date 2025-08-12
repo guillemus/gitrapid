@@ -49,7 +49,7 @@ type Auth = {
     getUserIdentity: () => Promise<UserIdentity | null>
 }
 
-export async function parseUserId(ctx: { auth: Auth }) {
+export async function getUserId(ctx: { auth: Auth }) {
     const userId = await getAuthUserId(ctx)
     if (!userId) {
         throw new Error('User not authenticated')

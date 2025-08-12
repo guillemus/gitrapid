@@ -8,6 +8,7 @@ import { DashboardPage } from './dashboardPage'
 import { Header } from './header'
 import { LoginPage } from './loginPage'
 import { RepoPage } from './repoPage'
+import { useGithubParams } from './utils'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()
@@ -38,6 +39,24 @@ function AppLayout() {
     )
 }
 
+function RepoLayout() {
+    let params = useGithubParams()
+
+    return (
+        <div className="h-screen w-full">
+            <div>
+                <Header showDownloadStatus owner={params.owner} repo={params.repo} />
+            </div>
+            <AuthenticatedWithToken>
+                <Outlet></Outlet>
+            </AuthenticatedWithToken>
+            <Unauthenticated>
+                <Navigate to="/login" />
+            </Unauthenticated>
+        </div>
+    )
+}
+
 function Router() {
     return (
         <BrowserRouter>
@@ -45,6 +64,8 @@ function Router() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route element={<AppLayout />}>
                     <Route path="/dash" element={<DashboardPage />} />
+                </Route>
+                <Route element={<RepoLayout />}>
                     <Route path="/:owner/:repo" element={<RepoPage />} />
                     <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
                     <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
