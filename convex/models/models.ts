@@ -1,7 +1,7 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import type { WithoutSystemFields } from 'convex/server'
-import { err, failure } from '../utils'
+import { err } from '@convex/utils'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -172,6 +172,17 @@ export const Refs = {
     async upsertMany(ctx: MutationCtx, refs: UpsertDoc<'refs'>[]) {
         for (let ref of refs) {
             await this.patchOrCreate(ctx, ref)
+        }
+    },
+
+    async replaceRepoRefs(ctx: MutationCtx, repoId: Id<'repos'>, newRefs: UpsertDoc<'refs'>[]) {
+        let refs = await this.getRefsFromRepo(ctx, repoId)
+        for (let ref of refs) {
+            await ctx.db.delete(ref._id)
+        }
+
+        for (let ref of newRefs) {
+            await ctx.db.insert('refs', ref)
         }
     },
 

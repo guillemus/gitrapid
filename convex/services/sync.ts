@@ -153,15 +153,16 @@ async function runInitialBackfill(cfg: SyncRepoConfig, savedRepo: Doc<'repos'>) 
         return err(`failed to get repo: ${repoData.error.error()}`)
     }
 
-    let refs = await getAllRefs(octo, { owner, repo })
-    if (isErr(refs)) {
-        return wrap('failed to get refs', refs)
+    let githubRefs = await getAllRefs(octo, { owner, repo })
+    if (isErr(githubRefs)) {
+        return wrap('failed to get githubRefs', githubRefs)
     }
 
-    let desiredRefs = refs
-    await ctx.runMutation(api.protected.upsertRefs, {
+    let refs = githubRefs.map((r) => ({ repoId: savedRepo._id, ...r }))
+    await ctx.runMutation(api.protected.replaceRepoRefs, {
         ...SECRET,
-        refs: desiredRefs.map((r) => ({ repoId: savedRepo._id, ...r })),
+        repoId: savedRepo._id,
+        refs,
     })
 
     await ctx.runMutation(api.protected.setRepoHead, {

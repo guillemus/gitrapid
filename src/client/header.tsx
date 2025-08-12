@@ -14,7 +14,12 @@ export function Header(props: { owner?: string; repo?: string }) {
         <header className={'w-full border-b'}>
             <div className="flex h-16 items-center justify-between px-4">
                 <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold tracking-tight">gitrapid</span>
+                    <FastLink
+                        to="/dash"
+                        className="text-lg font-bold tracking-tight hover:underline"
+                    >
+                        gitrapid
+                    </FastLink>
 
                     {props.owner && props.repo && (
                         <span className="flex items-center gap-2 text-sm text-gray-500">

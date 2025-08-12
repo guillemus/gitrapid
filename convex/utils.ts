@@ -61,7 +61,7 @@ export async function parseUserId(ctx: { auth: Auth }) {
 export type Err<E = string> = { isErr: true; error: E }
 
 /**
- * Convenient utility to create Failure.
+ * Convenient utility to create an Err.
  */
 export function err<E>(msg: E): Err<E> {
     return { isErr: true, error: msg }

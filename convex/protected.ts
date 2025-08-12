@@ -66,9 +66,12 @@ export const getOrCreateCommit = protectedMutation({
     handler: (ctx, args) => models.Commits.getOrCreate(ctx, args),
 })
 
-export const upsertRefs = protectedMutation({
-    args: { refs: v.array(v.object(schemas.refsSchema)) },
-    handler: (ctx, args) => models.Refs.upsertMany(ctx, args.refs),
+export const replaceRepoRefs = protectedMutation({
+    args: {
+        repoId: v.id('repos'),
+        refs: v.array(v.object(schemas.refsSchema)),
+    },
+    handler: (ctx, args) => models.Refs.replaceRepoRefs(ctx, args.repoId, args.refs),
 })
 
 export const setRepoHead = protectedMutation({
@@ -230,10 +233,6 @@ export const deleteInstalledRepositoryData = protectedMutation({
     args: {
         githubInstallationId: v.number(),
         githubUserId: v.number(),
-        repo: v.object({
-            owner: v.string(),
-            repo: v.string(),
-        }),
     },
     async handler(ctx, args) {
         let result = await models.deleteInstalledRepositoryData(ctx, args)
