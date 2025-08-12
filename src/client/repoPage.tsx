@@ -6,9 +6,9 @@ import {
     FileDirectoryIcon,
     FileIcon,
 } from '@primer/octicons-react'
-import { useQuery } from 'convex/react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
+import { queryClient } from './convex'
 import {
     useDefined,
     useFirstLoadQuery,
@@ -17,7 +17,6 @@ import {
     useTanstackQuery,
     type GithubParams,
 } from './utils'
-import { queryClient, useConvexHttp } from './convex'
 
 type FileTreeNode = {
     name: string

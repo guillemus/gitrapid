@@ -1,7 +1,7 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import type { WithoutSystemFields } from 'convex/server'
-import { err } from '@convex/utils'
+import { err, ok } from '@convex/utils'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -688,7 +688,7 @@ export async function deleteInstalledRepositoryData(
         githubInstallationId: number
         githubUserId: number
     },
-) {
+): R {
     // Resolve local user from GitHub user id
     let authAccount = await AuthAccounts.getByProviderAndAccountId(
         ctx,
@@ -733,4 +733,6 @@ export async function deleteInstalledRepositoryData(
 
     // Finally delete the repo itself via helper
     await Repos.deleteById(ctx, repo._id)
+
+    return ok()
 }

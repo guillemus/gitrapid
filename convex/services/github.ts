@@ -1,7 +1,6 @@
 import { api } from '@convex/_generated/api'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, isErr, octoCatch, SECRET } from '@convex/utils'
-import { App } from '@octokit/app'
+import { err, octoCatch, ok, SECRET } from '@convex/utils'
 import { Octokit } from 'octokit'
 
 export type GitRefInfo = {
@@ -12,25 +11,25 @@ export type GitRefInfo = {
 
 export async function getAllRefs(octo: Octokit, args: { owner: string; repo: string }) {
     let heads = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
-    if (isErr(heads)) return err(`Failed to list heads refs: ${heads.error.error()}`)
+    if (heads.isErr) return err(`Failed to list heads refs: ${heads.error.error()}`)
 
     let tags = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
-    if (isErr(tags)) return err(`Failed to list tags refs: ${tags.error.error()}`)
+    if (tags.isErr) return err(`Failed to list tags refs: ${tags.error.error()}`)
 
     let data: GitRefInfo[] = [
-        ...heads.map((ref) => ({
+        ...heads.val.map((ref) => ({
             name: ref.ref.replace('refs/heads/', ''),
             commitSha: ref.object.sha,
             isTag: false,
         })),
-        ...tags.map((ref) => ({
+        ...tags.val.map((ref) => ({
             name: ref.ref.replace('refs/tags/', ''),
             commitSha: ref.object.sha,
             isTag: true,
         })),
     ]
 
-    return data
+    return ok(data)
 }
 
 // Meant for debugging

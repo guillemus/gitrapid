@@ -58,7 +58,18 @@ export async function parseUserId(ctx: { auth: Auth }) {
     return userId
 }
 
+export type Ok<T = null> = { isErr: false; val: T }
 export type Err<E = string> = { isErr: true; error: E }
+export type Result<T, E = string> = Ok<T> | Err<E>
+
+/**
+ * Convenient utility to create an Ok.
+ */
+export function ok(): Ok
+export function ok<T>(val: T): Ok<T>
+export function ok<T>(val?: T): Ok<T | null> {
+    return { isErr: false, val: (val ?? null) as T | null }
+}
 
 /**
  * Convenient utility to create an Err.
@@ -109,27 +120,23 @@ export function wrap(context: string, err: Err<string>): Err<string> {
     return { isErr: true, error: `${context}: ${err.error}` }
 }
 
-export function isErr<T, E>(result: T | Err<E>): result is Err<E> {
-    // @ts-expect-error
-    return result?.isErr === true
-}
-
-/**
- * Returns an explicit error. The function overloads allows the producer to
- * return string literal types, so that pattern matching errors is very simple
- */
-export function failure<T extends string>(val: T): Err<T>
-export function failure<T extends object>(val: T): Err<T>
-export function failure<T>(val: T): Err<T> {
-    return { isErr: true, error: val }
-}
+// /**
+//  * Returns an explicit error. The function overloads allows the producer to
+//  * return string literal types, so that pattern matching errors is very simple
+//  */
+// export function failure<T extends string>(val: T): Err<T>
+// export function failure<T extends object>(val: T): Err<T>
+// export function failure<T>(val: T): Err<T> {
+//     return { isErr: true, error: val }
+// }
 
 /**
  * Try to run a promise and return a Result.
  */
-export async function tryCatch<T>(promise: Promise<T>): Promise<T | Err> {
+export async function tryCatch<T>(promise: Promise<T>): Promise<Result<T>> {
     try {
-        return await promise
+        let result = await promise
+        return ok(result)
     } catch (error) {
         // @ts-expect-error: if it has a `message` property it is quite probable
         // that it is an error
@@ -143,15 +150,15 @@ export async function tryCatch<T>(promise: Promise<T>): Promise<T | Err> {
  * Unwraps a Result. Use this to throw an error, or for compatibility with other
  * libraries / frameworks that expect thrown exceptions.
  */
-export function unwrap<T, E>(result: T | Err<E>): T {
-    if (isErr(result)) {
+export function unwrap<T, E>(result: Result<T, E>): T {
+    if (result.isErr) {
         if (typeof result.error === 'string') {
             throw new Error(result.error)
         }
         throw result.error
     }
 
-    return result
+    return result.val
 }
 
 class OctoError extends RequestError {
@@ -164,13 +171,13 @@ class OctoError extends RequestError {
     }
 }
 
-export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<T | Err<OctoError>> {
+export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<Result<T, OctoError>> {
     try {
         let res = await promise
-        return res.data
+        return ok(res.data)
     } catch (error) {
         if (error instanceof RequestError) {
-            return failure(new OctoError(error))
+            return err(new OctoError(error))
         }
 
         throw error

@@ -1,12 +1,12 @@
 'use node'
 
-import { Octokit } from 'octokit'
 import { v } from 'convex/values'
 import jwt from 'jsonwebtoken'
+import { Octokit } from 'octokit'
 import { api } from './_generated/api'
-import { SECRET, err, isErr, octoCatch, protectedAction } from './utils'
 import { env } from './env'
 import { PRIVATE_KEY } from './keys'
+import { SECRET, err, octoCatch, ok, protectedAction } from './utils'
 
 // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app#about-json-web-tokens-jwts
 export function jwtToken() {
@@ -44,14 +44,16 @@ export const createGithubInstallationToken = protectedAction({
         let token = jwtToken()
         let octo = new Octokit({ auth: token })
 
-        let accessToken = await octoCatch(
+        let accessTokenRes = await octoCatch(
             octo.rest.apps.createInstallationAccessToken({
                 installation_id: args.githubInstallationId,
             }),
         )
-        if (isErr(accessToken)) {
-            return err(`failed to create installation access token ${accessToken.error.error()}`)
+        if (accessTokenRes.isErr) {
+            return err(`failed to create installation access token ${accessTokenRes.error.error()}`)
         }
+
+        let accessToken = accessTokenRes.val
 
         await ctx.runMutation(api.protected.upsertInstallation, {
             ...SECRET,
@@ -62,6 +64,6 @@ export const createGithubInstallationToken = protectedAction({
             expiresAt: accessToken.expires_at,
         })
 
-        return accessToken.token
+        return ok(accessToken.token)
     },
 })
