@@ -5,7 +5,7 @@ import { protectedAction, unwrap } from './utils'
 export const installRepo = protectedAction({
     args: {
         githubUserId: v.number(),
-        installationId: v.number(),
+        githubInstallationId: v.number(),
         repo: v.string(),
         owner: v.string(),
         private: v.boolean(),
@@ -15,7 +15,7 @@ export const installRepo = protectedAction({
         let install = await installRepoService({
             ctx,
             githubUserId: args.githubUserId,
-            installationId: args.installationId,
+            githubInstallationId: args.githubInstallationId,
             repo: args.repo,
             owner: args.owner,
             private: args.private,

@@ -28,7 +28,6 @@ import type * as models_pats from "../models/pats.js";
 import type * as models_refs from "../models/refs.js";
 import type * as models_repoDownloadStatus from "../models/repoDownloadStatus.js";
 import type * as models_repos from "../models/repos.js";
-import type * as models_syncStates from "../models/syncStates.js";
 import type * as models_treeEntries from "../models/treeEntries.js";
 import type * as models_trees from "../models/trees.js";
 import type * as nodeActions from "../nodeActions.js";
@@ -75,7 +74,6 @@ declare const fullApi: ApiFromModules<{
   "models/refs": typeof models_refs;
   "models/repoDownloadStatus": typeof models_repoDownloadStatus;
   "models/repos": typeof models_repos;
-  "models/syncStates": typeof models_syncStates;
   "models/treeEntries": typeof models_treeEntries;
   "models/trees": typeof models_trees;
   nodeActions: typeof nodeActions;

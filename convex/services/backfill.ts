@@ -9,14 +9,16 @@ import { getAllRefs } from './github'
 type InstallRepoCfg = {
     ctx: ActionCtx
     githubUserId: number
-    installationId: number
+    githubInstallationId: number
     repo: string
     owner: string
     private: boolean
 }
 
 export async function installRepoService(cfg: InstallRepoCfg): R {
-    let { ctx, githubUserId, installationId, repo, owner } = cfg
+    console.log(`starting installation for ${cfg.owner}/${cfg.repo}`)
+
+    let { ctx, githubUserId, githubInstallationId: installationId, repo, owner } = cfg
     let user = await ctx.runQuery(api.models.authAccounts.getByProviderAndAccountId, {
         ...SECRET,
         githubUserId,
@@ -53,7 +55,7 @@ export async function installRepoService(cfg: InstallRepoCfg): R {
 
     await updateDownloadStatus(updateCfg, 'pending', 'Created installation token')
 
-    let octo = new Octokit({ auth: token })
+    let octo = new Octokit({ auth: token.val })
 
     console.log(`${owner}/${repo}: starting initial backfill`)
     let backfill = await runBackfill({ ...cfg, octo, savedRepo })
@@ -149,12 +151,14 @@ async function backfillCommits(cfg: SyncRepoConfig) {
     let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
         owner,
         repo,
-        per_page: 100,
+        per_page: 1,
     })
 
     let writtenTrees = new Map<string, Id<'trees'>>()
     let writtenTreeEntries = new Map<string, Id<'treeEntries'>>()
     let writtenCommits = new Map<string, Id<'commits'>>()
+
+    console.log('backfilling commits')
 
     let totalCommitsWritten = 0
     for await (let { data: commitsPage } of allCommits) {
@@ -189,8 +193,6 @@ async function backfillCommits(cfg: SyncRepoConfig) {
                 return err('tree too big to process: truncated')
             }
 
-            console.log('got tree data')
-
             let treeId = writtenTrees.get(rootTreeSha)
             if (!treeId) {
                 let treeDoc = await ctx.runMutation(api.models.trees.getOrCreate, {
@@ -215,10 +217,7 @@ async function backfillCommits(cfg: SyncRepoConfig) {
                 if (commitDoc) writtenCommits.set(commit.sha, commitDoc._id)
             }
 
-            console.log('processing tree entries')
-
             for (let treeEntry of treeData.val.tree) {
-                console.log('processing tree entry', treeEntry.path)
                 let existingTreeEntryId = writtenTreeEntries.get(treeEntry.sha)
                 if (existingTreeEntryId) continue
 
@@ -242,6 +241,8 @@ async function backfillCommits(cfg: SyncRepoConfig) {
         }
     }
 
+    console.log('commits backfilled')
+
     return ok()
 }
 
@@ -261,10 +262,10 @@ async function backfillIssues(cfg: SyncRepoConfig) {
 
     let totalIssuesWritten = 0
 
+    console.log('backfilling issues')
+
     for await (let { data: issuesPage } of issuesIterator) {
         for (let issue of issuesPage) {
-            console.log('processing issue', issue.number)
-
             let labels: string[] = []
             for (let label of issue.labels ?? []) {
                 if (typeof label === 'string') labels.push(label)
@@ -334,24 +335,7 @@ async function backfillIssues(cfg: SyncRepoConfig) {
         }
     }
 
-    console.log('upserting sync state')
-
-    if (lastIssueUpdated) {
-        await ctx.runMutation(api.models.syncStates.upsert, {
-            ...SECRET,
-            repoId,
-            issuesSince: lastIssueUpdated,
-        })
-    }
-    if (lastCommentUpdated) {
-        await ctx.runMutation(api.models.syncStates.upsert, {
-            ...SECRET,
-            repoId,
-            commentsSince: lastCommentUpdated,
-        })
-    }
-
-    console.log('sync state upserted')
+    console.log('issues backfilled')
 }
 
 type TreeEntry = {

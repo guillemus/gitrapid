@@ -55,6 +55,7 @@ export const commitsSchema = {
     treeSha: v.string(),
     sha: v.string(),
     message: v.string(),
+    // creationDate: v.string(), // fixme: add this
     author: v.optional(githubPerson),
     committer: v.optional(githubPerson),
 }
@@ -138,20 +139,6 @@ const issueComments = defineTable(issueCommentsSchema)
     .index('by_issue', ['issueId'])
     .index('by_github_id', ['githubId'])
 
-export const syncStatesSchema = {
-    repoId: v.id('repos'),
-    repoMetaEtag: v.optional(v.string()),
-    refsEtagHeads: v.optional(v.string()),
-    refsEtagTags: v.optional(v.string()),
-    issuesSince: v.optional(v.string()),
-    commentsSince: v.optional(v.string()),
-    backfillDone: v.optional(v.boolean()),
-    lastSuccessAt: v.optional(v.string()),
-    syncError: v.optional(v.string()),
-}
-
-const syncStates = defineTable(syncStatesSchema).index('by_repoId', ['repoId'])
-
 export const installationsSchema = {
     repoId: v.id('repos'),
     userId: v.id('users'),
@@ -187,7 +174,6 @@ export default defineSchema({
     repos,
     repoCounts,
     repoDownloadStatus,
-    syncStates,
 
     blobs,
     trees,

@@ -124,40 +124,6 @@ export const RepoDownloadStatus = {
     },
 }
 
-export const SyncStates = {
-    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('syncStates')
-            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
-            .unique()
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'syncStates'>) {
-        let existing = await this.getByRepoId(ctx, args.repoId)
-        if (existing) return existing
-
-        let id = await ctx.db.insert('syncStates', args)
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'syncStates'>) {
-        let existing = await this.getByRepoId(ctx, args.repoId)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-
-        let id = await ctx.db.insert('syncStates', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let existing = await this.getByRepoId(ctx, repoId)
-        if (existing) {
-            await ctx.db.delete(existing._id)
-        }
-    },
-}
-
 export const RepoCounts = {
     async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
         return ctx.db
@@ -726,10 +692,6 @@ export async function deleteInstalledRepositoryData(
     await InstallationAccessTokens.deleteByInstallationId(ctx, installation._id)
     await Installations.delete(ctx, installation._id)
 
-    // Delete sync state and repo counts
-    await SyncStates.deleteByRepoId(ctx, repo._id)
-    await RepoCounts.deleteByRepoId(ctx, repo._id)
-
     // Delete issues (and their comments) via helper
     await Issues.deleteByRepoId(ctx, repo._id)
 
@@ -738,9 +700,6 @@ export async function deleteInstalledRepositoryData(
     await Commits.deleteByRepoId(ctx, repo._id)
     await TreeEntries.deleteByRepoId(ctx, repo._id)
     await Trees.deleteByRepoId(ctx, repo._id)
-
-    // Finally delete the repo itself via helper
-    await Repos.deleteById(ctx, repo._id)
 
     return ok()
 }

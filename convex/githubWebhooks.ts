@@ -92,7 +92,7 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
         for (let repo of installationRepos) {
             await ctx.scheduler.runAfter(0, api.actions.installRepo, {
                 ...SECRET,
-                installationId: githubInstallationId,
+                githubInstallationId,
                 githubUserId: userId,
                 repo: repo.repo,
                 owner: repo.owner,
