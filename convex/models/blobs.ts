@@ -13,11 +13,6 @@ export const getOrCreate = protectedMutation({
     handler: (ctx, args) => models.Blobs.getOrCreate(ctx, args),
 })
 
-export const deleteByRepoId = protectedMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => models.Blobs.deleteByRepoId(ctx, repoId),
-})
-
 export const upsert = protectedMutation({
     args: schemas.blobsSchema,
     handler: (ctx, args) => models.Blobs.upsert(ctx, args),

@@ -12,7 +12,6 @@ export const getRepoPage = query({
     },
     async handler(ctx, { owner, repo, refAndPath }) {
         let userId = await getUserId(ctx)
-
         let result = await getRepoPageQuery(ctx, userId, owner, repo, refAndPath)
         return unwrap(result)
     },

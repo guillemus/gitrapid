@@ -56,13 +56,7 @@ export async function installRepoService(cfg: InstallRepoCfg): R {
     let octo = new Octokit({ auth: token })
 
     console.log(`${owner}/${repo}: starting initial backfill`)
-    let backfill = await runBackfill({
-        ...cfg,
-        octo,
-        owner,
-        repo,
-        savedRepo,
-    })
+    let backfill = await runBackfill({ ...cfg, octo, savedRepo })
     if (backfill.isErr) {
         await updateDownloadStatus(updateCfg, 'error', 'Failed to backfill refs')
         return wrap('sync repo failed', backfill)

@@ -20,7 +20,7 @@ export const getByRepoAndCommit = protectedQuery({
 
 export const getRefsFromRepo = protectedQuery({
     args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => models.Refs.getRefsFromRepo(ctx, repoId),
+    handler: (ctx, { repoId }) => models.Refs.getFromRepo(ctx, repoId),
 })
 
 export const upsertMany = protectedMutation({

@@ -21,7 +21,7 @@ export async function getRepoPageQuery(
         return err(`getRepoPage: user ${userId} not authorized to this page`)
     }
 
-    let refs = await models.Refs.getRefsFromRepo(ctx, repoId)
+    let refs = await models.Refs.getFromRepo(ctx, repoId)
     let headRef = refs.find((ref) => ref._id === savedRepo.headId)
     if (!headRef) {
         return err(`getRepoPage: head ref not found ${owner}/${repo}`)

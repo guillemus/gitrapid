@@ -3,7 +3,7 @@
 
 import { v } from 'convex/values'
 import * as models from './models/models'
-import { protectedMutation } from './utils'
+import { protectedMutation, unwrap } from './utils'
 
 export const upsertInstallation = protectedMutation({
     args: {
@@ -33,5 +33,16 @@ export const upsertInstallation = protectedMutation({
             installation,
             accessToken: installationAccessToken,
         }
+    },
+})
+
+export const deleteInstalledRepositoryData = protectedMutation({
+    args: {
+        githubInstallationId: v.number(),
+        githubUserId: v.number(),
+    },
+    handler: async (ctx, args) => {
+        let res = await models.deleteInstalledRepositoryData(ctx, args)
+        unwrap(res)
     },
 })

@@ -9,6 +9,7 @@
     "ts": "tsgo --watch",
     "ts:build": "tsgo",
     "astro:dev": "astro dev --port 3000",
+    "scripts": "NO_COLOR=1 bun run scripts/scripts.ts | tee >(pbcopy)",
     "dev:tsc": "tsc --watch",
     "build": "astro build",
     "lint": "eslint ./src ./convex",

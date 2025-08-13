@@ -2,6 +2,11 @@
 
 import { protectedQuery } from './utils'
 
+export const listRefs = protectedQuery({
+    args: {},
+    handler: (ctx) => ctx.db.query('refs').collect(),
+})
+
 export const listUsers = protectedQuery({
     args: {},
     handler: (ctx) => ctx.db.query('users').collect(),

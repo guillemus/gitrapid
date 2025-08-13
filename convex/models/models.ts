@@ -1,6 +1,6 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import { err, ok } from '@convex/utils'
+import { err, ok, tryCatch, unwrap } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
@@ -46,16 +46,6 @@ export const Blobs = {
         }
         let id = await ctx.db.insert('blobs', args)
         return await ctx.db.get(id)
-    },
-
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let blobs = await ctx.db
-            .query('blobs')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let b of blobs) {
-            await ctx.db.delete(b._id)
-        }
     },
 }
 
@@ -238,7 +228,7 @@ export const Refs = {
             .unique()
     },
 
-    async getRefsFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
+    async getFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
         return ctx.db
             .query('refs')
             .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
@@ -252,7 +242,7 @@ export const Refs = {
     },
 
     async replaceRepoRefs(ctx: MutationCtx, repoId: Id<'repos'>, newRefs: UpsertDoc<'refs'>[]) {
-        let refs = await this.getRefsFromRepo(ctx, repoId)
+        let refs = await this.getFromRepo(ctx, repoId)
         for (let ref of refs) {
             await ctx.db.delete(ref._id)
         }
@@ -736,9 +726,6 @@ export async function deleteInstalledRepositoryData(
     await InstallationAccessTokens.deleteByInstallationId(ctx, installation._id)
     await Installations.delete(ctx, installation._id)
 
-    // fixme: what if another user has installed this repository? we would still
-    // delete the whole thing, which we might not want
-
     // Delete sync state and repo counts
     await SyncStates.deleteByRepoId(ctx, repo._id)
     await RepoCounts.deleteByRepoId(ctx, repo._id)
@@ -751,7 +738,6 @@ export async function deleteInstalledRepositoryData(
     await Commits.deleteByRepoId(ctx, repo._id)
     await TreeEntries.deleteByRepoId(ctx, repo._id)
     await Trees.deleteByRepoId(ctx, repo._id)
-    await Blobs.deleteByRepoId(ctx, repo._id)
 
     // Finally delete the repo itself via helper
     await Repos.deleteById(ctx, repo._id)
