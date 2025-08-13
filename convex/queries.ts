@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { query } from './_generated/server'
 import { Installations, Issues, Repos } from './models/models'
 import { getRepoPageQuery } from './services/repoPageService'
-import { getUserId, unwrap } from './utils'
+import { getUserId, logger, unwrap } from './utils'
 
 export const getRepoPage = query({
     args: {
@@ -62,7 +62,7 @@ export const getIssueWithComments = query({
             )
             .unique()
         if (!issue) {
-            console.log('No issue found for user', userId)
+            logger.info({ userId }, 'No issue found for user')
             return null
         }
 

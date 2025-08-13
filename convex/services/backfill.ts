@@ -1,7 +1,7 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { SECRET, err, octoCatch, ok, wrap } from '@convex/utils'
+import { SECRET, err, logger, octoCatch, ok, wrap } from '@convex/utils'
 import { Buffer } from 'buffer'
 import { Octokit } from 'octokit'
 import { getAllRefs } from './github'
@@ -16,7 +16,7 @@ type InstallRepoCfg = {
 }
 
 export async function installRepoService(cfg: InstallRepoCfg): R {
-    console.log(`starting installation for ${cfg.owner}/${cfg.repo}`)
+    logger.info(`starting installation for ${cfg.owner}/${cfg.repo}`)
 
     let { ctx, githubUserId, githubInstallationId: installationId, repo, owner } = cfg
     let user = await ctx.runQuery(api.models.authAccounts.getByProviderAndAccountId, {
@@ -57,7 +57,7 @@ export async function installRepoService(cfg: InstallRepoCfg): R {
 
     let octo = new Octokit({ auth: token.val })
 
-    console.log(`${owner}/${repo}: starting initial backfill`)
+    logger.info(`${owner}/${repo}: starting initial backfill`)
     let backfill = await runBackfill({ ...cfg, octo, savedRepo })
     if (backfill.isErr) {
         await updateDownloadStatus(updateCfg, 'error', 'Failed to backfill refs')
@@ -127,11 +127,11 @@ async function runBackfill(cfg: SyncRepoConfig): R {
         headRefName: repoData.val.default_branch,
     })
 
-    console.log('upserted refs')
+    logger.info('upserted refs')
 
     await updateDownloadStatus(cfg, 'pending', 'Backfilled refs, downloading commits')
 
-    console.log('backfilling commits')
+    logger.info('backfilling commits')
 
     let commitsRes = await backfillCommits(cfg)
     if (commitsRes.isErr) {
@@ -158,7 +158,7 @@ async function backfillCommits(cfg: SyncRepoConfig) {
     let writtenTreeEntries = new Map<string, Id<'treeEntries'>>()
     let writtenCommits = new Map<string, Id<'commits'>>()
 
-    console.log('backfilling commits')
+    logger.info('backfilling commits')
 
     let totalCommitsWritten = 0
     for await (let { data: commitsPage } of allCommits) {
@@ -169,11 +169,11 @@ async function backfillCommits(cfg: SyncRepoConfig) {
                 sha: commit.sha,
             })
             if (isCommitWritten) {
-                console.log('commit already written', commit.sha)
+                logger.info({ sha: commit.sha }, 'commit already written')
                 continue
             }
 
-            console.log(`processing commit ${commit.sha}`)
+            logger.info(`processing commit ${commit.sha}`)
 
             let rootTreeSha = commit.commit.tree.sha
 
@@ -241,7 +241,7 @@ async function backfillCommits(cfg: SyncRepoConfig) {
         }
     }
 
-    console.log('commits backfilled')
+    logger.info('commits backfilled')
 
     return ok()
 }
@@ -262,7 +262,7 @@ async function backfillIssues(cfg: SyncRepoConfig) {
 
     let totalIssuesWritten = 0
 
-    console.log('backfilling issues')
+    logger.info('backfilling issues')
 
     for await (let { data: issuesPage } of issuesIterator) {
         for (let issue of issuesPage) {
@@ -307,7 +307,7 @@ async function backfillIssues(cfg: SyncRepoConfig) {
                     per_page: 100,
                 })
 
-                console.log('processing comments for issue', issue.number)
+                logger.info({ issue: issue.number }, 'processing comments for issue')
 
                 for await (let { data: commentsPage } of commentsIter) {
                     for (let comment of commentsPage) {
@@ -335,7 +335,7 @@ async function backfillIssues(cfg: SyncRepoConfig) {
         }
     }
 
-    console.log('issues backfilled')
+    logger.info('issues backfilled')
 }
 
 type TreeEntry = {
@@ -357,8 +357,6 @@ async function processTreeEntry(
 
     let newTreeEntry
     if (treeEntry.type === 'blob') {
-        console.log('fetching blob', treeEntry.path)
-
         let blob = await octoCatch(octo.rest.git.getBlob({ owner, repo, file_sha: treeEntry.sha }))
         if (blob.isErr) {
             return err(`failed to get blob: ${blob.error.error()}`)
@@ -385,8 +383,6 @@ async function processTreeEntry(
             storedEncoding = 'base64'
         }
 
-        console.log('storing blob', treeEntry.path)
-
         newTreeEntry = await ctx.runMutation(api.models.treeEntries.getOrCreate, {
             ...SECRET,
             entrySha: treeEntry.sha,
@@ -406,8 +402,6 @@ async function processTreeEntry(
             size: blobSize,
         })
     } else if (treeEntry.type === 'tree') {
-        console.log('storing tree', treeEntry.path)
-
         newTreeEntry = await ctx.runMutation(api.models.treeEntries.getOrCreate, {
             ...SECRET,
             repoId,

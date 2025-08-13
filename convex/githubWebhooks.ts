@@ -13,7 +13,7 @@ import type {
 } from '@octokit/webhooks-types'
 import type { GenericActionCtx } from 'convex/server'
 import { api } from './_generated/api'
-import { SECRET } from './utils'
+import { SECRET, logger } from './utils'
 
 type IssueWebhookEvent =
     | IssuesOpenedEvent
@@ -51,6 +51,9 @@ type Ctx = GenericActionCtx<any>
 export async function handleEvent(ctx: Ctx, eventType: string, body: string) {
     const payload = JSON.parse(body) as WebhookEvent
 
+    logger.debug({ eventType }, 'github webhook eventType')
+    logger.debug({ payload }, 'github webhook payload')
+
     if (eventType === 'installation') {
         const installation = payload as InstallationEvent
         await handleInstallation(ctx, installation)
@@ -60,10 +63,10 @@ export async function handleEvent(ctx: Ctx, eventType: string, body: string) {
     } else if (eventType === 'issues' && isIssueWebhookEvent(payload)) {
         await handleIssues(ctx, payload)
     } else {
-        console.log('Unhandled event:', eventType)
+        logger.info({ eventType }, 'Unhandled event')
 
         // @ts-ignore
-        console.log('Type / action:', { action: payload?.action, type: payload?.type })
+        logger.info({ action: payload?.action, type: payload?.type }, 'Type / action')
     }
 }
 
@@ -77,7 +80,7 @@ async function handleInstallation(ctx: Ctx, installation: InstallationEvent) {
     for (let repo of repos) {
         let owner = repo.full_name.split('/')[0]
         if (!owner) {
-            console.log('No owner found for repo', repo.full_name)
+            logger.warn({ full_name: repo.full_name }, 'No owner found for repo')
             continue
         }
 
@@ -144,9 +147,7 @@ async function handleInstallationRemoved(ctx: Ctx, installation: InstallationDel
         githubInstallationId,
     }))
 
-    console.log('Installation removed event:', {
-        installationsToRemove,
-    })
+    logger.info({ installationsToRemove }, 'Installation removed event')
 }
 
 async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
@@ -158,7 +159,7 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
         repo: repository.name,
     })
     if (!repo) {
-        console.log('Repo not found', repository.owner.login, repository.name)
+        logger.warn({ owner: repository.owner.login, repo: repository.name }, 'Repo not found')
         return
     }
 
@@ -191,5 +192,5 @@ async function handleIssues(ctx: Ctx, payload: IssueWebhookEvent) {
         comments: issue.comments ?? undefined,
     })
 
-    console.log(`Issue ${action}: ${repository.owner.login}/${repository.name}#${issue.number}`)
+    logger.info(`Issue ${action}: ${repository.owner.login}/${repository.name}#${issue.number}`)
 }

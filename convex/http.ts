@@ -2,8 +2,9 @@ import { Webhooks } from '@octokit/webhooks'
 import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { auth } from './auth'
-import { handleEvent } from './githubWebhooks'
 import { env } from './env'
+import { handleEvent } from './githubWebhooks'
+import { logger } from './utils'
 
 const http = httpRouter()
 
@@ -41,7 +42,7 @@ http.route({
         try {
             await handleEvent(ctx, eventType, body)
         } catch (parseError) {
-            console.error('Error parsing webhook payload:', parseError)
+            logger.error({ err: parseError }, 'Error parsing webhook payload')
             return new Response('Error parsing payload', { status: 400 })
         }
 

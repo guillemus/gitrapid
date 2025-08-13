@@ -33,12 +33,18 @@ export async function withExponentialBackoff<T>(
             return await operation()
         } catch (error) {
             if (attempt === maxRetries - 1) {
-                console.error(`BACKOFF: Operation failed after ${maxRetries} attempts:`, error)
+                logger.error(
+                    { err: error },
+                    `BACKOFF: Operation failed after ${maxRetries} attempts`,
+                )
                 throw error
             }
 
             const delay = Math.pow(2, attempt) * 1000 // 1s, 2s, 4s, 8s
-            console.log(`BACKOFF: Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error)
+            logger.warn(
+                { err: error, attempt: attempt + 1, delay },
+                'BACKOFF: attempt failed, retrying',
+            )
             await new Promise((resolve) => setTimeout(resolve, delay))
         }
     }
@@ -261,4 +267,21 @@ export const protectedAction = customAction(action, {
         protectFn(args)
         return { ctx: {}, args: {} }
     },
+})
+
+import pino from 'pino'
+
+let transport
+if (process.env.DEV === 'true') {
+    transport = {
+        target: 'pino-pretty',
+        options: {
+            colorize: true,
+        },
+    }
+}
+
+export const logger = pino({
+    level: env.DEV === 'true' ? 'debug' : 'info',
+    transport,
 })

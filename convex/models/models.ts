@@ -1,6 +1,6 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import { err, ok, tryCatch, unwrap } from '@convex/utils'
+import { err, logger, ok } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
@@ -638,14 +638,14 @@ export async function createInstallation(
         args.githubUserId.toString(),
     )
     if (!authAccount) {
-        console.log(`User with GitHub ID ${args.githubUserId} not found in auth system.`)
+        logger.warn({ githubUserId: args.githubUserId }, 'User not found in auth system')
         return
     }
 
     for (const repoData of args.repos) {
         const repo = await Repos.getOrCreate(ctx, repoData)
         if (!repo) {
-            console.log(`Failed to create repo ${repoData.owner}/${repoData.repo}`)
+            logger.error({ owner: repoData.owner, repo: repoData.repo }, 'Failed to create repo')
             continue
         }
 
@@ -657,7 +657,7 @@ export async function createInstallation(
         })
     }
 
-    console.log(`Successfully processed installation for user ${authAccount.userId}`)
+    logger.info({ userId: authAccount.userId }, 'Successfully processed installation')
 }
 
 export async function deleteInstalledRepositoryData(
