@@ -15,7 +15,7 @@ type InstallRepoCfg = {
     private: boolean
 }
 
-export async function installRepoService(cfg: InstallRepoCfg): R {
+export async function installRepoService(cfg: InstallRepoCfg) {
     logger.info(`starting installation for ${cfg.owner}/${cfg.repo}`)
 
     let { ctx, githubUserId, githubInstallationId: installationId, repo, owner } = cfg
@@ -69,14 +69,6 @@ export async function installRepoService(cfg: InstallRepoCfg): R {
     return ok()
 }
 
-type SyncRepoConfig = {
-    ctx: ActionCtx
-    octo: Octokit
-    owner: string
-    repo: string
-    savedRepo: Doc<'repos'>
-}
-
 async function updateDownloadStatus(
     cfg: {
         ctx: ActionCtx
@@ -94,7 +86,12 @@ async function updateDownloadStatus(
     })
 }
 
-async function runBackfill(cfg: SyncRepoConfig): R {
+type BackfillConfig = InstallRepoCfg & {
+    octo: Octokit
+    savedRepo: Doc<'repos'>
+}
+
+async function runBackfill(cfg: BackfillConfig) {
     let { ctx, octo, owner, repo, savedRepo } = cfg
 
     let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
@@ -144,7 +141,7 @@ async function runBackfill(cfg: SyncRepoConfig): R {
     return ok()
 }
 
-async function backfillCommits(cfg: SyncRepoConfig) {
+async function backfillCommits(cfg: BackfillConfig) {
     let { octo, owner, repo, ctx, savedRepo } = cfg
     let repoId = savedRepo._id
 
@@ -246,7 +243,7 @@ async function backfillCommits(cfg: SyncRepoConfig) {
     return ok()
 }
 
-async function backfillIssues(cfg: SyncRepoConfig) {
+async function backfillIssues(cfg: BackfillConfig) {
     let { octo, owner, repo, ctx, savedRepo } = cfg
     let repoId = savedRepo._id
 

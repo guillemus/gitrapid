@@ -1,8 +1,9 @@
 import { v } from 'convex/values'
 import { query } from './_generated/server'
-import { Installations, Issues, Repos } from './models/models'
+import { Issues, Repos } from './models/models'
 import { getRepoPageQuery } from './services/repoPageService'
 import { getUserId, logger, unwrap } from './utils'
+import { UserRepos } from './models/userRepos'
 
 export const getRepoPage = query({
     args: {
@@ -21,7 +22,13 @@ export const listInstalledRepos = query({
     async handler(ctx) {
         let userId = await getUserId(ctx)
 
-        return Installations.listUserInstallations(ctx, userId)
+        let repoIds = await UserRepos.getUserRepoIds(ctx, userId)
+        let repos = await Repos.getByIds(
+            ctx,
+            repoIds.map((r) => r.repoId),
+        )
+
+        return repos
     },
 })
 
@@ -33,8 +40,8 @@ export const listIssues = query({
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
-        let installation = await Installations.getByUserIdAndRepoId(ctx, userId, args.repoId)
-        if (!installation) {
+        let hasRepo = await UserRepos.userHasRepo(ctx, userId, args.repoId)
+        if (!hasRepo) {
             throw new Error('not authorized to these issues')
         }
 
@@ -50,8 +57,8 @@ export const getIssueWithComments = query({
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
-        let installation = await Installations.getByUserIdAndRepoId(ctx, userId, args.repoId)
-        if (!installation) {
+        let hasRepo = await UserRepos.userHasRepo(ctx, userId, args.repoId)
+        if (!hasRepo) {
             throw new Error('not authorized to these issues')
         }
 
@@ -82,15 +89,10 @@ export const getDashboardPage = query({
     async handler(ctx) {
         let userId = await getUserId(ctx)
 
-        let installations = await Installations.listUserInstallations(ctx, userId)
-        let data = []
-        for (let installation of installations) {
-            let repo = await Repos.get(ctx, installation.repoId)
-            if (repo) {
-                data.push({ repo, installation })
-            }
-        }
-
-        return data
+        let repoIds = await UserRepos.getUserRepoIds(ctx, userId)
+        return Repos.getByIds(
+            ctx,
+            repoIds.map((r) => r.repoId),
+        )
     },
 })

@@ -277,10 +277,10 @@ export const logger = pino({
 })
 
 export function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
-    ctx: ActionCtx,
+    this: ActionCtx,
     query: Query,
     args: Omit<FunctionArgs<Query>, 'secret'>,
 ): Promise<FunctionReturnType<Query>> {
-    // @ts-expect-error
-    return ctx.runQuery(query, { ...SECRET, ...args })
+    // @ts-ignore
+    return this.runQuery(query, { ...SECRET, ...args })
 }

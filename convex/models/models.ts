@@ -1,7 +1,7 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import { err, logger, ok } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
+import { UserRepos } from './userRepos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -50,6 +50,14 @@ export const Blobs = {
 }
 
 export const Repos = {
+    async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
+        let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
+
+        let filtered = repos.filter((r) => r !== null)
+
+        return filtered
+    },
+
     async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
         return ctx.db
             .query('repos')
@@ -327,93 +335,6 @@ export const Issues = {
     },
 }
 
-export const Installations = {
-    async getByUserIdAndRepoId(ctx: QueryCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('installations')
-            .withIndex('by_userId_repoId', (q) => q.eq('userId', userId).eq('repoId', repoId))
-            .unique()
-    },
-
-    async listUserInstallations(ctx: QueryCtx, userId: Id<'users'>) {
-        return ctx.db
-            .query('installations')
-            .withIndex('by_userId_repoId', (q) => q.eq('userId', userId))
-            .collect()
-    },
-
-    async getByGithubInstallationId(ctx: QueryCtx, githubInstallationId: number) {
-        return ctx.db
-            .query('installations')
-            .withIndex('by_githubInstallationId', (q) =>
-                q.eq('githubInstallationId', githubInstallationId),
-            )
-            .unique()
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installations'>) {
-        let existing = await this.getByUserIdAndRepoId(ctx, args.userId, args.repoId)
-        if (existing) {
-            return existing
-        }
-
-        let id = await ctx.db.insert('installations', args)
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'installations'>) {
-        let existing = await this.getByGithubInstallationId(ctx, args.githubInstallationId)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-
-        let id = await ctx.db.insert('installations', args)
-        return await ctx.db.get(id)
-    },
-
-    async deleteByUserAndRepo(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
-        let installation = await this.getByUserIdAndRepoId(ctx, userId, repoId)
-        if (installation) {
-            await ctx.db.delete(installation._id)
-        }
-    },
-
-    async setSuspendedByUserAndRepo(
-        ctx: MutationCtx,
-        userId: Id<'users'>,
-        repoId: Id<'repos'>,
-        suspended: boolean,
-    ) {
-        let installation = await this.getByUserIdAndRepoId(ctx, userId, repoId)
-        if (installation) {
-            await ctx.db.patch(installation._id, { suspended })
-        }
-    },
-
-    async delete(ctx: MutationCtx, installationId: Id<'installations'>) {
-        await ctx.db.delete(installationId)
-    },
-
-    async deleteByGithubInstallationId(ctx: MutationCtx, githubInstallationId: number) {
-        let installation = await this.getByGithubInstallationId(ctx, githubInstallationId)
-        if (installation) {
-            await ctx.db.delete(installation._id)
-        }
-    },
-
-    async setSuspendedByGithubInstallationId(
-        ctx: MutationCtx,
-        githubInstallationId: number,
-        suspended: boolean,
-    ) {
-        let installation = await this.getByGithubInstallationId(ctx, githubInstallationId)
-        if (installation) {
-            await ctx.db.patch(installation._id, { suspended })
-        }
-    },
-}
-
 /**
  * Personal Access Tokens
  */
@@ -570,136 +491,10 @@ export const IssueComments = {
     },
 }
 
-export const InstallationAccessTokens = {
-    async getByInstallationId(ctx: QueryCtx, installationId: Id<'installations'>) {
-        return ctx.db
-            .query('installationAccessTokens')
-            .withIndex('by_installationId', (q) => q.eq('installationId', installationId))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'installationAccessTokens'>) {
-        let existing = await this.getByInstallationId(ctx, args.installationId)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('installationAccessTokens', args)
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'installationAccessTokens'>) {
-        let existing = await this.getByInstallationId(ctx, args.installationId)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-
-        let id = await ctx.db.insert('installationAccessTokens', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByInstallationId(ctx: MutationCtx, installationId: Id<'installations'>) {
-        let token = await this.getByInstallationId(ctx, installationId)
-        if (token) {
-            await ctx.db.delete(token._id)
-        }
-    },
-}
-
-export async function getUserInstallationToken(
-    ctx: QueryCtx,
-    userId: Id<'users'>,
-    repoId: Id<'repos'>,
-) {
-    let installation = await Installations.getByUserIdAndRepoId(ctx, userId, repoId)
-    if (!installation) {
-        return null
-    }
-
-    return await InstallationAccessTokens.getByInstallationId(ctx, installation._id)
-}
-
 export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRefName: string) {
     // check first if ref exists
     let ref = await Refs.getByRepoAndName(ctx, repoId, headRefName)
     if (!ref) return null
 
     return await ctx.db.patch(repoId, { headId: ref._id })
-}
-
-export async function createInstallation(
-    ctx: MutationCtx,
-    args: {
-        githubInstallationId: number
-        githubUserId: number
-        repos: { owner: string; repo: string; private: boolean }[]
-    },
-) {
-    const authAccount = await AuthAccounts.getByProviderAndAccountId(
-        ctx,
-        args.githubUserId.toString(),
-    )
-    if (!authAccount) {
-        logger.warn({ githubUserId: args.githubUserId }, 'User not found in auth system')
-        return
-    }
-
-    for (const repoData of args.repos) {
-        const repo = await Repos.getOrCreate(ctx, repoData)
-        if (!repo) {
-            logger.error({ owner: repoData.owner, repo: repoData.repo }, 'Failed to create repo')
-            continue
-        }
-
-        await Installations.getOrCreate(ctx, {
-            userId: authAccount.userId,
-            repoId: repo._id,
-            githubInstallationId: args.githubInstallationId,
-            suspended: false,
-        })
-    }
-
-    logger.info({ userId: authAccount.userId }, 'Successfully processed installation')
-}
-
-export async function deleteInstalledRepositoryData(
-    ctx: MutationCtx,
-    args: {
-        githubInstallationId: number
-        githubUserId: number
-    },
-): R {
-    // Resolve local user from GitHub user id
-    let authAccount = await AuthAccounts.getByProviderAndAccountId(
-        ctx,
-        args.githubUserId.toString(),
-    )
-    if (!authAccount) return err('auth account not found')
-
-    let user = await Users.get(ctx, authAccount.userId)
-    if (!user) return err('user not found')
-
-    // Verify the user actually has an installation for this repo
-    let installation = await Installations.getByGithubInstallationId(ctx, args.githubInstallationId)
-    if (!installation) return err('installation not found')
-
-    let repo = await Repos.get(ctx, installation.repoId)
-    if (!repo) return err('repo not found')
-
-    if (installation.userId !== user._id) {
-        return err('user does not have access to this installation')
-    }
-
-    // Delete installation access token (if any) and installation row
-    await InstallationAccessTokens.deleteByInstallationId(ctx, installation._id)
-    await Installations.delete(ctx, installation._id)
-
-    // Delete issues (and their comments) via helper
-    await Issues.deleteByRepoId(ctx, repo._id)
-
-    // Delete refs, commits, tree entries, trees, blobs via helpers
-    await Refs.deleteByRepoId(ctx, repo._id)
-    await Commits.deleteByRepoId(ctx, repo._id)
-    await TreeEntries.deleteByRepoId(ctx, repo._id)
-    await Trees.deleteByRepoId(ctx, repo._id)
-
-    return ok()
 }

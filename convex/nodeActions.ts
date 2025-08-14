@@ -55,14 +55,7 @@ export const createGithubInstallationToken = protectedAction({
 
         let accessToken = accessTokenRes.val
 
-        await ctx.runMutation(api.protected.upsertInstallation, {
-            ...SECRET,
-            repoId: args.repoId,
-            userId: args.userId,
-            githubInstallationId: args.githubInstallationId,
-            token: accessToken.token,
-            expiresAt: accessToken.expires_at,
-        })
+        // I would have to upsert the installation token here.
 
         return ok(accessToken.token)
     },

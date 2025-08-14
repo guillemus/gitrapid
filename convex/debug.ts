@@ -17,11 +17,6 @@ export const listAccounts = protectedQuery({
     handler: (ctx) => ctx.db.query('authAccounts').collect(),
 })
 
-export const listInstallations = protectedQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('installations').collect(),
-})
-
 export const listCommits = protectedQuery({
     args: {},
     handler: (ctx) => ctx.db.query('commits').collect(),

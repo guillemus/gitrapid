@@ -1,6 +1,7 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import * as models from '@convex/models/models'
+import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/utils'
 
 export async function getRepoPageQuery(
@@ -16,8 +17,8 @@ export async function getRepoPageQuery(
     }
     let repoId = savedRepo._id
 
-    let installation = await models.Installations.getByUserIdAndRepoId(ctx, userId, repoId)
-    if (!installation) {
+    let userHasRepo = await UserRepos.userHasRepo(ctx, userId, repoId)
+    if (!userHasRepo) {
         return err(`getRepoPage: user ${userId} not authorized to this page`)
     }
 

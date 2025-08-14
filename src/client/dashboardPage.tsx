@@ -3,8 +3,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { FastLink } from '@/components/ui/link'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
-import { installationsHandle, useFirstLoadQuery, useTanstackQuery } from './utils'
 import type { Doc } from '@convex/_generated/dataModel'
+import { useFirstLoadQuery, useTanstackQuery } from './utils'
 
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({
@@ -19,28 +19,9 @@ export function DashboardPage() {
             <Card>
                 <CardContent>
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold">Your installed repositories</h3>
-                            <Button asChild>
-                                <a
-                                    href={`https://github.com/apps/${installationsHandle}/installations/new`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Install / Uninstall repositories
-                                </a>
-                            </Button>
-                        </div>
-                        {data && data.length === 0 && <p>No repositories installed yet.</p>}
+                        {data && data.length === 0 && <p>No repositories yet.</p>}
                         {!data && <p>Loading...</p>}
-                        {data &&
-                            data.map(({ repo, installation }) => (
-                                <InstalledRepository
-                                    key={`${repo.owner}/${repo.repo}`}
-                                    repo={repo}
-                                    installation={installation}
-                                />
-                            ))}
+                        {data && data.map((repo) => <Repository key={repo._id} repo={repo} />)}
                     </div>
                 </CardContent>
             </Card>
@@ -48,12 +29,7 @@ export function DashboardPage() {
     )
 }
 
-type InstalledRepositoryProps = {
-    repo: Doc<'repos'>
-    installation: Doc<'installations'>
-}
-
-function InstalledRepository(props: InstalledRepositoryProps) {
+function Repository(props: { repo: Doc<'repos'> }) {
     return (
         <div className="grid grid-cols-6 gap-3">
             <Card className="transition-all hover:shadow-md">

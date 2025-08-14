@@ -20,7 +20,6 @@ import type * as migrations from "../migrations.js";
 import type * as models_authAccounts from "../models/authAccounts.js";
 import type * as models_blobs from "../models/blobs.js";
 import type * as models_commits from "../models/commits.js";
-import type * as models_installations from "../models/installations.js";
 import type * as models_issueComments from "../models/issueComments.js";
 import type * as models_issues from "../models/issues.js";
 import type * as models_models from "../models/models.js";
@@ -30,8 +29,8 @@ import type * as models_repoDownloadStatus from "../models/repoDownloadStatus.js
 import type * as models_repos from "../models/repos.js";
 import type * as models_treeEntries from "../models/treeEntries.js";
 import type * as models_trees from "../models/trees.js";
+import type * as models_userRepos from "../models/userRepos.js";
 import type * as nodeActions from "../nodeActions.js";
-import type * as protected_ from "../protected.js";
 import type * as queries from "../queries.js";
 import type * as services_backfill from "../services/backfill.js";
 import type * as services_github from "../services/github.js";
@@ -66,7 +65,6 @@ declare const fullApi: ApiFromModules<{
   "models/authAccounts": typeof models_authAccounts;
   "models/blobs": typeof models_blobs;
   "models/commits": typeof models_commits;
-  "models/installations": typeof models_installations;
   "models/issueComments": typeof models_issueComments;
   "models/issues": typeof models_issues;
   "models/models": typeof models_models;
@@ -76,8 +74,8 @@ declare const fullApi: ApiFromModules<{
   "models/repos": typeof models_repos;
   "models/treeEntries": typeof models_treeEntries;
   "models/trees": typeof models_trees;
+  "models/userRepos": typeof models_userRepos;
   nodeActions: typeof nodeActions;
-  protected: typeof protected_;
   queries: typeof queries;
   "services/backfill": typeof services_backfill;
   "services/github": typeof services_github;

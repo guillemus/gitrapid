@@ -11,6 +11,13 @@ export const reposSchema = {
 
 const repos = defineTable(reposSchema).index('by_owner_and_repo', ['owner', 'repo'])
 
+export const userReposSchema = {
+    userId: v.id('users'),
+    repoId: v.id('repos'),
+}
+
+const userRepos = defineTable(userReposSchema).index('by_userId_repoId', ['userId', 'repoId'])
+
 export const repoCountsSchema = {
     repoId: v.id('repos'),
     openIssues: v.number(),
@@ -139,28 +146,6 @@ const issueComments = defineTable(issueCommentsSchema)
     .index('by_issue', ['issueId'])
     .index('by_github_id', ['githubId'])
 
-export const installationsSchema = {
-    repoId: v.id('repos'),
-    userId: v.id('users'),
-    suspended: v.boolean(),
-    githubInstallationId: v.number(),
-}
-
-const installations = defineTable(installationsSchema)
-    .index('by_userId_repoId', ['userId', 'repoId'])
-    .index('by_githubInstallationId', ['githubInstallationId'])
-
-export const installationAccessTokensSchema = {
-    installationId: v.id('installations'),
-    token: v.string(),
-    expiresAt: v.string(),
-}
-
-const installationAccessTokens = defineTable(installationAccessTokensSchema).index(
-    'by_installationId',
-    ['installationId'],
-)
-
 export const patsSchema = {
     userId: v.id('users'),
     token: v.string(),
@@ -172,6 +157,7 @@ export default defineSchema({
     ...authTables,
 
     repos,
+    userRepos,
     repoCounts,
     repoDownloadStatus,
 
@@ -185,6 +171,4 @@ export default defineSchema({
     issueComments,
 
     pats,
-    installations,
-    installationAccessTokens,
 })
