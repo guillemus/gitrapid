@@ -1,7 +1,6 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import type { WithoutSystemFields } from 'convex/server'
-import { UserRepos } from './userRepos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 

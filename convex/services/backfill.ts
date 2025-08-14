@@ -23,9 +23,8 @@ export async function installRepoService(cfg: InstallRepoCfg) {
         ...SECRET,
         githubUserId,
     })
-    if (!user) {
-        return err('user not found')
-    }
+    if (!user) return err('user not found')
+
     let userId = user.userId
 
     let savedRepo = await ctx.runMutation(api.models.repos.getOrCreate, {
@@ -34,9 +33,7 @@ export async function installRepoService(cfg: InstallRepoCfg) {
         repo,
         private: cfg.private,
     })
-    if (!savedRepo) {
-        return err('failed to create repo')
-    }
+    if (!savedRepo) return err('failed to create repo')
 
     let updateCfg = { ...cfg, savedRepo }
 
