@@ -1,6 +1,8 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import { ConvexHttpClient } from 'convex/browser'
 import type {
+    FunctionArgs,
     FunctionReference,
     FunctionReturnType,
     OptionalRestArgs,
@@ -9,9 +11,8 @@ import type {
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import type { ActionCtx } from './_generated/server'
-import { mutation, query, action } from './_generated/server'
+import { action, mutation, query } from './_generated/server'
 import { env } from './env'
-import { customMutation, customQuery, customAction } from 'convex-helpers/server/customFunctions'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -271,17 +272,15 @@ export const protectedAction = customAction(action, {
 
 import pino from 'pino'
 
-let transport
-if (process.env.DEV === 'true') {
-    transport = {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,
-        },
-    }
-}
-
 export const logger = pino({
     level: env.DEV === 'true' ? 'debug' : 'info',
-    transport,
 })
+
+export function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
+    ctx: ActionCtx,
+    query: Query,
+    args: Omit<FunctionArgs<Query>, 'secret'>,
+): Promise<FunctionReturnType<Query>> {
+    // @ts-expect-error
+    return ctx.runQuery(query, { ...SECRET, ...args })
+}
