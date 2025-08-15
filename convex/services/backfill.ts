@@ -1,10 +1,11 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { SECRET, err, logger, octoCatch, ok, wrap } from '@convex/utils'
+import { SECRET, logger, octoCatch } from '@convex/utils'
 import { Buffer } from 'buffer'
 import { Octokit } from 'octokit'
 import { getAllRefs } from './github'
+import { err, ok, wrap } from '../shared'
 
 type InstallRepoCfg = {
     ctx: ActionCtx

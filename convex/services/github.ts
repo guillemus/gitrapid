@@ -1,7 +1,8 @@
 import { api } from '@convex/_generated/api'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, logger, octoCatch, ok, SECRET, tryCatch, wrap } from '@convex/utils'
+import { logger, octoCatch, parseDate, SECRET } from '@convex/utils'
 import { Octokit } from 'octokit'
+import { err, ok, tryCatch, wrap } from '../shared'
 
 export type GitRefInfo = {
     name: string
@@ -56,7 +57,11 @@ export async function getTokenExpiration(token: string): R<Date> {
         return err('no expiration header found in response')
     }
 
-    let expirationDate = new Date(expiration)
+    if (typeof expiration === 'string') {
+        return parseDate(expiration)
+    } else if (typeof expiration === 'number') {
+        return ok(new Date(expiration))
+    }
 
-    return ok(expirationDate)
+    return err('invalid expiration header')
 }

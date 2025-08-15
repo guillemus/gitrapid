@@ -15,13 +15,23 @@ export const PATs = {
             .withIndex('by_user_id', (q) => q.eq('userId', userId))
             .unique()
     },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'pats'>) {
+
+    async upsertForUser(ctx: MutationCtx, args: UpsertDoc<'pats'>) {
         let existing = await this.getByUserId(ctx, args.userId)
         if (existing) {
-            return existing
+            await ctx.db.patch(existing._id, args)
+            return await ctx.db.get(existing._id)
         }
         let id = await ctx.db.insert('pats', args)
         return await ctx.db.get(id)
+    },
+
+    async deleteByUserId(ctx: MutationCtx, userId: Id<'users'>) {
+        let existing = await this.getByUserId(ctx, userId)
+        if (existing) {
+            await ctx.db.delete(existing._id)
+        }
+        return existing
     },
 }
 
@@ -30,7 +40,12 @@ export const getByUserId = protectedQuery({
     handler: (ctx, { userId }) => PATs.getByUserId(ctx, userId),
 })
 
-export const getOrCreate = protectedMutation({
+export const upsertForUser = protectedMutation({
     args: schemas.patsSchema,
-    handler: (ctx, args) => PATs.getOrCreate(ctx, args),
+    handler: (ctx, args) => PATs.upsertForUser(ctx, args),
+})
+
+export const deleteByUserId = protectedMutation({
+    args: { userId: v.id('users') },
+    handler: (ctx, { userId }) => PATs.deleteByUserId(ctx, userId),
 })

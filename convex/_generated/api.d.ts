@@ -31,6 +31,7 @@ import type * as models_treeEntries from "../models/treeEntries.js";
 import type * as models_trees from "../models/trees.js";
 import type * as models_userRepos from "../models/userRepos.js";
 import type * as models_users from "../models/users.js";
+import type * as mutations from "../mutations.js";
 import type * as nodeActions from "../nodeActions.js";
 import type * as queries from "../queries.js";
 import type * as services_backfill from "../services/backfill.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "models/trees": typeof models_trees;
   "models/userRepos": typeof models_userRepos;
   "models/users": typeof models_users;
+  mutations: typeof mutations;
   nodeActions: typeof nodeActions;
   queries: typeof queries;
   "services/backfill": typeof services_backfill;

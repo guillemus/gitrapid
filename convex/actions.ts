@@ -1,25 +1,35 @@
 import { v } from 'convex/values'
-import { installRepoService } from './services/backfill'
-import { protectedAction, unwrap } from './utils'
+import { api } from './_generated/api'
+import { action } from './_generated/server'
+import { getTokenExpiration } from './services/github'
+import { getUserId, SECRET } from './utils'
+import { scopesSchema } from './schema'
+import { ok, wrap } from './shared'
 
-export const installRepo = protectedAction({
+export const savePAT = action({
     args: {
-        githubUserId: v.number(),
-        githubInstallationId: v.number(),
-        repo: v.string(),
-        owner: v.string(),
-        private: v.boolean(),
+        token: v.string(),
+        scopes: scopesSchema,
     },
+    async handler(ctx, { token, scopes }): R {
+        let userId = await getUserId(ctx)
 
-    async handler(ctx, args) {
-        let install = await installRepoService({
-            ctx,
-            githubUserId: args.githubUserId,
-            githubInstallationId: args.githubInstallationId,
-            repo: args.repo,
-            owner: args.owner,
-            private: args.private,
+        let expiresAt = await getTokenExpiration(token)
+        if (expiresAt.isErr) {
+            return wrap('Failed to validate token', expiresAt)
+        }
+
+        expiresAt
+
+        // Save to database
+        await ctx.runMutation(api.models.pats.upsertForUser, {
+            ...SECRET,
+            userId,
+            token,
+            scopes,
+            expiresAt: expiresAt.val.toISOString(),
         })
-        unwrap(install)
+
+        return ok()
     },
 })

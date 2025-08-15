@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { PATCard } from '@/components/PATCard'
 import { Card, CardContent } from '@/components/ui/card'
 import { FastLink } from '@/components/ui/link'
 import { convexQuery } from '@convex-dev/react-query'
@@ -16,6 +16,8 @@ export function DashboardPage() {
 
     return (
         <div className="p-6">
+            <PATCard />
+
             <Card>
                 <CardContent>
                     <div className="space-y-4">

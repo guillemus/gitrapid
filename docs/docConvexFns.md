@@ -1,33 +1,58 @@
 ### Convex functions in gitrapid
 
-Short, example-free guide to adding Convex logic with strict typing and consistent error handling.
+## Models Folder Structure
 
-### Layers
+The `convex/models/` folder follows a table-centric organization pattern:
 
-- **Models (`convex/models/models.ts`)**: Data-access layer. Small, focused helpers that read/write a single table or a closely related set. Use `QueryCtx` for reads and `MutationCtx` for writes. Prefer narrowly scoped helpers such as `Repos.getOrCreate`, `Issues.upsert`, `Refs.getByRepoAndName`.
-- **Public queries (`convex/queries.ts`)**: Called from the client. Enforce auth with `parseUserId`. Compose model calls and services. When a service returns a `Result`, use `unwrap` to propagate errors cleanly.
-- **Internal mutations/queries (`convex/mutations.ts`)**: Server-only endpoints (cron, actions, webhooks, background tasks). Safe to perform writes and orchestration. Prefer delegating table logic to models.
-- **Protected server-to-server (`convex/protected.ts`)**: Endpoints gated by a shared secret (via `protectedQuery`/`protectedMutation`). Use for development-time laptop→server calls or secured server integrations.
-- **Services (`convex/services/...`)**: Higher-level orchestration that may call GitHub, multiple models, etc. Services should return `Result<T, E>` and let callers decide how to handle errors.
+### Individual Table Files
+Each file in `models/` represents operations for a single database table (defined in `schema.ts`) and contains:
+- **Table-specific queries and mutations** - Operations that only affect that table
+- **Exported functions** - Public API for that table's operations
+- **Internal helper methods** - Private methods used within the file
 
-### Typing & schemas
+**Example structure:**
+```typescript
+// models/repos.ts
+export const Repos = {
+    // Internal methods
+    async getByOwnerAndRepo(ctx, owner, repo) { ... },
+    
+    // Other internal methods...
+}
 
-- Use `v` from `convex/values` to define runtime arg schemas.
-- Never use `any`. If an external type is complex, use `unknown` and narrow or define a small local interface.
-- For inserts/patch-or-create, use `WithoutSystemFields<Doc<'table'>>` (see `UpsertDoc` alias in models) so `_id`/`_creationTime` are not required.
+// Exported public API
+export const getByOwnerAndRepo = protectedQuery({ ... })
+export const deleteById = protectedMutation({ ... })
+```
 
-### When to use which
+### Cross-Table Operations (`models.ts`)
+The `models.ts` file contains operations that affect multiple tables:
+- **Complex business logic** requiring data from multiple tables
+- **Transaction-like operations** that modify several tables atomically
+- **Utility functions** that coordinate between different tables
 
-- **Client UI → public query**: `query` in `convex/queries.ts`. Enforce auth, compose services/models, return plain data.
-- **Background/cron/webhook → internal**: `internalQuery`/`internalMutation` in `convex/mutations.ts`. Orchestrate work and writes.
-- **Secure server-to-server → protected**: `protectedQuery`/`protectedMutation` in `convex/protected.ts` guarded by the shared secret.
-- **Reusable data logic → models**: Keep DB access and invariants here.
+**Example:**
+```typescript
+// models/models.ts
+export const IssuesUtils = {
+    async upsertIssue(ctx, args) {
+        // Updates issues table
+        // Updates repoCounts table
+        // May affect other related tables
+    }
+}
+```
 
-### Practical checklist
+### Key Principles
 
-- Define arg schemas with `v` and keep them minimal.
-- Call `parseUserId` in public queries that require auth.
-- Put table logic in `models/*` and reuse it from queries/mutations.
-- For multi-step workflows or GitHub calls, write a service that returns `Result<T, E>` and `unwrap` at the boundary.
-- Keep types strict; no `any`. Prefer small, explicit interfaces and narrowing.
+1. **Schema Definition**: All tables are defined in `schema.ts` with their indexes and relationships
+2. **Single Responsibility**: Each table file handles only operations for its corresponding table
+3. **Cross-Table Logic**: Complex operations involving multiple tables go in `models.ts`
+4. **Consistent API**: All files export protected queries/mutations with similar patterns
+5. **Index Usage**: Prefer `.withIndex()` over `.filter()` for performance
+6. **Error Handling**: Return errors instead of throwing exceptions
 
+### File Organization
+
+**Schema Definition:**
+- `schema.ts` - Defines all database tables, indexes, and relationships

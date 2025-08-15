@@ -146,12 +146,14 @@ const issueComments = defineTable(issueCommentsSchema)
     .index('by_issue', ['issueId'])
     .index('by_github_id', ['githubId'])
 
+export const scopesSchema = v.array(
+    v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
+)
+
 export const patsSchema = {
     userId: v.id('users'),
     token: v.string(),
-    scopes: v.array(
-        v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
-    ),
+    scopes: scopesSchema,
     expiresAt: v.string(),
 }
 

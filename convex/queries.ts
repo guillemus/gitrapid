@@ -4,7 +4,8 @@ import { Issues } from './models/issues'
 import { Repos } from './models/repos'
 import { UserRepos } from './models/userRepos'
 import { getRepoPageQuery } from './services/repoPageService'
-import { getUserId, logger, unwrap } from './utils'
+import { getUserId, logger } from './utils'
+import { unwrap } from './shared'
 
 export const getRepoPage = query({
     args: {
@@ -87,13 +88,34 @@ export const getIssueWithComments = query({
 })
 
 export const getDashboardPage = query({
+    args: {},
     async handler(ctx) {
         let userId = await getUserId(ctx)
+        let userRepos = await ctx.db
+            .query('userRepos')
+            .withIndex('by_userId_repoId', (q) => q.eq('userId', userId))
+            .collect()
 
-        let repoIds = await UserRepos.getUserRepoIds(ctx, userId)
-        return Repos.getByIds(
-            ctx,
-            repoIds.map((r) => r.repoId),
-        )
+        let repoIds = userRepos.map((ur) => ur.repoId)
+        let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
+        return repos.filter((r) => r !== null)
+    },
+})
+
+export const getPAT = query({
+    args: {},
+    async handler(ctx) {
+        let userId = await getUserId(ctx)
+        let pat = await ctx.db
+            .query('pats')
+            .withIndex('by_user_id', (q) => q.eq('userId', userId))
+            .unique()
+
+        if (!pat) return null
+
+        return {
+            scopes: pat.scopes,
+            expiresAt: pat.expiresAt,
+        }
     },
 })

@@ -3,11 +3,11 @@ import type { QueryCtx } from '@convex/_generated/server'
 import { Commits } from '@convex/models/commits'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
-import { err, ok } from '@convex/utils'
-import { Refs } from '../models/refs'
-import { Trees } from '../models/trees'
-import { TreeEntries } from '../models/treeEntries'
 import { Blobs } from '../models/blobs'
+import { Refs } from '../models/refs'
+import { TreeEntries } from '../models/treeEntries'
+import { Trees } from '../models/trees'
+import { err, ok } from '../shared'
 
 export async function getRepoPageQuery(
     ctx: QueryCtx,
