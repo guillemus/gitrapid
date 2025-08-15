@@ -27,7 +27,7 @@ export async function installRepoService(cfg: InstallRepoCfg) {
 
     let userId = user.userId
 
-    let savedRepo = await ctx.runMutation(api.models.repos.getOrCreate, {
+    let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
         ...SECRET,
         owner,
         repo,
@@ -270,7 +270,7 @@ async function backfillIssues(cfg: BackfillConfig) {
             if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
             else continue
 
-            let issueDoc = await ctx.runMutation(api.models.issues.getOrCreate, {
+            let issueDoc = await ctx.runMutation(api.models.models.getOrCreateIssue, {
                 ...SECRET,
                 repoId,
                 githubId: issue.id,

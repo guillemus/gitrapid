@@ -149,6 +149,10 @@ const issueComments = defineTable(issueCommentsSchema)
 export const patsSchema = {
     userId: v.id('users'),
     token: v.string(),
+    scopes: v.array(
+        v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
+    ),
+    expiresAt: v.string(),
 }
 
 const pats = defineTable(patsSchema).index('by_user_id', ['userId'])

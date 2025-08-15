@@ -3,8 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "deploy": "railway up --ci",
-    "dev": "concurrently -c \"cyan.bold,magenta.bold,green.bold\" -n \"CONVEX,  TS  ,ASTRO \" \"pnpm cx\" \"pnpm ts\" \"pnpm astro:dev\"",
+    "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"CONVEX,ASTRO \" \"bun cx\" \"bun astro:dev\"",
     "cx": "convex dev --typecheck disable",
     "ts": "tsgo --watch",
     "ts:build": "tsgo",
@@ -13,7 +12,7 @@
     "dev:tsc": "tsc --watch",
     "build": "astro build",
     "lint": "eslint ./src ./convex",
-    "format": "prettier ./src --write",
+    "format": "prettier ./src ./convex --write",
     "preview": "astro preview --port 3000",
     "start": "node dist/server/entry.mjs",
     "astro": "astro"

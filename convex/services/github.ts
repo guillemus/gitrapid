@@ -1,6 +1,6 @@
 import { api } from '@convex/_generated/api'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, logger, octoCatch, ok, SECRET } from '@convex/utils'
+import { err, logger, octoCatch, ok, SECRET, tryCatch, wrap } from '@convex/utils'
 import { Octokit } from 'octokit'
 
 export type GitRefInfo = {
@@ -43,4 +43,20 @@ export async function logAllInstallations(ctx: ActionCtx) {
     for await (let installations of allInstallations) {
         logger.debug({ installations }, 'Installations page')
     }
+}
+
+export async function getTokenExpiration(token: string): R<Date> {
+    const octo = new Octokit({ auth: token })
+
+    let res = await tryCatch(octo.rest.users.getAuthenticated())
+    if (res.isErr) return wrap('failed to get token expiration', res)
+
+    let expiration = res.val.headers['github-authentication-token-expiration']
+    if (!expiration) {
+        return err('no expiration header found in response')
+    }
+
+    let expirationDate = new Date(expiration)
+
+    return ok(expirationDate)
 }

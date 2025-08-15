@@ -1,82 +1,20 @@
 import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
+import type { MutationCtx } from '@convex/_generated/server'
+import { protectedMutation } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
+import { v } from 'convex/values'
+import * as schemas from '../schema'
+import { IssueComments } from './issueComments'
+import { Issues } from './issues'
+import { Refs } from './refs'
+import { RepoCounts } from './repoCounts'
+import { Repos } from './repos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
-export const Users = {
-    async get(ctx: QueryCtx, userId: Id<'users'>) {
-        return ctx.db.get(userId)
-    },
-}
-
-export const AuthAccounts = {
-    async getByProviderAndAccountId(ctx: QueryCtx, providerAccountId: string) {
-        return ctx.db
-            .query('authAccounts')
-            .withIndex('providerAndAccountId', (q) =>
-                q.eq('provider', 'github').eq('providerAccountId', providerAccountId),
-            )
-            .unique()
-    },
-}
-
-export const Blobs = {
-    async getByRepoAndSha(ctx: QueryCtx, repoId: Id<'repos'>, sha: string) {
-        return ctx.db
-            .query('blobs')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId).eq('sha', sha))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('blobs', args)
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-        let id = await ctx.db.insert('blobs', args)
-        return await ctx.db.get(id)
-    },
-}
-
-export const Repos = {
-    async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
-        let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
-
-        let filtered = repos.filter((r) => r !== null)
-
-        return filtered
-    },
-
-    async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
-        return ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
-            .unique()
-    },
-
-    async getByOwnerRepo(ctx: QueryCtx, owner: string, repo: string) {
-        return ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
-            .unique()
-    },
-
-    async get(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db.get(repoId)
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
-        let repo = await this.getByOwnerAndRepo(ctx, args.owner, args.repo)
+export const RepoUtils = {
+    async insertNewRepo(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
+        let repo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
         if (repo) {
             return repo
         }
@@ -87,7 +25,6 @@ export const Repos = {
             private: args.private,
         })
 
-        // Ensure a matching repoCounts row exists
         await RepoCounts.getOrCreate(ctx, {
             repoId,
             openIssues: 0,
@@ -98,179 +35,11 @@ export const Repos = {
 
         return await ctx.db.get(repoId)
     },
-    async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
-        await ctx.db.delete(repoId)
-    },
 }
 
-export const RepoDownloadStatus = {
-    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('repoDownloadStatus')
-            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
-            .unique()
-    },
-
-    async getOrCreate(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let existing = await this.getByRepoId(ctx, repoId)
-        if (existing) return existing
-
-        let id = await ctx.db.insert('repoDownloadStatus', { repoId, status: 'initial' })
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'repoDownloadStatus'>) {
-        let existing = await this.getByRepoId(ctx, args.repoId)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-
-        let id = await ctx.db.insert('repoDownloadStatus', args)
-        return await ctx.db.get(id)
-    },
-}
-
-export const RepoCounts = {
-    async getByRepoId(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('repoCounts')
-            .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'repoCounts'>) {
-        let existing = await this.getByRepoId(ctx, args.repoId)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('repoCounts', args)
-        return await ctx.db.get(id)
-    },
-
-    async setOpenIssues(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
-        return ctx.db.patch(repoCountId, { openIssues: count })
-    },
-
-    async setClosedIssues(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
-        return ctx.db.patch(repoCountId, { closedIssues: count })
-    },
-
-    async setOpenPullRequests(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
-        return ctx.db.patch(repoCountId, { openPullRequests: count })
-    },
-
-    async setClosedPullRequests(ctx: MutationCtx, repoCountId: Id<'repoCounts'>, count: number) {
-        return ctx.db.patch(repoCountId, { closedPullRequests: count })
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let existing = await this.getByRepoId(ctx, repoId)
-        if (existing) {
-            await ctx.db.delete(existing._id)
-        }
-    },
-}
-
-export const Refs = {
-    async get(ctx: QueryCtx, id: Id<'refs'>) {
-        return ctx.db.get(id)
-    },
-
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let refs = await ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let r of refs) {
-            await ctx.db.delete(r._id)
-        }
-    },
-
-    async getByRepoAndCommit(ctx: QueryCtx, repoId: Id<'repos'>, commitSha: string) {
-        return ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (q) =>
-                q.eq('repoId', repoId).eq('commitSha', commitSha),
-            )
-            .unique()
-    },
-
-    async getByRepoAndName(ctx: QueryCtx, repoId: Id<'repos'>, name: string) {
-        return ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_name', (q) => q.eq('repoId', repoId).eq('name', name))
-            .unique()
-    },
-
-    async getFromRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('refs')
-            .withIndex('by_repo_and_commit', (q) => q.eq('repoId', repoId))
-            .collect()
-    },
-
-    async upsertMany(ctx: MutationCtx, refs: UpsertDoc<'refs'>[]) {
-        for (let ref of refs) {
-            await this.patchOrCreate(ctx, ref)
-        }
-    },
-
-    async replaceRepoRefs(ctx: MutationCtx, repoId: Id<'repos'>, newRefs: UpsertDoc<'refs'>[]) {
-        let refs = await this.getFromRepo(ctx, repoId)
-        for (let ref of refs) {
-            await ctx.db.delete(ref._id)
-        }
-
-        for (let ref of newRefs) {
-            await ctx.db.insert('refs', ref)
-        }
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'refs'>) {
-        let ref = await this.getByRepoAndCommit(ctx, args.repoId, args.commitSha)
-        if (ref) {
-            return ref
-        }
-
-        let id = await ctx.db.insert('refs', {
-            repoId: args.repoId,
-            commitSha: args.commitSha,
-            name: args.name,
-            isTag: args.isTag ?? false,
-        })
-        return await ctx.db.get(id)
-    },
-
-    async patchOrCreate(ctx: MutationCtx, args: UpsertDoc<'refs'>) {
-        let ref = await this.getByRepoAndCommit(ctx, args.repoId, args.commitSha)
-        if (ref) {
-            await ctx.db.patch(ref._id, args)
-            return await ctx.db.get(ref._id)
-        }
-
-        let id = await ctx.db.insert('refs', args)
-        return await ctx.db.get(id)
-    },
-}
-
-export const Issues = {
-    async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) =>
-                q.eq('repoId', args.repoId).eq('number', args.number),
-            )
-            .unique()
-    },
-
-    async listByRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
-            .collect()
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
-        let issue = await this.getByRepoAndNumber(ctx, args)
+export const IssuesUtils = {
+    async getOrCreateIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
+        let issue = await Issues.getByRepoAndNumber(ctx, args)
         if (issue) {
             return issue
         }
@@ -290,8 +59,8 @@ export const Issues = {
         return await ctx.db.get(id)
     },
 
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
-        let existing = await this.getByRepoAndNumber(ctx, args)
+    async upsertIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
+        let existing = await Issues.getByRepoAndNumber(ctx, args)
         if (existing) {
             // Adjust counts if state changed
             if (existing.state !== args.state) {
@@ -322,170 +91,12 @@ export const Issues = {
         }
         return await ctx.db.get(id)
     },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let issues = await ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
-            .collect()
+
+    async deleteIssueByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let issues = await Issues.listByRepo(ctx, repoId)
         for (let issue of issues) {
             await IssueComments.deleteByIssueId(ctx, issue._id)
             await ctx.db.delete(issue._id)
-        }
-    },
-}
-
-/**
- * Personal Access Tokens
- */
-export const PAT = {
-    async getByUserId(ctx: QueryCtx, userId: Id<'users'>) {
-        return ctx.db
-            .query('pats')
-            .withIndex('by_user_id', (q) => q.eq('userId', userId))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'pats'>) {
-        let existing = await this.getByUserId(ctx, args.userId)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('pats', args)
-        return await ctx.db.get(id)
-    },
-}
-
-export const Trees = {
-    async getByRepoAndSha(ctx: QueryCtx, repoId: Id<'repos'>, sha: string) {
-        return ctx.db
-            .query('trees')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId).eq('sha', sha))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'trees'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('trees', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let trees = await ctx.db
-            .query('trees')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let t of trees) {
-            await ctx.db.delete(t._id)
-        }
-    },
-}
-
-export const TreeEntries = {
-    async getByRepoAndTreeAndEntry(
-        ctx: QueryCtx,
-        repoId: Id<'repos'>,
-        rootTreeSha: string,
-        path: string,
-    ) {
-        return ctx.db
-            .query('treeEntries')
-            .withIndex('by_repo_tree_and_path', (q) =>
-                q.eq('repoId', repoId).eq('rootTreeSha', rootTreeSha).eq('path', path),
-            )
-            .unique()
-    },
-
-    async getByRepoAndTree(ctx: QueryCtx, repoId: Id<'repos'>, rootTreeSha: string) {
-        return ctx.db
-            .query('treeEntries')
-            .withIndex('by_repo_tree_and_path', (q) =>
-                q.eq('repoId', repoId).eq('rootTreeSha', rootTreeSha),
-            )
-            .collect()
-    },
-
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'treeEntries'>) {
-        let existing = await this.getByRepoAndTreeAndEntry(
-            ctx,
-            args.repoId,
-            args.rootTreeSha,
-            args.path,
-        )
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('treeEntries', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let entries = await ctx.db
-            .query('treeEntries')
-            .withIndex('by_repo_tree_and_path', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let e of entries) {
-            await ctx.db.delete(e._id)
-        }
-    },
-}
-
-export const Commits = {
-    async getByRepoAndSha(ctx: QueryCtx, repoId: Id<'repos'>, sha: string) {
-        return ctx.db
-            .query('commits')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId).eq('sha', sha))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'commits'>) {
-        let existing = await this.getByRepoAndSha(ctx, args.repoId, args.sha)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('commits', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let commits = await ctx.db
-            .query('commits')
-            .withIndex('by_repo_and_sha', (q) => q.eq('repoId', repoId))
-            .collect()
-        for (let c of commits) {
-            await ctx.db.delete(c._id)
-        }
-    },
-}
-
-export const IssueComments = {
-    async getByGithubId(ctx: QueryCtx, githubId: number) {
-        return ctx.db
-            .query('issueComments')
-            .withIndex('by_github_id', (q) => q.eq('githubId', githubId))
-            .unique()
-    },
-    async getOrCreate(ctx: MutationCtx, args: UpsertDoc<'issueComments'>) {
-        let existing = await this.getByGithubId(ctx, args.githubId)
-        if (existing) {
-            return existing
-        }
-        let id = await ctx.db.insert('issueComments', args)
-        return await ctx.db.get(id)
-    },
-
-    async upsert(ctx: MutationCtx, args: UpsertDoc<'issueComments'>) {
-        let existing = await this.getByGithubId(ctx, args.githubId)
-        if (existing) {
-            await ctx.db.patch(existing._id, args)
-            return await ctx.db.get(existing._id)
-        }
-        let id = await ctx.db.insert('issueComments', args)
-        return await ctx.db.get(id)
-    },
-    async deleteByIssueId(ctx: MutationCtx, issueId: Id<'issues'>) {
-        let comments = await ctx.db
-            .query('issueComments')
-            .withIndex('by_issue', (q) => q.eq('issueId', issueId))
-            .collect()
-        for (let c of comments) {
-            await ctx.db.delete(c._id)
         }
     },
 }
@@ -497,3 +108,23 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
 
     return await ctx.db.patch(repoId, { headId: ref._id })
 }
+
+export const insertNewRepo = protectedMutation({
+    args: schemas.reposSchema,
+    handler: (ctx, args) => RepoUtils.insertNewRepo(ctx, args),
+})
+
+export const getOrCreateIssue = protectedMutation({
+    args: schemas.issuesSchema,
+    handler: (ctx, args) => IssuesUtils.getOrCreateIssue(ctx, args),
+})
+
+export const upsertIssue = protectedMutation({
+    args: schemas.issuesSchema,
+    handler: (ctx, args) => IssuesUtils.upsertIssue(ctx, args),
+})
+
+export const deleteIssueByRepoId = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, { repoId }) => IssuesUtils.deleteIssueByRepoId(ctx, repoId),
+})

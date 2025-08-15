@@ -1,9 +1,20 @@
+import type { QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import { protectedQuery } from '../utils'
-import * as models from './models'
+
+export const AuthAccounts = {
+    async getByProviderAndAccountId(ctx: QueryCtx, providerAccountId: string) {
+        return ctx.db
+            .query('authAccounts')
+            .withIndex('providerAndAccountId', (q) =>
+                q.eq('provider', 'github').eq('providerAccountId', providerAccountId),
+            )
+            .unique()
+    },
+}
 
 export const getByProviderAndAccountId = protectedQuery({
     args: { githubUserId: v.number() },
     handler: (ctx, { githubUserId }) =>
-        models.AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString()),
+        AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString()),
 })

@@ -1,8 +1,13 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
-import * as models from '@convex/models/models'
+import { Commits } from '@convex/models/commits'
+import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/utils'
+import { Refs } from '../models/refs'
+import { Trees } from '../models/trees'
+import { TreeEntries } from '../models/treeEntries'
+import { Blobs } from '../models/blobs'
 
 export async function getRepoPageQuery(
     ctx: QueryCtx,
@@ -11,7 +16,7 @@ export async function getRepoPageQuery(
     repo: string,
     refAndPath: string,
 ) {
-    let savedRepo = await models.Repos.getByOwnerAndRepo(ctx, owner, repo)
+    let savedRepo = await Repos.getByOwnerAndRepo(ctx, owner, repo)
     if (!savedRepo) {
         return err(`getRepoPage: repo not found ${owner}/${repo}`)
     }
@@ -22,7 +27,7 @@ export async function getRepoPageQuery(
         return err(`getRepoPage: user ${userId} not authorized to this page`)
     }
 
-    let refs = await models.Refs.getFromRepo(ctx, repoId)
+    let refs = await Refs.getFromRepo(ctx, repoId)
     let headRef = refs.find((ref) => ref._id === savedRepo.headId)
     if (!headRef) {
         return err(`getRepoPage: head ref not found ${owner}/${repo}`)
@@ -33,17 +38,17 @@ export async function getRepoPageQuery(
         return err(`getRepoPage: error parsing ref and path ${owner}/${repo} ${refAndPath}`)
     }
 
-    let commit = await models.Commits.getByRepoAndSha(ctx, repoId, parsedRefAndPath.ref.commitSha)
+    let commit = await Commits.getByRepoAndSha(ctx, repoId, parsedRefAndPath.ref.commitSha)
     if (!commit) {
         return err(`getRepoPage: commit not found ${owner}/${repo} ${refAndPath}`)
     }
 
-    let tree = await models.Trees.getByRepoAndSha(ctx, repoId, commit.treeSha)
+    let tree = await Trees.getByRepoAndSha(ctx, repoId, commit.treeSha)
     if (!tree) {
         return err(`getRepoPage: tree not found ${owner}/${repo} ${refAndPath}`)
     }
 
-    let treeEntries = await models.TreeEntries.getByRepoAndTree(ctx, repoId, tree.sha)
+    let treeEntries = await TreeEntries.getByRepoAndTree(ctx, repoId, tree.sha)
     let treeEntry = treeEntries.find((t) => t.path === parsedRefAndPath.path)
     if (!treeEntry) {
         return err(`getRepoPage: tree entry not found ${owner}/${repo} ${refAndPath}`)
@@ -51,7 +56,7 @@ export async function getRepoPageQuery(
 
     let filenames = treeEntries.map((t) => t.path)
 
-    let blob = await models.Blobs.getByRepoAndSha(ctx, repoId, treeEntry.entrySha)
+    let blob = await Blobs.getByRepoAndSha(ctx, repoId, treeEntry.entrySha)
     if (!blob) {
         return err(`getRepoPage: blob not found ${owner}/${repo} ${refAndPath}`)
     }

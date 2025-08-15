@@ -67,6 +67,7 @@ export async function getUserId(ctx: { auth: Auth }) {
 
 export type Ok<T = null> = { isErr: false; val: T }
 export type Err<E = string> = { isErr: true; error: E }
+export type ResultAsync<T = null> = Promise<Result<T, string>>
 export type Result<T, E = string> = Ok<T> | Err<E>
 
 /**
@@ -189,6 +190,10 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<Resul
 
         throw error
     }
+}
+
+export function octoWrap<T>(context: string, octoError: Err<OctoError>): Err<string> {
+    return err(`${context}: ${octoError.error.error()}`)
 }
 
 export function createActionCtx(publicContextUrl: string): ActionCtx {

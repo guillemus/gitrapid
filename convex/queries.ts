@@ -1,9 +1,10 @@
 import { v } from 'convex/values'
 import { query } from './_generated/server'
-import { Issues, Repos } from './models/models'
+import { Issues } from './models/issues'
+import { Repos } from './models/repos'
 import { UserRepos } from './models/userRepos'
 import { getRepoPageQuery } from './services/repoPageService'
-import { getUserId, logger, protectedQuery, unwrap } from './utils'
+import { getUserId, logger, unwrap } from './utils'
 
 export const getRepoPage = query({
     args: {
