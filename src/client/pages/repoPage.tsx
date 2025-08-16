@@ -8,7 +8,7 @@ import {
 } from '@primer/octicons-react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { queryClient } from './convex'
+import { queryClient } from '@/client/convex'
 import {
     useDefined,
     useFirstLoadQuery,
@@ -16,7 +16,7 @@ import {
     useMutable,
     useTanstackQuery,
     type GithubParams,
-} from './utils'
+} from '@/client/utils'
 
 type FileTreeNode = {
     name: string

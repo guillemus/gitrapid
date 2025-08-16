@@ -19,8 +19,6 @@ export const savePAT = action({
             return wrap('Failed to validate token', expiresAt)
         }
 
-        expiresAt
-
         // Save to database
         await ctx.runMutation(api.models.pats.upsertForUser, {
             ...SECRET,

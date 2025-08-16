@@ -3,12 +3,14 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useParams } from 'react-router'
-import { convex, queryClient } from './convex'
-import { DashboardPage } from './dashboardPage'
-import { Header } from './header'
-import { LoginPage } from './loginPage'
-import { RepoPage } from './repoPage'
-import { useGithubParams } from './utils'
+
+import { convex, queryClient } from '@/client/convex'
+import { Header } from '@/client/header'
+import { DashboardPage } from '@/client/pages/dashboardPage'
+import { LoginPage } from '@/client/pages/loginPage'
+import { RepoPage } from '@/client/pages/repoPage'
+import { SettingsPage } from '@/client/pages/settingsPage'
+import { useGithubParams } from '@/client/utils'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()
@@ -64,6 +66,7 @@ function Router() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route element={<AppLayout />}>
                     <Route path="/dash" element={<DashboardPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
                 </Route>
                 <Route element={<RepoLayout />}>
                     <Route path="/:owner/:repo" element={<RepoPage />} />

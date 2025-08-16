@@ -16,57 +16,6 @@ type InstallRepoCfg = {
     private: boolean
 }
 
-export async function installRepoService(cfg: InstallRepoCfg) {
-    logger.info(`starting installation for ${cfg.owner}/${cfg.repo}`)
-
-    let { ctx, githubUserId, githubInstallationId: installationId, repo, owner } = cfg
-    let user = await ctx.runQuery(api.models.authAccounts.getByProviderAndAccountId, {
-        ...SECRET,
-        githubUserId,
-    })
-    if (!user) return err('user not found')
-
-    let userId = user.userId
-
-    let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
-        ...SECRET,
-        owner,
-        repo,
-        private: cfg.private,
-    })
-    if (!savedRepo) return err('failed to create repo')
-
-    let updateCfg = { ...cfg, savedRepo }
-
-    await updateDownloadStatus(updateCfg, 'pending', 'Starting repository installation')
-
-    let token = await ctx.runAction(api.nodeActions.createGithubInstallationToken, {
-        ...SECRET,
-        repoId: savedRepo._id,
-        userId,
-        githubInstallationId: installationId,
-    })
-    if (token.isErr) {
-        await updateDownloadStatus(updateCfg, 'error', 'Failed to create installation token')
-        return wrap('failed to create installation token', token)
-    }
-
-    await updateDownloadStatus(updateCfg, 'pending', 'Created installation token')
-
-    let octo = new Octokit({ auth: token.val })
-
-    logger.info(`${owner}/${repo}: starting initial backfill`)
-    let backfill = await runBackfill({ ...cfg, octo, savedRepo })
-    if (backfill.isErr) {
-        await updateDownloadStatus(updateCfg, 'error', 'Failed to backfill refs')
-        return wrap('sync repo failed', backfill)
-    }
-
-    await updateDownloadStatus(updateCfg, 'success', 'Backfill complete')
-
-    return ok()
-}
-
 async function updateDownloadStatus(
     cfg: {
         ctx: ActionCtx
@@ -104,16 +53,16 @@ async function runBackfill(cfg: BackfillConfig) {
 
     await updateDownloadStatus(cfg, 'pending', 'Backfilling refs')
 
-    let refsRes = await getAllRefs(octo, { owner, repo })
-    if (refsRes.isErr) {
-        return wrap('failed to get refs', refsRes)
+    let refs = await getAllRefs(octo, { owner, repo })
+    if (refs.isErr) {
+        return wrap('failed to get refs', refs)
     }
 
-    let refs = refsRes.val.map((r) => ({ repoId: savedRepo._id, ...r }))
+    let mapped = refs.val.map((r) => ({ repoId: savedRepo._id, ...r }))
     await ctx.runMutation(api.models.refs.replaceRepoRefs, {
         ...SECRET,
         repoId: savedRepo._id,
-        refs,
+        refs: mapped,
     })
 
     await ctx.runMutation(api.models.repos.setHead, {

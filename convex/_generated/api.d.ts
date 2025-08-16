@@ -14,7 +14,6 @@ import type * as crons from "../crons.js";
 import type * as debug from "../debug.js";
 import type * as env from "../env.js";
 import type * as http from "../http.js";
-import type * as keys from "../keys.js";
 import type * as migrations from "../migrations.js";
 import type * as models_authAccounts from "../models/authAccounts.js";
 import type * as models_blobs from "../models/blobs.js";
@@ -32,12 +31,12 @@ import type * as models_trees from "../models/trees.js";
 import type * as models_userRepos from "../models/userRepos.js";
 import type * as models_users from "../models/users.js";
 import type * as mutations from "../mutations.js";
-import type * as nodeActions from "../nodeActions.js";
 import type * as queries from "../queries.js";
 import type * as services_backfill from "../services/backfill.js";
 import type * as services_github from "../services/github.js";
 import type * as services_repoPageService from "../services/repoPageService.js";
 import type * as services_sync from "../services/sync.js";
+import type * as shared from "../shared.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -61,7 +60,6 @@ declare const fullApi: ApiFromModules<{
   debug: typeof debug;
   env: typeof env;
   http: typeof http;
-  keys: typeof keys;
   migrations: typeof migrations;
   "models/authAccounts": typeof models_authAccounts;
   "models/blobs": typeof models_blobs;
@@ -79,12 +77,12 @@ declare const fullApi: ApiFromModules<{
   "models/userRepos": typeof models_userRepos;
   "models/users": typeof models_users;
   mutations: typeof mutations;
-  nodeActions: typeof nodeActions;
   queries: typeof queries;
   "services/backfill": typeof services_backfill;
   "services/github": typeof services_github;
   "services/repoPageService": typeof services_repoPageService;
   "services/sync": typeof services_sync;
+  shared: typeof shared;
   utils: typeof utils;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

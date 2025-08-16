@@ -4,7 +4,7 @@ import { FastLink } from '@/components/ui/link'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import { useFirstLoadQuery, useTanstackQuery } from './utils'
+import { useFirstLoadQuery, useTanstackQuery } from '@/client/utils'
 
 export function DashboardPage() {
     let firstLoad = useFirstLoadQuery({

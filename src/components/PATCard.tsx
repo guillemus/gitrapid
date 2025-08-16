@@ -1,41 +1,53 @@
+import { useMutable, useTanstackQuery } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import { useAction, useMutation, useQuery } from 'convex/react'
-import { useState } from 'react'
+import { useAction, useMutation } from 'convex/react'
 
 type Scopes = Doc<'pats'>['scopes']
 
 export function PATCard() {
-    const pat = useQuery(api.queries.getPAT)
+    const { data: pat, isLoading } = useTanstackQuery(convexQuery(api.queries.getPAT, {}))
     const savePat = useAction(api.actions.savePAT)
     const deletePat = useMutation(api.mutations.deleteMyPAT)
 
-    const [showTokenInput, setShowTokenInput] = useState(false)
-    const [token, setToken] = useState('')
-    const [repoAccess, setRepoAccess] = useState<'public_repo' | 'repo'>('public_repo')
-    const [includeNotifications, setIncludeNotifications] = useState(false)
+    const state = useMutable({
+        showTokenInput: false,
+        token: '',
+        repoAccess: 'public_repo' as Scopes[number],
+        includeNotifications: true,
+    })
 
     function generateTokenUrl() {
-        const scopes: Scopes = [repoAccess]
-        if (includeNotifications) scopes.push('notifications')
-        const scopeParam = scopes.join(',')
-        const description =
-            repoAccess === 'public_repo' ? 'GitRapid%20Public%20Sync' : 'GitRapid%20Full%20Sync'
-        return `https://github.com/settings/tokens/new?scopes=${scopeParam}&description=${description}`
+        let scopes: Scopes = [state.repoAccess]
+        if (state.includeNotifications) scopes.push('notifications')
+
+        let url = new URL('https://github.com/settings/tokens/new')
+        url.searchParams.set('scopes', scopes.join(','))
+
+        if (state.repoAccess === 'public_repo') {
+            url.searchParams.set('description', 'GitRapid Public Only')
+        } else {
+            url.searchParams.set('description', 'GitRapid Private and Public')
+        }
+
+        return url.toString()
     }
 
     async function handleSave() {
-        const scopes: Scopes = [repoAccess]
-        if (includeNotifications) scopes.push('notifications')
+        const scopes: Scopes = [state.repoAccess]
+        if (state.includeNotifications) scopes.push('notifications')
 
-        await savePat({ token, scopes })
+        await savePat({ token: state.token, scopes })
 
-        setShowTokenInput(false)
-        setToken('')
+        state.showTokenInput = false
+        state.token = ''
     }
+
+    if (isLoading) return null
 
     if (pat) {
         return (
@@ -77,7 +89,7 @@ export function PATCard() {
                         >
                             Regenerate Token
                         </Button>
-                        <Button variant="destructive" onClick={() => deletePat()}>
+                        <Button variant="outline" onClick={() => deletePat()}>
                             Remove Token
                         </Button>
                     </div>
@@ -107,10 +119,10 @@ export function PATCard() {
                                     type="radio"
                                     name="repoAccess"
                                     value="public_repo"
-                                    checked={repoAccess === 'public_repo'}
-                                    onChange={(e) =>
-                                        setRepoAccess(e.target.value as 'public_repo' | 'repo')
-                                    }
+                                    checked={state.repoAccess === 'public_repo'}
+                                    onChange={(e) => {
+                                        state.repoAccess = e.target.value as 'public_repo'
+                                    }}
                                     className="h-4 w-4"
                                 />
                                 <span>Public repositories only</span>
@@ -120,10 +132,10 @@ export function PATCard() {
                                     type="radio"
                                     name="repoAccess"
                                     value="repo"
-                                    checked={repoAccess === 'repo'}
-                                    onChange={(e) =>
-                                        setRepoAccess(e.target.value as 'public_repo' | 'repo')
-                                    }
+                                    checked={state.repoAccess === 'repo'}
+                                    onChange={(e) => {
+                                        state.repoAccess = e.target.value as 'repo'
+                                    }}
                                     className="h-4 w-4"
                                 />
                                 <span>Public + Private repositories</span>
@@ -134,8 +146,8 @@ export function PATCard() {
                     <label className="flex items-center space-x-2">
                         <input
                             type="checkbox"
-                            checked={includeNotifications}
-                            onChange={(e) => setIncludeNotifications(e.target.checked)}
+                            checked={state.includeNotifications}
+                            onChange={(e) => (state.includeNotifications = e.target.checked)}
                             className="h-4 w-4"
                         />
                         <span>Include notifications access</span>
@@ -146,12 +158,12 @@ export function PATCard() {
                     <Button onClick={() => window.open(generateTokenUrl(), '_blank')}>
                         Generate Token
                     </Button>
-                    <Button variant="outline" onClick={() => setShowTokenInput(true)}>
+                    <Button variant="outline" onClick={() => (state.showTokenInput = true)}>
                         I have a token
                     </Button>
                 </div>
 
-                {showTokenInput && (
+                {state.showTokenInput && (
                     <div className="space-y-4 rounded-lg border p-4">
                         <label className="block text-sm font-medium">
                             Paste your GitHub personal access token:
@@ -159,14 +171,17 @@ export function PATCard() {
                         <Input
                             type="password"
                             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                            value={token}
-                            onChange={(e) => setToken(e.target.value)}
+                            value={state.token}
+                            onChange={(e) => (state.token = e.target.value)}
                         />
                         <div className="flex gap-2">
-                            <Button onClick={handleSave} disabled={!token.trim()}>
+                            <Button onClick={handleSave} disabled={!state.token.trim()}>
                                 Save Token
                             </Button>
-                            <Button variant="outline" onClick={() => setShowTokenInput(false)}>
+                            <Button
+                                variant="outline"
+                                onClick={() => (state.showTokenInput = false)}
+                            >
                                 Cancel
                             </Button>
                         </div>
