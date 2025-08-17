@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as actions from "../actions.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as debug from "../debug.js";
@@ -30,7 +29,6 @@ import type * as models_treeEntries from "../models/treeEntries.js";
 import type * as models_trees from "../models/trees.js";
 import type * as models_userRepos from "../models/userRepos.js";
 import type * as models_users from "../models/users.js";
-import type * as mutations from "../mutations.js";
 import type * as public_dashboard from "../public/dashboard.js";
 import type * as public_issues from "../public/issues.js";
 import type * as public_repo from "../public/repo.js";
@@ -55,7 +53,6 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  actions: typeof actions;
   auth: typeof auth;
   crons: typeof crons;
   debug: typeof debug;
@@ -77,7 +74,6 @@ declare const fullApi: ApiFromModules<{
   "models/trees": typeof models_trees;
   "models/userRepos": typeof models_userRepos;
   "models/users": typeof models_users;
-  mutations: typeof mutations;
   "public/dashboard": typeof public_dashboard;
   "public/issues": typeof public_issues;
   "public/repo": typeof public_repo;

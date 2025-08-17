@@ -10,8 +10,8 @@ type Scopes = Doc<'pats'>['scopes']
 
 export function PATCard() {
     const pat = usePreloadedQuery(api.public.settings.get, {})
-    const savePat = useAction(api.actions.savePAT)
-    const deletePat = useMutation(api.mutations.deleteMyPAT)
+    const savePat = useAction(api.public.settings.savePAT)
+    const deletePat = useMutation(api.public.settings.deletePAT)
 
     const state = useMutable({
         showTokenInput: false,

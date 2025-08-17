@@ -1,15 +1,26 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, ok, wrap } from '@convex/shared'
-import { SECRET, logger, octoCatch } from '@convex/utils'
+import { err, ok, unwrap, wrap } from '@convex/shared'
+import { SECRET, logger, octoCatch, protectedAction } from '@convex/utils'
 import { Buffer } from 'buffer'
 import { Octokit } from 'octokit'
 import { getAllRefs } from './github'
+import { v } from 'convex/values'
 
-export const Backfill = {
-    run: runRepoBackfill,
-}
+export const run = protectedAction({
+    args: {
+        token: v.string(),
+        owner: v.string(),
+        repo: v.string(),
+        private: v.boolean(),
+    },
+    async handler(ctx, args) {
+        let octo = new Octokit({ auth: args.token })
+        let res = await runRepoBackfill({ ctx, octo, ...args })
+        unwrap(res)
+    },
+})
 
 type BackfillCfg = {
     ctx: ActionCtx

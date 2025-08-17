@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { FastLink } from '@/components/ui/link'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import type { FoundRepo } from '@convex/actions'
+import type { FoundRepo } from '@convex/public/dashboard'
 import { useAction, useQuery } from 'convex/react'
 import { useMutable, usePreloadedQuery } from '../utils'
 
@@ -29,8 +29,8 @@ export function DashboardPage() {
 }
 
 function RepositorySearch() {
-    let searchRepos = useAction(api.actions.searchRepository)
-    let addRepo = useAction(api.actions.addRepository)
+    let searchRepos = useAction(api.public.dashboard.searchRepo)
+    let addRepo = useAction(api.public.dashboard.addRepo)
 
     let state = useMutable({
         query: '',
@@ -85,8 +85,6 @@ function RepositorySearch() {
 
             return
         }
-
-        res
     }
 
     return (
@@ -122,16 +120,37 @@ function RepositorySearch() {
                                             {repo.description}
                                         </div>
                                     )}
-                                    <a
-                                        href={repo.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mt-1 inline-block text-sm text-blue-600 hover:underline"
-                                    >
-                                        View on GitHub
-                                    </a>
+
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <a
+                                            href={repo.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-sm text-blue-600 hover:underline"
+                                        >
+                                            View on GitHub
+                                        </a>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleRepoAdd(repo)}
+                                            className="ml-auto"
+                                        >
+                                            Add Repository
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {state.addRepoError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                            <div className="font-medium text-red-800">
+                                {state.addRepoError.title}
+                            </div>
+                            <div className="mt-1 text-sm text-red-600">
+                                {state.addRepoError.description}
+                            </div>
                         </div>
                     )}
                 </div>

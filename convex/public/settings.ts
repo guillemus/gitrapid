@@ -1,5 +1,5 @@
 import { api } from '@convex/_generated/api'
-import { action, query } from '@convex/_generated/server'
+import { action, mutation, query } from '@convex/_generated/server'
 import { scopesSchema } from '@convex/schema'
 import { getTokenExpiration } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
@@ -47,5 +47,21 @@ export const savePAT = action({
         })
 
         return ok()
+    },
+})
+
+export const deletePAT = mutation({
+    args: {},
+    async handler(ctx) {
+        let userId = await getUserId(ctx)
+
+        let pat = await ctx.db
+            .query('pats')
+            .withIndex('by_user_id', (q) => q.eq('userId', userId))
+            .unique()
+
+        if (pat) {
+            await ctx.db.delete(pat._id)
+        }
     },
 })
