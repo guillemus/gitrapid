@@ -2,6 +2,14 @@ import { octoCatch, OctoError, parseDate } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap } from '../shared'
 
+/**
+ * Octokit for some reason accepts auth as any. This is bad, and I've been
+ * bitten by this many times, so use this wrapper whenever creating newOctokits.
+ */
+export function newOctokit(token: string) {
+    return new Octokit({ auth: token })
+}
+
 export type GitRefInfo = {
     name: string
     commitSha: string
@@ -32,7 +40,7 @@ export async function getAllRefs(octo: Octokit, args: { owner: string; repo: str
 }
 
 export async function getTokenExpiration(token: string): R<Date> {
-    const octo = new Octokit({ auth: token })
+    const octo = newOctokit(token)
 
     let res = await tryCatch(octo.rest.users.getAuthenticated())
     if (res.isErr) return wrap('failed to get token expiration', res)

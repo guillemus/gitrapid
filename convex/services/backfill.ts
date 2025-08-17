@@ -5,7 +5,7 @@ import { err, ok, unwrap, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch, protectedAction } from '@convex/utils'
 import { Buffer } from 'buffer'
 import { Octokit } from 'octokit'
-import { getAllRefs } from './github'
+import { getAllRefs, newOctokit } from './github'
 import { v } from 'convex/values'
 
 export const run = protectedAction({
@@ -16,7 +16,7 @@ export const run = protectedAction({
         private: v.boolean(),
     },
     async handler(ctx, args) {
-        let octo = new Octokit({ auth: args.token })
+        let octo = newOctokit(args.token)
         let res = await runRepoBackfill({ ctx, octo, ...args })
         unwrap(res)
     },

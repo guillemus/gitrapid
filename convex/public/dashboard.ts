@@ -2,11 +2,10 @@ import { api } from '@convex/_generated/api'
 import { action, query, type ActionCtx } from '@convex/_generated/server'
 import { RepoDownloadStatus } from '@convex/models/repoDownloadStatus'
 import { UserRepos } from '@convex/models/userRepos'
-import { validatePublicLicense, type LicenseError } from '@convex/services/github'
+import { newOctokit, validatePublicLicense, type LicenseError } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
 import { getUserId, octoCatch, SECRET } from '@convex/utils'
 import { v } from 'convex/values'
-import { Octokit } from 'octokit'
 
 export const get = query({
     args: {},
@@ -75,7 +74,7 @@ export const searchRepo = action({
             return wrap('Failed to get token', token)
         }
 
-        let octo = new Octokit({ auth: token.val })
+        let octo = newOctokit(token.val)
         let res = await octoCatch(octo.rest.search.repos({ q: query }))
         if (res.isErr) return err(res.err.error())
 
@@ -106,7 +105,7 @@ export const addRepo = action({
     async handler(ctx, args): R<null, AddRepoError> {
         let token = await getTokenFromUser(ctx)
         if (token.isErr) return err({ type: 'error', err: token.err })
-        let octo = new Octokit({ auth: token.val })
+        let octo = newOctokit(token.val)
 
         let repoData = await octoCatch(
             octo.rest.repos.get({
