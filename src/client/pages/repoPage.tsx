@@ -1,3 +1,12 @@
+import { queryClient } from '@/client/convex'
+import {
+    useDefined,
+    useGithubParams,
+    useMutable,
+    usePreloadedQuery,
+    useTanstackQuery,
+    type GithubParams,
+} from '@/client/utils'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import {
@@ -8,15 +17,6 @@ import {
 } from '@primer/octicons-react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { queryClient } from '@/client/convex'
-import {
-    useDefined,
-    useFirstLoadQuery,
-    useGithubParams,
-    useMutable,
-    useTanstackQuery,
-    type GithubParams,
-} from '@/client/utils'
 
 type FileTreeNode = {
     name: string
@@ -96,7 +96,7 @@ function FileTreeNode({ node, params }: FileTreeNodeProps) {
     const navigate = useNavigate()
 
     let { data: query } = useTanstackQuery(
-        convexQuery(api.queries.getRepoPage, {
+        convexQuery(api.public.repo.get, {
             owner: params.owner,
             repo: params.repo,
             refAndPath: params.refAndPath,
@@ -139,7 +139,7 @@ function FileTreeNode({ node, params }: FileTreeNodeProps) {
             onMouseOver={() => {
                 const refName = ref?.name ?? ''
                 queryClient.prefetchQuery(
-                    convexQuery(api.queries.getRepoPage, {
+                    convexQuery(api.public.repo.get, {
                         owner: params.owner,
                         repo: params.repo,
                         refAndPath: `${refName}/${node.path}`,
@@ -164,7 +164,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
     let params = useGithubParams()
 
     let { data: query } = useTanstackQuery(
-        convexQuery(api.queries.getRepoPage, {
+        convexQuery(api.public.repo.get, {
             owner: params.owner,
             repo: params.repo,
             refAndPath: params.refAndPath,
@@ -190,15 +190,10 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
 export function RepoPage() {
     let params = useGithubParams()
 
-    let page = useFirstLoadQuery({
-        queryKey: ['repoPage', params.owner, params.repo, params.refAndPath],
-        queryFn: async (client) => {
-            return client.query(api.queries.getRepoPage, {
-                owner: params.owner,
-                repo: params.repo,
-                refAndPath: params.refAndPath,
-            })
-        },
+    let page = usePreloadedQuery(api.public.repo.get, {
+        owner: params.owner,
+        repo: params.repo,
+        refAndPath: params.refAndPath,
     })
 
     return (
@@ -217,7 +212,7 @@ function FileContents({ preloadedFileContents }: { preloadedFileContents?: strin
     let params = useGithubParams()
 
     let { data: query } = useTanstackQuery(
-        convexQuery(api.queries.getRepoPage, {
+        convexQuery(api.public.repo.get, {
             owner: params.owner,
             repo: params.repo,
             refAndPath: params.refAndPath,

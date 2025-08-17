@@ -32,7 +32,9 @@ function AppLayout() {
                 <Header owner={params.owner} repo={params.repo} />
             </div>
             <AuthenticatedWithToken>
-                <Outlet></Outlet>
+                <div className="p-6">
+                    <Outlet></Outlet>
+                </div>
             </AuthenticatedWithToken>
             <Unauthenticated>
                 <Navigate to="/login" />

@@ -1,57 +1,68 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
+import { err, ok, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch } from '@convex/utils'
 import { Buffer } from 'buffer'
 import { Octokit } from 'octokit'
 import { getAllRefs } from './github'
-import { err, ok, wrap } from '../shared'
 
-type InstallRepoCfg = {
+export const Backfill = {
+    run: runRepoBackfill,
+}
+
+type BackfillCfg = {
     ctx: ActionCtx
-    githubUserId: number
-    githubInstallationId: number
-    repo: string
+    octo: Octokit
     owner: string
+    repo: string
     private: boolean
 }
 
+type BackfillCfgWithRepo = BackfillCfg & {
+    savedRepo: Doc<'repos'>
+}
+
 async function updateDownloadStatus(
-    cfg: {
-        ctx: ActionCtx
-        savedRepo: Doc<'repos'>
-    },
+    cfg: BackfillCfgWithRepo,
     status: 'pending' | 'success' | 'error',
     message: string,
 ) {
-    let { ctx, savedRepo } = cfg
-    await ctx.runMutation(api.models.repoDownloadStatus.upsert, {
+    await cfg.ctx.runMutation(api.models.repoDownloadStatus.upsert, {
         ...SECRET,
-        repoId: savedRepo._id,
+        repoId: cfg.savedRepo._id,
         status,
         message,
     })
 }
 
-type BackfillConfig = InstallRepoCfg & {
-    octo: Octokit
-    savedRepo: Doc<'repos'>
-}
+async function runRepoBackfill(cfg: BackfillCfg): R {
+    let { ctx, octo } = cfg
 
-async function runBackfill(cfg: BackfillConfig) {
-    let { ctx, octo, owner, repo, savedRepo } = cfg
+    let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
+        ...SECRET,
+        owner: cfg.owner,
+        repo: cfg.repo,
+        private: cfg.private,
+    })
+    if (!savedRepo) return err('Failed to save repo')
+
+    let owner = savedRepo.owner
+    let repo = savedRepo.repo
 
     let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
     if (repoData.isErr) {
-        let isUnauthorized = repoData.error.status === 401
-        let badCredentials = repoData.error.error().includes('Bad credentials')
+        let isUnauthorized = repoData.err.status === 401
+        let badCredentials = repoData.err.error().includes('Bad credentials')
         if (isUnauthorized && badCredentials) {
             return err('bad credentials')
         }
-        return err(`failed to get repo: ${repoData.error.error()}`)
+        return err(`failed to get repo: ${repoData.err.error()}`)
     }
 
-    await updateDownloadStatus(cfg, 'pending', 'Backfilling refs')
+    let cfgWithRepo = { ...cfg, savedRepo }
+
+    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilling refs')
 
     let refs = await getAllRefs(octo, { owner, repo })
     if (refs.isErr) {
@@ -73,24 +84,23 @@ async function runBackfill(cfg: BackfillConfig) {
 
     logger.info('upserted refs')
 
-    await updateDownloadStatus(cfg, 'pending', 'Backfilled refs, downloading commits')
+    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilled refs, downloading commits')
 
     logger.info('backfilling commits')
 
-    let commitsRes = await backfillCommits(cfg)
+    let commitsRes = await backfillCommits(cfgWithRepo, savedRepo)
     if (commitsRes.isErr) {
         return wrap('failed to backfill commits', commitsRes)
     }
 
-    await updateDownloadStatus(cfg, 'pending', 'Backfilled commits, downloading issues')
-    await backfillIssues(cfg)
+    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilled commits, downloading issues')
+    await backfillIssues(cfgWithRepo, savedRepo)
 
     return ok()
 }
 
-async function backfillCommits(cfg: BackfillConfig) {
-    let { octo, owner, repo, ctx, savedRepo } = cfg
-    let repoId = savedRepo._id
+async function backfillCommits(cfg: BackfillCfgWithRepo, savedRepo: Doc<'repos'>) {
+    let { octo, ctx, owner, repo } = cfg
 
     let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
         owner,
@@ -109,15 +119,15 @@ async function backfillCommits(cfg: BackfillConfig) {
         for (let commit of commitsPage) {
             let isCommitWritten = await ctx.runQuery(api.models.commits.getByRepoAndSha, {
                 ...SECRET,
-                repoId,
+                repoId: savedRepo._id,
                 sha: commit.sha,
             })
             if (isCommitWritten) {
-                logger.info({ sha: commit.sha }, 'commit already written')
+                logger.debug({ sha: commit.sha }, 'commit already written')
                 continue
             }
 
-            logger.info(`processing commit ${commit.sha}`)
+            logger.debug({ sha: commit.sha }, 'processing commit')
 
             let rootTreeSha = commit.commit.tree.sha
 
@@ -130,7 +140,7 @@ async function backfillCommits(cfg: BackfillConfig) {
             })
             treeData = await octoCatch(treeData)
             if (treeData.isErr) {
-                return err(`failed to get tree: ${treeData.error.error()}`)
+                return err(`failed to get tree: ${treeData.err.error()}`)
             }
 
             if (treeData.val.truncated) {
@@ -141,7 +151,7 @@ async function backfillCommits(cfg: BackfillConfig) {
             if (!treeId) {
                 let treeDoc = await ctx.runMutation(api.models.trees.getOrCreate, {
                     ...SECRET,
-                    repoId,
+                    repoId: savedRepo._id,
                     sha: rootTreeSha,
                 })
                 if (treeDoc) writtenTrees.set(rootTreeSha, treeDoc._id)
@@ -151,7 +161,7 @@ async function backfillCommits(cfg: BackfillConfig) {
             if (!commitId) {
                 let commitDoc = await ctx.runMutation(api.models.commits.getOrCreate, {
                     ...SECRET,
-                    repoId,
+                    repoId: savedRepo._id,
                     treeSha: rootTreeSha,
                     message: commit.commit.message,
                     sha: commit.sha,
@@ -165,12 +175,7 @@ async function backfillCommits(cfg: BackfillConfig) {
                 let existingTreeEntryId = writtenTreeEntries.get(treeEntry.sha)
                 if (existingTreeEntryId) continue
 
-                let processRes = await processTreeEntry(
-                    { ctx, octo, owner, repo },
-                    treeEntry,
-                    rootTreeSha,
-                    repoId,
-                )
+                let processRes = await processTreeEntry(cfg, treeEntry, rootTreeSha)
                 if (processRes.isErr) {
                     return wrap('failed to process tree entry', processRes)
                 }
@@ -190,8 +195,10 @@ async function backfillCommits(cfg: BackfillConfig) {
     return ok()
 }
 
-async function backfillIssues(cfg: BackfillConfig) {
-    let { octo, owner, repo, ctx, savedRepo } = cfg
+async function backfillIssues(cfg: BackfillCfgWithRepo, savedRepo: Doc<'repos'>) {
+    let { octo, ctx } = cfg
+    let owner = savedRepo.owner
+    let repo = savedRepo.repo
     let repoId = savedRepo._id
 
     let issuesIterator = octo.paginate.iterator(octo.rest.issues.listForRepo, {
@@ -219,6 +226,8 @@ async function backfillIssues(cfg: BackfillConfig) {
             let issueState: 'open' | 'closed'
             if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
             else continue
+
+            logger.debug({ issue: issue.number }, 'processing issue')
 
             let issueDoc = await ctx.runMutation(api.models.models.getOrCreateIssue, {
                 ...SECRET,
@@ -251,7 +260,7 @@ async function backfillIssues(cfg: BackfillConfig) {
                     per_page: 100,
                 })
 
-                logger.info({ issue: issue.number }, 'processing comments for issue')
+                logger.debug({ issue: issue.number }, 'processing comments for issue')
 
                 for await (let { data: commentsPage } of commentsIter) {
                     for (let comment of commentsPage) {
@@ -292,18 +301,23 @@ type TreeEntry = {
 }
 
 async function processTreeEntry(
-    cfg: { ctx: ActionCtx; octo: Octokit; owner: string; repo: string },
+    cfg: BackfillCfgWithRepo,
     treeEntry: TreeEntry,
     rootTreeSha: string,
-    repoId: Id<'repos'>,
 ) {
-    let { ctx, octo, owner, repo } = cfg
+    logger.debug({ treeEntry: treeEntry.path }, 'processing tree entry')
 
     let newTreeEntry
     if (treeEntry.type === 'blob') {
-        let blob = await octoCatch(octo.rest.git.getBlob({ owner, repo, file_sha: treeEntry.sha }))
+        let blob = await octoCatch(
+            cfg.octo.rest.git.getBlob({
+                owner: cfg.owner,
+                repo: cfg.repo,
+                file_sha: treeEntry.sha,
+            }),
+        )
         if (blob.isErr) {
-            return err(`failed to get blob: ${blob.error.error()}`)
+            return err(`failed to get blob: ${blob.err.error()}`)
         }
 
         let blobContentBase64 = blob.val.content
@@ -327,28 +341,28 @@ async function processTreeEntry(
             storedEncoding = 'base64'
         }
 
-        newTreeEntry = await ctx.runMutation(api.models.treeEntries.getOrCreate, {
+        newTreeEntry = await cfg.ctx.runMutation(api.models.treeEntries.getOrCreate, {
             ...SECRET,
             entrySha: treeEntry.sha,
             entryType: 'blob' as const,
             mode: treeEntry.mode,
             path: treeEntry.path,
             rootTreeSha: rootTreeSha,
-            repoId,
+            repoId: cfg.savedRepo._id,
         })
 
-        await ctx.runMutation(api.models.blobs.upsert, {
+        await cfg.ctx.runMutation(api.models.blobs.upsert, {
             ...SECRET,
-            repoId,
+            repoId: cfg.savedRepo._id,
             sha: treeEntry.sha,
             content: storedContent,
             encoding: storedEncoding,
             size: blobSize,
         })
     } else if (treeEntry.type === 'tree') {
-        newTreeEntry = await ctx.runMutation(api.models.treeEntries.getOrCreate, {
+        newTreeEntry = await cfg.ctx.runMutation(api.models.treeEntries.getOrCreate, {
             ...SECRET,
-            repoId,
+            repoId: cfg.savedRepo._id,
             rootTreeSha: rootTreeSha,
             entrySha: treeEntry.sha,
             entryType: 'tree' as const,
@@ -356,9 +370,9 @@ async function processTreeEntry(
             path: treeEntry.path,
         })
 
-        await ctx.runMutation(api.models.trees.getOrCreate, {
+        await cfg.ctx.runMutation(api.models.trees.getOrCreate, {
             ...SECRET,
-            repoId,
+            repoId: cfg.savedRepo._id,
             sha: treeEntry.sha,
         })
     }

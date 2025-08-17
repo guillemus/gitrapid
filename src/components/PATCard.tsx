@@ -1,8 +1,7 @@
-import { useMutable, useTanstackQuery } from '@/client/utils'
+import { useMutable, usePreloadedQuery } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { useAction, useMutation } from 'convex/react'
@@ -10,7 +9,7 @@ import { useAction, useMutation } from 'convex/react'
 type Scopes = Doc<'pats'>['scopes']
 
 export function PATCard() {
-    const { data: pat, isLoading } = useTanstackQuery(convexQuery(api.queries.getPAT, {}))
+    const pat = usePreloadedQuery(api.public.settings.get, {})
     const savePat = useAction(api.actions.savePAT)
     const deletePat = useMutation(api.mutations.deleteMyPAT)
 
@@ -46,8 +45,6 @@ export function PATCard() {
         state.showTokenInput = false
         state.token = ''
     }
-
-    if (isLoading) return null
 
     if (pat) {
         return (

@@ -20,6 +20,7 @@ We use tailwindcss with shadcn ui for ui components.
 # typescript
 
 Prefer using `let` to `const` when declaring variables. 
+Prefer using named functions instead of arrow functions.
 
 ## typing rules
 

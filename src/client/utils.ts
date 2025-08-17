@@ -1,59 +1,43 @@
-import { useQuery, type QueryKey } from '@tanstack/react-query'
+import { convexQuery } from '@convex-dev/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { createAuthClient } from 'better-auth/react'
+import { type FunctionArgs, type FunctionReference } from 'convex/server'
 import { useEffect, useRef } from 'react'
+import { useParams } from 'react-router'
+
+import { useConvexHttp } from './convex'
 
 // This exists bc of naming conflict with convex.
 export const useTanstackQuery = useQuery
 
-const $firstLoad = proxy({ value: false })
+const didFirstLoad = proxy({ value: false })
 
-/**
- * A query that will execute on first load only. After execution it will be
- * forever disabled.
- */
-export function useFirstLoadQuery<T>(args: {
-    queryKey: QueryKey
-    queryFn: (c: ConvexHttpClient) => Promise<T>
-}) {
-    let convexHttp = useConvexHttp()
-    let firstLoad = useSnapshot($firstLoad)
-
-    const { data } = useTanstackQuery({
-        queryKey: args.queryKey,
-        queryFn: async () => {
-            let res = await args.queryFn(convexHttp!)
-            $firstLoad.value = true
-            return res
-        },
-        enabled: !!convexHttp && !firstLoad.value,
-        staleTime: Infinity,
-    })
-
-    return data ?? null
-}
-
-export function usePageQuery<
+export function usePreloadedQuery<
     Query extends FunctionReference<'query'>,
     Args extends FunctionArgs<Query> | 'skip',
->(queryKey: QueryKey, query: Query, args: Args) {
+>(query: Query, args: Args) {
     let convexHttp = useConvexHttp()
-    let firstLoad = useSnapshot($firstLoad)
+    let firstLoad = useSnapshot(didFirstLoad)
 
-    const { data: firstLoadPage } = useTanstackQuery({
-        queryKey: queryKey,
+    let convexQueryOpts = convexQuery(query, args)
+
+    useTanstackQuery({
+        queryKey: convexQueryOpts.queryKey,
+
         queryFn: async () => {
             // @ts-expect-error
             let res = await convexHttp!.query(query, args)
 
-            $firstLoad.value = true
+            didFirstLoad.value = true
             return res
         },
         enabled: !!convexHttp && !firstLoad.value,
         staleTime: Infinity,
     })
 
-    let { data: subscribedPage } = useTanstackQuery(convexQuery(query, args))
+    let { data } = useTanstackQuery(convexQueryOpts)
 
-    return subscribedPage ?? firstLoadPage
+    return data
 }
 
 export function getLanguageFromExtension(filePath: string): string {
@@ -167,13 +151,6 @@ export function useMutable<T extends object>(initial: T): T {
     const p = useRef(proxy(initial)).current
     return useProxy(p)
 }
-
-import { createAuthClient } from 'better-auth/react'
-import type { ConvexHttpClient } from 'convex/browser'
-import { useParams } from 'react-router'
-import { useConvexHttp } from './convex'
-import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { convexQuery } from '@convex-dev/react-query'
 
 export const authClient = createAuthClient()
 

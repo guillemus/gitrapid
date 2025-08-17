@@ -1,7 +1,7 @@
 export type Ok<T = null> = { isErr: false; val: T }
-export type Err<E = string> = { isErr: true; error: E }
+export type Err<E = string> = { isErr: true; err: E }
 export type Result<T, E = string> = Ok<T> | Err<E>
-export type ResultAsync<T = null> = Promise<Result<T, string>>
+export type ResultAsync<T = null, E = string> = Promise<Result<T, E>>
 
 /**
  * Convenient utility to create an Ok.
@@ -16,7 +16,7 @@ export function ok<T>(val?: T): Ok<T | null> {
  * Convenient utility to create an Err.
  */
 export function err<E>(msg: E): Err<E> {
-    return { isErr: true, error: msg }
+    return { isErr: true, err: msg }
 }
 
 /**
@@ -58,7 +58,7 @@ export function err<E>(msg: E): Err<E> {
  * In order to prevent this, wrap will ensure that the passed error is a string.
  */
 export function wrap(context: string, err: Err<string>): Err<string> {
-    return { isErr: true, error: `${context}: ${err.error}` }
+    return { isErr: true, err: `${context}: ${err.err}` }
 }
 
 // /**
@@ -83,7 +83,7 @@ export async function tryCatch<T>(promise: Promise<T>): Promise<Result<T>> {
         // that it is an error
         if (error?.message) return { isErr: true, error: error.message }
 
-        return { isErr: true, error: String(error) }
+        return { isErr: true, err: String(error) }
     }
 }
 
@@ -93,10 +93,10 @@ export async function tryCatch<T>(promise: Promise<T>): Promise<Result<T>> {
  */
 export function unwrap<T, E>(result: Result<T, E>): T {
     if (result.isErr) {
-        if (typeof result.error === 'string') {
-            throw new Error(result.error)
+        if (typeof result.err === 'string') {
+            throw new Error(result.err)
         }
-        throw result.error
+        throw result.err
     }
 
     return result.val

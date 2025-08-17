@@ -65,7 +65,7 @@ export async function getUserId(ctx: { auth: Auth }) {
     return userId
 }
 
-class OctoError extends RequestError {
+export class OctoError extends RequestError {
     constructor(err: RequestError) {
         super(err.message, err.status, err)
     }
@@ -89,7 +89,7 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<Resul
 }
 
 export function octoWrap<T>(context: string, octoError: Err<OctoError>): Err<string> {
-    return err(`${context}: ${octoError.error.error()}`)
+    return err(`${context}: ${octoError.err.error()}`)
 }
 
 export function createActionCtx(publicContextUrl: string): ActionCtx {

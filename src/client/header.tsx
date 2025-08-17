@@ -20,6 +20,9 @@ export function Header(props: { showDownloadStatus?: boolean; owner?: string; re
                     >
                         gitrapid
                     </FastLink>
+                    <FastLink to="/settings" className="text-md">
+                        settings
+                    </FastLink>
 
                     {props.owner && props.repo && (
                         <span className="flex items-center gap-2 text-sm text-gray-500">

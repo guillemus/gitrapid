@@ -9,9 +9,7 @@ export const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL!)
 
 export function useConvexHttp() {
     const token = useAuthToken()
-    if (!token) {
-        return null
-    }
+    if (!token) return null
 
     const convexHttp = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL!)
     convexHttp.setAuth(token)

@@ -1,3 +1,5 @@
+import { PATCard } from '@/components/PATCard'
+
 export function SettingsPage() {
-    return <div>Settings</div>
+    return <PATCard></PATCard>
 }

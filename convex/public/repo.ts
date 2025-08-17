@@ -1,15 +1,32 @@
+import { v } from 'convex/values'
+import { query, type QueryCtx } from '@convex/_generated/server'
+import { unwrap } from '@convex/shared'
+import { getUserId } from '@convex/utils'
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import type { QueryCtx } from '@convex/_generated/server'
-import { Commits } from '@convex/models/commits'
 import { Repos } from '@convex/models/repos'
+import { err } from '@convex/shared'
 import { UserRepos } from '@convex/models/userRepos'
-import { Blobs } from '../models/blobs'
-import { Refs } from '../models/refs'
-import { TreeEntries } from '../models/treeEntries'
-import { Trees } from '../models/trees'
-import { err, ok } from '../shared'
+import { Refs } from '@convex/models/refs'
+import { Commits } from '@convex/models/commits'
+import { Trees } from '@convex/models/trees'
+import { TreeEntries } from '@convex/models/treeEntries'
+import { Blobs } from '@convex/models/blobs'
+import { ok } from '@convex/shared'
 
-export async function getRepoPageQuery(
+export const get = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        refAndPath: v.string(),
+    },
+    async handler(ctx, { owner, repo, refAndPath }) {
+        let userId = await getUserId(ctx)
+        let result = await getRepoPageQuery(ctx, userId, owner, repo, refAndPath)
+        return unwrap(result)
+    },
+})
+
+async function getRepoPageQuery(
     ctx: QueryCtx,
     userId: Id<'users'>,
     owner: string,
@@ -72,7 +89,7 @@ export async function getRepoPageQuery(
 
 const commitShaRegex = /^[a-f0-9]{40}$/i
 
-export function parseRefAndPath(
+function parseRefAndPath(
     repoRefs: Doc<'refs'>[],
     headRef: Doc<'refs'>,
     refAndPath: string,
