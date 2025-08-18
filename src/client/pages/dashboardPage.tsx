@@ -67,15 +67,14 @@ function AddRepo() {
             } else if (res.err.type === 'octo-error') {
                 state.addRepoError = {
                     title: 'Something went wrong',
-                    description: res.err.err.error(),
+                    description: res.err.err,
                 }
             } else res.err satisfies never
-
-            return
+        } else {
+            state.githubUrl = ''
         }
 
         // Clear the input on success
-        state.githubUrl = ''
         state.isAdding = false
     }
 

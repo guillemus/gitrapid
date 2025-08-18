@@ -1,4 +1,4 @@
-import { octoCatch, OctoError, parseDate } from '@convex/utils'
+import { octoCatch, parseDate } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap, type Result } from '../shared'
 
@@ -62,7 +62,7 @@ export async function getTokenExpiration(token: string): R<Date> {
 export type LicenseError =
     | { type: 'license-not-found' }
     | { type: 'license-not-supported'; spdxId: string }
-    | { type: 'octo-error'; err: OctoError }
+    | { type: 'octo-error'; err: string }
 
 export async function validatePublicLicense(
     octo: Octokit,
@@ -73,7 +73,7 @@ export async function validatePublicLicense(
         if (license.err.status === 404) {
             return err({ type: 'license-not-found' })
         } else {
-            return err({ type: 'octo-error', err: license.err })
+            return err({ type: 'octo-error', err: license.err.error() })
         }
     }
 

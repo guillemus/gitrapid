@@ -91,13 +91,19 @@ export const addRepo = action({
 
         let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
         if (repoData.isErr) {
-            return err({ type: 'octo-error', err: repoData.err })
+            return err({ type: 'octo-error', err: repoData.err.error() })
         }
 
         logger.info('got repo data')
 
-        let license = await validatePublicLicense(octo, { owner, repo })
-        if (license.isErr) return license
+        // if the repository is private and we could fetch its data with the
+        // given token, that means that the user has access to the repository,
+        // which means that we should have his permission to access the private
+        // data.
+        if (!repoData.val.private) {
+            let license = await validatePublicLicense(octo, { owner, repo })
+            if (license.isErr) return license
+        }
 
         logger.info('license is valid')
 
