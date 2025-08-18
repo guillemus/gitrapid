@@ -49,7 +49,7 @@ function RepoLayout() {
     return (
         <div className="h-screen w-full">
             <div>
-                <Header showDownloadStatus owner={params.owner} repo={params.repo} />
+                <Header showDownload owner={params.owner} repo={params.repo} />
             </div>
             <AuthenticatedWithToken>
                 <Outlet></Outlet>

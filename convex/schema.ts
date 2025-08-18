@@ -28,7 +28,7 @@ export const repoCountsSchema = {
 
 const repoCounts = defineTable(repoCountsSchema).index('by_repoId', ['repoId'])
 
-export const repoDownloadStatusSchema = {
+export const repoDownloadsSchema = {
     repoId: v.id('repos'),
     status: v.union(
         v.literal('initial'),
@@ -37,9 +37,11 @@ export const repoDownloadStatusSchema = {
         v.literal('error'),
     ),
     message: v.optional(v.string()),
+
+    syncedSince: v.optional(v.string()),
 }
 
-const repoDownloadStatus = defineTable(repoDownloadStatusSchema).index('by_repoId', ['repoId'])
+const repoDownloads = defineTable(repoDownloadsSchema).index('by_repoId', ['repoId'])
 
 export const refsSchema = {
     repoId: v.id('repos'),
@@ -51,7 +53,8 @@ const refs = defineTable(refsSchema)
     .index('by_repo_and_name', ['repoId', 'name'])
     .index('by_repo_and_commit', ['repoId', 'commitSha'])
 
-const githubPerson = v.object({
+// naming comes from github itself
+const gitUser = v.object({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     date: v.optional(v.string()),
@@ -61,10 +64,10 @@ export const commitsSchema = {
     repoId: v.id('repos'),
     treeSha: v.string(),
     sha: v.string(),
+    parentShas: v.array(v.string()),
     message: v.string(),
-    // creationDate: v.string(), // fixme: add this
-    author: v.optional(githubPerson),
-    committer: v.optional(githubPerson),
+    author: v.optional(gitUser),
+    committer: v.optional(gitUser),
 }
 const commits = defineTable(commitsSchema).index('by_repo_and_sha', ['repoId', 'sha'])
 
@@ -165,7 +168,7 @@ export default defineSchema({
     repos,
     userRepos,
     repoCounts,
-    repoDownloadStatus,
+    repoDownloads,
 
     blobs,
     trees,

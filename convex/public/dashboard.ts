@@ -1,7 +1,7 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { action, query, type ActionCtx } from '@convex/_generated/server'
-import { RepoDownloadStatus } from '@convex/models/repoDownloadStatus'
+import { RepoDownloads } from '@convex/models/repoDownloads'
 import { UserRepos } from '@convex/models/userRepos'
 import {
     newOctokit,
@@ -25,7 +25,7 @@ export const get = query({
     },
 })
 
-export const getDownloadStatus = query({
+export const getDownload = query({
     args: {
         repoId: v.id('repos'),
     },
@@ -37,7 +37,7 @@ export const getDownloadStatus = query({
             throw new Error('not authorized to this repo')
         }
 
-        let status = await RepoDownloadStatus.getByRepoId(ctx, repoId)
+        let status = await RepoDownloads.getByRepoId(ctx, repoId)
         if (!status) return
 
         return {

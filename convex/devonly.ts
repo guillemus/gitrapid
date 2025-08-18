@@ -42,9 +42,9 @@ export const listRepoCounts = devQuery({
     handler: (ctx) => ctx.db.query('repoCounts').collect(),
 })
 
-export const listRepoDownloadStatus = devQuery({
+export const listRepoDownloads = devQuery({
     args: {},
-    handler: (ctx) => ctx.db.query('repoDownloadStatus').collect(),
+    handler: (ctx) => ctx.db.query('repoDownloads').collect(),
 })
 
 export const listBlobs = devQuery({

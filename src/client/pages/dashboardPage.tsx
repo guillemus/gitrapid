@@ -115,7 +115,7 @@ function AddRepo() {
 }
 
 function Repository(props: { repo: Doc<'repos'> }) {
-    let downloadStatus = useQuery(api.public.dashboard.getDownloadStatus, {
+    let download = useQuery(api.public.dashboard.getDownload, {
         repoId: props.repo._id,
     })
 
@@ -143,13 +143,11 @@ function Repository(props: { repo: Doc<'repos'> }) {
                             )}
                         </div>
 
-                        {downloadStatus && (
+                        {download && (
                             <div className="mt-1 text-sm text-gray-600">
-                                <div>Status: {downloadStatus.status}</div>
-                                {downloadStatus.message && (
-                                    <div className="text-xs text-gray-500">
-                                        {downloadStatus.message}
-                                    </div>
+                                <div>Status: {download.status}</div>
+                                {download.message && (
+                                    <div className="text-xs text-gray-500">{download.message}</div>
                                 )}
                             </div>
                         )}
