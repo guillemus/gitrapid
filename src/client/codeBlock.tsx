@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { parseCode, type CreateTransformerOptions } from './shiki'
 import { useShiki } from './highlighter'
+import { parseCode, type CreateTransformerOptions } from './shiki'
 
 export function CodeBlock(props: { code: TrustedHTML; highlightedLine?: number }) {
     let ref = useRef<HTMLDivElement>(null)

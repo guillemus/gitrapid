@@ -1,6 +1,6 @@
 import { octoCatch, OctoError, parseDate } from '@convex/utils'
 import { Octokit } from 'octokit'
-import { err, ok, tryCatch, wrap } from '../shared'
+import { err, ok, tryCatch, wrap, type Result } from '../shared'
 
 /**
  * Octokit for some reason accepts auth as any. This is bad, and I've been
@@ -84,4 +84,31 @@ export async function validatePublicLicense(
     }
 
     return ok()
+}
+
+export function parseGithubUrl(raw: string): Result<{ owner: string; repo: string }> {
+    // Handle URLs that start with github.com without protocol
+    let urlString = raw
+    if (!raw.includes('://') && raw.startsWith('github.com')) {
+        urlString = 'https://' + raw
+    }
+
+    let url: URL
+    try {
+        url = new URL(urlString)
+    } catch {
+        return err('invalid github url')
+    }
+
+    if (url.hostname !== 'github.com') return err('invalid github url')
+
+    let parts = url.pathname.split('/')
+    if (parts.length < 3) return err('invalid github url')
+
+    let owner = parts[1]
+    let repo = parts[2]
+
+    if (!owner || !repo) return err('invalid github url')
+
+    return ok({ owner, repo })
 }

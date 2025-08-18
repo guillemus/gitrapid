@@ -10,9 +10,11 @@ import type {
 } from 'convex/server'
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
+import pino from 'pino'
 import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
 import { env } from './env'
+import { err, ok, type Err, type Result } from './shared'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -171,11 +173,8 @@ export const protectedAction = customAction(action, {
     },
 })
 
-import pino from 'pino'
-import { err, ok, type Err, type Result } from './shared'
-
 export const logger = pino({
-    level: env.DEV === 'true' ? 'debug' : 'info',
+    level: 'info',
 })
 
 export function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
@@ -186,6 +185,37 @@ export function runProtectedQuery<Query extends FunctionReference<'query', 'publ
     // @ts-ignore
     return this.runQuery(query, { ...SECRET, ...args })
 }
+
+function preventInProd() {
+    if (process.env.DEV !== 'true') throw new Error('>:(')
+}
+
+export const devQuery = customQuery(query, {
+    args: {},
+    async input(_ctx) {
+        preventInProd()
+
+        return { ctx: {}, args: {} }
+    },
+})
+
+export const devMutation = customMutation(mutation, {
+    args: {},
+    async input(_ctx) {
+        preventInProd()
+
+        return { ctx: {}, args: {} }
+    },
+})
+
+export const devAction = customAction(action, {
+    args: {},
+    async input(_ctx) {
+        preventInProd()
+
+        return { ctx: {}, args: {} }
+    },
+})
 
 export function parseDate(date: string): Result<Date> {
     let d = new Date(date)

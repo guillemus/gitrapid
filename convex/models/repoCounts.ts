@@ -1,5 +1,7 @@
 import type { Id } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
+import { v } from 'convex/values'
+import { protectedMutation } from '../utils'
 import type { UpsertDoc } from './models'
 
 export const RepoCounts = {
@@ -40,3 +42,8 @@ export const RepoCounts = {
         }
     },
 }
+
+export const deleteByRepoId = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, { repoId }) => RepoCounts.deleteByRepoId(ctx, repoId),
+})

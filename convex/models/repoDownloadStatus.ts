@@ -1,8 +1,8 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { query, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
-import { getUserId, protectedMutation, protectedQuery } from '../utils'
+import { protectedMutation, protectedQuery } from '../utils'
 import type { UpsertDoc } from './models'
 
 export const RepoDownloadStatus = {
@@ -31,6 +31,13 @@ export const RepoDownloadStatus = {
         let id = await ctx.db.insert('repoDownloadStatus', args)
         return await ctx.db.get(id)
     },
+
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let existing = await this.getByRepoId(ctx, repoId)
+        if (existing) {
+            await ctx.db.delete(existing._id)
+        }
+    },
 }
 
 export const getByRepoId = protectedQuery({
@@ -46,4 +53,9 @@ export const getOrCreate = protectedMutation({
 export const upsert = protectedMutation({
     args: schemas.repoDownloadStatusSchema,
     handler: (ctx, args) => RepoDownloadStatus.upsert(ctx, args),
+})
+
+export const deleteByRepoId = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, { repoId }) => RepoDownloadStatus.deleteByRepoId(ctx, repoId),
 })

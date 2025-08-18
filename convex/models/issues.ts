@@ -1,8 +1,8 @@
 import type { Id } from '@convex/_generated/dataModel'
-import type { QueryCtx } from '@convex/_generated/server'
+import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
-import * as schemas from '../schema'
 import { protectedMutation, protectedQuery } from '../utils'
+import { IssueComments } from './issueComments'
 
 export const Issues = {
     async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
@@ -20,7 +20,24 @@ export const Issues = {
             .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
             .collect()
     },
+
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let issues = await ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
+            .collect()
+
+        for (let issue of issues) {
+            await IssueComments.deleteByIssueId(ctx, issue._id)
+            await ctx.db.delete(issue._id)
+        }
+    },
 }
+
+export const deleteByRepoId = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, { repoId }) => Issues.deleteByRepoId(ctx, repoId),
+})
 
 export const getByRepoAndNumber = protectedQuery({
     args: { repoId: v.id('repos'), number: v.number() },

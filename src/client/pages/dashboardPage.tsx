@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input'
 import { FastLink } from '@/components/ui/link'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import type { FoundRepo } from '@convex/public/dashboard'
 import { useAction, useQuery } from 'convex/react'
 import { useMutable, usePreloadedQuery } from '../utils'
 
@@ -13,7 +12,7 @@ export function DashboardPage() {
 
     return (
         <div className="space-y-6">
-            <RepositorySearch />
+            <AddRepo />
             <Card>
                 <CardContent>
                     <div className="space-y-4">
@@ -28,38 +27,27 @@ export function DashboardPage() {
     )
 }
 
-function RepositorySearch() {
-    let searchRepos = useAction(api.public.dashboard.searchRepo)
+function AddRepo() {
     let addRepo = useAction(api.public.dashboard.addRepo)
 
     let state = useMutable({
-        query: '',
-        results: [] as FoundRepo[],
-        isSearching: false,
+        githubUrl: '',
+        isAdding: false,
         addRepoError: null as null | {
             title: string
             description: string
         },
     })
 
-    async function handleSearch(query: string) {
-        if (!query.trim()) {
-            state.results = []
+    async function handleAddRepo() {
+        if (!state.githubUrl.trim()) {
             return
         }
 
-        state.isSearching = true
-        let result = await searchRepos({ query })
-        if (!result.isErr) {
-            state.results = result.val
-        } else {
-            console.error('Search failed:', result.err)
-        }
-        state.isSearching = false
-    }
+        state.isAdding = true
+        state.addRepoError = null
 
-    async function handleRepoAdd(repo: FoundRepo) {
-        let res = await addRepo(repo)
+        let res = await addRepo({ githubUrl: state.githubUrl })
         if (res.isErr) {
             if (res.err.type === 'error') {
                 state.addRepoError = {
@@ -85,63 +73,31 @@ function RepositorySearch() {
 
             return
         }
+
+        // Clear the input on success
+        state.githubUrl = ''
+        state.isAdding = false
     }
 
     return (
         <Card>
             <CardContent className="p-6">
                 <div className="space-y-4">
-                    <h2 className="text-xl font-semibold">Search Repositories</h2>
+                    <h2 className="text-xl font-semibold">Add Repository</h2>
                     <div className="flex gap-2">
                         <Input
-                            placeholder="Search for repositories..."
-                            value={state.query}
-                            onChange={(e) => (state.query = e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch(state.query)}
+                            placeholder="Enter GitHub repository URL..."
+                            value={state.githubUrl}
+                            onChange={(e) => (state.githubUrl = e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddRepo()}
                         />
                         <Button
-                            onClick={() => handleSearch(state.query)}
-                            disabled={state.isSearching}
+                            onClick={handleAddRepo}
+                            disabled={state.isAdding || !state.githubUrl.trim()}
                         >
-                            {state.isSearching ? 'Searching...' : 'Search'}
+                            {state.isAdding ? 'Adding...' : 'Add Repo'}
                         </Button>
                     </div>
-
-                    {state.results.length > 0 && (
-                        <div className="space-y-3">
-                            <h3 className="text-lg font-medium">Search Results</h3>
-                            {state.results.map((repo, index) => (
-                                <div key={index} className="rounded-lg border p-3">
-                                    <div className="font-medium">
-                                        {repo.owner} / {repo.repo}
-                                    </div>
-                                    {repo.description && (
-                                        <div className="mt-1 text-sm text-gray-600">
-                                            {repo.description}
-                                        </div>
-                                    )}
-
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <a
-                                            href={repo.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-sm text-blue-600 hover:underline"
-                                        >
-                                            View on GitHub
-                                        </a>
-                                        <Button
-                                            size="sm"
-                                            onClick={() => handleRepoAdd(repo)}
-                                            className="ml-auto"
-                                        >
-                                            Add Repository
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
 
                     {state.addRepoError && (
                         <div className="rounded-lg border border-red-200 bg-red-50 p-4">

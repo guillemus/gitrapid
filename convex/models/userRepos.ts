@@ -21,8 +21,25 @@ export const UserRepos = {
         return !!userRepo
     },
 
-    async insertUserRepo(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
-        return ctx.db.insert('userRepos', { userId, repoId })
+    async getOrCreate(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
+        let existing = await this.userHasRepo(ctx, userId, repoId)
+        if (existing) {
+            return existing
+        }
+
+        let id = await ctx.db.insert('userRepos', { userId, repoId })
+        return await ctx.db.get(id)
+    },
+
+    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+        let userRepos = await ctx.db
+            .query('userRepos')
+            .filter((q) => q.eq(q.field('repoId'), repoId))
+            .collect()
+
+        for (let userRepo of userRepos) {
+            await ctx.db.delete(userRepo._id)
+        }
     },
 }
 
@@ -31,7 +48,12 @@ export const getByUserId = protectedQuery({
     handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })
 
-export const insertUserRepo = protectedMutation({
+export const getOrCreate = protectedMutation({
     args: schemas.userReposSchema,
-    handler: (ctx, { userId, repoId }) => UserRepos.insertUserRepo(ctx, userId, repoId),
+    handler: (ctx, { userId, repoId }) => UserRepos.getOrCreate(ctx, userId, repoId),
+})
+
+export const deleteByRepoId = protectedMutation({
+    args: { repoId: v.id('repos') },
+    handler: (ctx, { repoId }) => UserRepos.deleteByRepoId(ctx, repoId),
 })

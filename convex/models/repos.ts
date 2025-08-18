@@ -1,9 +1,8 @@
+import type { Id } from '@convex/_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import { protectedMutation, protectedQuery } from '../utils'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import type { Id } from '@convex/_generated/dataModel'
 import * as models from './models'
-import type { UpsertDoc } from './models'
 
 export const Repos = {
     async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -15,13 +14,6 @@ export const Repos = {
     },
 
     async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
-        return ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
-            .unique()
-    },
-
-    async getByOwnerRepo(ctx: QueryCtx, owner: string, repo: string) {
         return ctx.db
             .query('repos')
             .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
@@ -45,11 +37,6 @@ export const get = protectedQuery({
 export const getByOwnerAndRepo = protectedQuery({
     args: { owner: v.string(), repo: v.string() },
     handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
-})
-
-export const getByOwnerRepo = protectedQuery({
-    args: { owner: v.string(), repo: v.string() },
-    handler: (ctx, { owner, repo }) => Repos.getByOwnerRepo(ctx, owner, repo),
 })
 
 export const deleteById = protectedMutation({

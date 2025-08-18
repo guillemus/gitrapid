@@ -1,5 +1,5 @@
-import { useAuthActions } from '@convex-dev/auth/react'
 import { Button } from '@/components/ui/button'
+import { useAuthActions } from '@convex-dev/auth/react'
 
 export function LoginPage() {
     const { signIn } = useAuthActions()

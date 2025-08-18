@@ -1,73 +1,73 @@
 // Queries here are meant to be used for debugging only
 
-import { protectedQuery } from './utils'
+import { devQuery } from './utils'
 
-export const listRefs = protectedQuery({
+export const listRefs = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('refs').collect(),
 })
 
-export const listUsers = protectedQuery({
+export const listUsers = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('users').collect(),
 })
 
-export const listAccounts = protectedQuery({
+export const listAccounts = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('authAccounts').collect(),
 })
 
-export const listPATs = protectedQuery({
+export const listPATs = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('pats').collect(),
 })
 
-export const listCommits = protectedQuery({
+export const listCommits = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('commits').collect(),
 })
 
-export const listRepos = protectedQuery({
+export const listRepos = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('repos').collect(),
 })
 
-export const listUserRepos = protectedQuery({
+export const listUserRepos = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('userRepos').collect(),
 })
 
-export const listRepoCounts = protectedQuery({
+export const listRepoCounts = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('repoCounts').collect(),
 })
 
-export const listRepoDownloadStatus = protectedQuery({
+export const listRepoDownloadStatus = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('repoDownloadStatus').collect(),
 })
 
-export const listBlobs = protectedQuery({
+export const listBlobs = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('blobs').collect(),
 })
 
-export const listTrees = protectedQuery({
+export const listTrees = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('trees').collect(),
 })
 
-export const listTreeEntries = protectedQuery({
+export const listTreeEntries = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('treeEntries').collect(),
 })
 
-export const listIssues = protectedQuery({
+export const listIssues = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('issues').collect(),
 })
 
-export const listIssueComments = protectedQuery({
+export const listIssueComments = devQuery({
     args: {},
     handler: (ctx) => ctx.db.query('issueComments').collect(),
 })

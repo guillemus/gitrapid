@@ -1,5 +1,4 @@
 import type { Result } from './shared'
-import type { Octokit as BaseOctokit } from 'octokit'
 
 declare global {
     /**

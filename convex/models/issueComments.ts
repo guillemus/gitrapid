@@ -1,9 +1,9 @@
+import type { Id } from '@convex/_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
+import * as schemas from '../schema'
 import { protectedMutation, protectedQuery } from '../utils'
 import * as models from './models'
-import * as schemas from '../schema'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import type { Id } from '@convex/_generated/dataModel'
 
 export const IssueComments = {
     async getByGithubId(ctx: QueryCtx, githubId: number) {

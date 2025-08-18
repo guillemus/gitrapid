@@ -4,19 +4,21 @@ import type { ActionCtx } from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch, protectedAction } from '@convex/utils'
 import { Buffer } from 'buffer'
+import { v } from 'convex/values'
 import { Octokit } from 'octokit'
 import { getAllRefs, newOctokit } from './github'
-import { v } from 'convex/values'
 
 export const run = protectedAction({
     args: {
         token: v.string(),
+        userId: v.id('users'),
         owner: v.string(),
         repo: v.string(),
         private: v.boolean(),
     },
     async handler(ctx, args) {
         let octo = newOctokit(args.token)
+
         let res = await runRepoBackfill({ ctx, octo, ...args })
         unwrap(res)
     },
@@ -25,6 +27,7 @@ export const run = protectedAction({
 type BackfillCfg = {
     ctx: ActionCtx
     octo: Octokit
+    userId: Id<'users'>
     owner: string
     repo: string
     private: boolean
@@ -47,76 +50,87 @@ async function updateDownloadStatus(
     })
 }
 
-async function runRepoBackfill(cfg: BackfillCfg): R {
-    let { ctx, octo } = cfg
+async function runRepoBackfill(_cfg: BackfillCfg): R {
+    let { ctx, octo } = _cfg
+
+    logger.info('running backfill')
 
     let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
         ...SECRET,
-        owner: cfg.owner,
-        repo: cfg.repo,
-        private: cfg.private,
+        userId: _cfg.userId,
+        owner: _cfg.owner,
+        repo: _cfg.repo,
+        private: _cfg.private,
     })
-    if (!savedRepo) return err('Failed to save repo')
+    if (!savedRepo) return err('failed to save repo')
 
-    let owner = savedRepo.owner
-    let repo = savedRepo.repo
+    let cfg = { ..._cfg, savedRepo }
 
-    let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
-    if (repoData.isErr) {
-        let isUnauthorized = repoData.err.status === 401
-        let badCredentials = repoData.err.error().includes('Bad credentials')
-        if (isUnauthorized && badCredentials) {
-            return err('bad credentials')
+    const run = async (): R => {
+        let owner = savedRepo.owner
+        let repo = savedRepo.repo
+
+        let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
+        if (repoData.isErr) {
+            let isUnauthorized = repoData.err.status === 401
+            let badCredentials = repoData.err.error().includes('Bad credentials')
+            if (isUnauthorized && badCredentials) {
+                return err('bad credentials')
+            }
+            return err(`failed to get repo: ${repoData.err.error()}`)
         }
-        return err(`failed to get repo: ${repoData.err.error()}`)
+
+        let refs = await getAllRefs(octo, { owner, repo })
+        if (refs.isErr) {
+            return wrap('failed to get refs', refs)
+        }
+
+        let mapped = refs.val.map((r) => ({ repoId: savedRepo._id, ...r }))
+        await ctx.runMutation(api.models.refs.replaceRepoRefs, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            refs: mapped,
+        })
+
+        await ctx.runMutation(api.models.repos.setHead, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            headRefName: repoData.val.default_branch,
+        })
+
+        logger.info('upserted refs')
+
+        logger.info('backfilling commits')
+
+        let commitsRes = await backfillCommits(cfg, savedRepo)
+        if (commitsRes.isErr) {
+            return wrap('failed to backfill commits', commitsRes)
+        }
+
+        await backfillIssues(cfg, savedRepo)
+
+        return ok()
     }
 
-    let cfgWithRepo = { ...cfg, savedRepo }
-
-    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilling refs')
-
-    let refs = await getAllRefs(octo, { owner, repo })
-    if (refs.isErr) {
-        return wrap('failed to get refs', refs)
+    await updateDownloadStatus(cfg, 'pending', 'starting download')
+    let runResult = await run()
+    if (runResult.isErr) {
+        await updateDownloadStatus(cfg, 'error', `download error: ${runResult.err}`)
+        return runResult
     }
 
-    let mapped = refs.val.map((r) => ({ repoId: savedRepo._id, ...r }))
-    await ctx.runMutation(api.models.refs.replaceRepoRefs, {
-        ...SECRET,
-        repoId: savedRepo._id,
-        refs: mapped,
-    })
-
-    await ctx.runMutation(api.models.repos.setHead, {
-        ...SECRET,
-        repoId: savedRepo._id,
-        headRefName: repoData.val.default_branch,
-    })
-
-    logger.info('upserted refs')
-
-    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilled refs, downloading commits')
-
-    logger.info('backfilling commits')
-
-    let commitsRes = await backfillCommits(cfgWithRepo, savedRepo)
-    if (commitsRes.isErr) {
-        return wrap('failed to backfill commits', commitsRes)
-    }
-
-    await updateDownloadStatus(cfgWithRepo, 'pending', 'Backfilled commits, downloading issues')
-    await backfillIssues(cfgWithRepo, savedRepo)
+    await updateDownloadStatus(cfg, 'success', '')
 
     return ok()
 }
 
-async function backfillCommits(cfg: BackfillCfgWithRepo, savedRepo: Doc<'repos'>) {
+async function backfillCommits(cfg: BackfillCfgWithRepo, savedRepo: Doc<'repos'>): R {
     let { octo, ctx, owner, repo } = cfg
 
     let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
         owner,
         repo,
-        per_page: 1,
+        per_page: 100,
     })
 
     let writtenTrees = new Map<string, Id<'trees'>>()

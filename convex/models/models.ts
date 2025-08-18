@@ -9,21 +9,25 @@ import { Issues } from './issues'
 import { Refs } from './refs'
 import { RepoCounts } from './repoCounts'
 import { Repos } from './repos'
+import { UserRepos } from './userRepos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
 export const RepoUtils = {
-    async insertNewRepo(ctx: MutationCtx, args: UpsertDoc<'repos'>) {
-        let repo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+    async insertNewRepo(ctx: MutationCtx, newRepo: UpsertDoc<'repos'>, userId: Id<'users'>) {
+        let repoId
+        let repo = await Repos.getByOwnerAndRepo(ctx, newRepo.owner, newRepo.repo)
         if (repo) {
-            return repo
+            repoId = repo._id
+        } else {
+            repoId = await ctx.db.insert('repos', {
+                owner: newRepo.owner,
+                repo: newRepo.repo,
+                private: newRepo.private,
+            })
         }
 
-        let repoId = await ctx.db.insert('repos', {
-            owner: args.owner,
-            repo: args.repo,
-            private: args.private,
-        })
+        await UserRepos.getOrCreate(ctx, userId, repoId)
 
         await RepoCounts.getOrCreate(ctx, {
             repoId,
@@ -110,8 +114,11 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
 }
 
 export const insertNewRepo = protectedMutation({
-    args: schemas.reposSchema,
-    handler: (ctx, args) => RepoUtils.insertNewRepo(ctx, args),
+    args: {
+        userId: v.id('users'),
+        ...schemas.reposSchema,
+    },
+    handler: (ctx, { userId, ...args }) => RepoUtils.insertNewRepo(ctx, args, userId),
 })
 
 export const getOrCreateIssue = protectedMutation({
