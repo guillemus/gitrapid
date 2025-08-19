@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input'
 import { FastLink } from '@/components/ui/link'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
+import { useState } from 'react'
 import { useMutable, usePreloadedQuery } from '../utils'
 
 export function DashboardPage() {
@@ -118,6 +119,19 @@ function Repository(props: { repo: Doc<'repos'> }) {
     let download = useQuery(api.public.dashboard.getDownload, {
         repoId: props.repo._id,
     })
+    let removeRepo = useMutation(api.public.dashboard.removeRepo)
+    let [isRemoving, setIsRemoving] = useState(false)
+
+    async function handleRemoveRepo() {
+        if (confirm('Are you sure you want to remove this repository?')) {
+            setIsRemoving(true)
+            let result = await removeRepo({ repoId: props.repo._id })
+            if (result) {
+                alert('Failed to remove repository: ' + result)
+            }
+            setIsRemoving(false)
+        }
+    }
 
     return (
         <div className="grid grid-cols-6 gap-3">
@@ -141,6 +155,15 @@ function Repository(props: { repo: Doc<'repos'> }) {
                                     Private
                                 </span>
                             )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRemoveRepo}
+                                disabled={isRemoving}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            >
+                                {isRemoving ? 'Removing...' : 'Remove'}
+                            </Button>
                         </div>
 
                         {download && (

@@ -38,12 +38,8 @@ export async function updateCommits(cfg: UpdateConfig): R {
     let totalCommitsWritten = 0
     for await (let { data: commitsPage } of allCommits) {
         for (let commit of commitsPage) {
-            let isCommitWritten = await ctx.runQuery(api.models.commits.getByRepoAndSha, {
-                ...SECRET,
-                repoId: savedRepo._id,
-                sha: commit.sha,
-            })
-            if (isCommitWritten) {
+            let isWritten = await isCommitWritten(cfg, commit)
+            if (isWritten) {
                 logger.debug({ sha: commit.sha }, 'commit already written')
                 continue
             }
@@ -52,21 +48,8 @@ export async function updateCommits(cfg: UpdateConfig): R {
 
             let rootTreeSha = commit.commit.tree.sha
 
-            let treeData
-            treeData = octo.rest.git.getTree({
-                owner,
-                repo,
-                tree_sha: rootTreeSha,
-                recursive: 'true',
-            })
-            treeData = await octoCatch(treeData)
-            if (treeData.isErr) {
-                return err(`failed to get tree: ${treeData.err.error()}`)
-            }
-
-            if (treeData.val.truncated) {
-                return err('tree too big to process: truncated')
-            }
+            let treeData = await getTreeData(cfg, rootTreeSha)
+            if (treeData.isErr) return treeData
 
             let treeId = writtenTrees.get(rootTreeSha)
             if (!treeId) {
@@ -321,4 +304,36 @@ export async function updateRefs({ octo, savedRepo, ctx }: UpdateConfig, default
     })
 
     return ok()
+}
+
+async function isCommitWritten({ ctx, savedRepo }: UpdateConfig, commit: { sha: string }) {
+    let savedCommit = await ctx.runQuery(api.models.commits.getByRepoAndSha, {
+        ...SECRET,
+        repoId: savedRepo._id,
+        sha: commit.sha,
+    })
+    return !!savedCommit
+}
+
+async function getTreeData(
+    { octo, savedRepo: { owner, repo } }: UpdateConfig,
+    rootTreeSha: string,
+) {
+    let treeData
+    treeData = octo.rest.git.getTree({
+        owner,
+        repo,
+        tree_sha: rootTreeSha,
+        recursive: 'true',
+    })
+    treeData = await octoCatch(treeData)
+    if (treeData.isErr) {
+        return err(`failed to get tree: ${treeData.err.error()}`)
+    }
+
+    if (treeData.val.truncated) {
+        return err('tree too big to process: truncated')
+    }
+
+    return treeData
 }

@@ -1,6 +1,6 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { action, query, type ActionCtx } from '@convex/_generated/server'
+import { action, mutation, query, type ActionCtx } from '@convex/_generated/server'
 import { RepoDownloads } from '@convex/models/repoDownloads'
 import { UserRepos } from '@convex/models/userRepos'
 import {
@@ -117,5 +117,24 @@ export const addRepo = action({
         })
 
         return ok()
+    },
+})
+
+export const removeRepo = mutation({
+    args: {
+        repoId: v.id('repos'),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+
+        // Find and delete the userRepo association
+        let userRepos = await UserRepos.getUserRepoIds(ctx, userId)
+        let userRepo = userRepos.find((ur) => ur.repoId === args.repoId)
+        if (!userRepo) {
+            throw new Error('not authorized to this repo')
+        }
+
+        await UserRepos.deleteByRepoId(ctx, args.repoId)
+        return null
     },
 })

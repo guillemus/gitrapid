@@ -57,3 +57,8 @@ export const deleteByRepoId = protectedMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => UserRepos.deleteByRepoId(ctx, repoId),
 })
+
+export const listByUserId = protectedQuery({
+    args: { userId: v.id('users') },
+    handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
+})

@@ -1,22 +1,65 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import { err, ok, unwrap, wrap } from '@convex/shared'
-import { octoCatch, protectedAction, SECRET } from '@convex/utils'
-import { v } from 'convex/values'
+import { err, ok, wrap } from '@convex/shared'
+import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { newOctokit } from './github'
-import { updateCommits, updateIssues, updateRefs, type UpdateConfig } from './repoDataUpdate'
+import {
+    updateCommits,
+    updateIssues,
+    updateRefs,
+    type UpdateConfig as UpdateCfg,
+} from './repoDataUpdate'
+
+// For reference, here the interesting endpoints to do a poll based sync:
+// https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
+// https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
+// https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
 export const run = protectedAction({
-    args: {
-        token: v.string(),
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        let octo = newOctokit(args.token)
-        let res = await runSync({ ctx, octo, repoId: args.repoId })
-        unwrap(res)
+    args: {},
+    async handler(ctx) {
+        // TODO: things missing
+        // - better distribution of user token -> repo to download.
+        // - parallelize syncs
+        // - add a way to retry failed syncs
+        // - probably each repo should have it's /events endpoint polled, so
+        //   that we can be more selective on what to sync. The current way tries
+        //   to sync everything, while we could be more selective
+
+        // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
+        // Still this way sucks and there's probably a smarter way of doing this
+        let users = await ctx.runQuery(api.models.users.list, SECRET)
+        let userRepoIds: Map<Id<'users'>, Id<'repos'>> = new Map()
+        for (let user of users) {
+            let repoIds = await ctx.runQuery(api.models.userRepos.listByUserId, {
+                ...SECRET,
+                userId: user._id,
+            })
+
+            for (let repoId of repoIds) {
+                userRepoIds.set(user._id, repoId.repoId)
+            }
+        }
+
+        for (let [userId, repoId] of userRepoIds.entries()) {
+            let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+                ...SECRET,
+                userId: userId,
+            })
+
+            if (!userToken) {
+                logger.error(`user token for user id ${userId} not found`)
+                continue
+            }
+
+            let octo = newOctokit(userToken.token)
+            let res = await runSync({ ctx, octo, repoId })
+            if (res.isErr) {
+                logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
+            }
+        }
     },
 })
 
@@ -26,11 +69,7 @@ type SyncCfg = {
     repoId: Id<'repos'>
 }
 
-type SyncCfgWithRepo = SyncCfg & UpdateConfig
-
-// https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
-// https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
-// https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
+type SyncCfgWithRepo = SyncCfg & UpdateCfg
 
 async function runSync(_cfg: SyncCfg): R {
     let { ctx, repoId, octo } = _cfg
