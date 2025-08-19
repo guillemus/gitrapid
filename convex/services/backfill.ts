@@ -107,11 +107,14 @@ async function runRepoBackfill(_cfg: BackfillCfg): R {
 
         let defaultBranch = repoData.val.default_branch
 
+        await updateDownload(cfg, 'pending', 'updating refs')
+
         await updateRefs(cfg, defaultBranch)
 
         logger.info('upserted refs')
 
         logger.info('backfilling commits')
+        await updateDownload(cfg, 'pending', 'updating commits')
 
         let commitsRes = await updateCommits(cfg)
         if (commitsRes.isErr) {
