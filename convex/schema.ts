@@ -158,6 +158,14 @@ export const patsSchema = {
     token: v.string(),
     scopes: scopesSchema,
     expiresAt: v.string(),
+
+    rateLimit: v.optional(
+        v.object({
+            limit: v.optional(v.string()),
+            remaining: v.optional(v.string()),
+            reset: v.optional(v.string()),
+        }),
+    ),
 }
 
 const pats = defineTable(patsSchema).index('by_user_id', ['userId'])

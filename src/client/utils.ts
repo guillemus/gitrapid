@@ -1,7 +1,7 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
-import { type FunctionArgs, type FunctionReference } from 'convex/server'
+import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
 
@@ -12,6 +12,8 @@ export const useTanstackQuery = useQuery
 
 const didFirstLoad = proxy({ value: false })
 
+// The websocket connection takes from 700ms to 1.2s to start out, so the http
+// client gives us around 300ms of load improvement
 export function usePreloadedQuery<
     Query extends FunctionReference<'query'>,
     Args extends FunctionArgs<Query> | 'skip',
@@ -19,10 +21,8 @@ export function usePreloadedQuery<
     let convexHttp = useConvexHttp()
     let firstLoad = useSnapshot(didFirstLoad)
 
-    let convexQueryOpts = convexQuery(query, args)
-
-    useTanstackQuery({
-        queryKey: convexQueryOpts.queryKey,
+    let httpQuery = useTanstackQuery({
+        queryKey: ['convexHttpQuery', getFunctionName(query), args],
 
         queryFn: async () => {
             // @ts-expect-error
@@ -35,9 +35,9 @@ export function usePreloadedQuery<
         staleTime: Infinity,
     })
 
-    let { data } = useTanstackQuery(convexQueryOpts)
+    let wsQuery = useTanstackQuery(convexQuery(query, args))
 
-    return data
+    return wsQuery.data ?? httpQuery.data
 }
 
 export function getLanguageFromExtension(filePath: string): string {

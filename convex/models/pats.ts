@@ -1,7 +1,8 @@
 import type { Id } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
+import { partial } from 'convex-helpers/validators'
 import { v } from 'convex/values'
-import * as schemas from '../schema'
+import schema, * as schemas from '../schema'
 import { protectedMutation, protectedQuery } from '../utils'
 import type { UpsertDoc } from './models'
 
@@ -48,4 +49,14 @@ export const upsertForUser = protectedMutation({
 export const deleteByUserId = protectedMutation({
     args: { userId: v.id('users') },
     handler: (ctx, { userId }) => PATs.deleteByUserId(ctx, userId),
+})
+
+export const patch = protectedMutation({
+    args: {
+        id: v.id('pats'),
+        pat: partial(schema.tables.pats.validator),
+    },
+    handler: (ctx, args) => {
+        ctx.db.patch(args.id, args.pat)
+    },
 })

@@ -90,6 +90,19 @@ export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<Resul
     }
 }
 
+export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, OctoError>> {
+    try {
+        let res = await promise
+        return ok(res)
+    } catch (error) {
+        if (error instanceof RequestError) {
+            return err(new OctoError(error))
+        }
+
+        throw error
+    }
+}
+
 export function octoWrap<T>(context: string, octoError: Err<OctoError>): Err<string> {
     return err(`${context}: ${octoError.err.error()}`)
 }

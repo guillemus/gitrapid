@@ -2,7 +2,7 @@ import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import { err, ok, wrap } from '@convex/shared'
-import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
+import { logger, octoCatch, octoCatchFull, octoWrap, protectedAction, SECRET } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { newOctokit } from './github'
 import {
@@ -55,7 +55,7 @@ export const run = protectedAction({
             }
 
             let octo = newOctokit(userToken.token)
-            let res = await runSync({ ctx, octo, repoId })
+            let res = await runSync({ ctx, octo, repoId, patId: userToken._id })
             if (res.isErr) {
                 logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
             }
@@ -67,6 +67,7 @@ type SyncCfg = {
     octo: Octokit
     ctx: ActionCtx
     repoId: Id<'repos'>
+    patId: Id<'pats'>
 }
 
 type SyncCfgWithRepo = SyncCfg & UpdateCfg
@@ -127,5 +128,44 @@ async function runSync(_cfg: SyncCfg): R {
 
     await updateIssues(cfg)
 
+    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+    if (rateLimit.isErr) {
+        logger.error({ err: rateLimit.err.error() }, 'failed to get rate limit for token')
+        return ok()
+    }
+
+    let limit = rateLimit.val.headers['x-ratelimit-limit']
+    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
+    let reset = rateLimit.val.headers['x-ratelimit-reset']
+
+    await ctx.runMutation(api.models.pats.patch, {
+        ...SECRET,
+        id: cfg.patId,
+        pat: { rateLimit: { limit, remaining, reset } },
+    })
+
+    let updateRes = await updateTokenRateLimit(cfg)
+    if (updateRes.isErr) {
+        logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
+    }
+
+    return ok()
+}
+
+async function updateTokenRateLimit({ octo, ctx, ...cfg }: SyncCfg): R {
+    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+    if (rateLimit.isErr) {
+        return octoWrap('unable to get rate limit', rateLimit)
+    }
+
+    let limit = rateLimit.val.headers['x-ratelimit-limit']
+    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
+    let reset = rateLimit.val.headers['x-ratelimit-reset']
+
+    await ctx.runMutation(api.models.pats.patch, {
+        ...SECRET,
+        id: cfg.patId,
+        pat: { rateLimit: { limit, remaining, reset } },
+    })
     return ok()
 }

@@ -11,6 +11,7 @@ import { LoginPage } from '@/client/pages/loginPage'
 import { RepoPage } from '@/client/pages/repoPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
 import { useGithubParams } from '@/client/utils'
+import { IssuesPage } from './pages/issuesPage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()
@@ -74,6 +75,7 @@ function Router() {
                     <Route path="/:owner/:repo" element={<RepoPage />} />
                     <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
                     <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
+                    <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>
