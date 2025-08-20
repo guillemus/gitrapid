@@ -274,9 +274,9 @@ export function IssuesPage() {
                                             </div>
                                         </div>
                                         {issue.comments > 0 && (
-                                            <div className="flex items-center space-x-1 text-sm text-muted-foreground ml-4">
+                                            <div className="flex items-center text-sm text-muted-foreground ml-4 w-16 justify-start">
                                                 <MessageCircle className="w-4 h-4" />
-                                                <span className="font-normal">
+                                                <span className="font-normal ml-1">
                                                     {issue.comments}
                                                 </span>
                                             </div>
