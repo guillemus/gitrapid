@@ -29,7 +29,7 @@ export function err<E>(msg: E): Err<E> {
  *
  *  function someFunc() {
  *      let data = fn()
- *      if (isErr(data)) {
+ *      if (data.isErr) {
  *          return err(`someFunc: ${data.error}`)
  *      }
  *  }
@@ -48,7 +48,7 @@ export function err<E>(msg: E): Err<E> {
  * ```typescript
  *  function someFunc() {
  *      let data = fn()
- *      if (isErr(data)) {
+ *      if (data.isErr) {
  *          // error will be string "someFunc: [object Object]", which we don't want
  *          return err(`someFunc: ${data.error}`)
  *      }
@@ -60,16 +60,6 @@ export function err<E>(msg: E): Err<E> {
 export function wrap(context: string, err: Err<string>): Err<string> {
     return { isErr: true, err: `${context}: ${err.err}` }
 }
-
-// /**
-//  * Returns an explicit error. The function overloads allows the producer to
-//  * return string literal types, so that pattern matching errors is very simple
-//  */
-// export function failure<T extends string>(val: T): Err<T>
-// export function failure<T extends object>(val: T): Err<T>
-// export function failure<T>(val: T): Err<T> {
-//     return { isErr: true, error: val }
-// }
 
 /**
  * Try to run a promise and return a Result.
