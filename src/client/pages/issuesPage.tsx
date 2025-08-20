@@ -221,7 +221,7 @@ export function IssuesPage() {
             </div>
 
             {/* Issues List */}
-            <Card>
+            <Card className="py-0">
                 <CardContent className="p-0">
                     {filteredIssues.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">

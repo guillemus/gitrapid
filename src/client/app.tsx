@@ -5,7 +5,7 @@ import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
 import { convex, queryClient } from '@/client/convex'
-import { Header } from '@/client/header'
+import { Header, type HeaderProps } from '@/client/header'
 import { DashboardPage } from '@/client/pages/dashboardPage'
 import { LoginPage } from '@/client/pages/loginPage'
 import { RepoPage } from '@/client/pages/repoPage'
@@ -23,11 +23,11 @@ function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     return null
 }
 
-function AppLayout() {
+function AppLayout({ tab }: { tab: HeaderProps['tab'] }) {
     return (
         <div className="min-h-screen bg-background">
             <div>
-                <Header />
+                <Header tab={tab} />
             </div>
             <AuthenticatedWithToken>
                 <div className="container mx-auto px-4 py-6">
@@ -46,12 +46,17 @@ function Router() {
         <BrowserRouter>
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route element={<AppLayout />}>
+
+                <Route element={<AppLayout tab="none" />}>
                     <Route path="/dash" element={<DashboardPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                </Route>
+                <Route element={<AppLayout tab="code" />}>
                     <Route path="/:owner/:repo" element={<RepoPage />} />
                     <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
                     <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
+                </Route>
+                <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                 </Route>
             </Routes>

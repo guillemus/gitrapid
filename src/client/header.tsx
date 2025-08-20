@@ -1,44 +1,53 @@
 import { Badge } from '@/components/ui/badge'
-import { FastLink as Link } from '@/components/ui/link'
+import { FastLink, FastLink as Link } from '@/components/ui/link'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 import { useLocation, useParams } from 'react-router'
 import { useLogout } from './convex'
 
-export function Header() {
-    let props = useParams()
+export type HeaderProps = {
+    tab: 'code' | 'issues' | 'none'
+}
+
+export function Header({ tab }: HeaderProps) {
+    let { owner, repo } = useParams()
 
     const logout = useLogout()
     let path = useLocation().pathname
 
-    return <HeaderComponent />
-}
-
-function HeaderComponent() {
     return (
         <div className="border-b bg-background">
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between pt-4 pb-0 font-normal">
                     <div className="flex items-center space-x-2">
                         <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                            <Code className="w-4 h-4" />
+                            <FastLink to="/dash">
+                                <Code className="w-4 h-4" />
+                            </FastLink>
                         </div>
-                        <div className="flex items-center space-x-1">
-                            <Link to="#" className="text-blue-600 hover:underline font-medium">
-                                shadcn
-                            </Link>
-                            <span className="text-muted-foreground">/</span>
-                            <Link to="#" className="text-blue-600 hover:underline font-bold">
-                                ui
-                            </Link>
-                        </div>
-                        <Badge variant="outline" className="ml-2">
-                            Public
-                        </Badge>
+                        {owner && repo && (
+                            <>
+                                <div className="flex items-center space-x-1">
+                                    <Link
+                                        to="#"
+                                        className="text-blue-600 hover:underline font-medium"
+                                    >
+                                        {owner}
+                                    </Link>
+                                    <span className="text-muted-foreground">/</span>
+                                    <Link
+                                        to="#"
+                                        className="text-blue-600 hover:underline font-bold"
+                                    >
+                                        {repo}
+                                    </Link>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <div className="flex items-center space-x-4">
                         <Link
-                            to="/dashboard/tokens"
+                            to="/settings"
                             className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
                         >
                             <Settings className="w-5 h-5" />
@@ -47,8 +56,19 @@ function HeaderComponent() {
                     </div>
                 </div>
                 <div className="flex items-center space-x-6 overflow-x-auto pb-0">
-                    <Tab href="/" label="Code" icon={Code} />
-                    <Tab href="/issues" label="Issues" active icon={GitPullRequest} count={23} />
+                    {tab === 'none' && <div className="py-2" />}
+                    {tab !== 'none' && (
+                        <>
+                            <Tab href="/" label="Code" icon={Code} active={tab === 'code'} />
+                            <Tab
+                                href="/issues"
+                                label="Issues"
+                                active={tab === 'issues'}
+                                icon={GitPullRequest}
+                                count={23}
+                            />
+                        </>
+                    )}
                 </div>
             </div>
         </div>
