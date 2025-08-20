@@ -106,3 +106,13 @@
     --shadow-xl: var(--shadow-xl);
     --shadow-2xl: var(--shadow-2xl);
 }
+
+@layer base {
+    * {
+        border-color: var(--color-border);
+    }
+    body {
+        background-color: var(--color-background);
+        color: var(--color-foreground);
+    }
+}
