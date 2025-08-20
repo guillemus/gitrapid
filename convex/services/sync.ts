@@ -1,8 +1,9 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import type { ActionCtx } from '@convex/_generated/server'
-import { err, ok, wrap } from '@convex/shared'
+import { internalAction, type ActionCtx } from '@convex/_generated/server'
+import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, octoCatch, octoCatchFull, octoWrap, protectedAction, SECRET } from '@convex/utils'
+import { v } from 'convex/values'
 import { Octokit } from 'octokit'
 import { newOctokit } from './github'
 import {
@@ -152,7 +153,15 @@ async function runSync(_cfg: SyncCfg): R {
     return ok()
 }
 
-async function updateTokenRateLimit({ octo, ctx, ...cfg }: SyncCfg): R {
+async function updateTokenRateLimit({
+    octo,
+    ctx,
+    patId,
+}: {
+    octo: Octokit
+    ctx: ActionCtx
+    patId: Id<'pats'>
+}): R {
     let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
     if (rateLimit.isErr) {
         return octoWrap('unable to get rate limit', rateLimit)
@@ -164,8 +173,27 @@ async function updateTokenRateLimit({ octo, ctx, ...cfg }: SyncCfg): R {
 
     await ctx.runMutation(api.models.pats.patch, {
         ...SECRET,
-        id: cfg.patId,
+        id: patId,
         pat: { rateLimit: { limit, remaining, reset } },
     })
     return ok()
 }
+
+export const setCurrentTokenRateLimit = internalAction({
+    args: {
+        userId: v.id('users'),
+    },
+    async handler(ctx, args) {
+        let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+            ...SECRET,
+            userId: args.userId,
+        })
+        if (!userToken) {
+            throw new Error('user token not found')
+        }
+
+        let octo = newOctokit(userToken.token)
+        let res = await updateTokenRateLimit({ ctx, octo, patId: userToken._id })
+        unwrap(res)
+    },
+})

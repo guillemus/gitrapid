@@ -6,10 +6,10 @@ import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
-import { useMutable, usePreloadedQuery } from '../utils'
+import { useMutable, usePageQuery } from '../utils'
 
 export function DashboardPage() {
-    let data = usePreloadedQuery(api.public.dashboard.get, {})
+    let data = usePageQuery(api.public.dashboard.get, {})
 
     return (
         <div className="space-y-6">

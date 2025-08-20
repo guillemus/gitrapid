@@ -1,23 +1,30 @@
 import { query } from '@convex/_generated/server'
 import { Issues } from '@convex/models/issues'
+import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getUserId, logger } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const list = query({
     args: {
-        repoId: v.id('repos'),
+        owner: v.string(),
+        repo: v.string(),
         search: v.optional(v.string()),
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, args.repoId)
-        if (!hasRepo) {
-            throw new Error('not authorized to these issues')
+        let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+        if (!savedRepo) {
+            return null
         }
 
-        return Issues.listByRepo(ctx, args.repoId)
+        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
+        if (!hasRepo) {
+            return null
+        }
+
+        return Issues.listByRepo(ctx, savedRepo._id)
     },
 })
 

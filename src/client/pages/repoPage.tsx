@@ -3,7 +3,7 @@ import {
     useDefined,
     useGithubParams,
     useMutable,
-    usePreloadedQuery,
+    usePageQuery,
     useTanstackQuery,
     type GithubParams,
 } from '@/client/utils'
@@ -190,7 +190,7 @@ function Sidebar({ preloadedFiles }: { preloadedFiles?: string[] }) {
 export function RepoPage() {
     let params = useGithubParams()
 
-    let page = usePreloadedQuery(api.public.repo.get, {
+    let page = usePageQuery(api.public.repo.get, {
         owner: params.owner,
         repo: params.repo,
         refAndPath: params.refAndPath,

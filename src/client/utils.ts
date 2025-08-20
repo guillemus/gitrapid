@@ -14,7 +14,7 @@ const didFirstLoad = proxy({ value: false })
 
 // The websocket connection takes from 700ms to 1.2s to start out, so the http
 // client gives us around 300ms of load improvement
-export function usePreloadedQuery<
+export function usePageQuery<
     Query extends FunctionReference<'query'>,
     Args extends FunctionArgs<Query> | 'skip',
 >(query: Query, args: Args) {

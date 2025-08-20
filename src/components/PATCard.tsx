@@ -1,4 +1,4 @@
-import { useMutable, usePreloadedQuery } from '@/client/utils'
+import { useMutable, usePageQuery } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { useAction, useMutation } from 'convex/react'
 type Scopes = Doc<'pats'>['scopes']
 
 export function PATCard() {
-    const pat = usePreloadedQuery(api.public.settings.get, {})
+    const pat = usePageQuery(api.public.settings.get, {})
     const savePat = useAction(api.public.settings.savePAT)
     const deletePat = useMutation(api.public.settings.deletePAT)
 
