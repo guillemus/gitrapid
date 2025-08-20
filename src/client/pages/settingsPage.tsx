@@ -59,7 +59,7 @@ export function SettingsPage() {
 
     function generateGitHubUrl() {
         const scopes = selectedScopes.filter((scope) => scope !== 'none').join(',')
-        const description = scopes ? `GitRapid (${scopes})` : 'GitRapid'
+        const description = scopes ? `gitrapid (${scopes})` : 'gitrapid'
 
         const baseUrl = 'https://github.com/settings/tokens/new'
         const params = new URLSearchParams()
@@ -154,7 +154,7 @@ export function SettingsPage() {
                     <p className="text-gray-600">
                         {isUpdating
                             ? 'Create a new token or paste an existing one'
-                            : 'Create a personal access token to get started with GitRapid'}
+                            : 'Create a personal access token to get started with gitrapid'}
                     </p>
                 </div>
 
@@ -311,7 +311,7 @@ export function SettingsPage() {
                         <h1 className="text-2xl font-semibold text-gray-900">GitHub Connected</h1>
                     </div>
                     <p className="text-gray-600">
-                        Your GitHub account is successfully connected to GitRapid
+                        Your GitHub account is successfully connected to gitrapid
                     </p>
                 </div>
 

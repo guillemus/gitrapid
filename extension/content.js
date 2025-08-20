@@ -1,6 +1,6 @@
 // Create button element
 const button = document.createElement('button')
-button.innerHTML = '→ GitRapid'
+button.innerHTML = '→ gitrapid'
 button.style.cssText = `
   position: fixed;
   bottom: 20px;

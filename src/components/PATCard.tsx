@@ -28,9 +28,9 @@ export function PATCard() {
         url.searchParams.set('scopes', scopes.join(','))
 
         if (state.repoAccess === 'public_repo') {
-            url.searchParams.set('description', 'GitRapid Public Only')
+            url.searchParams.set('description', 'gitrapid Public Only')
         } else {
-            url.searchParams.set('description', 'GitRapid Private and Public')
+            url.searchParams.set('description', 'gitrapid Private and Public')
         }
 
         return url.toString()

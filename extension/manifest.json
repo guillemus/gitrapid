@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GitHub to GitRapid",
+  "name": "GitHub to gitrapid",
   "version": "1.0",
-  "description": "Navigate from GitHub to GitRapid with one click",
+  "description": "Navigate from GitHub to gitrapid with one click",
   "permissions": ["activeTab"],
   "content_scripts": [
     {
