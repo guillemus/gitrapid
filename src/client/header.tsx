@@ -2,10 +2,12 @@ import { Button } from '@/components/ui/button'
 import { FastLink } from '@/components/ui/link'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Authenticated, Unauthenticated } from 'convex/react'
-import { useLocation } from 'react-router'
+import { useLocation, useParams } from 'react-router'
 import { useLogout } from './convex'
 
-export function Header(props: { showDownload?: boolean; owner?: string; repo?: string }) {
+export function Header() {
+    let props = useParams()
+
     const authActions = useAuthActions()
     const logout = useLogout()
     let path = useLocation().pathname
