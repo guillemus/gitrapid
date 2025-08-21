@@ -1,7 +1,7 @@
+import { FastLink } from '@/components/fastLink'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { FastLink } from '@/components/ui/link'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { useAction, useMutation, useQuery } from 'convex/react'

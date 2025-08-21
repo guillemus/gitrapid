@@ -25,13 +25,15 @@ function AuthenticatedWithToken(props: { children: React.ReactNode }) {
 
 function AppLayout({ tab }: { tab: HeaderProps['tab'] }) {
     return (
-        <div className="min-h-screen bg-background">
-            <div>
+        <div className="h-screen bg-background flex flex-col">
+            <div className="flex-shrink-0">
                 <Header tab={tab} />
             </div>
             <AuthenticatedWithToken>
-                <div className="container mx-auto px-4 py-6">
-                    <Outlet></Outlet>
+                <div className="flex-1 overflow-y-auto scrollbar-gutter-stable">
+                    <div className="container mx-auto px-4 py-6">
+                        <Outlet></Outlet>
+                    </div>
                 </div>
             </AuthenticatedWithToken>
             <Unauthenticated>

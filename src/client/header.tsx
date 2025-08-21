@@ -1,5 +1,5 @@
+import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
-import { FastLink, FastLink as Link } from '@/components/ui/link'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 import { useLocation, useParams } from 'react-router'
 import { useLogout } from './convex'
