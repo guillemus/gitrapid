@@ -17,7 +17,7 @@ import {
     RefreshCw,
     Trash2,
 } from 'lucide-react'
-import React, { useState } from 'react'
+import { proxy, useSnapshot } from 'valtio'
 import { usePageQuery } from '../utils'
 
 // We can have a 'none' scope, which in github means that it is just read only
@@ -81,24 +81,62 @@ function getExpirationInfo(expiresAt: string) {
     return {
         formattedDate,
         isExpiring,
-        icon: isExpiring ? AlertCircle : Clock,
-        iconColor: isExpiring ? 'text-amber-500' : 'text-gray-400',
     }
 }
 
-function CreateTokenCard({
-    selectedScopes,
-    onScopeChange,
-    copyFeedback,
-    onCopyUrl,
-    generateGitHubUrl,
-}: {
-    selectedScopes: ScopeWithNone[]
-    onScopeChange: (scope: ScopeWithNone, checked: boolean) => void
-    copyFeedback: boolean
-    onCopyUrl: () => void
-    generateGitHubUrl: () => string
-}) {
+const state = proxy({
+    tokenInput: '',
+    selectedScopes: ['public_repo', 'notifications'] as ScopeWithNone[],
+    shouldUpdateToken: false,
+    copyFeedback: false,
+    errorMessage: null as string | null,
+    isSaving: false,
+})
+
+function handleScopeChange(scope: ScopeWithNone, checked: boolean) {
+    if (checked) {
+        if (scope === 'none') {
+            // When selecting 'none', remove repository scopes
+
+            state.selectedScopes = state.selectedScopes.filter(
+                (id) => id !== 'public_repo' && id !== 'repo',
+            )
+            state.selectedScopes.push(scope)
+        } else if (scope === 'public_repo' || scope === 'repo') {
+            // When selecting repository scopes, remove 'none'
+            state.selectedScopes = state.selectedScopes.filter((id) => id !== 'none')
+            state.selectedScopes.push(scope)
+        } else {
+            // For other scopes, just add them
+            state.selectedScopes.push(scope)
+        }
+    } else {
+        state.selectedScopes = state.selectedScopes.filter((id) => id !== scope)
+    }
+}
+
+function generateGitHubUrl() {
+    const scopes = state.selectedScopes.filter((scope) => scope !== 'none').join(',')
+    const description = scopes ? `gitrapid (${scopes})` : 'gitrapid'
+
+    const baseUrl = 'https://github.com/settings/tokens/new'
+    const params = new URLSearchParams()
+
+    if (scopes) {
+        params.set('scopes', scopes)
+    }
+    params.set('description', description)
+
+    return `${baseUrl}?${params.toString()}`
+}
+
+function handleCopyUrl() {
+    navigator.clipboard.writeText(generateGitHubUrl())
+    state.copyFeedback = true
+    setTimeout(() => (state.copyFeedback = false), 2000) // Reset after 2 seconds
+}
+
+function CreateTokenCard() {
     return (
         <Card>
             <CardHeader>
@@ -134,9 +172,9 @@ function CreateTokenCard({
                         >
                             <Checkbox
                                 id={option.scope}
-                                checked={selectedScopes.includes(option.scope)}
+                                checked={state.selectedScopes.includes(option.scope)}
                                 onCheckedChange={(checked) =>
-                                    onScopeChange(option.scope, checked as boolean)
+                                    handleScopeChange(option.scope, checked as boolean)
                                 }
                                 className="mt-1"
                             />
@@ -171,10 +209,10 @@ function CreateTokenCard({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={onCopyUrl}
+                                    onClick={handleCopyUrl}
                                     className="h-6 w-6 p-0 flex-shrink-0"
                                 >
-                                    {copyFeedback ? (
+                                    {state.copyFeedback ? (
                                         <CheckCircle className="h-3 w-3 text-green-600" />
                                     ) : (
                                         <Copy className="h-3 w-3" />
@@ -184,7 +222,7 @@ function CreateTokenCard({
                         </div>
                     </div>
 
-                    <Button asChild disabled={selectedScopes.length === 0} className="w-full">
+                    <Button asChild disabled={state.selectedScopes.length === 0} className="w-full">
                         <a href={generateGitHubUrl()} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Generate Token on GitHub
@@ -204,90 +242,38 @@ function CreateTokenCard({
 }
 
 export function SettingsPage() {
+    useSnapshot(state)
     const page = usePageQuery(api.public.settings.get, {})
     const savePAT = useAction(api.public.settings.savePAT)
     const deletePAT = useMutation(api.public.settings.deletePAT)
 
-    const [tokenInput, setTokenInput] = useState('')
-    const [selectedScopes, setSelectedScopes] = useState<ScopeWithNone[]>([
-        'public_repo',
-        'notifications',
-    ])
-    const [copyFeedback, setCopyFeedback] = useState(false)
-    const [errorMessage, setErrorMessage] = useState<string | null>(null)
-    const [isSaving, setIsSaving] = useState(false)
-
-    function generateGitHubUrl() {
-        const scopes = selectedScopes.filter((scope) => scope !== 'none').join(',')
-        const description = scopes ? `gitrapid (${scopes})` : 'gitrapid'
-
-        const baseUrl = 'https://github.com/settings/tokens/new'
-        const params = new URLSearchParams()
-
-        if (scopes) {
-            params.set('scopes', scopes)
-        }
-        params.set('description', description)
-
-        return `${baseUrl}?${params.toString()}`
-    }
-
-    function handleScopeChange(scope: ScopeWithNone, checked: boolean) {
-        if (checked) {
-            if (scope === 'none') {
-                // When selecting 'none', remove repository scopes
-                setSelectedScopes((prev) => [
-                    ...prev.filter((id) => id !== 'public_repo' && id !== 'repo'),
-                    scope,
-                ])
-            } else if (scope === 'public_repo' || scope === 'repo') {
-                // When selecting repository scopes, remove 'none'
-                setSelectedScopes((prev) => [...prev.filter((id) => id !== 'none'), scope])
-            } else {
-                // For other scopes, just add them
-                setSelectedScopes((prev) => [...prev, scope])
-            }
-        } else {
-            setSelectedScopes((prev) => prev.filter((id) => id !== scope))
-        }
-    }
-
     async function handleSaveToken() {
-        if (!tokenInput.trim()) return
+        if (!state.tokenInput.trim()) return
 
-        setIsSaving(true)
-        setErrorMessage(null)
+        state.isSaving = true
+        state.errorMessage = null
 
-        let scopes = selectedScopes.filter((s) => s !== 'none')
+        let scopes = state.selectedScopes.filter((s) => s !== 'none')
+
         const result = await savePAT({
-            token: tokenInput,
+            token: state.tokenInput,
             scopes,
         })
 
         if (result.isErr) {
-            setErrorMessage('Invalid token. Please check that you copied it correctly.')
-            setTimeout(() => setErrorMessage(null), 4000)
+            state.errorMessage = 'Invalid token. Please check that you copied it correctly.'
+            setTimeout(() => (state.errorMessage = null), 4000)
         } else {
-            setTokenInput('')
+            state.tokenInput = ''
         }
 
-        setIsSaving(false)
-    }
-
-    const [shouldUpdateToken, setShouldUpdateToken] = useState(false)
-    function handleUpdateToken() {
-        setShouldUpdateToken(true)
+        state.shouldUpdateToken = false
+        state.isSaving = false
     }
 
     function handleRemoveToken() {
         deletePAT()
-        setTokenInput('')
-    }
-
-    function handleCopyUrl() {
-        navigator.clipboard.writeText(generateGitHubUrl())
-        setCopyFeedback(true)
-        setTimeout(() => setCopyFeedback(false), 2000) // Reset after 2 seconds
+        state.tokenInput = ''
     }
 
     if (!page) return null // loading page
@@ -304,57 +290,11 @@ export function SettingsPage() {
                     </p>
                 </div>
 
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Paste Your Token</CardTitle>
-                        <CardDescription>
-                            If you already have a GitHub personal access token, paste it below
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label htmlFor="token" className="text-sm font-medium">
-                                Personal Access Token
-                            </label>
-                            <Input
-                                id="token"
-                                type="password"
-                                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                                value={tokenInput}
-                                onChange={(e) => setTokenInput(e.target.value)}
-                                className="font-mono"
-                            />
-                            {errorMessage && (
-                                <div className="flex items-center space-x-2 mt-2">
-                                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                                    <span className="text-sm text-red-600">{errorMessage}</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex space-x-2">
-                            <Button
-                                onClick={handleSaveToken}
-                                disabled={!tokenInput.trim() || isSaving}
-                                className="flex-1"
-                            >
-                                {isSaving ? 'Saving...' : 'Save Token'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <CreateTokenCard
-                    selectedScopes={selectedScopes}
-                    onScopeChange={handleScopeChange}
-                    copyFeedback={copyFeedback}
-                    onCopyUrl={handleCopyUrl}
-                    generateGitHubUrl={generateGitHubUrl}
-                />
+                <PasteTokenCard handleSaveToken={handleSaveToken} />
+                <CreateTokenCard />
             </div>
         )
     }
-
-    let info = getExpirationInfo(page.expiresAt)
 
     // Has Token State (Token Active) - unchanged
     return (
@@ -367,112 +307,172 @@ export function SettingsPage() {
                 <p className="text-gray-600">Your GitHub token is successfully configured</p>
             </div>
 
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle className="text-lg">Current Token</CardTitle>
-                    <CardDescription>
-                        You have a GitHub personal access token configured
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Scopes</label>
-                        <div className="flex gap-1 overflow-x-auto">
-                            {page.scopes.map((scope) => (
-                                <Badge
-                                    key={scope}
-                                    variant="outline"
-                                    className="text-xs whitespace-nowrap"
-                                >
-                                    {scope}
-                                </Badge>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Expires</label>
-                        <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-600">{info.formattedDate}</span>
-                            {React.createElement(info.icon, {
-                                className: `h-4 w-4 ${info.iconColor}`,
-                            })}
-                        </div>
-                    </div>
+            <TokenAlreadyConfiguredCard
+                scopes={page.scopes}
+                expiresAt={page.expiresAt}
+                handleSaveToken={handleSaveToken}
+                handleRemoveToken={handleRemoveToken}
+            />
 
-                    {shouldUpdateToken ? (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label htmlFor="update-token-input" className="text-sm font-medium">
-                                    Enter new GitHub token
-                                </label>
-                                <Input
-                                    id="update-token-input"
-                                    type="password"
-                                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                                    value={tokenInput}
-                                    onChange={(e) => setTokenInput(e.target.value)}
-                                    className="font-mono"
-                                />
-                                {errorMessage && (
-                                    <div className="flex items-center space-x-2 mt-2">
-                                        <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                                        <span className="text-sm text-red-600">{errorMessage}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex space-x-2">
-                                <Button
-                                    onClick={handleSaveToken}
-                                    disabled={!tokenInput.trim() || isSaving}
-                                    className="flex-1"
-                                >
-                                    {isSaving ? 'Saving...' : 'Save New Token'}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setShouldUpdateToken(false)
-                                        setTokenInput('')
-                                        setErrorMessage(null)
-                                    }}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex space-x-2">
-                            <Button
-                                variant="outline"
-                                onClick={handleUpdateToken}
-                                className="flex-1"
-                            >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Update Token
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={handleRemoveToken}
-                                className="flex-1"
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Remove Token
-                            </Button>
+            {state.shouldUpdateToken && <CreateTokenCard />}
+        </div>
+    )
+}
+
+function PasteTokenCard(props: { handleSaveToken: () => void }) {
+    useSnapshot(state)
+
+    return (
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle className="text-lg">Paste Your Token</CardTitle>
+                <CardDescription>
+                    If you already have a GitHub personal access token, paste it below
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <label htmlFor="token" className="text-sm font-medium">
+                        Personal Access Token
+                    </label>
+                    <Input
+                        id="token"
+                        type="password"
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        value={state.tokenInput}
+                        onChange={(e) => (state.tokenInput = e.target.value)}
+                        className="font-mono"
+                    />
+                    {state.errorMessage && (
+                        <div className="flex items-center space-x-2 mt-2">
+                            <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                            <span className="text-sm text-red-600">{state.errorMessage}</span>
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+                <div className="flex space-x-2">
+                    <Button
+                        onClick={props.handleSaveToken}
+                        disabled={!state.tokenInput.trim() || state.isSaving}
+                        className="flex-1"
+                    >
+                        {state.isSaving ? 'Saving...' : 'Save Token'}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
-            {shouldUpdateToken && (
-                <CreateTokenCard
-                    selectedScopes={selectedScopes}
-                    onScopeChange={handleScopeChange}
-                    copyFeedback={copyFeedback}
-                    onCopyUrl={handleCopyUrl}
-                    generateGitHubUrl={generateGitHubUrl}
-                />
-            )}
-        </div>
+function TokenAlreadyConfiguredCard(props: {
+    scopes: string[]
+    expiresAt: string
+    handleSaveToken: () => void
+    handleRemoveToken: () => void
+}) {
+    useSnapshot(state)
+    let { formattedDate, isExpiring } = getExpirationInfo(props.expiresAt)
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">Current Token</CardTitle>
+                <CardDescription>
+                    You have a GitHub personal access token configured
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Scopes</label>
+                    <div className="flex gap-1 overflow-x-auto">
+                        {props.scopes.map((scope) => (
+                            <Badge
+                                key={scope}
+                                variant="outline"
+                                className="text-xs whitespace-nowrap"
+                            >
+                                {scope}
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Expires</label>
+                    <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-600">{formattedDate}</span>
+                        {isExpiring ? (
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                        ) : (
+                            <Clock className="h-4 w-4 text-gray-400" />
+                        )}
+                    </div>
+                </div>
+
+                {state.shouldUpdateToken ? (
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label htmlFor="update-token-input" className="text-sm font-medium">
+                                Enter new GitHub token
+                            </label>
+                            <Input
+                                id="update-token-input"
+                                type="password"
+                                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                value={state.tokenInput}
+                                onChange={(e) => (state.tokenInput = e.target.value)}
+                                className="font-mono"
+                            />
+                            {state.errorMessage && (
+                                <div className="flex items-center space-x-2 mt-2">
+                                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                                    <span className="text-sm text-red-600">
+                                        {state.errorMessage}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex space-x-2">
+                            <Button
+                                onClick={props.handleSaveToken}
+                                disabled={!state.tokenInput.trim() || state.isSaving}
+                                className="flex-1"
+                            >
+                                {state.isSaving ? 'Saving...' : 'Save New Token'}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    state.shouldUpdateToken = false
+                                    state.tokenInput = ''
+                                    state.errorMessage = null
+                                }}
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex space-x-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => (state.shouldUpdateToken = true)}
+                            className="flex-1"
+                        >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Update Token
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={props.handleRemoveToken}
+                            className="flex-1"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove Token
+                        </Button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     )
 }
