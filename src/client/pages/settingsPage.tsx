@@ -69,11 +69,6 @@ export function SettingsPage() {
         }
     }
 
-    function handleCreateToken() {
-        const url = generateGitHubUrl()
-        window.open(url, '_blank')
-    }
-
     function handleSaveToken() {
         if (!tokenInput.trim()) return
 
@@ -237,12 +232,18 @@ export function SettingsPage() {
                             </div>
 
                             <Button
-                                onClick={handleCreateToken}
+                                asChild
                                 disabled={selectedScopes.length === 0}
                                 className="w-full"
                             >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                Generate Token on GitHub
+                                <a
+                                    href={generateGitHubUrl()}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Generate Token on GitHub
+                                </a>
                             </Button>
                         </div>
 
