@@ -15,7 +15,7 @@ export const get = query({
             .withIndex('by_user_id', (q) => q.eq('userId', userId))
             .unique()
 
-        if (!pat) return null
+        if (!pat) return 'PAT_NOT_SET'
 
         return {
             scopes: pat.scopes,

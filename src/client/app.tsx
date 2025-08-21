@@ -7,10 +7,10 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { convex, queryClient } from '@/client/convex'
 import { Header, type HeaderProps } from '@/client/header'
 import { DashboardPage } from '@/client/pages/dashboardPage'
+import { IssuesPage } from '@/client/pages/issuesPage'
 import { LoginPage } from '@/client/pages/loginPage'
 import { RepoPage } from '@/client/pages/repoPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
-import { IssuesPage } from './pages/issuesPage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()

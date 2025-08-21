@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { api } from '@convex/_generated/api'
+import type { Doc } from '@convex/_generated/dataModel'
+import { useAction, useMutation } from 'convex/react'
 import {
     AlertCircle,
     CheckCircle,
@@ -15,46 +18,20 @@ import {
     Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { usePageQuery } from '../utils'
 
-interface TokenData {
-    token: string
-    scopes: string[]
-    accessLevel: 'none' | 'public' | 'full'
-    createdAt: Date
-    expiresAt: Date
-}
-
-const SCOPE_OPTIONS = [
-    {
-        id: 'none',
-        label: 'No Scope (Read-Only)',
-        description:
-            'Grants read-only access to public information (including user profile info, repository info, and gists)',
-    },
-    {
-        id: 'public_repo',
-        label: 'Public Repository Access',
-        description: 'Read/write access to public repositories — code, commits, issues, projects',
-    },
-    {
-        id: 'repo',
-        label: 'Full Repository Access',
-        description:
-            'Read/write access to public and private repositories — full control of code, collaborators, webhooks, and org resources',
-    },
-    {
-        id: 'notifications',
-        label: 'GitHub Notifications',
-        description:
-            'Notification access — read & mark as read, watch/unwatch, manage subscriptions',
-    },
-]
+type Scope = Doc<'pats'>['scopes'][0] | 'none'
 
 export function SettingsPage() {
-    const [tokenData, setTokenData] = useState<TokenData | null>(null)
-    const [isUpdating, setIsUpdating] = useState(false)
+    const page = usePageQuery(api.public.settings.get, {})
+    const savePAT = useAction(api.public.settings.savePAT)
+    const deletePAT = useMutation(api.public.settings.deletePAT)
+
     const [tokenInput, setTokenInput] = useState('')
-    const [selectedScopes, setSelectedScopes] = useState<string[]>(['public_repo', 'notifications'])
+    const [selectedScopes, setSelectedScopes] = useState<Scope[]>([
+        'public_repo',
+        'notifications',
+    ] as const)
     const [copyFeedback, setCopyFeedback] = useState(false)
 
     function generateGitHubUrl() {
@@ -72,23 +49,23 @@ export function SettingsPage() {
         return `${baseUrl}?${params.toString()}`
     }
 
-    function handleScopeChange(scopeId: string, checked: boolean) {
+    function handleScopeChange(scope: Scope, checked: boolean) {
         if (checked) {
-            if (scopeId === 'none') {
+            if (scope === 'none') {
                 // When selecting 'none', remove repository scopes
                 setSelectedScopes((prev) => [
                     ...prev.filter((id) => id !== 'public_repo' && id !== 'repo'),
-                    scopeId,
+                    scope,
                 ])
-            } else if (scopeId === 'public_repo' || scopeId === 'repo') {
+            } else if (scope === 'public_repo' || scope === 'repo') {
                 // When selecting repository scopes, remove 'none'
-                setSelectedScopes((prev) => [...prev.filter((id) => id !== 'none'), scopeId])
+                setSelectedScopes((prev) => [...prev.filter((id) => id !== 'none'), scope])
             } else {
                 // For other scopes, just add them
-                setSelectedScopes((prev) => [...prev, scopeId])
+                setSelectedScopes((prev) => [...prev, scope])
             }
         } else {
-            setSelectedScopes((prev) => prev.filter((id) => id !== scopeId))
+            setSelectedScopes((prev) => prev.filter((id) => id !== scope))
         }
     }
 
@@ -100,37 +77,22 @@ export function SettingsPage() {
     function handleSaveToken() {
         if (!tokenInput.trim()) return
 
-        const newTokenData: TokenData = {
+        let scopes = selectedScopes.filter((s) => s !== 'none')
+        savePAT({
             token: tokenInput,
-            scopes: selectedScopes, // Use selected scopes instead of default
-            accessLevel: selectedScopes.includes('repo')
-                ? 'full'
-                : selectedScopes.includes('none')
-                  ? 'none'
-                  : 'public',
-            createdAt: new Date(),
-            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        }
+            scopes,
+        })
 
-        setTokenData(newTokenData)
         setTokenInput('')
-        setIsUpdating(false)
     }
 
     function handleUpdateToken() {
-        setIsUpdating(true)
         setTokenInput('')
         setSelectedScopes(['public_repo', 'notifications'])
     }
 
     function handleRemoveToken() {
-        setTokenData(null)
-        setTokenInput('')
-        setIsUpdating(false)
-    }
-
-    function handleCancelUpdate() {
-        setIsUpdating(false)
+        deletePAT()
         setTokenInput('')
     }
 
@@ -140,21 +102,20 @@ export function SettingsPage() {
         setTimeout(() => setCopyFeedback(false), 2000) // Reset after 2 seconds
     }
 
-    // No Token State (Initial Setup)
-    if (!tokenData || isUpdating) {
+    if (!page) return null // loading page
+
+    if (page === 'PAT_NOT_SET') {
         return (
             <div className="max-w-2xl mx-auto px-4">
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center mb-4">
                         <Key className="h-8 w-8 text-gray-600 mr-2" />
                         <h1 className="text-2xl font-semibold text-gray-900">
-                            {isUpdating ? 'Update GitHub Token' : 'Connect GitHub Account'}
+                            Connect GitHub Account
                         </h1>
                     </div>
                     <p className="text-gray-600">
-                        {isUpdating
-                            ? 'Create a new token or paste an existing one'
-                            : 'Create a personal access token to get started with gitrapid'}
+                        Create a personal access token to get started with gitrapid
                     </p>
                 </div>
 
@@ -185,13 +146,8 @@ export function SettingsPage() {
                                 disabled={!tokenInput.trim()}
                                 className="flex-1"
                             >
-                                {isUpdating ? 'Update Token' : 'Save Token'}
+                                Save Token
                             </Button>
-                            {isUpdating && (
-                                <Button variant="outline" onClick={handleCancelUpdate}>
-                                    Cancel
-                                </Button>
-                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -208,47 +164,48 @@ export function SettingsPage() {
                             <div className="flex items-center justify-between">
                                 <h3 className="font-medium text-sm">Select scopes</h3>
                                 <Button
+                                    asChild
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                        window.open(
-                                            'https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps#available-scopes',
-                                            '_blank',
-                                        )
-                                    }
                                     className="text-xs text-gray-600 hover:text-gray-900"
                                 >
-                                    <Info className="h-3 w-3 mr-1" />
-                                    Learn more about scopes
+                                    <a
+                                        href="https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps#available-scopes"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <Info className="h-3 w-3 mr-1" />
+                                        Learn more about scopes
+                                    </a>
                                 </Button>
                             </div>
-                            {SCOPE_OPTIONS.map((scope) => (
+                            {SCOPE_OPTIONS.map((option) => (
                                 <div
-                                    key={scope.id}
+                                    key={option.scope}
                                     className="flex items-start space-x-3 p-3 border rounded-lg"
                                 >
                                     <Checkbox
-                                        id={scope.id}
-                                        checked={selectedScopes.includes(scope.id)}
+                                        id={option.scope}
+                                        checked={selectedScopes.includes(option.scope)}
                                         onCheckedChange={(checked) =>
-                                            handleScopeChange(scope.id, checked as boolean)
+                                            handleScopeChange(option.scope, checked as boolean)
                                         }
                                         className="mt-1"
                                     />
                                     <div className="flex-1 space-y-1">
                                         <div className="flex items-center justify-between">
                                             <label
-                                                htmlFor={scope.id}
+                                                htmlFor={option.scope}
                                                 className="text-sm font-medium cursor-pointer"
                                             >
-                                                {scope.label}
+                                                {option.label}
                                             </label>
                                             <Badge variant="outline" className="text-xs font-mono">
-                                                {scope.id}
+                                                {option.scope}
                                             </Badge>
                                         </div>
                                         <p className="text-xs text-gray-600 leading-relaxed">
-                                            {scope.description}
+                                            {option.description}
                                         </p>
                                     </div>
                                 </div>
@@ -303,7 +260,7 @@ export function SettingsPage() {
 
     // Has Token State (Connected) - unchanged
     return (
-        <div className="min-h-screen bg-gray-50 py-8">
+        <div className="min-h-screen py-8">
             <div className="max-w-2xl mx-auto px-4">
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center mb-4">
@@ -324,22 +281,9 @@ export function SettingsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Access Level</span>
-                            <Badge
-                                variant={tokenData.accessLevel === 'full' ? 'default' : 'secondary'}
-                            >
-                                {tokenData.accessLevel === 'full'
-                                    ? 'Full Access'
-                                    : tokenData.accessLevel === 'none'
-                                      ? 'Read-Only'
-                                      : 'Public Access'}
-                            </Badge>
-                        </div>
-
-                        <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Scopes</span>
                             <div className="flex space-x-1">
-                                {tokenData.scopes.map((scope) => (
+                                {page.scopes.map((scope) => (
                                     <Badge key={scope} variant="outline" className="text-xs">
                                         {scope}
                                     </Badge>
@@ -350,18 +294,9 @@ export function SettingsPage() {
                         <Separator />
 
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Created</span>
-                            <span className="text-sm text-gray-600">
-                                {tokenData.createdAt.toLocaleDateString()}
-                            </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Expires</span>
                             <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-600">
-                                    {tokenData.expiresAt.toLocaleDateString()}
-                                </span>
+                                <span className="text-sm text-gray-600">{page.expiresAt}</span>
                                 <AlertCircle className="h-4 w-4 text-amber-500" />
                             </div>
                         </div>
@@ -396,3 +331,35 @@ export function SettingsPage() {
         </div>
     )
 }
+
+type ScopeOption = {
+    scope: Scope
+    label: string
+    description: string
+}
+
+const SCOPE_OPTIONS: ScopeOption[] = [
+    {
+        scope: 'none',
+        label: 'No Scope (Read-Only)',
+        description:
+            'Read-only access to public information (including user profile info, repository info, and gists)',
+    },
+    {
+        scope: 'public_repo',
+        label: 'Public Repository Access',
+        description: 'Read/write access to public repositories — code, commits, issues, projects',
+    },
+    {
+        scope: 'repo',
+        label: 'Full Repository Access',
+        description:
+            'Read/write access to public and private repositories — full control of code, collaborators, webhooks, and org resources',
+    },
+    {
+        scope: 'notifications',
+        label: 'GitHub Notifications',
+        description:
+            'Notification access — read & mark as read, watch/unwatch, manage subscriptions',
+    },
+]
