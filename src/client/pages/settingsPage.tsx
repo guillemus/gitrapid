@@ -383,28 +383,44 @@ function TokenAlreadyConfiguredCard(props: {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Scopes</label>
-                    <div className="flex gap-1 overflow-x-auto">
-                        {props.scopes.map((scope) => (
-                            <Badge
-                                key={scope}
-                                variant="outline"
-                                className="text-xs whitespace-nowrap"
-                            >
-                                {scope}
-                            </Badge>
-                        ))}
-                    </div>
+                    <label htmlFor="pat-token" className="text-sm font-medium">
+                        Personal Access Token
+                    </label>
+                    <Input
+                        id="pat-token"
+                        type="password"
+                        value="Don't worry, your token is safe on the server. This input just lets you know it's saved."
+                        readOnly
+                        disabled
+                        className="font-mono bg-gray-100 cursor-not-allowed"
+                    />
                 </div>
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Expires</label>
-                    <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">{formattedDate}</span>
-                        {isExpiring ? (
-                            <AlertCircle className="h-4 w-4 text-red-600" />
-                        ) : (
-                            <Clock className="h-4 w-4 text-gray-400" />
-                        )}
+
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Scopes</label>
+                        <div className="flex gap-1 overflow-x-auto">
+                            {props.scopes.map((scope) => (
+                                <Badge
+                                    key={scope}
+                                    variant="outline"
+                                    className="text-xs whitespace-nowrap"
+                                >
+                                    {scope}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Expires</label>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">{formattedDate}</span>
+                            {isExpiring ? (
+                                <AlertCircle className="h-4 w-4 text-red-600" />
+                            ) : (
+                                <Clock className="h-4 w-4 text-gray-400" />
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -453,13 +469,13 @@ function TokenAlreadyConfiguredCard(props: {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex space-x-2">
+                    <div className="grid grid-cols-2 gap-2">
                         <Button
                             variant="outline"
                             onClick={() => (state.shouldUpdateToken = true)}
                             className="flex-1"
                         >
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <RefreshCw className="h-4 w-4" />
                             Update Token
                         </Button>
                         <Button
@@ -467,7 +483,7 @@ function TokenAlreadyConfiguredCard(props: {
                             onClick={props.handleRemoveToken}
                             className="flex-1"
                         >
-                            <Trash2 className="h-4 w-4 mr-2" />
+                            <Trash2 className="h-4 w-4" />
                             Remove Token
                         </Button>
                     </div>
