@@ -1,26 +1,22 @@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Github, Loader2, Zap } from 'lucide-react'
+import { useAuthActions } from '@convex-dev/auth/react'
+import { MarkGithubIcon as Github } from '@primer/octicons-react'
+import { Loader2, Zap } from 'lucide-react'
 import { useState } from 'react'
 
 export function LoginPage() {
+    let actions = useAuthActions()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleGitHubLogin = async () => {
+    async function handleGitHubLogin() {
         setIsLoading(true)
         setError(null)
 
         try {
-            // Simulate OAuth flow - replace with actual GitHub OAuth implementation
-            await new Promise((resolve) => setTimeout(resolve, 1500))
-
-            // In a real implementation, this would redirect to GitHub OAuth
-            // window.location.href = '/auth/github'
-
-            // For demo purposes, simulate success and redirect
-            window.location.href = '/dash'
+            await actions.signIn('github', { redirectTo: '/dash' })
         } catch (err) {
             setError('Failed to sign in with GitHub. Please try again.')
             setIsLoading(false)
@@ -30,7 +26,6 @@ export function LoginPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
-                {/* App Branding */}
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center gap-2 mb-4">
                         <div className="p-2 bg-black rounded-lg">
@@ -44,7 +39,6 @@ export function LoginPage() {
                     </p>
                 </div>
 
-                {/* Login Card */}
                 <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
                     <CardHeader className="text-center pb-4">
                         <CardTitle className="text-xl text-slate-900">Welcome back</CardTitle>
@@ -54,14 +48,12 @@ export function LoginPage() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        {/* Error Alert */}
                         {error && (
                             <Alert variant="destructive" className="mb-4">
                                 <AlertDescription>{error}</AlertDescription>
                             </Alert>
                         )}
 
-                        {/* GitHub Sign In Button */}
                         <Button
                             onClick={handleGitHubLogin}
                             disabled={isLoading}
@@ -81,7 +73,6 @@ export function LoginPage() {
                             )}
                         </Button>
 
-                        {/* Additional Info */}
                         <div className="text-center pt-4">
                             <p className="text-xs text-slate-500">
                                 By signing in, you agree to our terms of service and privacy policy
