@@ -130,7 +130,7 @@ function generateGitHubUrl() {
     return `${baseUrl}?${params.toString()}`
 }
 
-function handleCopyUrl() {
+function copyUrlToClipboard() {
     navigator.clipboard.writeText(generateGitHubUrl())
     state.copyFeedback = true
     setTimeout(() => (state.copyFeedback = false), 2000) // Reset after 2 seconds
@@ -209,7 +209,7 @@ function CreateTokenCard() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={handleCopyUrl}
+                                    onClick={copyUrlToClipboard}
                                     className="h-6 w-6 p-0 flex-shrink-0"
                                 >
                                     {state.copyFeedback ? (
