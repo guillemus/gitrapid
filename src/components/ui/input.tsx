@@ -2,7 +2,19 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
+type InputProps = React.ComponentProps<'input'> & {
+    onEnter?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+}
+
+function Input({ className, type, onKeyDown, onEnter, ...props }: InputProps) {
+    function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+        if (onKeyDown) onKeyDown(event)
+        if (event.key === 'Enter' && onEnter) {
+            event.preventDefault()
+            onEnter(event)
+        }
+    }
+
     return (
         <input
             type={type}
@@ -13,6 +25,7 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
                 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
                 className,
             )}
+            onKeyDown={handleKeyDown}
             {...props}
         />
     )

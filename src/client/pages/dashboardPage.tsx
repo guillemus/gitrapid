@@ -60,6 +60,7 @@ async function handleAddRepo(
     let res = await addRepo({ githubUrl: state.githubUrl })
 
     state.isAdding = false
+    state.githubUrl = ''
 
     if (res.isErr) {
         if (res.err.type === 'error') {
@@ -87,8 +88,6 @@ async function handleAddRepo(
         setTimeout(() => {
             state.addRepoError = undefined
         }, 4000)
-    } else {
-        state.githubUrl = ''
     }
 }
 
@@ -122,10 +121,14 @@ function RepositoryListHeader() {
                     className="w-full"
                     value={curr.githubUrl}
                     onChange={(e) => (curr.githubUrl = e.target.value)}
+                    onEnter={() => handleAddRepo(curr, addRepo)}
                 />
 
                 <div className="flex gap-1">
-                    <Button disabled={!curr.githubUrl} onClick={() => handleAddRepo(curr, addRepo)}>
+                    <Button
+                        disabled={curr.isAdding || !curr.githubUrl.trim()}
+                        onClick={() => handleAddRepo(curr, addRepo)}
+                    >
                         {curr.isAdding ? 'Adding...' : 'Submit'}
                     </Button>
                     <Button variant="outline" onClick={() => (state.curr = searchRepoState)}>
