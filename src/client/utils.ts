@@ -1,5 +1,5 @@
 import { convexQuery } from '@convex-dev/react-query'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useEffect, useRef } from 'react'
@@ -7,8 +7,9 @@ import { useParams } from 'react-router'
 
 import { useConvexHttp } from './convex'
 
-// This exists bc of naming conflict with convex.
+// These exists bc of naming conflict with convex. This way is much easier to autoimport without naming conflicts
 export const useTanstackQuery = useQuery
+export const useTanstackMutation = useMutation
 
 const didFirstLoad = proxy({ value: false })
 
@@ -145,11 +146,11 @@ export function useClickOutside(onclickOutside: () => void) {
 }
 
 import { proxy, useSnapshot } from 'valtio'
-import { useProxy } from 'valtio/utils'
 
 export function useMutable<T extends object>(initial: T): T {
     const p = useRef(proxy(initial)).current
-    return useProxy(p)
+    useSnapshot(p)
+    return p
 }
 
 export const authClient = createAuthClient()

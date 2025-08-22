@@ -57,12 +57,6 @@ async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string
     return ok(token.token)
 }
 
-async function getTokenFromUser(ctx: ActionCtx): R<string> {
-    let userId = await getUserId(ctx)
-
-    return getTokenFromUserId(ctx, userId)
-}
-
 export type FoundRepo = {
     url: string
     owner: string
