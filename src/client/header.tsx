@@ -55,13 +55,18 @@ export function Header({ tab }: HeaderProps) {
                         </Link>
                     </div>
                 </div>
-                <div className="flex items-center space-x-6 overflow-x-auto pb-0">
+                <div className="flex items-center space-x-6 overflow-x-auto overflow-y-hidden pb-0">
                     {tab === 'none' && <div className="py-2" />}
                     {tab !== 'none' && (
                         <>
-                            <Tab href="/" label="Code" icon={Code} active={tab === 'code'} />
                             <Tab
-                                href="/issues"
+                                href={`/${owner}/${repo}`}
+                                label="Code"
+                                icon={Code}
+                                active={tab === 'code'}
+                            />
+                            <Tab
+                                href={`/${owner}/${repo}/issues`}
                                 label="Issues"
                                 active={tab === 'issues'}
                                 icon={GitPullRequest}
@@ -85,14 +90,14 @@ function Tab(props: {
     return (
         <Link
             to={props.href}
-            className={`flex items-center space-x-2 px-1 text-sm font-medium whitespace-nowrap py-3 border-b-2 ${
+            className={`relative flex items-center space-x-2 px-1 text-sm font-medium whitespace-nowrap h-10 after:content-[''] after:absolute after:inset-x-0 after:bottom-[0px] after:h-[2px] after:rounded after:pointer-events-none ${
                 props.active
-                    ? 'border-orange-500 text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    ? 'text-foreground after:bg-orange-500'
+                    : 'text-muted-foreground hover:text-foreground'
             }`}
         >
             <props.icon className="w-4 h-4" />
-            <span>{props.label}</span>
+            <span className="leading-none">{props.label}</span>
             {props.count && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                     {props.count}

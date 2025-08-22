@@ -15,7 +15,7 @@ export function DashboardPage() {
     let data = usePageQuery(api.public.dashboard.get, {})
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="space-y-6">
             {data && data.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                     <p>No repositories yet.</p>
@@ -100,13 +100,7 @@ function RepositoryListHeader() {
     if (state.curr.type === 'search') {
         let curr = state.curr
         return (
-            <div className="flex gap-4">
-                <Input
-                    placeholder="Find a repository..."
-                    className="w-full"
-                    value={curr.searchInput}
-                    onChange={(e) => (curr.searchInput = e.target.value)}
-                />
+            <div className="flex gap-4 justify-end">
                 <Button onClick={() => (state.curr = addRepoState)}>Add repository</Button>
             </div>
         )
