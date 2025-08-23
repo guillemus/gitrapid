@@ -16,6 +16,7 @@ export function DashboardPage() {
 
     return (
         <div className="space-y-6">
+            <RepositoryListHeader />
             {data && data.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                     <p>No repositories yet.</p>
@@ -28,7 +29,6 @@ export function DashboardPage() {
             )}
             {data && data.length > 0 && (
                 <>
-                    <RepositoryListHeader></RepositoryListHeader>
                     <div className="divide-y">
                         {data.map((repo) => (
                             <Repository key={repo._id} repo={repo} />
