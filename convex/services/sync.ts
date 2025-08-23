@@ -2,18 +2,19 @@ import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { internalAction, type ActionCtx } from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger, octoCatch, octoCatchFull, octoWrap, protectedAction, SECRET } from '@convex/utils'
-import { v } from 'convex/values'
+import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
+import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
-import { newOctokit } from './github'
+import { getRateLimit, newOctokit } from './github'
 import {
     updateCommits,
+    updateDownload,
     updateIssues,
     updateRefs,
-    type UpdateConfig as UpdateCfg,
+    type UpdateCfg,
 } from './repoDataUpdate'
 
-// For reference, here the interesting endpoints to do a poll based sync:
+// Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
@@ -56,7 +57,7 @@ export const run = protectedAction({
             }
 
             let octo = newOctokit(userToken.token)
-            let res = await runSync({ ctx, octo, repoId, patId: userToken._id })
+            let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
             if (res.isErr) {
                 logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
             }
@@ -64,17 +65,52 @@ export const run = protectedAction({
     },
 })
 
-type SyncCfg = {
+let runSingleArgs = v.object({
+    userId: v.id('users'),
+    owner: v.string(),
+    repo: v.string(),
+})
+
+export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSingleArgs>) {
+    let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+        ...SECRET,
+        userId: args.userId,
+    })
+    if (!userToken) {
+        throw new Error('user token not found')
+    }
+
+    let repo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
+        ...SECRET,
+        owner: args.owner,
+        repo: args.repo,
+    })
+    if (!repo) {
+        throw new Error('repo not found')
+    }
+
+    let repoId = repo._id
+
+    let octo = newOctokit(userToken.token)
+    let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
+    if (res.isErr) {
+        throw new Error(`failed to sync repo ${args.repo} for user ${args.userId}: ${res.err}`)
+    }
+}
+
+export const runSingle = protectedAction({ args: runSingleArgs, handler: runSingleHandler })
+
+type SetupSyncCfg = {
     octo: Octokit
     ctx: ActionCtx
     repoId: Id<'repos'>
     patId: Id<'pats'>
 }
 
-type SyncCfgWithRepo = SyncCfg & UpdateCfg
+type SyncCfg = SetupSyncCfg & UpdateCfg
 
-async function runSync(_cfg: SyncCfg): R {
-    let { ctx, repoId, octo } = _cfg
+async function setupAndRunSync(cfg: SetupSyncCfg): R {
+    let { ctx, repoId } = cfg
 
     let savedRepo = await ctx.runQuery(api.models.repos.get, { ...SECRET, repoId })
     if (!savedRepo) return err('repo not found') // this should never happen
@@ -85,19 +121,40 @@ async function runSync(_cfg: SyncCfg): R {
     })
     if (!repoDownload) return err('repo status not found') // this should never happen
 
-    if (!repoDownload.syncedSince) {
-        // if the repo download exists but there's no since timestamp that means that the download is happening.
-        // We can skip the sync and not worry about it, but this should not happen.
-        return err('no since timestamps found')
+    if (repoDownload.status === 'backfilling' || repoDownload.status === 'syncing') {
+        // Another download is happening, we should skip
+        logger.info('Another download is already in progress, skipping sync')
+        return ok()
     }
 
-    let cfg: SyncCfgWithRepo = {
-        ..._cfg,
+    let syncCfg: SyncCfg = {
+        ...cfg,
         savedRepo,
         since: repoDownload.syncedSince,
         onCommitWrite: async () => {},
         onIssueWrite: async () => {},
     }
+
+    await updateDownload(syncCfg, 'syncing')
+
+    let syncRes = await runSync(syncCfg)
+    if (syncRes.isErr) {
+        await updateDownload(syncCfg, 'error', syncRes.err)
+        return wrap('failed to sync repo', syncRes)
+    }
+
+    let updateRes = await updateTokenRateLimit(cfg)
+    if (updateRes.isErr) {
+        logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
+    }
+
+    await updateDownload(syncCfg, 'success')
+
+    return ok()
+}
+
+async function runSync(cfg: SyncCfg): R {
+    let { savedRepo, octo } = cfg
 
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -127,27 +184,9 @@ async function runSync(_cfg: SyncCfg): R {
         return wrap('failed to sync commits', updateCommitsRes)
     }
 
-    await updateIssues(cfg)
-
-    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
-    if (rateLimit.isErr) {
-        logger.error({ err: rateLimit.err.error() }, 'failed to get rate limit for token')
-        return ok()
-    }
-
-    let limit = rateLimit.val.headers['x-ratelimit-limit']
-    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
-    let reset = rateLimit.val.headers['x-ratelimit-reset']
-
-    await ctx.runMutation(api.models.pats.patch, {
-        ...SECRET,
-        id: cfg.patId,
-        pat: { rateLimit: { limit, remaining, reset } },
-    })
-
-    let updateRes = await updateTokenRateLimit(cfg)
-    if (updateRes.isErr) {
-        logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
+    let updateIssuesRes = await updateIssues(cfg)
+    if (updateIssuesRes.isErr) {
+        return wrap('failed to sync issues', updateIssuesRes)
     }
 
     return ok()
@@ -162,19 +201,15 @@ async function updateTokenRateLimit({
     ctx: ActionCtx
     patId: Id<'pats'>
 }): R {
-    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+    let rateLimit = await getRateLimit(octo)
     if (rateLimit.isErr) {
-        return octoWrap('unable to get rate limit', rateLimit)
+        return wrap('failed to get rate limit', rateLimit)
     }
-
-    let limit = rateLimit.val.headers['x-ratelimit-limit']
-    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
-    let reset = rateLimit.val.headers['x-ratelimit-reset']
 
     await ctx.runMutation(api.models.pats.patch, {
         ...SECRET,
         id: patId,
-        pat: { rateLimit: { limit, remaining, reset } },
+        pat: { rateLimit: rateLimit.val },
     })
     return ok()
 }

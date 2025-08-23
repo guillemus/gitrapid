@@ -31,10 +31,19 @@ const repoCounts = defineTable(repoCountsSchema).index('by_repoId', ['repoId'])
 export const repoDownloadsSchema = {
     repoId: v.id('repos'),
     status: v.union(
-        v.literal('initial'),
-        v.literal('pending'),
+        // There's no initial state really. We assume that if the repoDownload row isn't there
+        // the download hasn't started.
+
+        // Represents when the repository is being downloaded for the first time.
+        v.literal('backfilling'),
+        // Represents when the repository is being synced. It has already been downloaded
+        v.literal('syncing'),
+        // Repository is ready to be used fully
         v.literal('success'),
+        // Error happened to download. We should explain at message what happened exactly.
         v.literal('error'),
+        // Download was cancelled, either internally or externally
+        v.literal('cancelled'),
     ),
     message: v.optional(v.string()),
 

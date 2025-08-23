@@ -7,7 +7,7 @@ import { Buffer } from 'buffer'
 import type { Octokit } from 'octokit'
 import { getAllRefs } from './github'
 
-export type UpdateConfig = {
+export type UpdateCfg = {
     ctx: ActionCtx
     octo: Octokit
     savedRepo: Doc<'repos'>
@@ -17,7 +17,7 @@ export type UpdateConfig = {
     onIssueWrite: (totalIssues: number) => Promise<void>
 }
 
-export async function updateCommits(cfg: UpdateConfig): R {
+export async function updateCommits(cfg: UpdateCfg): R {
     let { octo, ctx, savedRepo } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -92,6 +92,9 @@ export async function updateCommits(cfg: UpdateConfig): R {
 
             totalCommitsWritten++
             await cfg.onCommitWrite(totalCommitsWritten)
+
+            let abort = await shouldAbort(cfg)
+            if (abort.isErr) return abort
         }
     }
 
@@ -100,7 +103,7 @@ export async function updateCommits(cfg: UpdateConfig): R {
     return ok()
 }
 
-export async function updateIssues(cfg: UpdateConfig) {
+export async function updateIssues(cfg: UpdateCfg): R {
     let { octo, ctx, savedRepo } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -190,10 +193,15 @@ export async function updateIssues(cfg: UpdateConfig) {
 
             totalIssuesWritten++
             await cfg.onIssueWrite(totalIssuesWritten)
+
+            let abort = await shouldAbort(cfg)
+            if (abort.isErr) return abort
         }
     }
 
     logger.info('issues updated')
+
+    return ok()
 }
 
 type TreeEntry = {
@@ -205,7 +213,7 @@ type TreeEntry = {
     url?: string
 }
 
-async function updateTreeEntry(cfg: UpdateConfig, treeEntry: TreeEntry, rootTreeSha: string) {
+async function updateTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha: string) {
     logger.debug({ treeEntry: treeEntry.path }, 'processing tree entry')
 
     let newTreeEntry
@@ -281,14 +289,13 @@ async function updateTreeEntry(cfg: UpdateConfig, treeEntry: TreeEntry, rootTree
     return ok(newTreeEntry)
 }
 
-export async function updateRefs({ octo, savedRepo, ctx }: UpdateConfig, defaultBranch: string): R {
+export async function updateRefs(cfg: UpdateCfg, defaultBranch: string): R {
+    let { octo, savedRepo, ctx } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
 
     let refs = await getAllRefs(octo, { owner, repo })
-    if (refs.isErr) {
-        return wrap('failed to get refs', refs)
-    }
+    if (refs.isErr) return wrap('failed to get refs', refs)
 
     let mapped = refs.val.map((r) => ({ repoId: savedRepo._id, ...r }))
     await ctx.runMutation(api.models.refs.replaceRepoRefs, {
@@ -303,10 +310,13 @@ export async function updateRefs({ octo, savedRepo, ctx }: UpdateConfig, default
         headRefName: defaultBranch,
     })
 
+    let abort = await shouldAbort(cfg)
+    if (abort.isErr) return abort
+
     return ok()
 }
 
-async function isCommitWritten({ ctx, savedRepo }: UpdateConfig, commit: { sha: string }) {
+async function isCommitWritten({ ctx, savedRepo }: UpdateCfg, commit: { sha: string }) {
     let savedCommit = await ctx.runQuery(api.models.commits.getByRepoAndSha, {
         ...SECRET,
         repoId: savedRepo._id,
@@ -315,10 +325,12 @@ async function isCommitWritten({ ctx, savedRepo }: UpdateConfig, commit: { sha: 
     return !!savedCommit
 }
 
+type TreeData = Awaited<ReturnType<Octokit['rest']['git']['getTree']>>['data']
+
 async function getTreeData(
-    { octo, savedRepo: { owner, repo } }: UpdateConfig,
+    { octo, savedRepo: { owner, repo } }: UpdateCfg,
     rootTreeSha: string,
-) {
+): R<TreeData> {
     let treeData
     treeData = octo.rest.git.getTree({
         owner,
@@ -336,4 +348,33 @@ async function getTreeData(
     }
 
     return treeData
+}
+
+export async function shouldAbort({ savedRepo, ctx }: UpdateCfg): R {
+    let download = await ctx.runQuery(api.models.repoDownloads.getByRepoId, {
+        ...SECRET,
+        repoId: savedRepo._id,
+    })
+    if (!download) {
+        return err(`download not found for repo: ${savedRepo.owner}/${savedRepo.repo}`)
+    }
+
+    if (download.status === 'cancelled') {
+        return err('sync for repo was cancelled, we should abort')
+    }
+
+    return ok()
+}
+
+export async function updateDownload(
+    cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
+    status: Doc<'repoDownloads'>['status'],
+    message?: string,
+) {
+    await cfg.ctx.runMutation(api.models.repoDownloads.upsert, {
+        ...SECRET,
+        repoId: cfg.savedRepo._id,
+        status,
+        message,
+    })
 }

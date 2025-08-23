@@ -13,17 +13,6 @@ export const RepoDownloads = {
             .unique()
     },
 
-    async getOrCreate(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let existing = await this.getByRepoId(ctx, repoId)
-        if (existing) return existing
-
-        let id = await ctx.db.insert('repoDownloads', {
-            repoId,
-            status: 'initial',
-        })
-        return await ctx.db.get(id)
-    },
-
     async upsert(ctx: MutationCtx, args: UpsertDoc<'repoDownloads'>) {
         let existing = await this.getByRepoId(ctx, args.repoId)
         if (existing) {
@@ -54,11 +43,6 @@ export const RepoDownloads = {
 export const getByRepoId = protectedQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => RepoDownloads.getByRepoId(ctx, repoId),
-})
-
-export const getOrCreate = protectedMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => RepoDownloads.getOrCreate(ctx, repoId),
 })
 
 export const upsert = protectedMutation({

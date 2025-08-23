@@ -6,7 +6,13 @@ import { SECRET, logger, octoCatch, protectedAction } from '@convex/utils'
 import { v } from 'convex/values'
 import { Octokit } from 'octokit'
 import { newOctokit } from './github'
-import { updateCommits, updateIssues, updateRefs, type UpdateConfig } from './repoDataUpdate'
+import {
+    updateCommits,
+    updateDownload,
+    updateIssues,
+    updateRefs,
+    type UpdateCfg,
+} from './repoDataUpdate'
 
 export const run = protectedAction({
     args: {
@@ -19,12 +25,94 @@ export const run = protectedAction({
     async handler(ctx, args) {
         let octo = newOctokit(args.token)
 
-        let res = await runRepoBackfill({ ctx, octo, ...args })
+        let res = await setupAndRunRepoBackfill({ ctx, octo, ...args })
         unwrap(res)
     },
 })
 
-type BackfillCfg = {
+async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
+    let { ctx } = cfg
+
+    logger.info('running backfill')
+
+    let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
+        ...SECRET,
+        userId: cfg.userId,
+        owner: cfg.owner,
+        repo: cfg.repo,
+        private: cfg.private,
+    })
+    if (!savedRepo) return err('failed to save repo')
+
+    let backfillCfg = createBackfillCfg(cfg, savedRepo)
+
+    await updateDownload(backfillCfg, 'backfilling', 'starting download')
+
+    let since = new Date()
+
+    let runResult = await runRepoBackfill(backfillCfg)
+    if (runResult.isErr) {
+        await updateDownload(backfillCfg, 'error', `download error: ${runResult.err}`)
+        return runResult
+    }
+
+    logger.info('backfill complete')
+    await updateDownload(backfillCfg, 'success', 'backfill complete')
+
+    await setDownloadSince(backfillCfg, since)
+
+    return ok()
+}
+
+async function runRepoBackfill(cfg: BackfillCfg) {
+    let { savedRepo, octo } = cfg
+
+    let owner = savedRepo.owner
+    let repo = savedRepo.repo
+
+    let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
+    if (repoData.isErr) {
+        // on the first request to github we also check if the token is valid
+        // for the download
+
+        let isUnauthorized = repoData.err.status === 401
+        let badCredentials = repoData.err.error().includes('Bad credentials')
+        if (isUnauthorized && badCredentials) {
+            return err('bad credentials')
+        }
+
+        return err(`failed to get repo: ${repoData.err.error()}`)
+    }
+
+    let defaultBranch = repoData.val.default_branch
+
+    await updateDownload(cfg, 'backfilling', 'updating refs')
+
+    let refsRes = await updateRefs(cfg, defaultBranch)
+    if (refsRes.isErr) {
+        return wrap(`failed to backfill refs`, refsRes)
+    }
+
+    logger.info('upserted refs, backfilling commits')
+    await updateDownload(cfg, 'backfilling', 'updating commits')
+
+    let commitsRes = await updateCommits(cfg)
+    if (commitsRes.isErr) {
+        return wrap('failed to backfill commits', commitsRes)
+    }
+
+    logger.info('upserted commits, backfilling issues')
+    await updateDownload(cfg, 'backfilling', 'updating issues')
+
+    let issuesRes = await updateIssues(cfg)
+    if (issuesRes.isErr) {
+        return wrap('failed to backfill issues', issuesRes)
+    }
+
+    return ok()
+}
+
+type SetupBackfillCfg = {
     ctx: ActionCtx
     octo: Octokit
     userId: Id<'users'>
@@ -33,114 +121,26 @@ type BackfillCfg = {
     private: boolean
 }
 
-type BackfillCfgWithRepo = BackfillCfg & UpdateConfig
+type BackfillCfg = SetupBackfillCfg & UpdateCfg
 
-function createBackfillCfg(initial: BackfillCfg, savedRepo: Doc<'repos'>): BackfillCfgWithRepo {
+function createBackfillCfg(initial: SetupBackfillCfg, savedRepo: Doc<'repos'>): BackfillCfg {
     let cfg = { ...initial, savedRepo }
 
     return {
         ...cfg,
         async onCommitWrite(totalCommits) {
-            await updateDownload(cfg, 'pending', `${totalCommits} commits written`)
+            await updateDownload(cfg, 'backfilling', `${totalCommits} commits written`)
         },
         async onIssueWrite(totalIssues) {
-            await updateDownload(cfg, 'pending', `${totalIssues} issues written`)
+            await updateDownload(cfg, 'backfilling', `${totalIssues} issues written`)
         },
     }
 }
 
-async function updateDownload(
-    cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
-    status: 'pending' | 'success' | 'error',
-    message: string,
-) {
-    await cfg.ctx.runMutation(api.models.repoDownloads.upsert, {
-        ...SECRET,
-        repoId: cfg.savedRepo._id,
-        status,
-        message,
-    })
-}
-
-async function setDownloadSince(cfg: BackfillCfgWithRepo, since: Date) {
+async function setDownloadSince(cfg: BackfillCfg, since: Date) {
     await cfg.ctx.runMutation(api.models.repoDownloads.updateSince, {
         ...SECRET,
         repoId: cfg.savedRepo._id,
         syncedSince: since.toISOString(),
     })
-}
-
-async function runRepoBackfill(_cfg: BackfillCfg): R {
-    let { ctx, octo } = _cfg
-
-    logger.info('running backfill')
-
-    let since = new Date()
-
-    let savedRepo = await ctx.runMutation(api.models.models.insertNewRepo, {
-        ...SECRET,
-        userId: _cfg.userId,
-        owner: _cfg.owner,
-        repo: _cfg.repo,
-        private: _cfg.private,
-    })
-    if (!savedRepo) return err('failed to save repo')
-
-    let cfg = createBackfillCfg(_cfg, savedRepo)
-
-    const run = async (): R => {
-        let owner = savedRepo.owner
-        let repo = savedRepo.repo
-
-        let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
-        if (repoData.isErr) {
-            // on the first request to github we also check if the token is valid
-            // for the download
-
-            let isUnauthorized = repoData.err.status === 401
-            let badCredentials = repoData.err.error().includes('Bad credentials')
-            if (isUnauthorized && badCredentials) {
-                return err('bad credentials')
-            }
-            return err(`failed to get repo: ${repoData.err.error()}`)
-        }
-
-        let defaultBranch = repoData.val.default_branch
-
-        await updateDownload(cfg, 'pending', 'updating refs')
-
-        await updateRefs(cfg, defaultBranch)
-
-        logger.info('upserted refs')
-
-        logger.info('backfilling commits')
-        await updateDownload(cfg, 'pending', 'updating commits')
-
-        let commitsRes = await updateCommits(cfg)
-        if (commitsRes.isErr) {
-            return wrap('failed to backfill commits', commitsRes)
-        }
-
-        await updateIssues(cfg)
-
-        // Just to be sure we don't forget any piece of data, we get the since
-        // "since" the start of the download.  We will use that date to later on
-        // get the modified data since given date. Useful for incremental
-        // syncing basically.
-        await setDownloadSince(cfg, since)
-
-        return ok()
-    }
-
-    await updateDownload(cfg, 'pending', 'starting download')
-
-    let runResult = await run()
-    if (runResult.isErr) {
-        await updateDownload(cfg, 'error', `download error: ${runResult.err}`)
-        return runResult
-    }
-
-    await updateDownload(cfg, 'success', '')
-
-    return ok()
 }

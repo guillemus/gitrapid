@@ -1,4 +1,4 @@
-import { octoCatch, parseDate } from '@convex/utils'
+import { octoCatch, octoCatchFull, octoWrap, parseDate } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap, type Result } from '../shared'
 
@@ -111,4 +111,17 @@ export function parseGithubUrl(raw: string): Result<{ owner: string; repo: strin
     if (!owner || !repo) return err('invalid github url')
 
     return ok({ owner, repo })
+}
+
+export async function getRateLimit(octo: Octokit) {
+    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+    if (rateLimit.isErr) {
+        return octoWrap('failed to get rate limit', rateLimit)
+    }
+
+    let limit = rateLimit.val.headers['x-ratelimit-limit']
+    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
+    let reset = rateLimit.val.headers['x-ratelimit-reset']
+
+    return ok({ limit, remaining, reset })
 }
