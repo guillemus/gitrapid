@@ -1,4 +1,4 @@
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
@@ -38,6 +38,10 @@ export const RepoDownloads = {
             await ctx.db.delete(existing._id)
         }
     },
+}
+
+export function canRepoBeSynced(download: Doc<'repoDownloads'>) {
+    return download.status !== 'backfilling' && download.status !== 'syncing'
 }
 
 export const getByRepoId = protectedQuery({

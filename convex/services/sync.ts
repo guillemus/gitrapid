@@ -1,6 +1,7 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { internalAction, type ActionCtx } from '@convex/_generated/server'
+import { canRepoBeSynced } from '@convex/models/repoDownloads'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
@@ -121,9 +122,11 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
     })
     if (!repoDownload) return err('repo status not found') // this should never happen
 
-    if (repoDownload.status === 'backfilling' || repoDownload.status === 'syncing') {
-        // Another download is happening, we should skip
-        logger.info('Another download is already in progress, skipping sync')
+    let canBeSynced = canRepoBeSynced(repoDownload)
+    if (!canBeSynced) {
+        let status = repoDownload.status
+        logger.info(`Another download is already in progress (${status}), skipping sync`)
+
         return ok()
     }
 
