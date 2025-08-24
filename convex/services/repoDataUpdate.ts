@@ -15,6 +15,7 @@ export type UpdateCfg = {
 
     onCommitWrite: (totalCommits: number) => Promise<void>
     onIssueWrite: (totalIssues: number) => Promise<void>
+    onTreeEntryWrite: (path: string) => Promise<void>
 }
 
 export async function updateCommits(cfg: UpdateCfg): R {
@@ -89,6 +90,8 @@ export async function updateCommits(cfg: UpdateCfg): R {
 
                 if (processRes.val) {
                     writtenTreeEntries.set(treeEntry.sha, processRes.val._id)
+
+                    await cfg.onTreeEntryWrite(treeEntry.path)
                 }
             }
 

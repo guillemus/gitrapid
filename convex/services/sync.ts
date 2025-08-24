@@ -140,6 +140,7 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         since: repoDownload.syncedSince,
         onCommitWrite: async () => {},
         onIssueWrite: async () => {},
+        onTreeEntryWrite: async () => {},
     }
 
     await updateDownload(syncCfg, 'syncing')

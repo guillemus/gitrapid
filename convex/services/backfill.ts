@@ -20,7 +20,7 @@ export const run = protectedAction({
         userId: v.id('users'),
         owner: v.string(),
         repo: v.string(),
-        private: v.boolean(),
+        isPrivate: v.boolean(),
     },
     async handler(ctx, args) {
         let octo = newOctokit(args.token)
@@ -30,7 +30,25 @@ export const run = protectedAction({
     },
 })
 
-async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
+// useful for debugging syncs
+export async function createSetupBackfillCfg(
+    ctx: ActionCtx,
+    userId: Id<'users'>,
+    owner: string,
+    repo: string,
+    isPrivate: boolean, // this is used to validate the license
+) {
+    let pat = await ctx.runQuery(api.models.pats.getByUserId, { ...SECRET, userId })
+    if (!pat) throw new Error('pat not found')
+
+    let octo = newOctokit(pat.token)
+
+    let config: SetupBackfillCfg = { ctx, octo, owner, repo, isPrivate, userId }
+
+    return config
+}
+
+export async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
     let { ctx } = cfg
 
     logger.info('running backfill')
@@ -40,7 +58,7 @@ async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
         userId: cfg.userId,
         owner: cfg.owner,
         repo: cfg.repo,
-        private: cfg.private,
+        private: cfg.isPrivate,
     })
     if (!savedRepo) return err('failed to save repo')
 
@@ -86,6 +104,7 @@ async function runRepoBackfill(cfg: BackfillCfg) {
 
     let defaultBranch = repoData.val.default_branch
 
+    logger.info('updating refs')
     await updateDownload(cfg, 'backfilling', 'updating refs')
 
     let refsRes = await updateRefs(cfg, defaultBranch)
@@ -118,7 +137,7 @@ type SetupBackfillCfg = {
     userId: Id<'users'>
     owner: string
     repo: string
-    private: boolean
+    isPrivate: boolean
 }
 
 type BackfillCfg = SetupBackfillCfg & UpdateCfg
@@ -129,10 +148,16 @@ function createBackfillCfg(initial: SetupBackfillCfg, savedRepo: Doc<'repos'>): 
     return {
         ...cfg,
         async onCommitWrite(totalCommits) {
+            logger.debug(`DOWNLOAD PROGRESS UPDATE: ${totalCommits} commits written`)
             await updateDownload(cfg, 'backfilling', `${totalCommits} commits written`)
         },
         async onIssueWrite(totalIssues) {
+            logger.debug(`DOWNLOAD PROGRESS UPDATE: ${totalIssues} issues written`)
             await updateDownload(cfg, 'backfilling', `${totalIssues} issues written`)
+        },
+        async onTreeEntryWrite(path) {
+            logger.debug(`DOWNLOAD PROGRESS UPDATE: added ${path}`)
+            await updateDownload(cfg, 'backfilling', `added ${path}`)
         },
     }
 }

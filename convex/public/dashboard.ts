@@ -107,7 +107,7 @@ export const addRepo = action({
             userId,
             owner,
             repo,
-            private: repoData.val.private,
+            isPrivate: repoData.val.private,
         })
 
         return ok()

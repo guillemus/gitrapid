@@ -6,15 +6,10 @@
     "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"CONVEX,ASTRO \" \"bun cx\" \"bun astro:dev\"",
     "cx": "convex dev --typecheck disable",
     "ts": "tsgo --watch",
-    "ts:build": "tsgo",
-    "astro:dev": "astro dev --port 3000",
-    "scripts": "NO_COLOR=1 bun run scripts/scripts.ts | tee >(pbcopy)",
-    "dev:tsc": "tsc --watch",
     "build": "astro build",
     "lint": "eslint ./src ./convex",
     "format": "prettier ./src ./convex --write",
     "preview": "astro preview --port 3000",
-    "start": "node dist/server/entry.mjs",
     "astro": "astro"
   },
   "dependencies": {
