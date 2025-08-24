@@ -114,13 +114,17 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
     let { ctx, repoId } = cfg
 
     let savedRepo = await ctx.runQuery(api.models.repos.get, { ...SECRET, repoId })
-    if (!savedRepo) return err('repo not found') // this should never happen
+    if (!savedRepo) {
+        throw new Error(`repo not found: ${repoId}`)
+    }
 
     let repoDownload = await ctx.runQuery(api.models.repoDownloads.getByRepoId, {
         ...SECRET,
         repoId,
     })
-    if (!repoDownload) return err('repo status not found') // this should never happen
+    if (!repoDownload) {
+        throw new Error(`repo status not found: ${repoId}`)
+    }
 
     let canBeSynced = canRepoBeSynced(repoDownload)
     if (!canBeSynced) {

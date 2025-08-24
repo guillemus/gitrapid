@@ -49,7 +49,9 @@ export async function updateCommits(cfg: UpdateCfg): R {
             let rootTreeSha = commit.commit.tree.sha
 
             let treeData = await getTreeData(cfg, rootTreeSha)
-            if (treeData.isErr) return treeData
+            if (treeData.isErr) {
+                return wrap(`failed to get tree for commit ${commit.sha}`, treeData)
+            }
 
             let treeId = writtenTrees.get(rootTreeSha)
             if (!treeId) {
