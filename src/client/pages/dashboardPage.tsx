@@ -40,73 +40,83 @@ export function DashboardPage() {
     )
 }
 
-type SearchRepoState = { type: 'search'; searchInput: string }
-type AddRepoState = {
-    type: 'add'
-    githubUrl: string
-    isAdding: boolean
-    addRepoError?: { title: string; description: string }
+type RepoState = { curr: SearchRepoState | AddRepoState }
+
+function initialRepoState() {
+    return { curr: new SearchRepoState() }
 }
 
-async function handleAddRepo(
-    state: AddRepoState,
-    addRepo: ReactAction<typeof api.public.dashboard.addRepo>,
-) {
-    if (!state.githubUrl.trim()) return
+class SearchRepoState {
+    searchInput = ''
 
-    state.isAdding = true
-    state.addRepoError = undefined
+    goToAddRepo(state: RepoState) {
+        state.curr = new AddRepoState()
+    }
+}
 
-    let res = await addRepo({ githubUrl: state.githubUrl })
+class AddRepoState {
+    githubUrl = ''
+    isAdding = false
+    addRepoError?: { title: string; description: string }
 
-    state.isAdding = false
-    state.githubUrl = ''
+    async addRepoWithAction(action: ReactAction<typeof api.public.dashboard.addRepo>) {
+        if (!this.githubUrl.trim()) return
 
-    if (res.isErr) {
+        this.isAdding = true
+        this.addRepoError = undefined
+
+        let res = await action({ githubUrl: this.githubUrl })
+
+        this.isAdding = false
+        this.githubUrl = ''
+
+        if (!res.isErr) return
+
         if (res.err.type === 'error') {
-            state.addRepoError = {
+            this.addRepoError = {
                 title: 'Something went wrong',
                 description: res.err.err,
             }
         } else if (res.err.type === 'license-not-found') {
-            state.addRepoError = {
+            this.addRepoError = {
                 title: 'License not found',
                 description: 'The repository does not have a license, so we cannot add it.',
             }
         } else if (res.err.type === 'license-not-supported') {
-            state.addRepoError = {
+            this.addRepoError = {
                 title: 'License not supported',
                 description: `The repository uses the ${res.err.spdxId} license, which is not supported.`,
             }
         } else if (res.err.type === 'octo-error') {
-            state.addRepoError = {
+            this.addRepoError = {
                 title: 'Something went wrong',
                 description: res.err.err,
             }
         } else res.err satisfies never
 
         setTimeout(() => {
-            state.addRepoError = undefined
+            this.addRepoError = undefined
         }, 4000)
+    }
+
+    goToSearchRepo(state: RepoState) {
+        state.curr = new SearchRepoState()
     }
 }
 
 function RepositoryListHeader() {
     let addRepo = useAction(api.public.dashboard.addRepo)
-    const searchRepoState: SearchRepoState = { type: 'search', searchInput: '' }
-    const addRepoState: AddRepoState = { type: 'add', githubUrl: '', isAdding: false }
-    let state = useMutable<{ curr: SearchRepoState | AddRepoState }>({ curr: searchRepoState })
+    let state = useMutable<RepoState>(initialRepoState())
+    let curr = state.curr
 
-    if (state.curr.type === 'search') {
-        let curr = state.curr
+    if (curr instanceof SearchRepoState) {
         return (
             <div className="flex gap-4 justify-end">
-                <Button onClick={() => (state.curr = addRepoState)}>Add repository</Button>
+                <Button onClick={() => curr.goToAddRepo(state)}>Add repository</Button>
             </div>
         )
     }
 
-    let curr = state.curr
     return (
         <div className="flex gap-4 flex-col">
             <div className="flex gap-4 w-full">
@@ -115,17 +125,17 @@ function RepositoryListHeader() {
                     className="w-full"
                     value={curr.githubUrl}
                     onChange={(e) => (curr.githubUrl = e.target.value)}
-                    onEnter={() => handleAddRepo(curr, addRepo)}
+                    onEnter={() => curr.addRepoWithAction(addRepo)}
                 />
 
                 <div className="flex gap-1">
                     <Button
                         disabled={curr.isAdding || !curr.githubUrl.trim()}
-                        onClick={() => handleAddRepo(curr, addRepo)}
+                        onClick={() => curr.addRepoWithAction(addRepo)}
                     >
                         {curr.isAdding ? 'Adding...' : 'Submit'}
                     </Button>
-                    <Button variant="outline" onClick={() => (state.curr = searchRepoState)}>
+                    <Button variant="outline" onClick={() => curr.goToSearchRepo(state)}>
                         Cancel
                     </Button>
                 </div>
