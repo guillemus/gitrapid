@@ -12,10 +12,7 @@ export type UpdateCfg = {
     octo: Octokit
     savedRepo: Doc<'repos'>
     since?: string
-
-    onCommitWrite: (totalCommits: number) => Promise<void>
-    onIssueWrite: (totalIssues: number) => Promise<void>
-    onTreeEntryWrite: (path: string) => Promise<void>
+    isBackfill: boolean
 }
 
 export async function updateCommits(cfg: UpdateCfg): R {
@@ -91,12 +88,19 @@ export async function updateCommits(cfg: UpdateCfg): R {
                 if (processRes.val) {
                     writtenTreeEntries.set(treeEntry.sha, processRes.val._id)
 
-                    await cfg.onTreeEntryWrite(treeEntry.path)
+                    if (cfg.isBackfill) {
+                        await updateDownload(cfg, 'backfilling', `added ${treeEntry.path}`)
+                    }
                 }
+
+                let abort = await shouldAbort(cfg)
+                if (abort.isErr) return abort
             }
 
             totalCommitsWritten++
-            await cfg.onCommitWrite(totalCommitsWritten)
+            if (cfg.isBackfill) {
+                await updateDownload(cfg, 'backfilling', `${totalCommitsWritten} commits written`)
+            }
 
             let abort = await shouldAbort(cfg)
             if (abort.isErr) return abort
@@ -197,7 +201,9 @@ export async function updateIssues(cfg: UpdateCfg): R {
             }
 
             totalIssuesWritten++
-            await cfg.onIssueWrite(totalIssuesWritten)
+            if (cfg.isBackfill) {
+                await updateDownload(cfg, 'backfilling', `${totalIssuesWritten} issues written`)
+            }
 
             let abort = await shouldAbort(cfg)
             if (abort.isErr) return abort
@@ -250,7 +256,7 @@ async function updateTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha
                 storedContent = blobContentBase64 ?? ''
                 storedEncoding = 'base64'
             }
-        } catch (_) {
+        } catch {
             storedContent = blobContentBase64 ?? ''
             storedEncoding = 'base64'
         }
@@ -376,10 +382,15 @@ export async function updateDownload(
     status: Doc<'repoDownloads'>['status'],
     message?: string,
 ) {
-    await cfg.ctx.runMutation(api.models.repoDownloads.upsert, {
+    let res = await cfg.ctx.runMutation(api.models.repoDownloads.upsertIfNotCancelled, {
         ...SECRET,
         repoId: cfg.savedRepo._id,
         status,
         message,
     })
+    if (res.isErr) return res
+
+    logger.debug(`DOWNLOAD PROGRESS UPDATE: ${message}`)
+
+    return ok()
 }

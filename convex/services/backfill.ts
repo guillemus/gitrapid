@@ -1,5 +1,5 @@
 import { api } from '@convex/_generated/api'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch, protectedAction } from '@convex/utils'
@@ -48,6 +48,15 @@ export async function createSetupBackfillCfg(
     return config
 }
 
+type SetupBackfillCfg = {
+    ctx: ActionCtx
+    octo: Octokit
+    userId: Id<'users'>
+    owner: string
+    repo: string
+    isPrivate: boolean
+}
+
 export async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
     let { ctx } = cfg
 
@@ -62,7 +71,7 @@ export async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
     })
     if (!savedRepo) return err('failed to save repo')
 
-    let backfillCfg = createBackfillCfg(cfg, savedRepo)
+    let backfillCfg: BackfillCfg = { ...cfg, savedRepo, isBackfill: true }
 
     await updateDownload(backfillCfg, 'backfilling', 'starting download')
 
@@ -81,6 +90,8 @@ export async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
 
     return ok()
 }
+
+type BackfillCfg = SetupBackfillCfg & UpdateCfg
 
 async function runRepoBackfill(cfg: BackfillCfg) {
     let { savedRepo, octo } = cfg
@@ -129,37 +140,6 @@ async function runRepoBackfill(cfg: BackfillCfg) {
     }
 
     return ok()
-}
-
-type SetupBackfillCfg = {
-    ctx: ActionCtx
-    octo: Octokit
-    userId: Id<'users'>
-    owner: string
-    repo: string
-    isPrivate: boolean
-}
-
-type BackfillCfg = SetupBackfillCfg & UpdateCfg
-
-function createBackfillCfg(initial: SetupBackfillCfg, savedRepo: Doc<'repos'>): BackfillCfg {
-    let cfg = { ...initial, savedRepo }
-
-    return {
-        ...cfg,
-        async onCommitWrite(totalCommits) {
-            logger.debug(`DOWNLOAD PROGRESS UPDATE: ${totalCommits} commits written`)
-            await updateDownload(cfg, 'backfilling', `${totalCommits} commits written`)
-        },
-        async onIssueWrite(totalIssues) {
-            logger.debug(`DOWNLOAD PROGRESS UPDATE: ${totalIssues} issues written`)
-            await updateDownload(cfg, 'backfilling', `${totalIssues} issues written`)
-        },
-        async onTreeEntryWrite(path) {
-            logger.debug(`DOWNLOAD PROGRESS UPDATE: added ${path}`)
-            await updateDownload(cfg, 'backfilling', `added ${path}`)
-        },
-    }
 }
 
 async function setDownloadSince(cfg: BackfillCfg, since: Date) {

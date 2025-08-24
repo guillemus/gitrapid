@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import { ConvexHttpClient } from 'convex/browser'
@@ -103,7 +105,7 @@ export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, O
     }
 }
 
-export function octoWrap<T>(context: string, octoError: Err<OctoError>): Err<string> {
+export function octoWrap(context: string, octoError: Err<OctoError>): Err<string> {
     return err(`${context}: ${octoError.err.error()}`)
 }
 
@@ -112,15 +114,15 @@ export function createActionCtx(publicContextUrl: string): ActionCtx {
 
     return {
         runQuery: async (query, ...args) => {
-            // @ts-expect-error
+            // @ts-expect-error: hard to make ts happy
             return await client.query(query, ...args)
         },
         runMutation: async (mutation, ...args) => {
-            // @ts-expect-error
+            // @ts-expect-error: hard to make ts happy
             return await client.mutation(mutation, ...args)
         },
         runAction: async (action, ...args) => {
-            // @ts-expect-error
+            // @ts-expect-error: hard to make ts happy
             return await client.action(action, ...args)
         },
 
@@ -131,7 +133,7 @@ export function createActionCtx(publicContextUrl: string): ActionCtx {
         scheduler: {
             runAfter: async (delay, action, ...args) => {
                 let cancelId = setTimeout(() => {
-                    // @ts-expect-error
+                    // @ts-expect-error: hard to make ts happy
                     client.action(action, ...args)
                 }, delay)
 
@@ -186,16 +188,28 @@ export const protectedAction = customAction(action, {
     },
 })
 
-export const logger = pino({
-    level: 'info',
-})
+export const logger = pino({ level: 'info' })
+// export const logger = debugLogger()
+
+function debugLogger() {
+    return pino({
+        level: 'debug',
+        transport: {
+            target: 'pino-pretty',
+            options: {
+                colorize: true,
+                ignore: 'pid,hostname,time',
+            },
+        },
+    })
+}
 
 export function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
     this: ActionCtx,
     query: Query,
     args: Omit<FunctionArgs<Query>, 'secret'>,
 ): Promise<FunctionReturnType<Query>> {
-    // @ts-ignore
+    // @ts-expect-error: hard to make ts happy
     return this.runQuery(query, { ...SECRET, ...args })
 }
 

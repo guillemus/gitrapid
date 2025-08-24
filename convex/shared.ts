@@ -19,44 +19,6 @@ export function err<E>(msg: E): Err<E> {
     return { isErr: true, err: msg }
 }
 
-/**
- * Wraps an error with a context. While we could just use `err`, when doing error wrapping we could have a refactor like the following
- *
- * ```typescript
- *  function fn() {
- *      return err("error happened")
- *  }
- *
- *  function someFunc() {
- *      let data = fn()
- *      if (data.isErr) {
- *          return err(`someFunc: ${data.error}`)
- *      }
- *  }
- * ```
- *
- * However, the problem with this is that we might refactor `fn()` to return an error object instead:
- *
- * ```typescript
- *  function fn() {
- *      return failure({ error: 'http auth error', code: 401, endpoint: '/auth'  })
- *  }
- * ```
- *
- * Typescript won't complain about implicitly converting `data.error` into the infamous `[object Object]`
- *
- * ```typescript
- *  function someFunc() {
- *      let data = fn()
- *      if (data.isErr) {
- *          // error will be string "someFunc: [object Object]", which we don't want
- *          return err(`someFunc: ${data.error}`)
- *      }
- *  }
- * ```
- *
- * In order to prevent this, wrap will ensure that the passed error is a string.
- */
 export function wrap(context: string, err: Err<string>): Err<string> {
     return { isErr: true, err: `${context}: ${err.err}` }
 }

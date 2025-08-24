@@ -56,7 +56,5 @@ export const patch = protectedMutation({
         id: v.id('pats'),
         pat: partial(schema.tables.pats.validator),
     },
-    handler: (ctx, args) => {
-        ctx.db.patch(args.id, args.pat)
-    },
+    handler: (ctx, args) => ctx.db.patch(args.id, args.pat),
 })

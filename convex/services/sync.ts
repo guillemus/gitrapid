@@ -138,9 +138,7 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         ...cfg,
         savedRepo,
         since: repoDownload.syncedSince,
-        onCommitWrite: async () => {},
-        onIssueWrite: async () => {},
-        onTreeEntryWrite: async () => {},
+        isBackfill: false,
     }
 
     await updateDownload(syncCfg, 'syncing')
