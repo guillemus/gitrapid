@@ -188,8 +188,7 @@ export const protectedAction = customAction(action, {
     },
 })
 
-export const logger = pino({ level: 'info' })
-// export const logger = debugLogger()
+export const logger = env.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
 
 function debugLogger() {
     return pino({
