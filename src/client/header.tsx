@@ -15,13 +15,13 @@ export function Header({ tab }: HeaderProps) {
     let path = useLocation().pathname
 
     return (
-        <div className="border-b bg-background">
+        <div className="bg-background border-b">
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between pt-4 pb-0 font-normal">
                     <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                        <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
                             <FastLink to="/dash">
-                                <Code className="w-4 h-4" />
+                                <Code className="h-4 w-4" />
                             </FastLink>
                         </div>
                         {owner && repo && (
@@ -29,14 +29,14 @@ export function Header({ tab }: HeaderProps) {
                                 <div className="flex items-center space-x-1">
                                     <Link
                                         to="#"
-                                        className="text-blue-600 hover:underline font-medium"
+                                        className="font-medium text-blue-600 hover:underline"
                                     >
                                         {owner}
                                     </Link>
                                     <span className="text-muted-foreground">/</span>
                                     <Link
                                         to="#"
-                                        className="text-blue-600 hover:underline font-bold"
+                                        className="font-bold text-blue-600 hover:underline"
                                     >
                                         {repo}
                                     </Link>
@@ -48,9 +48,9 @@ export function Header({ tab }: HeaderProps) {
                     <div className="flex items-center space-x-4">
                         <Link
                             to="/settings"
-                            className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
+                            className="text-muted-foreground hover:text-foreground flex items-center space-x-2"
                         >
-                            <Settings className="w-5 h-5" />
+                            <Settings className="h-5 w-5" />
                             <span>Settings</span>
                         </Link>
                     </div>
@@ -90,13 +90,13 @@ function Tab(props: {
     return (
         <Link
             to={props.href}
-            className={`relative flex items-center space-x-2 px-1 text-sm font-medium whitespace-nowrap h-10 after:content-[''] after:absolute after:inset-x-0 after:bottom-[0px] after:h-[2px] after:rounded after:pointer-events-none ${
+            className={`relative flex h-10 items-center space-x-2 px-1 text-sm font-medium whitespace-nowrap after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[0px] after:h-[2px] after:rounded after:content-[''] ${
                 props.active
                     ? 'text-foreground after:bg-orange-500'
                     : 'text-muted-foreground hover:text-foreground'
             }`}
         >
-            <props.icon className="w-4 h-4" />
+            <props.icon className="h-4 w-4" />
             <span className="leading-none">{props.label}</span>
             {props.count && (
                 <Badge variant="secondary" className="ml-1 text-xs">

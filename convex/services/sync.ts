@@ -182,8 +182,17 @@ async function runSync(cfg: SyncCfg): R {
         return err(`failed to get repo: ${repoData.err.error()}`)
     }
 
-    let defaultBranch = repoData.val.default_branch
+    let updateIssuesRes = await updateIssues(cfg)
+    if (updateIssuesRes.isErr) {
+        return wrap('failed to sync issues', updateIssuesRes)
+    }
 
+    return ok()
+}
+
+// TODO: eventually we will update commits again, but for the moment we need to
+// remove things from the scope of the project, otherwise I'm never ending this.
+async function updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
     let updateRefsRes = await updateRefs(cfg, defaultBranch)
     if (updateRefsRes.isErr) {
         return wrap('failed to sync refs', updateRefsRes)
@@ -193,13 +202,6 @@ async function runSync(cfg: SyncCfg): R {
     if (updateCommitsRes.isErr) {
         return wrap('failed to sync commits', updateCommitsRes)
     }
-
-    let updateIssuesRes = await updateIssues(cfg)
-    if (updateIssuesRes.isErr) {
-        return wrap('failed to sync issues', updateIssuesRes)
-    }
-
-    return ok()
 }
 
 async function updateTokenRateLimit({

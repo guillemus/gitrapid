@@ -25,12 +25,12 @@ function AuthenticatedWithToken(props: { children: React.ReactNode }) {
 
 function AppLayout({ tab }: { tab: HeaderProps['tab'] }) {
     return (
-        <div className="h-screen bg-background flex flex-col">
+        <div className="bg-background flex h-screen flex-col">
             <div className="flex-shrink-0">
                 <Header tab={tab} />
             </div>
             <AuthenticatedWithToken>
-                <div className="flex-1 overflow-y-auto scrollbar-gutter-stable">
+                <div className="scrollbar-gutter-stable flex-1 overflow-y-auto">
                     <div className="container mx-auto px-4 py-6">
                         <Outlet></Outlet>
                     </div>
@@ -53,11 +53,15 @@ function Router() {
                     <Route path="/dash" element={<DashboardPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                 </Route>
-                <Route element={<AppLayout tab="code" />}>
+
+                {/* TODO: add back the code tab */}
+
+                {/* <Route element={<AppLayout tab="code" />}>
                     <Route path="/:owner/:repo" element={<RepoPage />} />
                     <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
                     <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
-                </Route>
+                </Route> */}
+
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                 </Route>

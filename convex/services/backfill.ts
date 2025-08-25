@@ -117,8 +117,22 @@ async function runRepoBackfill(cfg: BackfillCfg) {
         return err(`failed to get repo: ${repoData.err.error()}`)
     }
 
-    let defaultBranch = repoData.val.default_branch
+    logger.info('backfilling issues')
 
+    let res = await updateDownload(cfg, 'backfilling', 'updating issues')
+    if (res.isErr) return res
+
+    let issuesRes = await updateIssues(cfg)
+    if (issuesRes.isErr) {
+        return wrap('failed to backfill issues', issuesRes)
+    }
+
+    return ok()
+}
+
+// TODO: eventually we will update commits again, but for the moment we need to
+// remove things from the scope of the project, otherwise I'm never ending this.
+async function updateRepoCommits(cfg: BackfillCfg, defaultBranch: string) {
     logger.info('updating refs')
     let res = await updateDownload(cfg, 'backfilling', 'updating refs')
     if (res.isErr) return res
@@ -137,16 +151,7 @@ async function runRepoBackfill(cfg: BackfillCfg) {
         return wrap('failed to backfill commits', commitsRes)
     }
 
-    logger.info('upserted commits, backfilling issues')
-    res = await updateDownload(cfg, 'backfilling', 'updating issues')
-    if (res.isErr) return res
-
-    let issuesRes = await updateIssues(cfg)
-    if (issuesRes.isErr) {
-        return wrap('failed to backfill issues', issuesRes)
-    }
-
-    return ok()
+    logger.info('upserted commits')
 }
 
 async function setDownloadSince(cfg: BackfillCfg, since: Date) {
