@@ -141,11 +141,14 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         isBackfill: false,
     }
 
-    await updateDownload(syncCfg, 'syncing')
+    let res = await updateDownload(syncCfg, 'syncing', 'syncing')
+    if (res.isErr) return res
 
     let syncRes = await runSync(syncCfg)
     if (syncRes.isErr) {
-        await updateDownload(syncCfg, 'error', syncRes.err)
+        res = await updateDownload(syncCfg, 'error', syncRes.err)
+        if (res.isErr) return res
+
         return wrap('failed to sync repo', syncRes)
     }
 
@@ -154,7 +157,8 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
     }
 
-    await updateDownload(syncCfg, 'success')
+    res = await updateDownload(syncCfg, 'success', 'sync complete')
+    if (res.isErr) return res
 
     return ok()
 }

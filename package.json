@@ -8,6 +8,7 @@
     "ts": "tsgo --watch",
     "build": "astro build",
     "lint": "eslint ./convex",
+    "astro:dev": "astro dev --port 3000",
     "format": "prettier ./src ./convex --write",
     "preview": "astro preview --port 3000",
     "astro": "astro"

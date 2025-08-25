@@ -18,12 +18,12 @@ export function DashboardPage() {
         <div className="space-y-6">
             <RepositoryListHeader />
             {data && data.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="py-8 text-center text-gray-500">
                     <p>No repositories yet.</p>
                 </div>
             )}
             {!data && (
-                <div className="text-center py-8">
+                <div className="py-8 text-center">
                     <p>Loading...</p>
                 </div>
             )}
@@ -111,15 +111,15 @@ function RepositoryListHeader() {
 
     if (curr instanceof SearchRepoState) {
         return (
-            <div className="flex gap-4 justify-end">
+            <div className="flex justify-end gap-4">
                 <Button onClick={() => curr.goToAddRepo(state)}>Add repository</Button>
             </div>
         )
     }
 
     return (
-        <div className="flex gap-4 flex-col">
-            <div className="flex gap-4 w-full">
+        <div className="flex flex-col gap-4">
+            <div className="flex w-full gap-4">
                 <Input
                     placeholder="Paste GitHub repo URL (e.g. github.com/owner/repo)"
                     className="w-full"
@@ -141,13 +141,13 @@ function RepositoryListHeader() {
                 </div>
             </div>
             {curr.addRepoError && (
-                <div className="min-h-[32px] mt-2">
+                <div className="mt-2 min-h-[32px]">
                     {curr.addRepoError && (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
                                 <div className="font-medium">{curr.addRepoError.title}</div>
-                                <div className="text-sm mt-1">{curr.addRepoError.description}</div>
+                                <div className="mt-1 text-sm">{curr.addRepoError.description}</div>
                             </AlertDescription>
                         </Alert>
                     )}
@@ -195,11 +195,11 @@ function Repository(props: { repo: Doc<'repos'> }) {
                     )}
                 </div>
                 {download && (
-                    <div className="mt-2 text-sm text-gray-500 flex gap-2 items-center">
+                    <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
                         {download.status !== 'success' && (
                             <Badge
                                 variant={download.status === 'error' ? 'destructive' : 'secondary'}
-                                className="text-xs px-2 py-1 rounded-full"
+                                className="rounded-full px-2 py-1 text-xs"
                             >
                                 {download.status}
                             </Badge>
@@ -216,7 +216,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
                     size="sm"
                     onClick={handleRemoveRepo}
                     disabled={isRemoving}
-                    className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-800"
                 >
                     {isRemoving ? 'Removing...' : 'Remove'}
                 </Button>

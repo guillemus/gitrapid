@@ -89,7 +89,12 @@ export async function updateCommits(cfg: UpdateCfg): R {
                     writtenTreeEntries.set(treeEntry.sha, processRes.val._id)
 
                     if (cfg.isBackfill) {
-                        await updateDownload(cfg, 'backfilling', `added ${treeEntry.path}`)
+                        let res = await updateDownload(
+                            cfg,
+                            'backfilling',
+                            `added ${treeEntry.path}`,
+                        )
+                        if (res.isErr) return res
                     }
                 }
 
@@ -99,7 +104,12 @@ export async function updateCommits(cfg: UpdateCfg): R {
 
             totalCommitsWritten++
             if (cfg.isBackfill) {
-                await updateDownload(cfg, 'backfilling', `${totalCommitsWritten} commits written`)
+                let res = await updateDownload(
+                    cfg,
+                    'backfilling',
+                    `${totalCommitsWritten} commits written`,
+                )
+                if (res.isErr) return res
             }
 
             let abort = await shouldAbort(cfg)
@@ -202,7 +212,12 @@ export async function updateIssues(cfg: UpdateCfg): R {
 
             totalIssuesWritten++
             if (cfg.isBackfill) {
-                await updateDownload(cfg, 'backfilling', `${totalIssuesWritten} issues written`)
+                let res = await updateDownload(
+                    cfg,
+                    'backfilling',
+                    `${totalIssuesWritten} issues written`,
+                )
+                if (res.isErr) return res
             }
 
             let abort = await shouldAbort(cfg)
@@ -380,7 +395,7 @@ export async function shouldAbort({ savedRepo, ctx }: UpdateCfg): R {
 export async function updateDownload(
     cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
     status: Doc<'repoDownloads'>['status'],
-    message?: string,
+    message: string,
 ) {
     let res = await cfg.ctx.runMutation(api.models.repoDownloads.upsertIfNotCancelled, {
         ...SECRET,

@@ -73,18 +73,22 @@ export async function setupAndRunRepoBackfill(cfg: SetupBackfillCfg): R {
 
     let backfillCfg: BackfillCfg = { ...cfg, savedRepo, isBackfill: true }
 
-    await updateDownload(backfillCfg, 'backfilling', 'starting download')
+    let res = await updateDownload(backfillCfg, 'backfilling', 'starting download')
+    if (res.isErr) return res
 
     let since = new Date()
 
     let runResult = await runRepoBackfill(backfillCfg)
     if (runResult.isErr) {
-        await updateDownload(backfillCfg, 'error', `download error: ${runResult.err}`)
+        res = await updateDownload(backfillCfg, 'error', `download error: ${runResult.err}`)
+        if (res.isErr) return res
+
         return runResult
     }
 
     logger.info('backfill complete')
-    await updateDownload(backfillCfg, 'success', 'backfill complete')
+    res = await updateDownload(backfillCfg, 'success', 'backfill complete')
+    if (res.isErr) return res
 
     await setDownloadSince(backfillCfg, since)
 
@@ -116,7 +120,8 @@ async function runRepoBackfill(cfg: BackfillCfg) {
     let defaultBranch = repoData.val.default_branch
 
     logger.info('updating refs')
-    await updateDownload(cfg, 'backfilling', 'updating refs')
+    let res = await updateDownload(cfg, 'backfilling', 'updating refs')
+    if (res.isErr) return res
 
     let refsRes = await updateRefs(cfg, defaultBranch)
     if (refsRes.isErr) {
@@ -124,7 +129,8 @@ async function runRepoBackfill(cfg: BackfillCfg) {
     }
 
     logger.info('upserted refs, backfilling commits')
-    await updateDownload(cfg, 'backfilling', 'updating commits')
+    res = await updateDownload(cfg, 'backfilling', 'updating commits')
+    if (res.isErr) return res
 
     let commitsRes = await updateCommits(cfg)
     if (commitsRes.isErr) {
@@ -132,7 +138,8 @@ async function runRepoBackfill(cfg: BackfillCfg) {
     }
 
     logger.info('upserted commits, backfilling issues')
-    await updateDownload(cfg, 'backfilling', 'updating issues')
+    res = await updateDownload(cfg, 'backfilling', 'updating issues')
+    if (res.isErr) return res
 
     let issuesRes = await updateIssues(cfg)
     if (issuesRes.isErr) {

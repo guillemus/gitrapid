@@ -209,7 +209,7 @@ export function runProtectedQuery<Query extends FunctionReference<'query', 'publ
     args: Omit<FunctionArgs<Query>, 'secret'>,
 ): Promise<FunctionReturnType<Query>> {
     // @ts-expect-error: hard to make ts happy
-    return this.runQuery(query, { ...SECRET, ...args })
+    return this.runQuery(query, { secret: SECRET.secret, ...args })
 }
 
 function preventInProd() {
