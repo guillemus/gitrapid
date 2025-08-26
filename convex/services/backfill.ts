@@ -132,7 +132,7 @@ async function runRepoBackfill(cfg: BackfillCfg) {
 
 // TODO: eventually we will update commits again, but for the moment we need to
 // remove things from the scope of the project, otherwise I'm never ending this.
-async function updateRepoCommits(cfg: BackfillCfg, defaultBranch: string) {
+async function _updateRepoCommits(cfg: BackfillCfg, defaultBranch: string) {
     logger.info('updating refs')
     let res = await updateDownload(cfg, 'backfilling', 'updating refs')
     if (res.isErr) return res

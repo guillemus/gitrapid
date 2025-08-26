@@ -5,7 +5,9 @@ import { err, ok, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch } from '@convex/utils'
 import { Buffer } from 'buffer'
 import type { Octokit } from 'octokit'
-import { getAllRefs } from './github'
+import { getAllRefs, type GithubIssue, type GithubIssueComment } from './github'
+import pLimit from 'p-limit'
+import type { UpsertDoc } from '@convex/models/models'
 
 export type UpdateCfg = {
     ctx: ActionCtx
@@ -123,10 +125,9 @@ export async function updateCommits(cfg: UpdateCfg): R {
 }
 
 export async function updateIssues(cfg: UpdateCfg): R {
-    let { octo, ctx, savedRepo } = cfg
+    let { octo, savedRepo } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
-    let repoId = savedRepo._id
 
     let issuesIterator = octo.paginate.iterator(octo.rest.issues.listForRepo, {
         owner,
@@ -135,51 +136,23 @@ export async function updateIssues(cfg: UpdateCfg): R {
         state: 'all',
     })
 
-    let lastIssueUpdated: string | undefined
-    let lastCommentUpdated: string | undefined
-
-    let totalIssuesWritten = 0
-
     logger.info('updating issues')
 
+    let savePs: Promise<void>[] = []
+
     for await (let { data: issuesPage } of issuesIterator) {
+        let commentPLimit = pLimit(5)
+        let commentPs: Promise<void>[] = []
+
         for (let issue of issuesPage) {
-            let labels: string[] = []
-            for (let label of issue.labels ?? []) {
-                if (typeof label === 'string') labels.push(label)
-                else if (label.name) labels.push(label.name)
-            }
+            // we need the issue id obtained when saving the issue to db, so we need
+            // to manually pass the promise down to the comment update promises
+            let saveIssueP = saveIssue(cfg, issue)
+            savePs.push(saveIssueP.then(() => {}))
 
-            let issueState: 'open' | 'closed'
-            if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
-            else continue
+            if (!issue.comments) continue
 
-            logger.debug({ issue: issue.number }, 'processing issue')
-
-            let issueDoc = await ctx.runMutation(api.models.models.getOrCreateIssue, {
-                ...SECRET,
-                repoId,
-                githubId: issue.id,
-                number: issue.number,
-                title: issue.title,
-                state: issueState,
-                body: issue.body ?? undefined,
-                author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-                labels,
-                assignees: issue.assignees?.map((a) => a.login) ?? undefined,
-                createdAt: issue.created_at,
-                updatedAt: issue.updated_at,
-                closedAt: issue.closed_at ?? undefined,
-                comments: issue.comments ?? undefined,
-            })
-            if (!issueDoc) continue
-
-            let issueId = issueDoc._id
-            if (!lastIssueUpdated || issue.updated_at > lastIssueUpdated) {
-                lastIssueUpdated = issue.updated_at
-            }
-
-            if (issue.comments && issue.comments > 0) {
+            const downloadComments = async () => {
                 let commentsIter = octo.paginate.iterator(octo.rest.issues.listComments, {
                     owner,
                     repo,
@@ -190,44 +163,111 @@ export async function updateIssues(cfg: UpdateCfg): R {
                 logger.debug({ issue: issue.number }, 'processing comments for issue')
 
                 for await (let { data: commentsPage } of commentsIter) {
-                    for (let comment of commentsPage) {
-                        await ctx.runMutation(api.models.issueComments.getOrCreate, {
-                            ...SECRET,
-                            issueId,
-                            githubId: comment.id,
-                            author: {
-                                login: comment.user?.login ?? '',
-                                id: comment.user?.id ?? 0,
-                            },
-                            body: comment.body ?? '',
-                            createdAt: comment.created_at,
-                            updatedAt: comment.updated_at,
-                        })
-                        if (!lastCommentUpdated || comment.updated_at > lastCommentUpdated) {
-                            lastCommentUpdated = comment.updated_at
+                    let saveCommentsP = saveIssueP.then((issueId) => {
+                        if (issueId.isErr) {
+                            logger.error(`failed to save issue ${issue.number}: ${issueId.err}`)
+                            return
                         }
-                    }
+
+                        return saveIssueComments(cfg, issueId.val, commentsPage, issue.id)
+                    })
+
+                    savePs.push(saveCommentsP)
                 }
             }
 
-            totalIssuesWritten++
-            if (cfg.isBackfill) {
-                let res = await updateDownload(
-                    cfg,
-                    'backfilling',
-                    `${totalIssuesWritten} issues written`,
-                )
-                if (res.isErr) return res
-            }
+            commentPs.push(commentPLimit(downloadComments))
 
-            let abort = await shouldAbort(cfg)
-            if (abort.isErr) return abort
+            // move to updater
+            // totalIssuesWritten++
+            // if (cfg.isBackfill) {
+            //     let res = await updateDownload(
+            //         cfg,
+            //         'backfilling',
+            //         `${totalIssuesWritten} issues downloaded`,
+            //     )
+            //     if (res.isErr) return res
+            // }
         }
+
+        await Promise.all(commentPs)
+
+        let abort = await shouldAbort(cfg)
+        if (abort.isErr) return abort
     }
+
+    await Promise.all(savePs)
 
     logger.info('issues updated')
 
     return ok()
+}
+
+async function saveIssue(cfg: UpdateCfg, issue: GithubIssue): R<Id<'issues'>> {
+    let labels: string[] = []
+    for (let label of issue.labels ?? []) {
+        if (typeof label === 'string') labels.push(label)
+        else if (label.name) labels.push(label.name)
+    }
+
+    let issueState: 'open' | 'closed'
+    if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
+    else return err(`invalid issue state: ${issue.state}`)
+
+    let issueDoc = await cfg.ctx.runMutation(api.models.models.getOrCreateIssue, {
+        ...SECRET,
+        repoId: cfg.savedRepo._id,
+        githubId: issue.id,
+        number: issue.number,
+        title: issue.title,
+        state: issueState,
+        body: issue.body ?? undefined,
+        author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
+        labels,
+        assignees: issue.assignees?.map((a) => a.login) ?? undefined,
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        closedAt: issue.closed_at ?? undefined,
+        comments: issue.comments ?? undefined,
+    })
+    if (!issueDoc) return err(`failed to save issue: ${issue.number}`)
+
+    return ok(issueDoc._id)
+}
+
+async function saveIssueComments(
+    cfg: UpdateCfg,
+    issueId: Id<'issues'>,
+    comments: GithubIssueComment[],
+    ghIssueId: number,
+) {
+    let docs: UpsertDoc<'issueComments'>[] = []
+
+    for (let comment of comments) {
+        docs.push({
+            issueId,
+            githubId: comment.id,
+            author: {
+                login: comment.user?.login ?? '',
+                id: comment.user?.id ?? 0,
+            },
+            body: comment.body ?? '',
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at,
+        })
+    }
+
+    await cfg.ctx.runMutation(api.models.issueComments.insertMany, {
+        ...SECRET,
+        comments: docs,
+    })
+
+    if (cfg.isBackfill) {
+        let res = await updateDownload(cfg, 'backfilling', `Issue #${ghIssueId} written`)
+        if (res.isErr) {
+            // ignore error
+        }
+    }
 }
 
 type TreeEntry = {

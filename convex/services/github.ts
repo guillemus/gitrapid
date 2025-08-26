@@ -125,3 +125,65 @@ export async function getRateLimit(octo: Octokit) {
 
     return ok({ limit, remaining, reset })
 }
+
+export async function getRepoIssuePrCounts(
+    octo: Octokit,
+    args: { owner: string; repo: string },
+): R<{
+    openIssues: number
+    closedIssues: number
+    totalIssues: number
+    openPullRequests: number
+    closedPullRequests: number
+    totalPullRequests: number
+}> {
+    let query = `
+        query RepoCounts($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            issuesOpen: issues(states: OPEN) { totalCount }
+            issuesClosed: issues(states: CLOSED) { totalCount }
+            prsOpen: pullRequests(states: OPEN) { totalCount }
+            prsClosed: pullRequests(states: CLOSED) { totalCount }
+          }
+        }
+    `
+
+    type GraphQLResponse = {
+        repository: {
+            issuesOpen: { totalCount: number }
+            issuesClosed: { totalCount: number }
+            prsOpen: { totalCount: number }
+            prsClosed: { totalCount: number }
+        }
+    }
+
+    let res = await tryCatch(
+        octo.graphql<GraphQLResponse>(query, { owner: args.owner, name: args.repo }),
+    )
+    if (res.isErr) return wrap('failed to fetch repository issue/PR counts', res)
+
+    let repo = res.val.repository
+    let openIssues = repo.issuesOpen.totalCount
+    let closedIssues = repo.issuesClosed.totalCount
+    let totalIssues = openIssues + closedIssues
+    let openPullRequests = repo.prsOpen.totalCount
+    let closedPullRequests = repo.prsClosed.totalCount
+    let totalPullRequests = openPullRequests + closedPullRequests
+
+    return ok({
+        openIssues,
+        closedIssues,
+        totalIssues,
+        openPullRequests,
+        closedPullRequests,
+        totalPullRequests,
+    })
+}
+
+export type GithubIssue = Awaited<
+    ReturnType<Octokit['rest']['issues']['listForRepo']>
+>['data'][number]
+
+export type GithubIssueComment = Awaited<
+    ReturnType<Octokit['rest']['issues']['listComments']>
+>['data'][number]

@@ -1,6 +1,6 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, type ActionCtx } from '@convex/_generated/server'
+import { type ActionCtx } from '@convex/_generated/server'
 import { canRepoBeSynced } from '@convex/models/repoDownloads'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
@@ -192,7 +192,7 @@ async function runSync(cfg: SyncCfg): R {
 
 // TODO: eventually we will update commits again, but for the moment we need to
 // remove things from the scope of the project, otherwise I'm never ending this.
-async function updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
+async function _updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
     let updateRefsRes = await updateRefs(cfg, defaultBranch)
     if (updateRefsRes.isErr) {
         return wrap('failed to sync refs', updateRefsRes)
@@ -226,7 +226,7 @@ async function updateTokenRateLimit({
     return ok()
 }
 
-export const setCurrentTokenRateLimit = internalAction({
+export const setCurrentTokenRateLimit = protectedAction({
     args: {
         userId: v.id('users'),
     },

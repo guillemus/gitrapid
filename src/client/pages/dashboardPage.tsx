@@ -17,11 +17,6 @@ export function DashboardPage() {
     return (
         <div className="space-y-6">
             <RepositoryListHeader />
-            {data && data.length === 0 && (
-                <div className="py-8 text-center text-gray-500">
-                    <p>No repositories yet.</p>
-                </div>
-            )}
             {!data && (
                 <div className="py-8 text-center">
                     <p>Loading...</p>
@@ -183,7 +178,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
             <div className="flex-1">
                 <div className="flex items-center gap-2">
                     <FastLink
-                        to={`/${props.repo.owner}/${props.repo.repo}`}
+                        to={`/${props.repo.owner}/${props.repo.repo}/issues`}
                         className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
                         {props.repo.owner}/{props.repo.repo}

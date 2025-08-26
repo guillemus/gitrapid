@@ -20,6 +20,14 @@ export const IssueComments = {
         let id = await ctx.db.insert('issueComments', args)
         return await ctx.db.get(id)
     },
+    async insertMany(ctx: MutationCtx, docs: models.UpsertDoc<'issueComments'>[]) {
+        let ids: Id<'issueComments'>[] = []
+        for (let doc of docs) {
+            let id = await ctx.db.insert('issueComments', doc)
+            ids.push(id)
+        }
+        return ids
+    },
 
     async upsert(ctx: MutationCtx, args: models.UpsertDoc<'issueComments'>) {
         let existing = await this.getByGithubId(ctx, args.githubId)
@@ -49,6 +57,11 @@ export const getByGithubId = protectedQuery({
 export const getOrCreate = protectedMutation({
     args: schemas.issueCommentsSchema,
     handler: (ctx, args) => IssueComments.getOrCreate(ctx, args),
+})
+
+export const insertMany = protectedMutation({
+    args: { comments: v.array(v.object(schemas.issueCommentsSchema)) },
+    handler: (ctx, args) => IssueComments.insertMany(ctx, args.comments),
 })
 
 export const upsert = protectedMutation({
