@@ -177,17 +177,6 @@ export async function updateIssues(cfg: UpdateCfg): R {
             }
 
             commentPs.push(commentPLimit(downloadComments))
-
-            // move to updater
-            // totalIssuesWritten++
-            // if (cfg.isBackfill) {
-            //     let res = await updateDownload(
-            //         cfg,
-            //         'backfilling',
-            //         `${totalIssuesWritten} issues downloaded`,
-            //     )
-            //     if (res.isErr) return res
-            // }
         }
 
         await Promise.all(commentPs)
