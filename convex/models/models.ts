@@ -135,3 +135,46 @@ export const deleteIssueByRepoId = protectedMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => IssuesUtils.deleteIssueByRepoId(ctx, repoId),
 })
+
+export const insertIssuesWithCommentsBatch = protectedMutation({
+    args: {
+        items: v.array(
+            v.object({
+                issue: v.object(schemas.issuesSchema),
+                comments: v.array(
+                    v.object({
+                        githubId: v.number(),
+                        author: v.object({ login: v.string(), id: v.number() }),
+                        body: v.string(),
+                        createdAt: v.string(),
+                        updatedAt: v.string(),
+                    }),
+                ),
+            }),
+        ),
+    },
+    handler: async (ctx, { items }) => {
+        for (let item of items) {
+            let issueDoc = await IssuesUtils.getOrCreateIssue(ctx, item.issue)
+
+            if (!issueDoc) continue
+
+            if (item.comments.length > 0) {
+                let docs: UpsertDoc<'issueComments'>[] = []
+                for (let c of item.comments) {
+                    docs.push({
+                        issueId: issueDoc._id,
+                        githubId: c.githubId,
+                        author: c.author,
+                        body: c.body,
+                        createdAt: c.createdAt,
+                        updatedAt: c.updatedAt,
+                    })
+                }
+                await IssueComments.insertMany(ctx, docs)
+            }
+        }
+
+        return null
+    },
+})

@@ -30,3 +30,7 @@ We must **never** use the TypeScript `any` type or the `as any` cast anywhere in
 - **No `any` / `as any`**: Avoid `any` in all forms. Prefer `unknown` plus narrowing, explicit interfaces/types, generics, or type predicates.
 - **If a complex external type is missing**: add a well-scoped type declaration, wrap with `unknown` and write narrowing logic, or open an issue documenting why a safe type can't be expressed yet.
 
+# commands
+
+- use `bunx tsgo` to check typescript types.
+- use `bun lint` to run the linter.

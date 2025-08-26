@@ -21,6 +21,17 @@ export const Issues = {
             .collect()
     },
 
+    async paginateByRepo(
+        ctx: QueryCtx,
+        args: { repoId: Id<'repos'>; paginationOpts: { numItems: number; cursor: string | null } },
+    ) {
+        return ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
+            .order('desc')
+            .paginate(args.paginationOpts)
+    },
+
     async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
         let issues = await ctx.db
             .query('issues')

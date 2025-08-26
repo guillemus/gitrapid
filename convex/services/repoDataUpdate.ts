@@ -5,8 +5,9 @@ import { err, ok, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch } from '@convex/utils'
 import { Buffer } from 'buffer'
 import type { Octokit } from 'octokit'
-import { getAllRefs, type GithubIssue, type GithubIssueComment } from './github'
-import pLimit from 'p-limit'
+import { getAllRefs } from './github'
+import { fetchIssuesPageGraphQL, type IssueNode } from './graphqlIssues'
+import type { U } from 'vitest/dist/chunks/environment.d.cL3nLXbE.js'
 import type { UpsertDoc } from '@convex/models/models'
 
 export type UpdateCfg = {
@@ -129,134 +130,108 @@ export async function updateIssues(cfg: UpdateCfg): R {
     let owner = savedRepo.owner
     let repo = savedRepo.repo
 
-    let issuesIterator = octo.paginate.iterator(octo.rest.issues.listForRepo, {
-        owner,
-        repo,
-        per_page: 100,
-        state: 'all',
-    })
-
     logger.info('updating issues')
 
-    let savePs: Promise<void>[] = []
+    let totalIssuesProcessed = 0
+    let totalCommentsProcessed = 0
+    let pagesProcessed = 0
 
-    for await (let { data: issuesPage } of issuesIterator) {
-        let commentPLimit = pLimit(5)
-        let commentPs: Promise<void>[] = []
+    let after: string | undefined = undefined
 
-        for (let issue of issuesPage) {
-            // we need the issue id obtained when saving the issue to db, so we need
-            // to manually pass the promise down to the comment update promises
-            let saveIssueP = saveIssue(cfg, issue)
-            savePs.push(saveIssueP.then(() => {}))
+    while (true) {
+        let pageRes = await fetchIssuesPageGraphQL(octo, { owner, repo, after })
+        if (pageRes.isErr) return wrap('failed to fetch issues page', pageRes)
 
-            if (!issue.comments) continue
+        let page = pageRes.val
+        pagesProcessed++
+        logger.debug(
+            { after, count: page.nodes.length, hasNextPage: page.pageInfo.hasNextPage },
+            'fetched issues page',
+        )
 
-            const downloadComments = async () => {
-                let commentsIter = octo.paginate.iterator(octo.rest.issues.listComments, {
-                    owner,
-                    repo,
-                    issue_number: issue.number,
-                    per_page: 100,
-                })
-
-                logger.debug({ issue: issue.number }, 'processing comments for issue')
-
-                for await (let { data: commentsPage } of commentsIter) {
-                    let saveCommentsP = saveIssueP.then((issueId) => {
-                        if (issueId.isErr) {
-                            logger.error(`failed to save issue ${issue.number}: ${issueId.err}`)
-                            return
-                        }
-
-                        return saveIssueComments(cfg, issueId.val, commentsPage, issue.id)
-                    })
-
-                    savePs.push(saveCommentsP)
-                }
-            }
-
-            commentPs.push(commentPLimit(downloadComments))
+        let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes)
+        let commentsInBatch = 0
+        for (let it of items) commentsInBatch += it.comments.length
+        logger.debug(
+            { issues: items.length, comments: commentsInBatch },
+            'built issues+comments batch',
+        )
+        if (items.length > 0) {
+            logger.info({ issues: items.length }, 'writing issues+comments batch')
+            await cfg.ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
+                ...SECRET,
+                items,
+            })
+            totalIssuesProcessed += items.length
+            totalCommentsProcessed += commentsInBatch
+            logger.debug('batch written')
         }
 
-        await Promise.all(commentPs)
+        if (cfg.isBackfill) {
+            let res = await updateDownload(cfg, 'backfilling', 'Processed issues page')
+            if (res.isErr) return res
+        }
 
         let abort = await shouldAbort(cfg)
         if (abort.isErr) return abort
+
+        if (!page.pageInfo.hasNextPage) break
+        after = page.pageInfo.endCursor ?? undefined
     }
 
-    await Promise.all(savePs)
-
-    logger.info('issues updated')
+    logger.info({ pagesProcessed, totalIssuesProcessed, totalCommentsProcessed }, 'issues updated')
 
     return ok()
 }
 
-async function saveIssue(cfg: UpdateCfg, issue: GithubIssue): R<Id<'issues'>> {
-    let labels: string[] = []
-    for (let label of issue.labels ?? []) {
-        if (typeof label === 'string') labels.push(label)
-        else if (label.name) labels.push(label.name)
-    }
+function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
+    let items: {
+        issue: UpsertDoc<'issues'>
+        comments: {
+            githubId: number
+            author: { login: string; id: number }
+            body: string
+            createdAt: string
+            updatedAt: string
+        }[]
+    }[] = []
 
-    let issueState: 'open' | 'closed'
-    if (issue.state === 'closed' || issue.state === 'open') issueState = issue.state
-    else return err(`invalid issue state: ${issue.state}`)
+    for (let node of nodes) {
+        let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
+        let labels = node.labels.nodes.map((l) => l.name).filter((n): n is string => !!n)
+        let assignees = node.assignees.nodes.map((a) => a.login).filter((n): n is string => !!n)
+        let authorLogin = node.author?.login ?? ''
+        let authorId = node.author?.databaseId ?? 0
 
-    let issueDoc = await cfg.ctx.runMutation(api.models.models.getOrCreateIssue, {
-        ...SECRET,
-        repoId: cfg.savedRepo._id,
-        githubId: issue.id,
-        number: issue.number,
-        title: issue.title,
-        state: issueState,
-        body: issue.body ?? undefined,
-        author: { login: issue.user?.login ?? '', id: issue.user?.id ?? 0 },
-        labels,
-        assignees: issue.assignees?.map((a) => a.login) ?? undefined,
-        createdAt: issue.created_at,
-        updatedAt: issue.updated_at,
-        closedAt: issue.closed_at ?? undefined,
-        comments: issue.comments ?? undefined,
-    })
-    if (!issueDoc) return err(`failed to save issue: ${issue.number}`)
+        let comments = node.comments.nodes.map((c) => ({
+            githubId: c.databaseId ?? 0,
+            author: { login: c.author?.login ?? '', id: c.author?.databaseId ?? 0 },
+            body: c.body ?? '',
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+        }))
 
-    return ok(issueDoc._id)
-}
-
-async function saveIssueComments(
-    cfg: UpdateCfg,
-    issueId: Id<'issues'>,
-    comments: GithubIssueComment[],
-    ghIssueId: number,
-) {
-    let docs: UpsertDoc<'issueComments'>[] = []
-
-    for (let comment of comments) {
-        docs.push({
-            issueId,
-            githubId: comment.id,
-            author: {
-                login: comment.user?.login ?? '',
-                id: comment.user?.id ?? 0,
+        items.push({
+            issue: {
+                repoId,
+                githubId: node.databaseId ?? 0,
+                number: node.number,
+                title: node.title,
+                state,
+                body: node.body ?? undefined,
+                author: { login: authorLogin, id: authorId },
+                labels: labels.length ? labels : undefined,
+                assignees: assignees.length ? assignees : undefined,
+                createdAt: node.createdAt,
+                updatedAt: node.updatedAt,
+                closedAt: node.closedAt ?? undefined,
+                comments: node.comments.nodes.length || undefined,
             },
-            body: comment.body ?? '',
-            createdAt: comment.created_at,
-            updatedAt: comment.updated_at,
+            comments,
         })
     }
 
-    await cfg.ctx.runMutation(api.models.issueComments.insertMany, {
-        ...SECRET,
-        comments: docs,
-    })
-
-    if (cfg.isBackfill) {
-        let res = await updateDownload(cfg, 'backfilling', `Issue #${ghIssueId} written`)
-        if (res.isErr) {
-            // ignore error
-        }
-    }
+    return items
 }
 
 type TreeEntry = {

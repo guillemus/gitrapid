@@ -35,6 +35,7 @@ import type * as public_repo from "../public/repo.js";
 import type * as public_settings from "../public/settings.js";
 import type * as services_backfill from "../services/backfill.js";
 import type * as services_github from "../services/github.js";
+import type * as services_graphqlIssues from "../services/graphqlIssues.js";
 import type * as services_repoDataUpdate from "../services/repoDataUpdate.js";
 import type * as services_sync from "../services/sync.js";
 import type * as shared from "../shared.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "public/settings": typeof public_settings;
   "services/backfill": typeof services_backfill;
   "services/github": typeof services_github;
+  "services/graphqlIssues": typeof services_graphqlIssues;
   "services/repoDataUpdate": typeof services_repoDataUpdate;
   "services/sync": typeof services_sync;
   shared: typeof shared;
