@@ -10,6 +10,7 @@ import {
     downloadCommits,
     downloadIssues,
     downloadRefs,
+    finishDownload,
     updateDownload,
     type UpdateCfg,
 } from './downloadRepoData'
@@ -61,6 +62,7 @@ export async function runHandler(ctx: ActionCtx) {
             ctx,
             octo,
             repoId,
+            forceSync: false,
             patId: userToken._id,
             userId: userId,
         })
@@ -104,6 +106,7 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         ctx,
         octo,
         repoId,
+        forceSync: false,
         patId: userToken._id,
         userId: args.userId,
     })
@@ -117,6 +120,7 @@ export const runSingle = protectedAction({ args: runSingleArgs, handler: runSing
 type SetupSyncCfg = {
     octo: Octokit
     ctx: ActionCtx
+    forceSync: boolean
     userId: Id<'users'>
     repoId: Id<'repos'>
     patId: Id<'pats'>
@@ -136,21 +140,25 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
 
     let canBeSynced = canRepoBeSynced(savedRepo)
     if (!canBeSynced) {
-        let status = savedRepo.download.status
-        logger.info(`Another download is already in progress (${status}), skipping sync`)
+        if (!cfg.forceSync) {
+            let status = savedRepo.download.status
+            logger.info(`Another download is already in progress (${status}), skipping sync`)
 
-        return ok()
+            return ok()
+        }
     }
 
     let syncCfg: SyncCfg = {
         ...cfg,
         savedRepo,
-        since: savedRepo.download.syncedSince,
+        lastSyncedAt: savedRepo.download.lastSyncedAt,
         isBackfill: false,
     }
 
     let res = await updateDownload(syncCfg, 'syncing', 'syncing')
     if (res.isErr) return res
+
+    let downloadStart = new Date()
 
     let syncRes = await runSync(syncCfg)
     if (syncRes.isErr) {
@@ -165,31 +173,12 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
     }
 
-    res = await updateDownload(syncCfg, 'success', 'sync complete')
-    if (res.isErr) return res
+    await finishDownload(syncCfg, downloadStart)
 
     return ok()
 }
 
 async function runSync(cfg: SyncCfg): R {
-    let { savedRepo, octo } = cfg
-
-    let owner = savedRepo.owner
-    let repo = savedRepo.repo
-
-    let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
-    if (repoData.isErr) {
-        // on the first request to github we also check if the token is valid
-        // for the download
-
-        let isUnauthorized = repoData.err.status === 401
-        let badCredentials = repoData.err.error().includes('Bad credentials')
-        if (isUnauthorized && badCredentials) {
-            return err('bad credentials')
-        }
-        return err(`failed to get repo: ${repoData.err.error()}`)
-    }
-
     let updateIssuesRes = await downloadIssues(cfg)
     if (updateIssuesRes.isErr) {
         return wrap('failed to sync issues', updateIssuesRes)

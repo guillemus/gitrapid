@@ -13,6 +13,8 @@ export const reposSchema = {
             // There's no initial state really. We assume that if the repoDownload row isn't there
             // the download hasn't started.
 
+            // When inserting a new row to repos, initial is the default state.
+            v.literal('initial'),
             // Represents when the repository is being downloaded for the first time.
             v.literal('backfilling'),
             // Represents when the repository is being synced. It has already been downloaded
@@ -25,7 +27,7 @@ export const reposSchema = {
             v.literal('cancelled'),
         ),
         message: v.optional(v.string()),
-        syncedSince: v.optional(v.string()),
+        lastSyncedAt: v.optional(v.string()),
     }),
 
     openIssues: v.number(),

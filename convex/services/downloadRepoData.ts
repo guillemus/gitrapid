@@ -13,7 +13,7 @@ export type UpdateCfg = {
     ctx: ActionCtx
     octo: Octokit
     savedRepo: Doc<'repos'>
-    since?: string
+    lastSyncedAt?: string
     isBackfill: boolean
 }
 
@@ -25,7 +25,7 @@ export async function downloadCommits(cfg: UpdateCfg): R {
     let allCommits = octo.paginate.iterator(octo.rest.repos.listCommits, {
         owner,
         repo,
-        since: cfg.since,
+        since: cfg.lastSyncedAt,
         per_page: 100,
     })
 
@@ -384,11 +384,26 @@ export async function updateDownload(
     let updated = await cfg.ctx.runMutation(api.models.repos.updateDownloadIfNotCancelled, {
         ...SECRET,
         repoId: cfg.savedRepo._id,
-        download: { status, message, syncedSince: cfg.savedRepo.download.syncedSince },
+        download: { status, message, lastSyncedAt: cfg.savedRepo.download.lastSyncedAt },
     })
     if (updated.isErr) return wrap('failed to update download', updated)
 
     logger.debug(`DOWNLOAD PROGRESS UPDATE: ${message}`)
 
     return ok()
+}
+
+export async function finishDownload(
+    cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
+    lastSyncedAt: Date,
+) {
+    await cfg.ctx.runMutation(api.models.repos.updateDownloadIfNotCancelled, {
+        ...SECRET,
+        repoId: cfg.savedRepo._id,
+        download: {
+            status: 'success',
+            message: 'finished download',
+            lastSyncedAt: lastSyncedAt.toISOString(),
+        },
+    })
 }

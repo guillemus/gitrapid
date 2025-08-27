@@ -1,6 +1,7 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { action, mutation, query, type ActionCtx } from '@convex/_generated/server'
+import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import {
     newOctokit,
@@ -75,6 +76,7 @@ export const addRepo = action({
 
         let token = await getTokenFromUserId(ctx, userId)
         if (token.isErr) return err({ type: 'error', err: token.err })
+
         let octo = newOctokit(token.val)
 
         let parsed = parseGithubUrl(args.githubUrl)
@@ -87,8 +89,6 @@ export const addRepo = action({
             return err({ type: 'octo-error', err: repoData.err.error() })
         }
 
-        logger.info('got repo data')
-
         // if the repository is private and we could fetch its data with the
         // given token, that means that the user has access to the repository,
         // which means that we should have his permission to access the private
@@ -100,13 +100,48 @@ export const addRepo = action({
 
         logger.info('license is valid')
 
-        await ctx.scheduler.runAfter(0, api.services.backfill.run, {
+        // does repo exist already
+
+        let savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
             ...SECRET,
-            token: token.val,
+            owner,
+            repo,
+        })
+        if (savedRepo) {
+            // insert user repo
+            await ctx.runMutation(api.models.userRepos.getOrCreate, {
+                ...SECRET,
+                repoId: savedRepo._id,
+                userId,
+            })
+
+            // if the repository already exists with a successful or eventually
+            // successful status then we don't need to start a new sync
+            if (!doesRepoNeedSyncing(savedRepo)) {
+                return ok()
+            }
+
+            // otherwise, we insert the repository
+            await ctx.runMutation(api.models.repos.insert, {
+                ...SECRET,
+                owner,
+                repo,
+                private: repoData.val.private,
+                openIssues: 0,
+                closedIssues: 0,
+                openPullRequests: 0,
+                closedPullRequests: 0,
+                download: {
+                    status: 'initial',
+                },
+            })
+        }
+
+        await ctx.scheduler.runAfter(0, api.services.sync.runSingle, {
+            ...SECRET,
             userId,
             owner,
             repo,
-            isPrivate: repoData.val.private,
         })
 
         return ok()

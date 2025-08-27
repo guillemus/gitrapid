@@ -22,10 +22,6 @@ export const Repos = {
             .unique()
     },
 
-    async insert(ctx: MutationCtx, newRepo: models.UpsertDoc<'repos'>, userId: Id<'users'>) {
-        await ctx.db.insert('repos', newRepo)
-    },
-
     async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
         await ctx.db.delete(repoId)
     },
@@ -72,6 +68,11 @@ export const get = protectedQuery({
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
+export const insert = protectedMutation({
+    args: schemas.reposSchema,
+    handler: (ctx, args) => ctx.db.insert('repos', args),
+})
+
 export const getByOwnerAndRepo = protectedQuery({
     args: { owner: v.string(), repo: v.string() },
     handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
@@ -89,6 +90,10 @@ export const setHead = protectedMutation({
 
 export function canRepoBeSynced(repo: Doc<'repos'>) {
     return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
+}
+
+export function doesRepoNeedSyncing(repo: Doc<'repos'>) {
+    return repo.download.status === 'cancelled' || repo.download.status === 'error'
 }
 
 export const updateDownloadIfNotCancelled = protectedMutation({
