@@ -1,20 +1,19 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { type ActionCtx } from '@convex/_generated/server'
-import { canRepoBeSynced } from '@convex/models/repoDownloads'
+import { canRepoBeSynced } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
-import { getRateLimit, newOctokit } from './github'
 import {
-    updateCommits,
+    downloadCommits,
+    downloadIssues,
+    downloadRefs,
     updateDownload,
-    updateIssues,
-    updateRefs,
     type UpdateCfg,
-} from './repoDataUpdate'
-import { insertNewRepo } from '@convex/models/models'
+} from './downloadRepoData'
+import { getRateLimit, newOctokit } from './github'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -135,19 +134,9 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
 
     logger.info(`syncing repo ${savedRepo.owner}/${savedRepo.repo}`)
 
-    let repoDownload = await ctx.runQuery(api.models.repoDownloads.getByRepoId, {
-        ...SECRET,
-        repoId,
-    })
-    if (!repoDownload) {
-        return err(
-            `repo download not found for repo ${savedRepo.owner}/${savedRepo.repo}: ${repoId}`,
-        )
-    }
-
-    let canBeSynced = canRepoBeSynced(repoDownload)
+    let canBeSynced = canRepoBeSynced(savedRepo)
     if (!canBeSynced) {
-        let status = repoDownload.status
+        let status = savedRepo.download.status
         logger.info(`Another download is already in progress (${status}), skipping sync`)
 
         return ok()
@@ -156,7 +145,7 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
     let syncCfg: SyncCfg = {
         ...cfg,
         savedRepo,
-        since: repoDownload.syncedSince,
+        since: savedRepo.download.syncedSince,
         isBackfill: false,
     }
 
@@ -201,7 +190,7 @@ async function runSync(cfg: SyncCfg): R {
         return err(`failed to get repo: ${repoData.err.error()}`)
     }
 
-    let updateIssuesRes = await updateIssues(cfg)
+    let updateIssuesRes = await downloadIssues(cfg)
     if (updateIssuesRes.isErr) {
         return wrap('failed to sync issues', updateIssuesRes)
     }
@@ -212,12 +201,12 @@ async function runSync(cfg: SyncCfg): R {
 // TODO: eventually we will update commits again, but for the moment we need to
 // remove things from the scope of the project, otherwise I'm never ending this.
 async function _updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
-    let updateRefsRes = await updateRefs(cfg, defaultBranch)
+    let updateRefsRes = await downloadRefs(cfg, defaultBranch)
     if (updateRefsRes.isErr) {
         return wrap('failed to sync refs', updateRefsRes)
     }
 
-    let updateCommitsRes = await updateCommits(cfg)
+    let updateCommitsRes = await downloadCommits(cfg)
     if (updateCommitsRes.isErr) {
         return wrap('failed to sync commits', updateCommitsRes)
     }

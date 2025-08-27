@@ -17,8 +17,7 @@ export const Blobs = {
         if (existing) {
             return existing
         }
-        let id = await ctx.db.insert('blobs', args)
-        return await ctx.db.get(id)
+        return await ctx.db.insert('blobs', args)
     },
 
     async upsert(ctx: MutationCtx, args: UpsertDoc<'blobs'>) {

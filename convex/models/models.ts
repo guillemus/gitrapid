@@ -7,39 +7,9 @@ import * as schemas from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
 import { Refs } from './refs'
-import { RepoCounts } from './repoCounts'
 import { Repos } from './repos'
-import { UserRepos } from './userRepos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
-
-export const RepoUtils = {
-    async insertNewRepo(ctx: MutationCtx, newRepo: UpsertDoc<'repos'>, userId: Id<'users'>) {
-        let repoId
-        let repo = await Repos.getByOwnerAndRepo(ctx, newRepo.owner, newRepo.repo)
-        if (repo) {
-            repoId = repo._id
-        } else {
-            repoId = await ctx.db.insert('repos', {
-                owner: newRepo.owner,
-                repo: newRepo.repo,
-                private: newRepo.private,
-            })
-        }
-
-        await UserRepos.getOrCreate(ctx, userId, repoId)
-
-        await RepoCounts.getOrCreate(ctx, {
-            repoId,
-            openIssues: 0,
-            closedIssues: 0,
-            openPullRequests: 0,
-            closedPullRequests: 0,
-        })
-
-        return await ctx.db.get(repoId)
-    },
-}
 
 export const IssuesUtils = {
     async getOrCreateIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
@@ -51,13 +21,10 @@ export const IssuesUtils = {
         let id = await ctx.db.insert('issues', args)
 
         // Update repo counts on insert
-        let counts = await RepoCounts.getByRepoId(ctx, args.repoId)
-        if (counts) {
-            if (args.state === 'open') {
-                await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
-            } else {
-                await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
-            }
+        if (args.state === 'open') {
+            await Repos.addToOpenIssuesCount(ctx, args.repoId, 1)
+        } else {
+            await Repos.addToClosedIssuesCount(ctx, args.repoId, 1)
         }
 
         return await ctx.db.get(id)
@@ -68,15 +35,12 @@ export const IssuesUtils = {
         if (existing) {
             // Adjust counts if state changed
             if (existing.state !== args.state) {
-                let counts = await RepoCounts.getByRepoId(ctx, existing.repoId)
-                if (counts) {
-                    if (args.state === 'open') {
-                        await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
-                        await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues - 1)
-                    } else {
-                        await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues - 1)
-                        await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
-                    }
+                if (args.state === 'open') {
+                    await Repos.addToOpenIssuesCount(ctx, existing.repoId, 1)
+                    await Repos.addToClosedIssuesCount(ctx, existing.repoId, -1)
+                } else {
+                    await Repos.addToOpenIssuesCount(ctx, existing.repoId, -1)
+                    await Repos.addToClosedIssuesCount(ctx, existing.repoId, 1)
                 }
             }
             await ctx.db.patch(existing._id, args)
@@ -85,14 +49,12 @@ export const IssuesUtils = {
 
         // Insert new issue and bump counts
         let id = await ctx.db.insert('issues', args)
-        let counts = await RepoCounts.getByRepoId(ctx, args.repoId)
-        if (counts) {
-            if (args.state === 'open') {
-                await RepoCounts.setOpenIssues(ctx, counts._id, counts.openIssues + 1)
-            } else {
-                await RepoCounts.setClosedIssues(ctx, counts._id, counts.closedIssues + 1)
-            }
+        if (args.state === 'open') {
+            await Repos.addToOpenIssuesCount(ctx, args.repoId, 1)
+        } else {
+            await Repos.addToClosedIssuesCount(ctx, args.repoId, 1)
         }
+
         return await ctx.db.get(id)
     },
 
@@ -124,14 +86,6 @@ export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRef
 
     return await ctx.db.patch(repoId, { headId: ref._id })
 }
-
-export const insertNewRepo = protectedMutation({
-    args: {
-        userId: v.id('users'),
-        ...schemas.reposSchema,
-    },
-    handler: (ctx, { userId, ...args }) => RepoUtils.insertNewRepo(ctx, args, userId),
-})
 
 export const insertIssuesWithCommentsBatch = protectedMutation({
     args: {

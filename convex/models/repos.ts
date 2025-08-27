@@ -1,8 +1,10 @@
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import { protectedMutation, protectedQuery } from '../utils'
 import * as models from './models'
+import * as schemas from '../schema'
+import { err, ok } from '@convex/shared'
 
 export const Repos = {
     async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -20,18 +22,54 @@ export const Repos = {
             .unique()
     },
 
-    async get(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db.get(repoId)
+    async insert(ctx: MutationCtx, newRepo: models.UpsertDoc<'repos'>, userId: Id<'users'>) {
+        await ctx.db.insert('repos', newRepo)
     },
 
     async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
         await ctx.db.delete(repoId)
     },
+
+    async addToOpenIssuesCount(ctx: MutationCtx, repoId: Id<'repos'>, count: number) {
+        let repo = await ctx.db.get(repoId)
+        if (!repo) {
+            throw new Error(`repo not found: ${repoId}`)
+        }
+
+        await ctx.db.patch(repoId, { openIssues: repo.openIssues + count })
+    },
+
+    async addToClosedIssuesCount(ctx: MutationCtx, repoId: Id<'repos'>, count: number) {
+        let repo = await ctx.db.get(repoId)
+        if (!repo) {
+            throw new Error(`repo not found: ${repoId}`)
+        }
+
+        await ctx.db.patch(repoId, { closedIssues: repo.closedIssues + count })
+    },
+
+    async updateDownloadIfNotCancelled(
+        ctx: MutationCtx,
+        repoId: Id<'repos'>,
+        download: Doc<'repos'>['download'],
+    ): R {
+        let repo = await ctx.db.get(repoId)
+        if (!repo) {
+            return err('repo not found')
+        }
+
+        if (repo.download.status === 'cancelled') {
+            return err('download is cancelled')
+        }
+
+        await ctx.db.patch(repoId, { download })
+        return ok()
+    },
 }
 
 export const get = protectedQuery({
     args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => Repos.get(ctx, repoId),
+    handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
 export const getByOwnerAndRepo = protectedQuery({
@@ -47,4 +85,16 @@ export const deleteById = protectedMutation({
 export const setHead = protectedMutation({
     args: { repoId: v.id('repos'), headRefName: v.string() },
     handler: (ctx, args) => models.setRepoHead(ctx, args.repoId, args.headRefName),
+})
+
+export function canRepoBeSynced(repo: Doc<'repos'>) {
+    return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
+}
+
+export const updateDownloadIfNotCancelled = protectedMutation({
+    args: {
+        repoId: v.id('repos'),
+        download: schemas.reposSchema.download,
+    },
+    handler: (ctx, args) => Repos.updateDownloadIfNotCancelled(ctx, args.repoId, args.download),
 })

@@ -17,7 +17,7 @@ export type UpdateCfg = {
     isBackfill: boolean
 }
 
-export async function updateCommits(cfg: UpdateCfg): R {
+export async function downloadCommits(cfg: UpdateCfg): R {
     let { octo, ctx, savedRepo } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -82,7 +82,7 @@ export async function updateCommits(cfg: UpdateCfg): R {
                 let existingTreeEntryId = writtenTreeEntries.get(treeEntry.sha)
                 if (existingTreeEntryId) continue
 
-                let processRes = await updateTreeEntry(cfg, treeEntry, rootTreeSha)
+                let processRes = await downloadTreeEntry(cfg, treeEntry, rootTreeSha)
                 if (processRes.isErr) {
                     return wrap('failed to process tree entry', processRes)
                 }
@@ -99,9 +99,6 @@ export async function updateCommits(cfg: UpdateCfg): R {
                         if (res.isErr) return res
                     }
                 }
-
-                let abort = await shouldAbort(cfg)
-                if (abort.isErr) return abort
             }
 
             totalCommitsWritten++
@@ -112,10 +109,10 @@ export async function updateCommits(cfg: UpdateCfg): R {
                     `${totalCommitsWritten} commits written`,
                 )
                 if (res.isErr) return res
+            } else {
+                let res = await updateDownload(cfg, 'syncing', 'Processed commit')
+                if (res.isErr) return res
             }
-
-            let abort = await shouldAbort(cfg)
-            if (abort.isErr) return abort
         }
     }
 
@@ -124,7 +121,7 @@ export async function updateCommits(cfg: UpdateCfg): R {
     return ok()
 }
 
-export async function updateIssues(cfg: UpdateCfg): R {
+export async function downloadIssues(cfg: UpdateCfg): R {
     let { octo, savedRepo } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -169,10 +166,10 @@ export async function updateIssues(cfg: UpdateCfg): R {
         if (cfg.isBackfill) {
             let res = await updateDownload(cfg, 'backfilling', 'Processed issues page')
             if (res.isErr) return res
+        } else {
+            let res = await updateDownload(cfg, 'syncing', 'Processed issues page')
+            if (res.isErr) return res
         }
-
-        let abort = await shouldAbort(cfg)
-        if (abort.isErr) return abort
 
         if (!page.pageInfo.hasNextPage) break
         after = page.pageInfo.endCursor ?? undefined
@@ -243,7 +240,7 @@ type TreeEntry = {
     url?: string
 }
 
-async function updateTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha: string) {
+async function downloadTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha: string) {
     logger.debug({ treeEntry: treeEntry.path }, 'processing tree entry')
 
     let newTreeEntry
@@ -319,7 +316,7 @@ async function updateTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha
     return ok(newTreeEntry)
 }
 
-export async function updateRefs(cfg: UpdateCfg, defaultBranch: string): R {
+export async function downloadRefs(cfg: UpdateCfg, defaultBranch: string): R {
     let { savedRepo, ctx } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
@@ -339,9 +336,6 @@ export async function updateRefs(cfg: UpdateCfg, defaultBranch: string): R {
         repoId: savedRepo._id,
         headRefName: defaultBranch,
     })
-
-    let abort = await shouldAbort(cfg)
-    if (abort.isErr) return abort
 
     return ok()
 }
@@ -380,34 +374,19 @@ async function getTreeData(
     return treeData
 }
 
-export async function shouldAbort({ savedRepo, ctx }: UpdateCfg): R {
-    let download = await ctx.runQuery(api.models.repoDownloads.getByRepoId, {
-        ...SECRET,
-        repoId: savedRepo._id,
-    })
-    if (!download) {
-        return err(`download not found for repo: ${savedRepo.owner}/${savedRepo.repo}`)
-    }
-
-    if (download.status === 'cancelled') {
-        return err('sync for repo was cancelled, we should abort')
-    }
-
-    return ok()
-}
-
+// This also handles checking whether the current download must be cancelled or
+// not for simplicity.
 export async function updateDownload(
     cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
-    status: Doc<'repoDownloads'>['status'],
+    status: Doc<'repos'>['download']['status'],
     message: string,
 ) {
-    let res = await cfg.ctx.runMutation(api.models.repoDownloads.upsertIfNotCancelled, {
+    let updated = await cfg.ctx.runMutation(api.models.repos.updateDownloadIfNotCancelled, {
         ...SECRET,
         repoId: cfg.savedRepo._id,
-        status,
-        message,
+        download: { status, message, syncedSince: cfg.savedRepo.download.syncedSince },
     })
-    if (res.isErr) return res
+    if (updated.isErr) return wrap('failed to update download', updated)
 
     logger.debug(`DOWNLOAD PROGRESS UPDATE: ${message}`)
 

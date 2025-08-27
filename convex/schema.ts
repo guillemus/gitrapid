@@ -7,6 +7,31 @@ export const reposSchema = {
     repo: v.string(),
     private: v.boolean(),
     headId: v.optional(v.id('refs')),
+
+    download: v.object({
+        status: v.union(
+            // There's no initial state really. We assume that if the repoDownload row isn't there
+            // the download hasn't started.
+
+            // Represents when the repository is being downloaded for the first time.
+            v.literal('backfilling'),
+            // Represents when the repository is being synced. It has already been downloaded
+            v.literal('syncing'),
+            // Repository is ready to be used fully
+            v.literal('success'),
+            // Error happened to download. We should explain at message what happened exactly.
+            v.literal('error'),
+            // Download was cancelled, either internally or externally
+            v.literal('cancelled'),
+        ),
+        message: v.optional(v.string()),
+        syncedSince: v.optional(v.string()),
+    }),
+
+    openIssues: v.number(),
+    closedIssues: v.number(),
+    openPullRequests: v.number(),
+    closedPullRequests: v.number(),
 }
 
 const repos = defineTable(reposSchema).index('by_owner_and_repo', ['owner', 'repo'])
@@ -17,40 +42,6 @@ export const userReposSchema = {
 }
 
 const userRepos = defineTable(userReposSchema).index('by_userId_repoId', ['userId', 'repoId'])
-
-export const repoCountsSchema = {
-    repoId: v.id('repos'),
-    openIssues: v.number(),
-    closedIssues: v.number(),
-    openPullRequests: v.number(),
-    closedPullRequests: v.number(),
-}
-
-const repoCounts = defineTable(repoCountsSchema).index('by_repoId', ['repoId'])
-
-export const repoDownloadsSchema = {
-    repoId: v.id('repos'),
-    status: v.union(
-        // There's no initial state really. We assume that if the repoDownload row isn't there
-        // the download hasn't started.
-
-        // Represents when the repository is being downloaded for the first time.
-        v.literal('backfilling'),
-        // Represents when the repository is being synced. It has already been downloaded
-        v.literal('syncing'),
-        // Repository is ready to be used fully
-        v.literal('success'),
-        // Error happened to download. We should explain at message what happened exactly.
-        v.literal('error'),
-        // Download was cancelled, either internally or externally
-        v.literal('cancelled'),
-    ),
-    message: v.optional(v.string()),
-
-    syncedSince: v.optional(v.string()),
-}
-
-const repoDownloads = defineTable(repoDownloadsSchema).index('by_repoId', ['repoId'])
 
 export const refsSchema = {
     repoId: v.id('repos'),
@@ -189,8 +180,6 @@ export default defineSchema({
     ...authTables,
 
     repos,
-    repoCounts,
-    repoDownloads,
     userRepos,
 
     blobs,
