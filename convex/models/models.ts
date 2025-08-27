@@ -96,6 +96,18 @@ export const IssuesUtils = {
         return await ctx.db.get(id)
     },
 
+    async upsertIssueBody(ctx: MutationCtx, args: UpsertDoc<'issueBodies'>) {
+        let existing = await ctx.db
+            .query('issueBodies')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
+            .unique()
+        if (existing) {
+            await ctx.db.patch(existing._id, args)
+        } else {
+            await ctx.db.insert('issueBodies', args)
+        }
+    },
+
     async deleteIssueByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
         let issues = await Issues.listByRepo(ctx, repoId)
         for (let issue of issues) {
@@ -141,6 +153,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
         items: v.array(
             v.object({
                 issue: v.object(schemas.issuesSchema),
+                body: v.string(),
                 comments: v.array(
                     v.object({
                         githubId: v.number(),
@@ -158,6 +171,13 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
             let issueDoc = await IssuesUtils.getOrCreateIssue(ctx, item.issue)
 
             if (!issueDoc) continue
+
+            if (item.body) {
+                await IssuesUtils.upsertIssueBody(ctx, {
+                    issueId: issueDoc._id,
+                    body: item.body,
+                })
+            }
 
             if (item.comments.length > 0) {
                 let docs: UpsertDoc<'issueComments'>[] = []

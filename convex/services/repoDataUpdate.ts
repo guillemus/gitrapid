@@ -186,6 +186,7 @@ export async function updateIssues(cfg: UpdateCfg): R {
 function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
     let items: {
         issue: UpsertDoc<'issues'>
+        body: string
         comments: {
             githubId: number
             author: { login: string; id: number }
@@ -217,7 +218,6 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
                 number: node.number,
                 title: node.title,
                 state,
-                body: node.body ?? undefined,
                 author: { login: authorLogin, id: authorId },
                 labels: labels.length ? labels : undefined,
                 assignees: assignees.length ? assignees : undefined,
@@ -226,6 +226,7 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
                 closedAt: node.closedAt ?? undefined,
                 comments: node.comments.nodes.length || undefined,
             },
+            body: node.body ?? '',
             comments,
         })
     }

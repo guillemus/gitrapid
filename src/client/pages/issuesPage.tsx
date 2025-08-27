@@ -59,7 +59,7 @@ export function IssuesPage() {
                 <div className="flex flex-1 items-center space-x-2.5">
                     <div className="relative flex-1">
                         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
-                        <Input className="pl-10 font-normal" />
+                        <Input placeholder="Search issues" className="pl-10 font-normal" />
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

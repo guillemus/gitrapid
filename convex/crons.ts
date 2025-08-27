@@ -4,6 +4,6 @@ import { SECRET } from './utils'
 
 const crons = cronJobs()
 
-crons.interval('run repository sync', { minutes: 5 }, api.services.sync.run, SECRET)
+crons.interval('run repository sync', { minutes: 30 }, api.services.sync.run, SECRET)
 
 export default crons

@@ -115,7 +115,6 @@ export const issuesSchema = {
     number: v.number(), // Issue number in the repo
     title: v.string(),
     state: v.union(v.literal('open'), v.literal('closed')),
-    body: v.optional(v.string()),
     author: v.object({
         login: v.string(),
         id: v.number(),
@@ -135,6 +134,13 @@ const issues = defineTable(issuesSchema)
     })
     .index('by_repo_and_number', ['repoId', 'number'])
     .index('by_github_id', ['githubId'])
+
+export const issueBodiesSchema = {
+    issueId: v.id('issues'),
+    body: v.string(),
+}
+
+const issueBodies = defineTable(issueBodiesSchema).index('by_issue_id', ['issueId'])
 
 export const issueCommentsSchema = {
     issueId: v.id('issues'),
@@ -194,6 +200,7 @@ export default defineSchema({
     refs,
 
     issues,
+    issueBodies,
     issueComments,
 
     pats,
