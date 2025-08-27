@@ -133,21 +133,6 @@ export const insertNewRepo = protectedMutation({
     handler: (ctx, { userId, ...args }) => RepoUtils.insertNewRepo(ctx, args, userId),
 })
 
-export const getOrCreateIssue = protectedMutation({
-    args: schemas.issuesSchema,
-    handler: (ctx, args) => IssuesUtils.getOrCreateIssue(ctx, args),
-})
-
-export const upsertIssue = protectedMutation({
-    args: schemas.issuesSchema,
-    handler: (ctx, args) => IssuesUtils.upsertIssue(ctx, args),
-})
-
-export const deleteIssueByRepoId = protectedMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => IssuesUtils.deleteIssueByRepoId(ctx, repoId),
-})
-
 export const insertIssuesWithCommentsBatch = protectedMutation({
     args: {
         items: v.array(

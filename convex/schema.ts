@@ -189,9 +189,9 @@ export default defineSchema({
     ...authTables,
 
     repos,
-    userRepos,
     repoCounts,
     repoDownloads,
+    userRepos,
 
     blobs,
     trees,

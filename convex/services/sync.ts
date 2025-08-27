@@ -14,13 +14,16 @@ import {
     updateRefs,
     type UpdateCfg,
 } from './repoDataUpdate'
+import { insertNewRepo } from '@convex/models/models'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-async function runHandler(ctx: ActionCtx) {
+export async function runHandler(ctx: ActionCtx) {
+    logger.info('running sync')
+
     // TODO: things missing
     // - better distribution of user token -> repo to download.
     // - parallelize syncs
@@ -32,7 +35,7 @@ async function runHandler(ctx: ActionCtx) {
     // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
     // Still this way sucks and there's probably a smarter way of doing this
     let users = await ctx.runQuery(api.models.users.list, SECRET)
-    let userRepoIds: Map<Id<'users'>, Id<'repos'>> = new Map()
+    let repoUserIds: Map<Id<'repos'>, Id<'users'>> = new Map()
     for (let user of users) {
         let repoIds = await ctx.runQuery(api.models.userRepos.listByUserId, {
             ...SECRET,
@@ -40,23 +43,29 @@ async function runHandler(ctx: ActionCtx) {
         })
 
         for (let repoId of repoIds) {
-            userRepoIds.set(user._id, repoId.repoId)
+            repoUserIds.set(repoId.repoId, user._id)
         }
     }
 
-    for (let [userId, repoId] of userRepoIds.entries()) {
+    for (let [repoId, userId] of repoUserIds.entries()) {
         let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
             ...SECRET,
             userId: userId,
         })
-
         if (!userToken) {
             logger.error(`user token for user id ${userId} not found`)
             continue
         }
 
         let octo = newOctokit(userToken.token)
-        let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
+        let res = await setupAndRunSync({
+            ctx,
+            octo,
+            repoId,
+            patId: userToken._id,
+            userId: userId,
+        })
+
         if (res.isErr) {
             logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
         }
@@ -92,7 +101,13 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
     let repoId = repo._id
 
     let octo = newOctokit(userToken.token)
-    let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
+    let res = await setupAndRunSync({
+        ctx,
+        octo,
+        repoId,
+        patId: userToken._id,
+        userId: args.userId,
+    })
     if (res.isErr) {
         throw new Error(`failed to sync repo ${args.repo} for user ${args.userId}: ${res.err}`)
     }
@@ -103,6 +118,7 @@ export const runSingle = protectedAction({ args: runSingleArgs, handler: runSing
 type SetupSyncCfg = {
     octo: Octokit
     ctx: ActionCtx
+    userId: Id<'users'>
     repoId: Id<'repos'>
     patId: Id<'pats'>
 }
@@ -114,15 +130,19 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
 
     let savedRepo = await ctx.runQuery(api.models.repos.get, { ...SECRET, repoId })
     if (!savedRepo) {
-        throw new Error(`repo not found: ${repoId}`)
+        return err('repo not found')
     }
+
+    logger.info(`syncing repo ${savedRepo.owner}/${savedRepo.repo}`)
 
     let repoDownload = await ctx.runQuery(api.models.repoDownloads.getByRepoId, {
         ...SECRET,
         repoId,
     })
     if (!repoDownload) {
-        throw new Error(`repo status not found: ${repoId}`)
+        return err(
+            `repo download not found for repo ${savedRepo.owner}/${savedRepo.repo}: ${repoId}`,
+        )
     }
 
     let canBeSynced = canRepoBeSynced(repoDownload)

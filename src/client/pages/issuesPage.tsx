@@ -23,7 +23,7 @@ import { Link } from 'react-router'
 import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
-import { proxy } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -38,10 +38,12 @@ const labelColors: Record<string, string> = {
 const pagination = proxy({
     cursors: [null as string | null],
     index: 0,
-    pageSize: 20,
+    pageSize: 15,
 })
 
 export function IssuesPage() {
+    useSnapshot(pagination)
+
     let res = usePageQuery(api.public.issues.list, {
         owner: 'sst',
         repo: 'opencode',

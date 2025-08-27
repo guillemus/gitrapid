@@ -6,11 +6,11 @@ import * as models from './models'
 
 export const Repos = {
     async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
-        let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
-
-        let filtered = repos.filter((r) => r !== null)
-
-        return filtered
+        let res
+        res = repoIds.map((id) => ctx.db.get(id))
+        res = await Promise.all(res)
+        res = res.filter((r) => r !== null)
+        return res
     },
 
     async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
