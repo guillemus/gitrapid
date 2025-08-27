@@ -1,4 +1,5 @@
 import { query } from '@convex/_generated/server'
+import { paginationOptsValidator } from 'convex/server'
 import { Issues } from '@convex/models/issues'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
@@ -10,6 +11,7 @@ export const list = query({
         owner: v.string(),
         repo: v.string(),
         search: v.optional(v.string()),
+        paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
@@ -24,7 +26,10 @@ export const list = query({
             return null
         }
 
-        return Issues.listByRepo(ctx, savedRepo._id)
+        return Issues.paginateByRepo(ctx, {
+            repoId: savedRepo._id,
+            paginationOpts: args.paginationOpts,
+        })
     },
 })
 

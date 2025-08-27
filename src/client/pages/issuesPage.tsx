@@ -8,57 +8,22 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { AlertCircle, CheckCircle, ChevronDown, MessageCircle, Plus, Search } from 'lucide-react'
+import {
+    AlertCircle,
+    CheckCircle,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    MessageCircle,
+    Plus,
+    Search,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-
-const issues = [
-    {
-        id: 1,
-        title: 'Add support for custom themes',
-        state: 'open',
-        author: 'johndoe',
-        createdAt: '2 days ago',
-        comments: 5,
-        labels: ['enhancement', 'good first issue'],
-    },
-    {
-        id: 2,
-        title: 'Button component not working with Next.js 14',
-        state: 'open',
-        author: 'janedoe',
-        createdAt: '1 day ago',
-        comments: 12,
-        labels: ['bug', 'nextjs'],
-    },
-    {
-        id: 3,
-        title: 'Documentation update for installation',
-        state: 'closed',
-        author: 'contributor',
-        createdAt: '3 days ago',
-        comments: 3,
-        labels: ['documentation'],
-    },
-    {
-        id: 4,
-        title: 'Add dark mode toggle component',
-        state: 'open',
-        author: 'designer',
-        createdAt: '5 days ago',
-        comments: 8,
-        labels: ['enhancement', 'ui'],
-    },
-    {
-        id: 5,
-        title: 'TypeScript errors in form components',
-        state: 'open',
-        author: 'developer',
-        createdAt: '1 week ago',
-        comments: 15,
-        labels: ['bug', 'typescript'],
-    },
-]
+import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
+import { api } from '@convex/_generated/api'
+import type { Doc } from '@convex/_generated/dataModel'
+import { proxy } from 'valtio'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -70,38 +35,37 @@ const labelColors: Record<string, string> = {
     typescript: 'bg-indigo-100 text-indigo-800 border-indigo-200',
 }
 
-export function IssuesPage() {
-    const [filter, setFilter] = useState('open')
-    const [searchQuery, setSearchQuery] = useState('')
+const pagination = proxy({
+    cursors: [null as string | null],
+    index: 0,
+    pageSize: 20,
+})
 
-    const filteredIssues = issues.filter((issue) => {
-        const matchesFilter = filter === 'all' || issue.state === filter
-        const matchesSearch = issue.title.toLowerCase().includes(searchQuery.toLowerCase())
-        return matchesFilter && matchesSearch
+export function IssuesPage() {
+    let res = usePageQuery(api.public.issues.list, {
+        owner: 'sst',
+        repo: 'opencode',
+        paginationOpts: {
+            numItems: pagination.pageSize,
+            cursor: pagination.cursors[pagination.index] ?? null,
+        },
     })
 
-    const openCount = issues.filter((issue) => issue.state === 'open').length
-    const closedCount = issues.filter((issue) => issue.state === 'closed').length
+    let issues = res?.page ?? []
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between gap-2.5">
-                <div className="flex items-center flex-1 space-x-2.5">
+                <div className="flex flex-1 items-center space-x-2.5">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                            placeholder="is:issue state:open"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 font-normal"
-                        />
+                        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
+                        <Input className="pl-10 font-normal" />
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="gap-2 bg-transparent">
                                 Labels
-                                <ChevronDown className="w-4 h-4" />
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -115,7 +79,7 @@ export function IssuesPage() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="gap-2 bg-transparent">
                                 Milestones
-                                <ChevronDown className="w-4 h-4" />
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -126,7 +90,7 @@ export function IssuesPage() {
                     </DropdownMenu>
                 </div>
                 <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
+                    <Plus className="h-4 w-4" />
                     New issue
                 </Button>
             </div>
@@ -134,23 +98,13 @@ export function IssuesPage() {
             {/* Filters and Search */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                    <Button
-                        variant={filter === 'open' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setFilter('open')}
-                        className="gap-2"
-                    >
-                        <AlertCircle className="w-4 h-4" />
-                        {openCount} Open
+                    <Button size="sm" className="gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        XXX Open
                     </Button>
-                    <Button
-                        variant={filter === 'closed' ? 'default' : 'ghost'}
-                        size="sm"
-                        onClick={() => setFilter('closed')}
-                        className="gap-2"
-                    >
-                        <CheckCircle className="w-4 h-4" />
-                        {closedCount} Closed
+                    <Button size="sm" className="gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        XXX Closed
                     </Button>
                 </div>
 
@@ -207,7 +161,7 @@ export function IssuesPage() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                                 Newest
-                                <ChevronDown className="w-4 h-4" />
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -223,71 +177,123 @@ export function IssuesPage() {
             {/* Issues List */}
             <Card className="py-0">
                 <CardContent className="p-0">
-                    {filteredIssues.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground">
-                            <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    {issues.length === 0 ? (
+                        <div className="text-muted-foreground p-8 text-center">
+                            <AlertCircle className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No issues found matching your criteria.</p>
                         </div>
                     ) : (
                         <div className="divide-y">
-                            {filteredIssues.map((issue, index) => (
-                                <div
-                                    key={issue.id}
-                                    className="p-4 hover:bg-muted/50 transition-colors py-2"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-start space-x-3 flex-1">
-                                            <div className="mt-1">
-                                                {issue.state === 'open' ? (
-                                                    <AlertCircle className="w-5 h-5 text-green-600" />
-                                                ) : (
-                                                    <CheckCircle className="w-5 h-5 text-purple-600" />
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap leading-[1.4rem]">
-                                                    <Link to={`/issues/${issue.id}`}>
-                                                        <h3 className="font-medium text-foreground hover:text-blue-600 cursor-pointer">
-                                                            {issue.title}
-                                                        </h3>
-                                                    </Link>
-                                                    {issue.labels.length > 0 && (
-                                                        <>
-                                                            {issue.labels.map((label) => (
-                                                                <Badge
-                                                                    key={label}
-                                                                    variant="outline"
-                                                                    className={`text-xs ${labelColors[label] || 'bg-gray-100 text-gray-800 border-gray-200'}`}
-                                                                >
-                                                                    {label}
-                                                                </Badge>
-                                                            ))}
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center text-muted-foreground font-normal text-xs mt-0 space-x-1">
-                                                    <span>#{issue.id}</span>
-                                                    <span>•</span>
-                                                    <span>{issue.author}</span>
-                                                    <span>opened {issue.createdAt}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {issue.comments > 0 && (
-                                            <div className="flex items-center text-sm text-muted-foreground ml-4 w-16 justify-start">
-                                                <MessageCircle className="w-4 h-4" />
-                                                <span className="font-normal ml-1">
-                                                    {issue.comments}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                            {issues.map((issue) => (
+                                <IssueItem key={issue._id} issue={issue} />
                             ))}
                         </div>
                     )}
                 </CardContent>
             </Card>
+
+            {/* Pagination Controls */}
+            <PaginationControls />
+        </div>
+    )
+}
+
+function IssueItem({ issue }: { issue: Doc<'issues'> }) {
+    return (
+        <div className="hover:bg-muted/50 p-4 py-2 transition-colors">
+            <div className="flex items-center justify-between">
+                <div className="flex flex-1 items-start space-x-3">
+                    <div className="mt-1">
+                        {issue.state === 'open' ? (
+                            <AlertCircle className="h-5 w-5 text-green-600" />
+                        ) : (
+                            <CheckCircle className="h-5 w-5 text-purple-600" />
+                        )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 leading-[1.4rem]">
+                            <Link to={`/issues/${issue._id}`}>
+                                <h3 className="text-foreground cursor-pointer font-medium hover:text-blue-600">
+                                    {issue.title}
+                                </h3>
+                            </Link>
+                            {issue.labels && issue.labels.length > 0 && (
+                                <>
+                                    {issue.labels.map((label) => (
+                                        <Badge
+                                            key={label}
+                                            variant="outline"
+                                            className={`text-xs ${labelColors[label] || 'border-gray-200 bg-gray-100 text-gray-800'}`}
+                                        >
+                                            {label}
+                                        </Badge>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                        <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
+                            <span>#{issue.number}</span>
+                            <span>•</span>
+                            <span>{issue.author.login}</span>
+                            <span>opened {formatRelativeTime(issue.createdAt)}</span>
+                        </div>
+                    </div>
+                </div>
+                {(issue.comments ?? 0) > 0 && (
+                    <div className="text-muted-foreground ml-4 flex w-16 items-center justify-start text-sm">
+                        <MessageCircle className="h-4 w-4" />
+                        <span className="ml-1 font-normal">{issue.comments}</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+function PaginationControls() {
+    let res = usePageQuery(api.public.issues.list, {
+        owner: 'sst',
+        repo: 'opencode',
+        paginationOpts: {
+            numItems: pagination.pageSize,
+            cursor: pagination.cursors[pagination.index] ?? null,
+        },
+    })
+
+    return (
+        <div className="flex items-center justify-end gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => {
+                    if (pagination.index > 0) {
+                        pagination.index = pagination.index - 1
+                    }
+                }}
+                disabled={pagination.index === 0}
+            >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => {
+                    if (!res?.isDone && res?.continueCursor) {
+                        let next = res.continueCursor
+                        let nextStack = pagination.cursors.slice(0, pagination.index + 1)
+                        nextStack.push(next)
+                        pagination.cursors = nextStack
+                        pagination.index = pagination.index + 1
+                    }
+                }}
+                disabled={!!res?.isDone}
+            >
+                Next
+                <ChevronRight className="h-4 w-4" />
+            </Button>
         </div>
     )
 }

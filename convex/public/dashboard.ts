@@ -95,7 +95,7 @@ export const addRepo = action({
         // which means that we should have his permission to access the private
         // data.
         if (!repoData.val.private) {
-            let license = await validatePublicLicense(octo, { owner, repo })
+            let license = await validatePublicLicense({ octo }, { owner, repo })
             if (license.isErr) return license
         }
 

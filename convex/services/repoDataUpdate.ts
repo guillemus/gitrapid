@@ -1,14 +1,13 @@
 import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
+import type { UpsertDoc } from '@convex/models/models'
 import { err, ok, wrap } from '@convex/shared'
 import { SECRET, logger, octoCatch } from '@convex/utils'
 import { Buffer } from 'buffer'
 import type { Octokit } from 'octokit'
 import { getAllRefs } from './github'
 import { fetchIssuesPageGraphQL, type IssueNode } from './graphqlIssues'
-import type { U } from 'vitest/dist/chunks/environment.d.cL3nLXbE.js'
-import type { UpsertDoc } from '@convex/models/models'
 
 export type UpdateCfg = {
     ctx: ActionCtx
@@ -320,11 +319,11 @@ async function updateTreeEntry(cfg: UpdateCfg, treeEntry: TreeEntry, rootTreeSha
 }
 
 export async function updateRefs(cfg: UpdateCfg, defaultBranch: string): R {
-    let { octo, savedRepo, ctx } = cfg
+    let { savedRepo, ctx } = cfg
     let owner = savedRepo.owner
     let repo = savedRepo.repo
 
-    let refs = await getAllRefs(octo, { owner, repo })
+    let refs = await getAllRefs(cfg, { owner, repo })
     if (refs.isErr) return wrap('failed to get refs', refs)
 
     let mapped = refs.val.map((r) => ({ repoId: savedRepo._id, ...r }))

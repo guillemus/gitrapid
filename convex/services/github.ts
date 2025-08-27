@@ -10,17 +10,22 @@ export function newOctokit(token: string) {
     return new Octokit({ auth: token })
 }
 
+// Octokit dependency
+type OctoCfg = {
+    octo: Octokit
+}
+
 export type GitRefInfo = {
     name: string
     commitSha: string
     isTag: boolean
 }
 
-export async function getAllRefs(octo: Octokit, args: { owner: string; repo: string }) {
-    let heads = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
+export async function getAllRefs(cfg: OctoCfg, args: { owner: string; repo: string }) {
+    let heads = await octoCatch(cfg.octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
     if (heads.isErr) return err(`Failed to list heads refs: ${heads.err.error()}`)
 
-    let tags = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
+    let tags = await octoCatch(cfg.octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
     if (tags.isErr) return err(`Failed to list tags refs: ${tags.err.error()}`)
 
     let data: GitRefInfo[] = [
@@ -65,10 +70,10 @@ export type LicenseError =
     | { type: 'octo-error'; err: string }
 
 export async function validatePublicLicense(
-    octo: Octokit,
+    cfg: OctoCfg,
     args: { owner: string; repo: string },
 ): R<null, LicenseError> {
-    let license = await octoCatch(octo.rest.licenses.getForRepo(args))
+    let license = await octoCatch(cfg.octo.rest.licenses.getForRepo(args))
     if (license.isErr) {
         if (license.err.status === 404) {
             return err({ type: 'license-not-found' })
@@ -113,8 +118,8 @@ export function parseGithubUrl(raw: string): Result<{ owner: string; repo: strin
     return ok({ owner, repo })
 }
 
-export async function getRateLimit(octo: Octokit) {
-    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+export async function getRateLimit(cfg: OctoCfg) {
+    let rateLimit = await octoCatchFull(cfg.octo.rest.rateLimit.get())
     if (rateLimit.isErr) {
         return octoWrap('failed to get rate limit', rateLimit)
     }
@@ -127,7 +132,7 @@ export async function getRateLimit(octo: Octokit) {
 }
 
 export async function getRepoIssuePrCounts(
-    octo: Octokit,
+    cfg: OctoCfg,
     args: { owner: string; repo: string },
 ): R<{
     openIssues: number
@@ -158,7 +163,7 @@ export async function getRepoIssuePrCounts(
     }
 
     let res = await tryCatch(
-        octo.graphql<GraphQLResponse>(query, { owner: args.owner, name: args.repo }),
+        cfg.octo.graphql<GraphQLResponse>(query, { owner: args.owner, name: args.repo }),
     )
     if (res.isErr) return wrap('failed to fetch repository issue/PR counts', res)
 

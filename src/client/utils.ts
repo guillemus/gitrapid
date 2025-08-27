@@ -4,6 +4,7 @@ import { createAuthClient } from 'better-auth/react'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
+import { formatDistanceToNow } from 'date-fns'
 
 import { useConvexHttp } from './convex'
 
@@ -181,4 +182,17 @@ export function useGithubParams(): GithubParams {
     let refAndPath = params['*'] ?? ''
 
     return { owner, repo, refAndPath }
+}
+
+/**
+ * Formats a date as relative time (e.g., "50 minutes ago", "2 days ago")
+ * Similar to GitHub's time formatting
+ */
+export function formatRelativeTime(date: string | number | Date): string {
+    try {
+        return formatDistanceToNow(new Date(date), { addSuffix: true })
+    } catch (error) {
+        // Fallback to locale date string if parsing fails
+        return new Date(date).toLocaleDateString()
+    }
 }

@@ -1,73 +1,25 @@
 // Queries here are meant to be used for debugging only
 
-import { devQuery } from './utils'
+import { v } from 'convex/values'
+import { devMutation, devQuery } from './utils'
 
-export const listRefs = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('refs').collect(),
+export const listTable = devQuery({
+    args: {
+        tableName: v.any(),
+    },
+    handler: (ctx, args) => ctx.db.query(args.tableName).collect() as any,
 })
 
-export const listUsers = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('users').collect(),
-})
+export const truncateTable = devMutation({
+    args: {
+        tableName: v.any(),
+    },
+    async handler(ctx, args) {
+        let docs = await ctx.db.query(args.tableName).collect()
+        for (let doc of docs) {
+            await ctx.db.delete(doc._id)
+        }
 
-export const listAccounts = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('authAccounts').collect(),
-})
-
-export const listPATs = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('pats').collect(),
-})
-
-export const listCommits = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('commits').collect(),
-})
-
-export const listRepos = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('repos').collect(),
-})
-
-export const listUserRepos = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('userRepos').collect(),
-})
-
-export const listRepoCounts = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('repoCounts').collect(),
-})
-
-export const listRepoDownloads = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('repoDownloads').collect(),
-})
-
-export const listBlobs = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('blobs').collect(),
-})
-
-export const listTrees = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('trees').collect(),
-})
-
-export const listTreeEntries = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('treeEntries').collect(),
-})
-
-export const listIssues = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('issues').collect(),
-})
-
-export const listIssueComments = devQuery({
-    args: {},
-    handler: (ctx) => ctx.db.query('issueComments').collect(),
+        return `deleted ${docs.length} docs from ${args.tableName}`
+    },
 })

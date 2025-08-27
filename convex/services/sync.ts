@@ -20,51 +20,50 @@ import {
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-export const run = protectedAction({
-    args: {},
-    async handler(ctx) {
-        // TODO: things missing
-        // - better distribution of user token -> repo to download.
-        // - parallelize syncs
-        // - add a way to retry failed syncs
-        // - probably each repo should have it's /events endpoint polled, so
-        //   that we can be more selective on what to sync. The current way tries
-        //   to sync everything, while we could be more selective
+async function runHandler(ctx: ActionCtx) {
+    // TODO: things missing
+    // - better distribution of user token -> repo to download.
+    // - parallelize syncs
+    // - add a way to retry failed syncs
+    // - probably each repo should have it's /events endpoint polled, so
+    //   that we can be more selective on what to sync. The current way tries
+    //   to sync everything, while we could be more selective
 
-        // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
-        // Still this way sucks and there's probably a smarter way of doing this
-        let users = await ctx.runQuery(api.models.users.list, SECRET)
-        let userRepoIds: Map<Id<'users'>, Id<'repos'>> = new Map()
-        for (let user of users) {
-            let repoIds = await ctx.runQuery(api.models.userRepos.listByUserId, {
-                ...SECRET,
-                userId: user._id,
-            })
+    // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
+    // Still this way sucks and there's probably a smarter way of doing this
+    let users = await ctx.runQuery(api.models.users.list, SECRET)
+    let userRepoIds: Map<Id<'users'>, Id<'repos'>> = new Map()
+    for (let user of users) {
+        let repoIds = await ctx.runQuery(api.models.userRepos.listByUserId, {
+            ...SECRET,
+            userId: user._id,
+        })
 
-            for (let repoId of repoIds) {
-                userRepoIds.set(user._id, repoId.repoId)
-            }
+        for (let repoId of repoIds) {
+            userRepoIds.set(user._id, repoId.repoId)
+        }
+    }
+
+    for (let [userId, repoId] of userRepoIds.entries()) {
+        let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+            ...SECRET,
+            userId: userId,
+        })
+
+        if (!userToken) {
+            logger.error(`user token for user id ${userId} not found`)
+            continue
         }
 
-        for (let [userId, repoId] of userRepoIds.entries()) {
-            let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
-                ...SECRET,
-                userId: userId,
-            })
-
-            if (!userToken) {
-                logger.error(`user token for user id ${userId} not found`)
-                continue
-            }
-
-            let octo = newOctokit(userToken.token)
-            let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
-            if (res.isErr) {
-                logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
-            }
+        let octo = newOctokit(userToken.token)
+        let res = await setupAndRunSync({ ctx, octo, repoId, patId: userToken._id })
+        if (res.isErr) {
+            logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
         }
-    },
-})
+    }
+}
+
+export const run = protectedAction({ args: {}, handler: runHandler })
 
 let runSingleArgs = v.object({
     userId: v.id('users'),
@@ -204,23 +203,15 @@ async function _updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
     }
 }
 
-async function updateTokenRateLimit({
-    octo,
-    ctx,
-    patId,
-}: {
-    octo: Octokit
-    ctx: ActionCtx
-    patId: Id<'pats'>
-}): R {
-    let rateLimit = await getRateLimit(octo)
+async function updateTokenRateLimit(cfg: { octo: Octokit; ctx: ActionCtx; patId: Id<'pats'> }): R {
+    let rateLimit = await getRateLimit(cfg)
     if (rateLimit.isErr) {
         return wrap('failed to get rate limit', rateLimit)
     }
 
-    await ctx.runMutation(api.models.pats.patch, {
+    await cfg.ctx.runMutation(api.models.pats.patch, {
         ...SECRET,
-        id: patId,
+        id: cfg.patId,
         pat: { rateLimit: rateLimit.val },
     })
     return ok()
