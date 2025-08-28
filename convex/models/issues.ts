@@ -1,8 +1,7 @@
 import type { Id } from '@convex/_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
+import type { QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
-import { protectedMutation, protectedQuery } from '../utils'
-import { IssueComments } from './issueComments'
+import { protectedQuery } from '../utils'
 
 export const Issues = {
     async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
@@ -21,34 +20,50 @@ export const Issues = {
             .collect()
     },
 
-    async paginateByRepo(
+    async paginate(
         ctx: QueryCtx,
-        args: { repoId: Id<'repos'>; paginationOpts: { numItems: number; cursor: string | null } },
+        args: {
+            repoId: Id<'repos'>
+            state?: 'open' | 'closed'
+            search?: string
+            paginationOpts: {
+                numItems: number
+                cursor: string | null
+            }
+        },
     ) {
+        // If search is provided, use search index with optional state filter
+        if (args.search && args.search.trim().length > 0) {
+            let q = ctx.db.query('issues').withSearchIndex('search_issues', (s) => {
+                let scoped = s.search('title', args.search as string).eq('repoId', args.repoId)
+                if (args.state) {
+                    return scoped.eq('state', args.state)
+                }
+                return scoped
+            })
+
+            return q.paginate(args.paginationOpts)
+        }
+
+        // No search term; use compound index by repo, state, number if state provided
+        if (args.state) {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_state_number', (q) =>
+                    q.eq('repoId', args.repoId).eq('state', args.state as 'open' | 'closed'),
+                )
+                .order('desc')
+                .paginate(args.paginationOpts)
+        }
+
+        // Fallback: paginate by repo only
         return ctx.db
             .query('issues')
             .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
             .order('desc')
             .paginate(args.paginationOpts)
     },
-
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let issues = await ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
-            .collect()
-
-        for (let issue of issues) {
-            await IssueComments.deleteByIssueId(ctx, issue._id)
-            await ctx.db.delete(issue._id)
-        }
-    },
 }
-
-export const deleteByRepoId = protectedMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => Issues.deleteByRepoId(ctx, repoId),
-})
 
 export const getByRepoAndNumber = protectedQuery({
     args: { repoId: v.id('repos'), number: v.number() },

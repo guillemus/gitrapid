@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
-import { formatRelativeTime, usePageQuery } from '../utils'
+import { formatRelativeTime, useDebounce, usePageQuery } from '../utils'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -40,12 +40,22 @@ const pagination = proxy({
     pageSize: 15,
 })
 
+const filters = proxy({
+    search: '',
+    state: undefined as 'open' | 'closed' | undefined,
+})
+
 export function IssuesPage() {
     useSnapshot(pagination)
+    let f = useSnapshot(filters)
+
+    let debouncedSearch = useDebounce(f.search, 300)
 
     let res = usePageQuery(api.public.issues.list, {
         owner: 'sst',
         repo: 'opencode',
+        search: debouncedSearch ? debouncedSearch : undefined,
+        state: f.state,
         paginationOpts: {
             numItems: pagination.pageSize,
             cursor: pagination.cursors[pagination.index] ?? null,
@@ -53,6 +63,7 @@ export function IssuesPage() {
     })
 
     let issues = res?.page ?? []
+    let repo = res?.repo as Doc<'repos'> | undefined
 
     return (
         <div className="space-y-4">
@@ -60,7 +71,16 @@ export function IssuesPage() {
                 <div className="flex flex-1 items-center space-x-2.5">
                     <div className="relative flex-1">
                         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
-                        <Input placeholder="Search issues" className="pl-10 font-normal" />
+                        <Input
+                            placeholder="Search issues"
+                            className="pl-10 font-normal"
+                            value={f.search}
+                            onChange={(e) => {
+                                filters.search = e.target.value
+                                pagination.cursors = [null]
+                                pagination.index = 0
+                            }}
+                        />
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -99,13 +119,31 @@ export function IssuesPage() {
             {/* Filters and Search */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                    <Button size="sm" className="gap-2">
+                    <Button
+                        size="sm"
+                        className="gap-2"
+                        variant={f.state === 'open' ? 'secondary' : 'outline'}
+                        onClick={() => {
+                            filters.state = f.state === 'open' ? undefined : 'open'
+                            pagination.cursors = [null]
+                            pagination.index = 0
+                        }}
+                    >
                         <AlertCircle className="h-4 w-4" />
-                        XXX Open
+                        {repo ? `${repo.openIssues} Open` : '... Open'}
                     </Button>
-                    <Button size="sm" className="gap-2">
+                    <Button
+                        size="sm"
+                        className="gap-2"
+                        variant={f.state === 'closed' ? 'secondary' : 'outline'}
+                        onClick={() => {
+                            filters.state = f.state === 'closed' ? undefined : 'closed'
+                            pagination.cursors = [null]
+                            pagination.index = 0
+                        }}
+                    >
                         <CheckCircle className="h-4 w-4" />
-                        XXX Closed
+                        {repo ? `${repo.closedIssues} Closed` : '... Closed'}
                     </Button>
                 </div>
 
@@ -252,9 +290,13 @@ function IssueItem({ issue }: { issue: Doc<'issues'> }) {
 }
 
 function PaginationControls() {
+    let f = useSnapshot(filters)
+    let debouncedSearch = useDebounce(f.search, 300)
     let res = usePageQuery(api.public.issues.list, {
         owner: 'sst',
         repo: 'opencode',
+        search: debouncedSearch ? debouncedSearch : undefined,
+        state: f.state,
         paginationOpts: {
             numItems: pagination.pageSize,
             cursor: pagination.cursors[pagination.index] ?? null,

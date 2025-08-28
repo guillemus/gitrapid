@@ -1,4 +1,4 @@
-import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
+import type { Doc, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
 import { protectedMutation } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
@@ -68,14 +68,6 @@ export const IssuesUtils = {
             await ctx.db.insert('issueBodies', args)
         }
     },
-
-    async deleteIssueByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
-        let issues = await Issues.listByRepo(ctx, repoId)
-        for (let issue of issues) {
-            await IssueComments.deleteByIssueId(ctx, issue._id)
-            await ctx.db.delete(issue._id)
-        }
-    },
 }
 
 export const insertIssuesWithCommentsBatch = protectedMutation({
@@ -84,15 +76,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
             v.object({
                 issue: v.object(schemas.issuesSchema),
                 body: v.string(),
-                comments: v.array(
-                    v.object({
-                        githubId: v.number(),
-                        author: v.object({ login: v.string(), id: v.number() }),
-                        body: v.string(),
-                        createdAt: v.string(),
-                        updatedAt: v.string(),
-                    }),
-                ),
+                comments: v.array(v.object(schemas.issuesCommentsWithoutIssueIdSchema)),
             }),
         ),
     },

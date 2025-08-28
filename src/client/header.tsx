@@ -64,7 +64,6 @@ export function Header({ tab }: HeaderProps) {
                                 label="Issues"
                                 active={tab === 'issues'}
                                 icon={GitPullRequest}
-                                count={23}
                             />
                         </>
                     )}

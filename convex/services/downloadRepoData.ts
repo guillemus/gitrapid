@@ -40,12 +40,14 @@ export async function downloadIssues(cfg: UpdateCfg): R {
         )
 
         let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes)
+
         let commentsInBatch = 0
         for (let it of items) commentsInBatch += it.comments.length
         logger.debug(
             { issues: items.length, comments: commentsInBatch },
             'built issues+comments batch',
         )
+
         if (items.length > 0) {
             logger.info({ issues: items.length }, 'writing issues+comments batch')
             await cfg.ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {

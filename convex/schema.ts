@@ -65,10 +65,11 @@ export const issuesSchema = {
 const issues = defineTable(issuesSchema)
     .searchIndex('search_issues', {
         searchField: 'title',
-        filterFields: ['repoId'],
+        filterFields: ['repoId', 'state'],
     })
     .index('by_repo_and_number', ['repoId', 'number'])
     .index('by_github_id', ['githubId'])
+    .index('by_repo_state_number', ['repoId', 'state', 'number'])
 
 export const issueBodiesSchema = {
     issueId: v.id('issues'),
@@ -77,9 +78,8 @@ export const issueBodiesSchema = {
 
 const issueBodies = defineTable(issueBodiesSchema).index('by_issue_id', ['issueId'])
 
-export const issueCommentsSchema = {
-    issueId: v.id('issues'),
-    githubId: v.number(), // GitHub comment id
+export const issuesCommentsWithoutIssueIdSchema = {
+    githubId: v.number(),
     author: v.object({ login: v.string(), id: v.number() }),
     body: v.string(),
     createdAt: v.string(),
@@ -88,16 +88,19 @@ export const issueCommentsSchema = {
         v.array(
             v.object({
                 user: v.object({ login: v.string(), id: v.number() }),
-                content: v.string(), // e.g., '+1', 'heart', etc.
+                content: v.string(),
             }),
         ),
     ),
     isDeleted: v.optional(v.boolean()),
 }
 
-const issueComments = defineTable(issueCommentsSchema)
-    .index('by_issue', ['issueId'])
-    .index('by_github_id', ['githubId'])
+export const issueCommentsSchema = {
+    issueId: v.id('issues'),
+    ...issuesCommentsWithoutIssueIdSchema,
+}
+
+const issueComments = defineTable(issueCommentsSchema).index('by_issue', ['issueId'])
 
 export const scopesSchema = v.array(
     v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),

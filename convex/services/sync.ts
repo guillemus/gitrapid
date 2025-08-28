@@ -72,6 +72,7 @@ let runSingleArgs = v.object({
     userId: v.id('users'),
     owner: v.string(),
     repo: v.string(),
+    forceSync: v.optional(v.boolean()),
 })
 
 export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSingleArgs>) {
@@ -99,7 +100,7 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         ctx,
         octo,
         repoId,
-        forceSync: false,
+        forceSync: args.forceSync ?? false,
         patId: userToken._id,
         userId: args.userId,
     })

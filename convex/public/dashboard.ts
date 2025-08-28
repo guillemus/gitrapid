@@ -109,7 +109,7 @@ export const addRepo = action({
         })
         if (savedRepo) {
             // insert user repo
-            await ctx.runMutation(api.models.userRepos.getOrCreate, {
+            await ctx.runMutation(api.models.userRepos.insertIfNotExists, {
                 ...SECRET,
                 repoId: savedRepo._id,
                 userId,
@@ -135,7 +135,7 @@ export const addRepo = action({
                 },
             })
 
-            await ctx.runMutation(api.models.userRepos.getOrCreate, {
+            await ctx.runMutation(api.models.userRepos.insertIfNotExists, {
                 ...SECRET,
                 repoId,
                 userId,

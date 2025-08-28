@@ -11,6 +11,7 @@ export const list = query({
         owner: v.string(),
         repo: v.string(),
         search: v.optional(v.string()),
+        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
@@ -26,10 +27,17 @@ export const list = query({
             return null
         }
 
-        return Issues.paginateByRepo(ctx, {
+        let result = await Issues.paginate(ctx, {
             repoId: savedRepo._id,
+            state: args.state ?? undefined,
+            search: args.search ?? undefined,
             paginationOpts: args.paginationOpts,
         })
+
+        return {
+            ...result,
+            repo: savedRepo,
+        }
     },
 })
 

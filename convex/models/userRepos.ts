@@ -21,7 +21,7 @@ export const UserRepos = {
         return !!userRepo
     },
 
-    async getOrCreate(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
+    async insertIfNotExists(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
         let existing = await this.userHasRepo(ctx, userId, repoId)
         if (existing) {
             return existing
@@ -48,9 +48,9 @@ export const getByUserId = protectedQuery({
     handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })
 
-export const getOrCreate = protectedMutation({
+export const insertIfNotExists = protectedMutation({
     args: schemas.userReposSchema,
-    handler: (ctx, { userId, repoId }) => UserRepos.getOrCreate(ctx, userId, repoId),
+    handler: (ctx, { userId, repoId }) => UserRepos.insertIfNotExists(ctx, userId, repoId),
 })
 
 export const deleteByRepoId = protectedMutation({
