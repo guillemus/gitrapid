@@ -4,7 +4,6 @@ import { err, ok } from '@convex/shared'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
 import { protectedMutation, protectedQuery } from '../utils'
-import * as models from './models'
 
 export const Repos = {
     async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -81,11 +80,6 @@ export const getByOwnerAndRepo = protectedQuery({
 export const deleteById = protectedMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Repos.deleteById(ctx, repoId),
-})
-
-export const setHead = protectedMutation({
-    args: { repoId: v.id('repos'), headRefName: v.string() },
-    handler: (ctx, args) => models.setRepoHead(ctx, args.repoId, args.headRefName),
 })
 
 export function canRepoBeSynced(repo: Doc<'repos'>) {

@@ -6,7 +6,6 @@ import { v } from 'convex/values'
 import * as schemas from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
-import { Refs } from './refs'
 import { Repos } from './repos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
@@ -77,14 +76,6 @@ export const IssuesUtils = {
             await ctx.db.delete(issue._id)
         }
     },
-}
-
-export async function setRepoHead(ctx: MutationCtx, repoId: Id<'repos'>, headRefName: string) {
-    // check first if ref exists
-    let ref = await Refs.getByRepoAndName(ctx, repoId, headRefName)
-    if (!ref) return null
-
-    return await ctx.db.patch(repoId, { headId: ref._id })
 }
 
 export const insertIssuesWithCommentsBatch = protectedMutation({

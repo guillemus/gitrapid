@@ -53,14 +53,6 @@ function Router() {
                     <Route path="/settings" element={<SettingsPage />} />
                 </Route>
 
-                {/* TODO: add back the code tab */}
-
-                {/* <Route element={<AppLayout tab="code" />}>
-                    <Route path="/:owner/:repo" element={<RepoPage />} />
-                    <Route path="/:owner/:repo/tree/*" element={<RepoPage />} />
-                    <Route path="/:owner/:repo/blob/*" element={<RepoPage />} />
-                </Route> */}
-
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                 </Route>

@@ -5,7 +5,7 @@ import { useLocation, useParams } from 'react-router'
 import { useLogout } from './convex'
 
 export type HeaderProps = {
-    tab: 'code' | 'issues' | 'none'
+    tab: 'issues' | 'none'
 }
 
 export function Header({ tab }: HeaderProps) {
@@ -59,12 +59,6 @@ export function Header({ tab }: HeaderProps) {
                     {tab === 'none' && <div className="py-2" />}
                     {tab !== 'none' && (
                         <>
-                            <Tab
-                                href={`/${owner}/${repo}`}
-                                label="Code"
-                                icon={Code}
-                                active={tab === 'code'}
-                            />
                             <Tab
                                 href={`/${owner}/${repo}/issues`}
                                 label="Issues"

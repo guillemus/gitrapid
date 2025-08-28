@@ -6,14 +6,7 @@ import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
-import {
-    downloadCommits,
-    downloadIssues,
-    downloadRefs,
-    finishDownload,
-    updateDownload,
-    type UpdateCfg,
-} from './downloadRepoData'
+import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
 import { getRateLimit, newOctokit } from './github'
 
 // Listing data reference:
@@ -185,20 +178,6 @@ async function runSync(cfg: SyncCfg): R {
     }
 
     return ok()
-}
-
-// TODO: eventually we will update commits again, but for the moment we need to
-// remove things from the scope of the project, otherwise I'm never ending this.
-async function _updateRepoCommits(cfg: SyncCfg, defaultBranch: string) {
-    let updateRefsRes = await downloadRefs(cfg, defaultBranch)
-    if (updateRefsRes.isErr) {
-        return wrap('failed to sync refs', updateRefsRes)
-    }
-
-    let updateCommitsRes = await downloadCommits(cfg)
-    if (updateCommitsRes.isErr) {
-        return wrap('failed to sync commits', updateCommitsRes)
-    }
 }
 
 async function updateTokenRateLimit(cfg: { octo: Octokit; ctx: ActionCtx; patId: Id<'pats'> }): R {
