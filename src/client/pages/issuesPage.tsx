@@ -41,8 +41,7 @@ const state = proxy({
     filters: {
         search: '',
         state: 'open' as 'open' | 'closed',
-        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments' | 'number',
-        order: 'desc' as 'asc' | 'desc',
+        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments',
     },
 })
 
@@ -57,7 +56,6 @@ export function IssuesPage() {
         search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,
-        order: state.filters.order,
         paginationOpts: {
             numItems: state.pageSize,
             cursor: state.cursors[state.index] ?? null,
@@ -205,7 +203,6 @@ export function IssuesPage() {
                             <DropdownMenuItem
                                 onClick={() => {
                                     state.filters.sortBy = 'createdAt'
-                                    state.filters.order = 'desc'
                                     state.cursors = [null]
                                     state.index = 0
                                 }}
@@ -215,7 +212,6 @@ export function IssuesPage() {
                             <DropdownMenuItem
                                 onClick={() => {
                                     state.filters.sortBy = 'updatedAt'
-                                    state.filters.order = 'asc'
                                     state.cursors = [null]
                                     state.index = 0
                                 }}
@@ -225,7 +221,6 @@ export function IssuesPage() {
                             <DropdownMenuItem
                                 onClick={() => {
                                     state.filters.sortBy = 'comments'
-                                    state.filters.order = 'desc'
                                     state.cursors = [null]
                                     state.index = 0
                                 }}
@@ -321,7 +316,6 @@ function PaginationControls() {
         search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,
-        order: state.filters.order,
         paginationOpts: {
             numItems: state.pageSize,
             cursor: state.cursors[state.index] ?? null,

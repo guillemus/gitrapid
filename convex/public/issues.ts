@@ -13,14 +13,8 @@ export const list = query({
         search: v.optional(v.string()),
         state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
         sortBy: v.optional(
-            v.union(
-                v.literal('createdAt'),
-                v.literal('updatedAt'),
-                v.literal('comments'),
-                v.literal('number'),
-            ),
+            v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
         ),
-        order: v.optional(v.union(v.literal('asc'), v.literal('desc'))),
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
@@ -37,7 +31,6 @@ export const list = query({
             state: args.state ?? undefined,
             search: args.search ?? undefined,
             sortBy: args.sortBy ?? undefined,
-            order: args.order ?? undefined,
             paginationOpts: args.paginationOpts,
         })
 
