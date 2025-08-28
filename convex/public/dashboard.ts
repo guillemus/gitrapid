@@ -10,7 +10,7 @@ import {
     type LicenseError,
 } from '@convex/services/github'
 import { err, ok } from '@convex/shared'
-import { getUserId, logger, octoCatch, SECRET } from '@convex/utils'
+import { getTokenFromUserId, getUserId, logger, octoCatch, SECRET } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const get = query({
@@ -46,16 +46,6 @@ export const getDownload = query({
         }
     },
 })
-
-async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
-    let token = await ctx.runQuery(api.models.pats.getByUserId, {
-        ...SECRET,
-        userId,
-    })
-    if (!token) return err('No PAT found')
-
-    return ok(token.token)
-}
 
 export type FoundRepo = {
     url: string

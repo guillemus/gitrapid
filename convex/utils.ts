@@ -17,6 +17,8 @@ import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
 import { env } from './env'
 import { err, ok, type Err, type Result } from './shared'
+import type { Id } from './_generated/dataModel'
+import { api } from './_generated/api'
 
 export interface Context {
     runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
@@ -67,6 +69,16 @@ export async function getUserId(ctx: { auth: Auth }) {
     }
 
     return userId
+}
+
+export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
+    let token = await ctx.runQuery(api.models.pats.getByUserId, {
+        ...SECRET,
+        userId,
+    })
+    if (!token) return err('No PAT found')
+
+    return ok(token.token)
 }
 
 export class OctoError extends RequestError {

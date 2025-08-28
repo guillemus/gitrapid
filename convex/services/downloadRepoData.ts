@@ -127,13 +127,21 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
     return items
 }
 
+type UpdateDownloadCfg = {
+    ctx: ActionCtx
+    savedRepo: Doc<'repos'>
+    shouldUpdate: boolean
+}
+
 // This also handles checking whether the current download must be cancelled or
 // not for simplicity.
 export async function updateDownload(
-    cfg: { ctx: ActionCtx; savedRepo: Doc<'repos'> },
+    cfg: UpdateDownloadCfg,
     status: Doc<'repos'>['download']['status'],
     message: string,
 ) {
+    if (!cfg.shouldUpdate) return ok()
+
     let updated = await cfg.ctx.runMutation(api.models.repos.updateDownloadIfNotCancelled, {
         ...SECRET,
         repoId: cfg.savedRepo._id,
