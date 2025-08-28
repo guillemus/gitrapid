@@ -8,6 +8,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { api } from '@convex/_generated/api'
+import type { Doc } from '@convex/_generated/dataModel'
 import {
     AlertCircle,
     CheckCircle,
@@ -18,12 +20,9 @@ import {
     Plus,
     Search,
 } from 'lucide-react'
-import { useState } from 'react'
 import { Link } from 'react-router'
-import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
-import { api } from '@convex/_generated/api'
-import type { Doc } from '@convex/_generated/dataModel'
 import { proxy, useSnapshot } from 'valtio'
+import { formatRelativeTime, usePageQuery } from '../utils'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',

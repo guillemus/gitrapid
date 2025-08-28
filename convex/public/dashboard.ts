@@ -74,6 +74,8 @@ export const addRepo = action({
     async handler(ctx, args): R<null, AddRepoError> {
         let userId = await getUserId(ctx)
 
+        console.log('calling add repo')
+
         let token = await getTokenFromUserId(ctx, userId)
         if (token.isErr) return err({ type: 'error', err: token.err })
 
@@ -100,8 +102,6 @@ export const addRepo = action({
 
         logger.info('license is valid')
 
-        // does repo exist already
-
         let savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
             ...SECRET,
             owner,
@@ -120,9 +120,8 @@ export const addRepo = action({
             if (!doesRepoNeedSyncing(savedRepo)) {
                 return ok()
             }
-
-            // otherwise, we insert the repository
-            await ctx.runMutation(api.models.repos.insert, {
+        } else {
+            let repoId = await ctx.runMutation(api.models.repos.insert, {
                 ...SECRET,
                 owner,
                 repo,
@@ -134,6 +133,12 @@ export const addRepo = action({
                 download: {
                     status: 'initial',
                 },
+            })
+
+            await ctx.runMutation(api.models.userRepos.getOrCreate, {
+                ...SECRET,
+                repoId,
+                userId,
             })
         }
 

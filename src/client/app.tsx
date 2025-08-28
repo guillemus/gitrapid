@@ -9,7 +9,6 @@ import { Header, type HeaderProps } from '@/client/header'
 import { DashboardPage } from '@/client/pages/dashboardPage'
 import { IssuesPage } from '@/client/pages/issuesPage'
 import { LoginPage } from '@/client/pages/loginPage'
-import { RepoPage } from '@/client/pages/repoPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {

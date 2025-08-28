@@ -10,7 +10,7 @@
     "lint": "eslint ./convex",
     "truncate": "bun run scripts/cmd/truncate.ts",
     "astro:dev": "astro dev --port 3000",
-    "format": "prettier ./src ./convex --write",
+    "format": "prettier ./src ./convex --write --config .prettierrc-org-imports",
     "preview": "astro preview --port 3000",
     "astro": "astro"
   },

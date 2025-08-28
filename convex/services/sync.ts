@@ -3,7 +3,7 @@ import type { Id } from '@convex/_generated/dataModel'
 import { type ActionCtx } from '@convex/_generated/server'
 import { canRepoBeSynced } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger, octoCatch, protectedAction, SECRET } from '@convex/utils'
+import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
 import {

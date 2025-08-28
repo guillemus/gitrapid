@@ -24,23 +24,23 @@ export function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
             <div className="w-full max-w-md">
-                <div className="text-center mb-8">
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                        <div className="p-2 bg-black rounded-lg">
+                <div className="mb-8 text-center">
+                    <div className="mb-4 flex items-center justify-center gap-2">
+                        <div className="rounded-lg bg-black p-2">
                             <Zap className="h-6 w-6 text-white" />
                         </div>
                         <h1 className="text-3xl font-bold text-slate-900">gitrapid</h1>
                     </div>
-                    <p className="text-slate-600 text-lg">The fastest GitHub client</p>
-                    <p className="text-slate-500 text-sm mt-1">
+                    <p className="text-lg text-slate-600">The fastest GitHub client</p>
+                    <p className="mt-1 text-sm text-slate-500">
                         Speed up your development workflow
                     </p>
                 </div>
 
-                <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                    <CardHeader className="text-center pb-4">
+                <Card className="border-0 bg-white/80 shadow-lg backdrop-blur-sm">
+                    <CardHeader className="pb-4 text-center">
                         <CardTitle className="text-xl text-slate-900">Welcome back</CardTitle>
                         <CardDescription className="text-slate-600">
                             Sign in to your account to continue
@@ -57,7 +57,7 @@ export function LoginPage() {
                         <Button
                             onClick={handleGitHubLogin}
                             disabled={isLoading}
-                            className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-medium transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                            className="h-12 w-full transform bg-slate-900 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 active:scale-[0.98]"
                             size="lg"
                         >
                             {isLoading ? (
@@ -73,7 +73,7 @@ export function LoginPage() {
                             )}
                         </Button>
 
-                        <div className="text-center pt-4">
+                        <div className="pt-4 text-center">
                             <p className="text-xs text-slate-500">
                                 By signing in, you agree to our terms of service and privacy policy
                             </p>

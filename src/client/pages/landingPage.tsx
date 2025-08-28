@@ -23,15 +23,15 @@ export function LandingPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="bg-background flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-3xl text-center">
-                <div className="flex items-center justify-center gap-2 mb-4">
-                    <div className="p-2 bg-foreground rounded-lg">
-                        <Zap className="h-6 w-6 text-background" />
+                <div className="mb-4 flex items-center justify-center gap-2">
+                    <div className="bg-foreground rounded-lg p-2">
+                        <Zap className="text-background h-6 w-6" />
                     </div>
                     <h1 className="text-3xl font-bold">gitrapid</h1>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+                <h2 className="text-4xl font-bold tracking-tight md:text-5xl">
                     Feels like home. Only faster.
                 </h2>
                 <p className="text-muted-foreground mt-4">
@@ -55,15 +55,15 @@ export function LandingPage() {
 
                 <Separator className="my-8" />
 
-                <Card className="border bg-card mx-auto">
+                <Card className="bg-card mx-auto border">
                     <CardContent className="py-6">
                         <div className="grid gap-4">
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-muted-foreground text-sm">
                                 Open any public repo by owner/repo
                             </div>
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                                     <Input
                                         placeholder="owner/repo"
                                         className="pl-9"
@@ -83,7 +83,7 @@ export function LandingPage() {
                                 </Button>
                             </div>
 
-                            <div className="text-sm text-muted-foreground mt-2">Or try one:</div>
+                            <div className="text-muted-foreground mt-2 text-sm">Or try one:</div>
                             <div className="flex flex-wrap items-center justify-center gap-2">
                                 <Button asChild variant="secondary">
                                     <a href="/facebook/react">facebook/react</a>
@@ -96,7 +96,7 @@ export function LandingPage() {
                                 </Button>
                             </div>
 
-                            <div className="text-xs text-muted-foreground mt-4">
+                            <div className="text-muted-foreground mt-4 text-xs">
                                 Public demos are read‑only. Private repos stay private when you
                                 connect.
                             </div>

@@ -2,9 +2,9 @@ import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
+import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
-import { formatDistanceToNow } from 'date-fns'
 
 import { useConvexHttp } from './convex'
 

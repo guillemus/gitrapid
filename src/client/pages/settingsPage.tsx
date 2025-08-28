@@ -148,7 +148,7 @@ function CreateTokenCard() {
             <CardContent className="space-y-6">
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sm">Select scopes</h3>
+                        <h3 className="text-sm font-medium">Select scopes</h3>
                         <Button
                             asChild
                             variant="ghost"
@@ -160,7 +160,7 @@ function CreateTokenCard() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                <Info className="h-3 w-3 mr-1" />
+                                <Info className="mr-1 h-3 w-3" />
                                 Learn more about scopes
                             </a>
                         </Button>
@@ -168,7 +168,7 @@ function CreateTokenCard() {
                     {SCOPE_OPTIONS.map((option) => (
                         <div
                             key={option.scope}
-                            className="flex items-start space-x-3 p-3 border rounded-lg"
+                            className="flex items-start space-x-3 rounded-lg border p-3"
                         >
                             <Checkbox
                                 id={option.scope}
@@ -182,15 +182,15 @@ function CreateTokenCard() {
                                 <div className="flex items-center justify-between">
                                     <label
                                         htmlFor={option.scope}
-                                        className="text-sm font-medium cursor-pointer"
+                                        className="cursor-pointer text-sm font-medium"
                                     >
                                         {option.label}
                                     </label>
-                                    <Badge variant="outline" className="text-xs font-mono">
+                                    <Badge variant="outline" className="font-mono text-xs">
                                         {option.scope}
                                     </Badge>
                                 </div>
-                                <p className="text-xs text-gray-600 leading-relaxed">
+                                <p className="text-xs leading-relaxed text-gray-600">
                                     {option.description}
                                 </p>
                             </div>
@@ -203,14 +203,14 @@ function CreateTokenCard() {
                 <div className="space-y-3">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">GitHub URL Preview</label>
-                        <div className="p-3 bg-gray-50 rounded-lg border">
-                            <div className="flex items-center space-x-2 text-sm font-mono text-gray-700 break-all">
+                        <div className="rounded-lg border bg-gray-50 p-3">
+                            <div className="flex items-center space-x-2 font-mono text-sm break-all text-gray-700">
                                 <span>{generateGitHubUrl()}</span>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={copyUrlToClipboard}
-                                    className="h-6 w-6 p-0 flex-shrink-0"
+                                    className="h-6 w-6 flex-shrink-0 p-0"
                                 >
                                     {state.copyFeedback ? (
                                         <CheckCircle className="h-3 w-3 text-green-600" />
@@ -224,13 +224,13 @@ function CreateTokenCard() {
 
                     <Button asChild disabled={state.selectedScopes.length === 0} className="w-full">
                         <a href={generateGitHubUrl()} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4 mr-2" />
+                            <ExternalLink className="mr-2 h-4 w-4" />
                             Generate Token on GitHub
                         </a>
                     </Button>
                 </div>
 
-                <div className="text-xs text-gray-500 pt-2 border-t">
+                <div className="border-t pt-2 text-xs text-gray-500">
                     <p>
                         After creating your token on GitHub, copy it and paste it in the field
                         above.
@@ -280,9 +280,9 @@ export function SettingsPage() {
 
     if (page === 'PAT_NOT_SET') {
         return (
-            <div className="max-w-2xl mx-auto px-4">
-                <div className="text-center mb-8">
-                    <div className="flex items-center justify-center mb-4">
+            <div className="mx-auto max-w-2xl px-4">
+                <div className="mb-8 text-center">
+                    <div className="mb-4 flex items-center justify-center">
                         <h1 className="text-2xl font-semibold text-gray-900">Add GitHub Token</h1>
                     </div>
                     <p className="text-gray-600">
@@ -298,10 +298,10 @@ export function SettingsPage() {
 
     // Has Token State (Token Active) - unchanged
     return (
-        <div className="max-w-2xl mx-auto px-4">
-            <div className="text-center mb-8">
-                <div className="flex items-center justify-center mb-4">
-                    <CheckCircle className="h-8 w-8 text-green-600 mr-2" />
+        <div className="mx-auto max-w-2xl px-4">
+            <div className="mb-8 text-center">
+                <div className="mb-4 flex items-center justify-center">
+                    <CheckCircle className="mr-2 h-8 w-8 text-green-600" />
                     <h1 className="text-2xl font-semibold text-gray-900">GitHub Token Active</h1>
                 </div>
                 <p className="text-gray-600">Your GitHub token is successfully configured</p>
@@ -344,8 +344,8 @@ function PasteTokenCard(props: { handleSaveToken: () => void }) {
                         className="font-mono"
                     />
                     {state.errorMessage && (
-                        <div className="flex items-center space-x-2 mt-2">
-                            <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                        <div className="mt-2 flex items-center space-x-2">
+                            <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
                             <span className="text-sm text-red-600">{state.errorMessage}</span>
                         </div>
                     )}
@@ -392,7 +392,7 @@ function TokenAlreadyConfiguredCard(props: {
                         value="Don't worry, your token is safe on the server. This input just lets you know it's saved."
                         readOnly
                         disabled
-                        className="font-mono bg-gray-100 cursor-not-allowed"
+                        className="cursor-not-allowed bg-gray-100 font-mono"
                     />
                 </div>
 
@@ -439,8 +439,8 @@ function TokenAlreadyConfiguredCard(props: {
                                 className="font-mono"
                             />
                             {state.errorMessage && (
-                                <div className="flex items-center space-x-2 mt-2">
-                                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                                <div className="mt-2 flex items-center space-x-2">
+                                    <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
                                     <span className="text-sm text-red-600">
                                         {state.errorMessage}
                                     </span>
