@@ -70,6 +70,12 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_and_number', ['repoId', 'number'])
     .index('by_github_id', ['githubId'])
     .index('by_repo_state_number', ['repoId', 'state', 'number'])
+    .index('by_repo_createdAt', ['repoId', 'createdAt'])
+    .index('by_repo_updatedAt', ['repoId', 'updatedAt'])
+    .index('by_repo_comments', ['repoId', 'comments'])
+    .index('by_repo_state_createdAt', ['repoId', 'state', 'createdAt'])
+    .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
+    .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
 export const issueBodiesSchema = {
     issueId: v.id('issues'),

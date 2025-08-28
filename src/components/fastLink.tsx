@@ -12,9 +12,7 @@ export function FastLink(props: {
         <Link
             to={props.to}
             onMouseOver={props.onMouseOver}
-            onMouseDown={() => {
-                navigate(props.to)
-            }}
+            onMouseDown={() => navigate(props.to)}
             className={props.className}
         >
             {props.children}

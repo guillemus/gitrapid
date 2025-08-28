@@ -12,25 +12,32 @@ export const list = query({
         repo: v.string(),
         search: v.optional(v.string()),
         state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
+        sortBy: v.optional(
+            v.union(
+                v.literal('createdAt'),
+                v.literal('updatedAt'),
+                v.literal('comments'),
+                v.literal('number'),
+            ),
+        ),
+        order: v.optional(v.union(v.literal('asc'), v.literal('desc'))),
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
 
         let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-        if (!savedRepo) {
-            return null
-        }
+        if (!savedRepo) return null
 
         let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
-        if (!hasRepo) {
-            return null
-        }
+        if (!hasRepo) return null
 
         let result = await Issues.paginate(ctx, {
             repoId: savedRepo._id,
             state: args.state ?? undefined,
             search: args.search ?? undefined,
+            sortBy: args.sortBy ?? undefined,
+            order: args.order ?? undefined,
             paginationOpts: args.paginationOpts,
         })
 

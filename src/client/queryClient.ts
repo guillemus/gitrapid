@@ -23,7 +23,7 @@ const idbPersister = {
     },
 }
 
-persistQueryClient({
+void persistQueryClient({
     queryClient: idbQueryClient,
     persister: idbPersister,
 })

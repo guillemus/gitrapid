@@ -2,23 +2,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { ArrowRight, Github, Search, Zap } from 'lucide-react'
+import { MarkGithubIcon as Github } from '@primer/octicons-react'
+import { ArrowRight, Search, Zap } from 'lucide-react'
 import { useState } from 'react'
 
 export function LandingPage() {
     let [ownerRepo, setOwnerRepo] = useState<string>('')
 
-    function isValidOwnerRepo(value: string): boolean {
-        let trimmed = value.trim()
-        let pattern = /^[^\/\s]+\/[^\/\s]+$/
-        return pattern.test(trimmed)
-    }
-
     function handleOpen(): void {
         let trimmed = ownerRepo.trim()
-        if (!isValidOwnerRepo(trimmed)) {
-            return
-        }
         window.location.href = `/${trimmed}`
     }
 
@@ -35,7 +27,7 @@ export function LandingPage() {
                     Feels like home. Only faster.
                 </h2>
                 <p className="text-muted-foreground mt-4">
-                    A familiar interface for your Git data with near‑instant navigation.
+                    A familiar interface for your Git data with near-instant navigation.
                 </p>
 
                 <div className="mt-6 flex items-center justify-center gap-3">
@@ -69,16 +61,9 @@ export function LandingPage() {
                                         className="pl-9"
                                         value={ownerRepo}
                                         onChange={(e) => setOwnerRepo(e.target.value)}
-                                        aria-invalid={
-                                            ownerRepo.length > 0 && !isValidOwnerRepo(ownerRepo)
-                                        }
                                     />
                                 </div>
-                                <Button
-                                    size="lg"
-                                    onClick={handleOpen}
-                                    disabled={!isValidOwnerRepo(ownerRepo)}
-                                >
+                                <Button size="lg" onClick={handleOpen}>
                                     Open
                                 </Button>
                             </div>
@@ -97,7 +82,7 @@ export function LandingPage() {
                             </div>
 
                             <div className="text-muted-foreground mt-4 text-xs">
-                                Public demos are read‑only. Private repos stay private when you
+                                Public demos are read-only. Private repos stay private when you
                                 connect.
                             </div>
                         </div>

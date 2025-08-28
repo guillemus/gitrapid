@@ -1,6 +1,6 @@
 import { ConvexAuthProvider, useAuthToken } from '@convex-dev/auth/react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 
@@ -66,7 +66,7 @@ export function App() {
         <ConvexAuthProvider client={convex}>
             <QueryClientProvider client={queryClient}>
                 <Router></Router>
-                <ReactQueryDevtools client={queryClient}></ReactQueryDevtools>
+                {/* <ReactQueryDevtools client={queryClient}></ReactQueryDevtools> */}
             </QueryClientProvider>
         </ConvexAuthProvider>
     )

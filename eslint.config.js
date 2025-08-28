@@ -48,8 +48,6 @@ export default defineConfig([
                     ignoreRestSiblings: true,
                 },
             ],
-            // Prevent void expressions (calling functions that return values but not using them)
-            'no-void': 'error',
         },
     },
 ])

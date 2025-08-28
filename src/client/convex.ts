@@ -35,6 +35,6 @@ export function useLogout() {
 
     return async () => {
         await authActions.signOut()
-        navigate('/login')
+        await navigate('/login')
     }
 }

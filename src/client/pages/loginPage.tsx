@@ -17,7 +17,7 @@ export function LoginPage() {
 
         try {
             await actions.signIn('github', { redirectTo: '/dash' })
-        } catch (err) {
+        } catch {
             setError('Failed to sign in with GitHub. Please try again.')
             setIsLoading(false)
         }

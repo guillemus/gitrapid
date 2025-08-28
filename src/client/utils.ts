@@ -1,11 +1,12 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
-import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router'
+import { proxy, useSnapshot } from 'valtio'
 
+import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useConvexHttp } from './convex'
 
 // These exists bc of naming conflict with convex. This way is much easier to autoimport without naming conflicts
@@ -27,7 +28,7 @@ export function usePageQuery<
         queryKey: ['convexHttpQuery', getFunctionName(query), args],
 
         queryFn: async () => {
-            // @ts-expect-error
+            // @ts-expect-error: disable for simplicity
             let res = await convexHttp!.query(query, args)
 
             didFirstLoad.value = true
@@ -122,6 +123,8 @@ export function useDebounce<T>(value: T, delay: number): T {
         return () => {
             clearTimeout(handler)
         }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value, delay])
 
     return state.debouncedValue
@@ -141,12 +144,12 @@ export function useClickOutside(onclickOutside: () => void) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     return containerRef
 }
-
-import { proxy, useSnapshot } from 'valtio'
 
 export function useMutable<T extends object>(initial: T): T {
     const p = useRef(proxy(initial)).current
@@ -191,7 +194,7 @@ export function useGithubParams(): GithubParams {
 export function formatRelativeTime(date: string | number | Date): string {
     try {
         return formatDistanceToNow(new Date(date), { addSuffix: true })
-    } catch (error) {
+    } catch {
         // Fallback to locale date string if parsing fails
         return new Date(date).toLocaleDateString()
     }

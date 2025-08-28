@@ -1,8 +1,7 @@
 import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
-import { useLocation, useParams } from 'react-router'
-import { useLogout } from './convex'
+import { useParams } from 'react-router'
 
 export type HeaderProps = {
     tab: 'issues' | 'none'
@@ -10,9 +9,6 @@ export type HeaderProps = {
 
 export function Header({ tab }: HeaderProps) {
     let { owner, repo } = useParams()
-
-    const logout = useLogout()
-    let path = useLocation().pathname
 
     return (
         <div className="bg-background border-b">

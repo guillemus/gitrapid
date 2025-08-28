@@ -26,6 +26,7 @@ export const Issues = {
             repoId: Id<'repos'>
             state?: 'open' | 'closed'
             search?: string
+            sortBy?: 'createdAt' | 'updatedAt' | 'comments'
             paginationOpts: {
                 numItems: number
                 cursor: string | null
@@ -45,18 +46,78 @@ export const Issues = {
             return q.paginate(args.paginationOpts)
         }
 
-        // No search term; use compound index by repo, state, number if state provided
+        let sortBy = args.sortBy ?? 'createdAt'
+
+        // No search term; choose index based on sort and whether state filter is present
         if (args.state) {
+            let issueState = args.state
+
+            if (sortBy === 'createdAt') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_state_createdAt', (q) =>
+                        q.eq('repoId', args.repoId).eq('state', issueState),
+                    )
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            if (sortBy === 'updatedAt') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_state_updatedAt', (q) =>
+                        q.eq('repoId', args.repoId).eq('state', issueState),
+                    )
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            if (sortBy === 'comments') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_state_comments', (q) =>
+                        q.eq('repoId', args.repoId).eq('state', issueState),
+                    )
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            // default to number order when explicitly requested or fallback
             return ctx.db
                 .query('issues')
                 .withIndex('by_repo_state_number', (q) =>
-                    q.eq('repoId', args.repoId).eq('state', args.state as 'open' | 'closed'),
+                    q.eq('repoId', args.repoId).eq('state', issueState),
                 )
                 .order('desc')
                 .paginate(args.paginationOpts)
         }
 
-        // Fallback: paginate by repo only
+        // No state filter
+        if (sortBy === 'createdAt') {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_createdAt', (q) => q.eq('repoId', args.repoId))
+                .order('desc')
+                .paginate(args.paginationOpts)
+        }
+
+        if (sortBy === 'updatedAt') {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_updatedAt', (q) => q.eq('repoId', args.repoId))
+                .order('desc')
+                .paginate(args.paginationOpts)
+        }
+
+        if (sortBy === 'comments') {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_comments', (q) => q.eq('repoId', args.repoId))
+                .order('desc')
+                .paginate(args.paginationOpts)
+        }
+
+        // default to number
         return ctx.db
             .query('issues')
             .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))

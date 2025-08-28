@@ -34,31 +34,33 @@ const labelColors: Record<string, string> = {
     typescript: 'bg-indigo-100 text-indigo-800 border-indigo-200',
 }
 
-const pagination = proxy({
+const state = proxy({
     cursors: [null as string | null],
     index: 0,
     pageSize: 15,
-})
-
-const filters = proxy({
-    search: '',
-    state: undefined as 'open' | 'closed' | undefined,
+    filters: {
+        search: '',
+        state: 'open' as 'open' | 'closed',
+        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments' | 'number',
+        order: 'desc' as 'asc' | 'desc',
+    },
 })
 
 export function IssuesPage() {
-    useSnapshot(pagination)
-    let f = useSnapshot(filters)
+    useSnapshot(state)
 
-    let debouncedSearch = useDebounce(f.search, 300)
+    let debouncedSearch = useDebounce(state.filters.search, 300)
 
     let res = usePageQuery(api.public.issues.list, {
         owner: 'sst',
         repo: 'opencode',
         search: debouncedSearch ? debouncedSearch : undefined,
-        state: f.state,
+        state: state.filters.state,
+        sortBy: state.filters.sortBy,
+        order: state.filters.order,
         paginationOpts: {
-            numItems: pagination.pageSize,
-            cursor: pagination.cursors[pagination.index] ?? null,
+            numItems: state.pageSize,
+            cursor: state.cursors[state.index] ?? null,
         },
     })
 
@@ -74,11 +76,11 @@ export function IssuesPage() {
                         <Input
                             placeholder="Search issues"
                             className="pl-10 font-normal"
-                            value={f.search}
+                            value={state.filters.search}
                             onChange={(e) => {
-                                filters.search = e.target.value
-                                pagination.cursors = [null]
-                                pagination.index = 0
+                                state.filters.search = e.target.value
+                                state.cursors = [null]
+                                state.index = 0
                             }}
                         />
                     </div>
@@ -96,19 +98,6 @@ export function IssuesPage() {
                             <DropdownMenuItem>good first issue</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-2 bg-transparent">
-                                Milestones
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>v1.0.0</DropdownMenuItem>
-                            <DropdownMenuItem>v1.1.0</DropdownMenuItem>
-                            <DropdownMenuItem>v2.0.0</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
                 <Button className="gap-2">
                     <Plus className="h-4 w-4" />
@@ -122,11 +111,11 @@ export function IssuesPage() {
                     <Button
                         size="sm"
                         className="gap-2"
-                        variant={f.state === 'open' ? 'secondary' : 'outline'}
+                        variant={state.filters.state === 'open' ? 'default' : 'outline'}
                         onClick={() => {
-                            filters.state = f.state === 'open' ? undefined : 'open'
-                            pagination.cursors = [null]
-                            pagination.index = 0
+                            state.filters.state = state.filters.state === 'open' ? 'closed' : 'open'
+                            state.cursors = [null]
+                            state.index = 0
                         }}
                     >
                         <AlertCircle className="h-4 w-4" />
@@ -135,11 +124,12 @@ export function IssuesPage() {
                     <Button
                         size="sm"
                         className="gap-2"
-                        variant={f.state === 'closed' ? 'secondary' : 'outline'}
+                        variant={state.filters.state === 'closed' ? 'default' : 'outline'}
                         onClick={() => {
-                            filters.state = f.state === 'closed' ? undefined : 'closed'
-                            pagination.cursors = [null]
-                            pagination.index = 0
+                            state.filters.state =
+                                state.filters.state === 'closed' ? 'open' : 'closed'
+                            state.cursors = [null]
+                            state.index = 0
                         }}
                     >
                         <CheckCircle className="h-4 w-4" />
@@ -199,15 +189,49 @@ export function IssuesPage() {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                                Newest
+                                {(() => {
+                                    if (state.filters.sortBy === 'createdAt') {
+                                        return 'Newest'
+                                    }
+                                    if (state.filters.sortBy === 'updatedAt') {
+                                        return 'Last updated'
+                                    }
+                                    return 'Total comments'
+                                })()}
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                            <DropdownMenuItem>Newest</DropdownMenuItem>
-                            <DropdownMenuItem>Oldest</DropdownMenuItem>
-                            <DropdownMenuItem>Most commented</DropdownMenuItem>
-                            <DropdownMenuItem>Least commented</DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    state.filters.sortBy = 'createdAt'
+                                    state.filters.order = 'desc'
+                                    state.cursors = [null]
+                                    state.index = 0
+                                }}
+                            >
+                                Newest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    state.filters.sortBy = 'updatedAt'
+                                    state.filters.order = 'asc'
+                                    state.cursors = [null]
+                                    state.index = 0
+                                }}
+                            >
+                                Last updated
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    state.filters.sortBy = 'comments'
+                                    state.filters.order = 'desc'
+                                    state.cursors = [null]
+                                    state.index = 0
+                                }}
+                            >
+                                Total comments
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -290,16 +314,17 @@ function IssueItem({ issue }: { issue: Doc<'issues'> }) {
 }
 
 function PaginationControls() {
-    let f = useSnapshot(filters)
-    let debouncedSearch = useDebounce(f.search, 300)
+    let debouncedSearch = useDebounce(state.filters.search, 300)
     let res = usePageQuery(api.public.issues.list, {
         owner: 'sst',
         repo: 'opencode',
         search: debouncedSearch ? debouncedSearch : undefined,
-        state: f.state,
+        state: state.filters.state,
+        sortBy: state.filters.sortBy,
+        order: state.filters.order,
         paginationOpts: {
-            numItems: pagination.pageSize,
-            cursor: pagination.cursors[pagination.index] ?? null,
+            numItems: state.pageSize,
+            cursor: state.cursors[state.index] ?? null,
         },
     })
 
@@ -310,11 +335,11 @@ function PaginationControls() {
                 size="sm"
                 className="gap-1 bg-transparent"
                 onClick={() => {
-                    if (pagination.index > 0) {
-                        pagination.index = pagination.index - 1
+                    if (state.index > 0) {
+                        state.index = state.index - 1
                     }
                 }}
-                disabled={pagination.index === 0}
+                disabled={state.index === 0}
             >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -326,10 +351,10 @@ function PaginationControls() {
                 onClick={() => {
                     if (!res?.isDone && res?.continueCursor) {
                         let next = res.continueCursor
-                        let nextStack = pagination.cursors.slice(0, pagination.index + 1)
+                        let nextStack = state.cursors.slice(0, state.index + 1)
                         nextStack.push(next)
-                        pagination.cursors = nextStack
-                        pagination.index = pagination.index + 1
+                        state.cursors = nextStack
+                        state.index = state.index + 1
                     }
                 }}
                 disabled={!!res?.isDone}
