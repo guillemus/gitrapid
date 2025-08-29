@@ -99,7 +99,7 @@ export function IssuesPage() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
     let params = useGithubParams()
-    let res = usePageQuery(api.public.issues.list, {
+    let issueList = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
@@ -123,13 +123,17 @@ export function IssuesPage() {
     }
 
     // When searching, also query by comment bodies via websocket-only and merge results
-    let commentsQuery = useTanstackQuery(
+    let commentBodySearchQuery = useTanstackQuery(
         convexQuery(api.public.issues.searchByComments, debouncedSearch ? commentsParams : 'skip'),
     )
-    let commentsRes = commentsQuery.data ?? null
 
-    let issues = mergeIssues(res, commentsRes, state.filters.sortBy, state.pageSize)
-    let repo = res?.repo
+    let issues = mergeIssues(
+        issueList,
+        commentBodySearchQuery.data ?? null,
+        state.filters.sortBy,
+        state.pageSize,
+    )
+    let repo = issueList?.repo
 
     return (
         <div className="space-y-4">
