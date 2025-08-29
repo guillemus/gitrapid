@@ -189,16 +189,14 @@ function Repository(props: { repo: Doc<'repos'> }) {
                         </Badge>
                     )}
                 </div>
-                {download && (
+                {download && download.status !== 'success' && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                        {download.status !== 'success' && (
-                            <Badge
-                                variant={download.status === 'error' ? 'destructive' : 'secondary'}
-                                className="rounded-full px-2 py-1 text-xs"
-                            >
-                                {download.status}
-                            </Badge>
-                        )}
+                        <Badge
+                            variant={download.status === 'error' ? 'destructive' : 'secondary'}
+                            className="rounded-full px-2 py-1 text-xs"
+                        >
+                            {download.status}
+                        </Badge>
                         {download.message && (
                             <div className="mt-1 text-xs text-gray-500">{download.message}</div>
                         )}

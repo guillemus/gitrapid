@@ -28,9 +28,9 @@ export const list = query({
 
         let result = await Issues.paginate(ctx, {
             repoId: savedRepo._id,
-            state: args.state ?? undefined,
-            search: args.search ?? undefined,
-            sortBy: args.sortBy ?? undefined,
+            state: args.state,
+            search: args.search,
+            sortBy: args.sortBy,
             paginationOpts: args.paginationOpts,
         })
 

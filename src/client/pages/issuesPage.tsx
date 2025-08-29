@@ -8,8 +8,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
-import type { Doc } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
     CheckCircle,
@@ -29,8 +31,6 @@ import {
     usePageQuery,
     useTanstackQuery,
 } from '../utils'
-import { convexQuery } from '@convex-dev/react-query'
-import type { Id } from '@convex/_generated/dataModel'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -42,24 +42,30 @@ const labelColors: Record<string, string> = {
     typescript: 'bg-indigo-100 text-indigo-800 border-indigo-200',
 }
 
-const state = proxy({
-    cursors: [null as string | null],
+type IssuesPageState = {
+    cursors: Array<string | null>
+    index: number
+    pageSize: number
+    filters: {
+        search: string
+        state: 'open' | 'closed'
+        sortBy: 'createdAt' | 'updatedAt' | 'comments'
+    }
+}
+
+const state = proxy<IssuesPageState>({
+    cursors: [null],
     index: 0,
-    pageSize: 15,
+    pageSize: 20,
     filters: {
         search: '',
-        state: 'open' as 'open' | 'closed',
-        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments',
+        state: 'open',
+        sortBy: 'createdAt',
     },
 })
 
-type PaginatedIssues = {
-    page: Doc<'issues'>[]
-    continueCursor: string | undefined
-    isDone: boolean
-}
-type IssuesListResult = PaginatedIssues & { repo: Doc<'repos'> }
-type CommentsSearchResult = PaginatedIssues
+type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
+type CommentsSearchResult = FunctionReturnType<typeof api.public.issues.searchByComments>
 
 function mergeIssues(
     titleRes: IssuesListResult | null | undefined,
@@ -69,10 +75,13 @@ function mergeIssues(
 ): Doc<'issues'>[] {
     let titleIssues = titleRes?.page ?? []
     if (!commentsRes) return titleIssues
+
     let commentIssues = commentsRes.page ?? []
+
     let byId = new Map<Id<'issues'>, Doc<'issues'>>()
     for (let it of titleIssues) byId.set(it._id, it)
     for (let it of commentIssues) byId.set(it._id, it)
+
     let merged = Array.from(byId.values())
     if (sortBy === 'createdAt') {
         merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -90,7 +99,7 @@ export function IssuesPage() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
     let params = useGithubParams()
-    let res = usePageQuery(api.public.issues.list, {
+    let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
@@ -102,35 +111,30 @@ export function IssuesPage() {
         },
     })
 
+    let commentsParams = {
+        owner: params.owner,
+        repo: params.repo,
+        search: debouncedSearch,
+        state: state.filters.state,
+        paginationOpts: {
+            numItems: state.pageSize,
+            cursor: state.cursors[state.index] ?? null,
+        },
+    }
+
     // When searching, also query by comment bodies via websocket-only and merge results
     let commentsQuery = useTanstackQuery(
-        convexQuery(
-            api.public.issues.searchByComments,
-            debouncedSearch
-                ? {
-                      owner: params.owner,
-                      repo: params.repo,
-                      search: debouncedSearch,
-                      state: state.filters.state,
-                      paginationOpts: {
-                          numItems: state.pageSize,
-                          cursor: state.cursors[state.index] ?? null,
-                      },
-                  }
-                : ('skip' as const),
-        ),
+        convexQuery(api.public.issues.searchByComments, debouncedSearch ? commentsParams : 'skip'),
     )
-    let commentsRes = commentsQuery.data as CommentsSearchResult | null | undefined
+    let commentsRes: CommentsSearchResult | undefined = commentsQuery.data
 
-    let issues = debouncedSearch
-        ? mergeIssues(
-              res as IssuesListResult | null | undefined,
-              commentsRes,
-              state.filters.sortBy,
-              state.pageSize,
-          )
-        : ((res as IssuesListResult | null | undefined)?.page ?? [])
-    let repo = res?.repo as Doc<'repos'> | undefined
+    let issues = mergeIssues(
+        res,
+        debouncedSearch ? (commentsRes ?? null) : null,
+        state.filters.sortBy,
+        state.pageSize,
+    )
+    let repo = res?.repo
 
     return (
         <div className="space-y-4">
@@ -273,7 +277,7 @@ function PaginationControls() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
     let params = useGithubParams()
-    let res = usePageQuery(api.public.issues.list, {
+    let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
@@ -306,8 +310,8 @@ function PaginationControls() {
                 size="sm"
                 className="gap-1 bg-transparent"
                 onClick={() => {
-                    let canPage = (res as IssuesListResult | null | undefined)?.isDone === false
-                    let next = (res as IssuesListResult | null | undefined)?.continueCursor
+                    let canPage = res?.isDone === false
+                    let next = res?.continueCursor
                     if (canPage && next) {
                         let nextStack = state.cursors.slice(0, state.index + 1)
                         nextStack.push(next)
@@ -315,7 +319,7 @@ function PaginationControls() {
                         state.index = state.index + 1
                     }
                 }}
-                disabled={(res as IssuesListResult | null | undefined)?.isDone ?? true}
+                disabled={res?.isDone ?? true}
             >
                 Next
                 <ChevronRight className="h-4 w-4" />

@@ -65,10 +65,18 @@ export async function downloadIssues(cfg: UpdateCfg): R {
         }
 
         if (cfg.isBackfill) {
-            let res = await updateDownload(cfg, 'backfilling', 'Processed issues page')
+            let res = await updateDownload(
+                cfg,
+                'backfilling',
+                `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
+            )
             if (res.isErr) return res
         } else {
-            let res = await updateDownload(cfg, 'syncing', 'Processed issues page')
+            let res = await updateDownload(
+                cfg,
+                'syncing',
+                `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
+            )
             if (res.isErr) return res
         }
 
