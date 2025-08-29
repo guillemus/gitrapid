@@ -69,7 +69,7 @@ type CommentsSearchResult = FunctionReturnType<typeof api.public.issues.searchBy
 
 function mergeIssues(
     titleRes: IssuesListResult | null | undefined,
-    commentsRes: CommentsSearchResult | null | undefined,
+    commentsRes: CommentsSearchResult | null,
     sortBy: 'createdAt' | 'updatedAt' | 'comments',
     pageSize: number,
 ): Doc<'issues'>[] {
@@ -99,7 +99,7 @@ export function IssuesPage() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
     let params = useGithubParams()
-    let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
+    let res = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
@@ -126,14 +126,9 @@ export function IssuesPage() {
     let commentsQuery = useTanstackQuery(
         convexQuery(api.public.issues.searchByComments, debouncedSearch ? commentsParams : 'skip'),
     )
-    let commentsRes: CommentsSearchResult | undefined = commentsQuery.data
+    let commentsRes = commentsQuery.data ?? null
 
-    let issues = mergeIssues(
-        res,
-        debouncedSearch ? (commentsRes ?? null) : null,
-        state.filters.sortBy,
-        state.pageSize,
-    )
+    let issues = mergeIssues(res, commentsRes, state.filters.sortBy, state.pageSize)
     let repo = res?.repo
 
     return (
@@ -215,7 +210,6 @@ export function IssuesPage() {
                 </CardContent>
             </Card>
 
-            {/* Pagination Controls */}
             <PaginationControls />
         </div>
     )
