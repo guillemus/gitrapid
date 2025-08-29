@@ -76,3 +76,44 @@ export const getWithComments = query({
         }
     },
 })
+
+export const searchByComments = query({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        search: v.string(),
+        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
+        paginationOpts: paginationOptsValidator,
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+
+        let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+        if (!savedRepo) return null
+
+        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
+        if (!hasRepo) return null
+
+        // Search comments by body and map to issues
+        let commentsRes = await ctx.db
+            .query('issueComments')
+            .withSearchIndex('search_issue_comments', (s) =>
+                s.search('body', args.search).eq('repoId', savedRepo._id),
+            )
+            .paginate(args.paginationOpts)
+
+        // Deduplicate issueIds then fetch issues, filtering by state if provided
+        let ids = new Set(commentsRes.page.map((c) => c.issueId))
+        let page = [] as any[]
+        for (let id of ids) {
+            let issue = await ctx.db.get(id)
+            if (issue && (!args.state || issue.state === args.state)) page.push(issue)
+        }
+
+        return {
+            page,
+            continueCursor: commentsRes.continueCursor,
+            isDone: commentsRes.isDone,
+        }
+    },
+})

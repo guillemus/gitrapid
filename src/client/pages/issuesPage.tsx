@@ -22,7 +22,15 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
-import { formatRelativeTime, useDebounce, useGithubParams, usePageQuery } from '../utils'
+import {
+    formatRelativeTime,
+    useDebounce,
+    useGithubParams,
+    usePageQuery,
+    useTanstackQuery,
+} from '../utils'
+import { convexQuery } from '@convex-dev/react-query'
+import type { Id } from '@convex/_generated/dataModel'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -45,6 +53,37 @@ const state = proxy({
     },
 })
 
+type PaginatedIssues = {
+    page: Doc<'issues'>[]
+    continueCursor: string | undefined
+    isDone: boolean
+}
+type IssuesListResult = PaginatedIssues & { repo: Doc<'repos'> }
+type CommentsSearchResult = PaginatedIssues
+
+function mergeIssues(
+    titleRes: IssuesListResult | null | undefined,
+    commentsRes: CommentsSearchResult | null | undefined,
+    sortBy: 'createdAt' | 'updatedAt' | 'comments',
+    pageSize: number,
+): Doc<'issues'>[] {
+    let titleIssues = titleRes?.page ?? []
+    if (!commentsRes) return titleIssues
+    let commentIssues = commentsRes.page ?? []
+    let byId = new Map<Id<'issues'>, Doc<'issues'>>()
+    for (let it of titleIssues) byId.set(it._id, it)
+    for (let it of commentIssues) byId.set(it._id, it)
+    let merged = Array.from(byId.values())
+    if (sortBy === 'createdAt') {
+        merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    } else if (sortBy === 'updatedAt') {
+        merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    } else {
+        merged.sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0))
+    }
+    return merged.slice(0, pageSize)
+}
+
 export function IssuesPage() {
     useSnapshot(state)
 
@@ -63,7 +102,34 @@ export function IssuesPage() {
         },
     })
 
-    let issues = res?.page ?? []
+    // When searching, also query by comment bodies via websocket-only and merge results
+    let commentsQuery = useTanstackQuery(
+        convexQuery(
+            api.public.issues.searchByComments,
+            debouncedSearch
+                ? {
+                      owner: params.owner,
+                      repo: params.repo,
+                      search: debouncedSearch,
+                      state: state.filters.state,
+                      paginationOpts: {
+                          numItems: state.pageSize,
+                          cursor: state.cursors[state.index] ?? null,
+                      },
+                  }
+                : ('skip' as const),
+        ),
+    )
+    let commentsRes = commentsQuery.data as CommentsSearchResult | null | undefined
+
+    let issues = debouncedSearch
+        ? mergeIssues(
+              res as IssuesListResult | null | undefined,
+              commentsRes,
+              state.filters.sortBy,
+              state.pageSize,
+          )
+        : ((res as IssuesListResult | null | undefined)?.page ?? [])
     let repo = res?.repo as Doc<'repos'> | undefined
 
     return (
@@ -123,99 +189,7 @@ export function IssuesPage() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>johndoe</DropdownMenuItem>
-                            <DropdownMenuItem>janedoe</DropdownMenuItem>
-                            <DropdownMenuItem>contributor</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>bug</DropdownMenuItem>
-                            <DropdownMenuItem>enhancement</DropdownMenuItem>
-                            <DropdownMenuItem>documentation</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>Frontend Redesign</DropdownMenuItem>
-                            <DropdownMenuItem>API v2</DropdownMenuItem>
-                            <DropdownMenuItem>Documentation</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>v1.0.0</DropdownMenuItem>
-                            <DropdownMenuItem>v1.1.0</DropdownMenuItem>
-                            <DropdownMenuItem>v2.0.0</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>johndoe</DropdownMenuItem>
-                            <DropdownMenuItem>janedoe</DropdownMenuItem>
-                            <DropdownMenuItem>contributor</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>Bug</DropdownMenuItem>
-                            <DropdownMenuItem>Feature</DropdownMenuItem>
-                            <DropdownMenuItem>Documentation</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                                {(() => {
-                                    if (state.filters.sortBy === 'createdAt') {
-                                        return 'Newest'
-                                    }
-                                    if (state.filters.sortBy === 'updatedAt') {
-                                        return 'Last updated'
-                                    }
-                                    return 'Total comments'
-                                })()}
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    state.filters.sortBy = 'createdAt'
-                                    state.cursors = [null]
-                                    state.index = 0
-                                }}
-                            >
-                                Newest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    state.filters.sortBy = 'updatedAt'
-                                    state.cursors = [null]
-                                    state.index = 0
-                                }}
-                            >
-                                Last updated
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => {
-                                    state.filters.sortBy = 'comments'
-                                    state.cursors = [null]
-                                    state.index = 0
-                                }}
-                            >
-                                Total comments
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <SortByDropdown></SortByDropdown>
                 </div>
             </div>
 
@@ -332,19 +306,70 @@ function PaginationControls() {
                 size="sm"
                 className="gap-1 bg-transparent"
                 onClick={() => {
-                    if (!res?.isDone && res?.continueCursor) {
-                        let next = res.continueCursor
+                    let canPage = (res as IssuesListResult | null | undefined)?.isDone === false
+                    let next = (res as IssuesListResult | null | undefined)?.continueCursor
+                    if (canPage && next) {
                         let nextStack = state.cursors.slice(0, state.index + 1)
                         nextStack.push(next)
                         state.cursors = nextStack
                         state.index = state.index + 1
                     }
                 }}
-                disabled={!!res?.isDone}
+                disabled={(res as IssuesListResult | null | undefined)?.isDone ?? true}
             >
                 Next
                 <ChevronRight className="h-4 w-4" />
             </Button>
         </div>
+    )
+}
+
+function SortByDropdown() {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                    {(() => {
+                        if (state.filters.sortBy === 'createdAt') {
+                            return 'Newest'
+                        }
+                        if (state.filters.sortBy === 'updatedAt') {
+                            return 'Last updated'
+                        }
+                        return 'Total comments'
+                    })()}
+                    <ChevronDown className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem
+                    onClick={() => {
+                        state.filters.sortBy = 'createdAt'
+                        state.cursors = [null]
+                        state.index = 0
+                    }}
+                >
+                    Newest
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={() => {
+                        state.filters.sortBy = 'updatedAt'
+                        state.cursors = [null]
+                        state.index = 0
+                    }}
+                >
+                    Last updated
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={() => {
+                        state.filters.sortBy = 'comments'
+                        state.cursors = [null]
+                        state.index = 0
+                    }}
+                >
+                    Total comments
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
