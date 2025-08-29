@@ -106,7 +106,6 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
                         updatedAt: c.updatedAt,
                     })
                 }
-                await IssueComments.deleteByIssueId(ctx, issueDoc._id)
                 await IssueComments.insertMany(ctx, docs)
             }
         }
