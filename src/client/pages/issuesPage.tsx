@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
-import { formatRelativeTime, useDebounce, usePageQuery } from '../utils'
+import { formatRelativeTime, useDebounce, useGithubParams, usePageQuery } from '../utils'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -50,9 +50,10 @@ export function IssuesPage() {
 
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
+    let params = useGithubParams()
     let res = usePageQuery(api.public.issues.list, {
-        owner: 'sst',
-        repo: 'opencode',
+        owner: params.owner,
+        repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,
@@ -310,9 +311,11 @@ function IssueItem({ issue }: { issue: Doc<'issues'> }) {
 
 function PaginationControls() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
+
+    let params = useGithubParams()
     let res = usePageQuery(api.public.issues.list, {
-        owner: 'sst',
-        repo: 'opencode',
+        owner: params.owner,
+        repo: params.repo,
         search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,

@@ -29,7 +29,12 @@ export async function downloadIssues(cfg: UpdateCfg): R {
     let after: string | undefined = undefined
 
     while (true) {
-        let pageRes = await fetchIssuesPageGraphQL(octo, { owner, repo, after })
+        let pageRes = await fetchIssuesPageGraphQL(octo, {
+            owner,
+            repo,
+            after,
+            since: cfg.lastSyncedAt,
+        })
         if (pageRes.isErr) return wrap('failed to fetch issues page', pageRes)
 
         let page = pageRes.val
@@ -130,7 +135,6 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
 type UpdateDownloadCfg = {
     ctx: ActionCtx
     savedRepo: Doc<'repos'>
-    shouldUpdate: boolean
 }
 
 // This also handles checking whether the current download must be cancelled or
@@ -140,8 +144,6 @@ export async function updateDownload(
     status: Doc<'repos'>['download']['status'],
     message: string,
 ) {
-    if (!cfg.shouldUpdate) return ok()
-
     let updated = await cfg.ctx.runMutation(api.models.repos.updateDownloadIfNotCancelled, {
         ...SECRET,
         repoId: cfg.savedRepo._id,

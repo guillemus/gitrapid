@@ -59,12 +59,12 @@ type IssueCommentsGraphQLResponse = {
 
 export async function fetchIssuesPageGraphQL(
     octo: Octokit,
-    args: { owner: string; repo: string; after?: string },
+    args: { owner: string; repo: string; after?: string; since?: string },
 ): R<IssuesPage> {
     let query = `
-        query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String) {
+        query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
           repository(owner: $owner, name: $repo) {
-            issues(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}, states: [OPEN, CLOSED]) {
+            issues(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}, states: [OPEN, CLOSED], filterBy: { since: $since }) {
               pageInfo { hasNextPage endCursor }
               nodes {
                 databaseId
@@ -100,6 +100,7 @@ export async function fetchIssuesPageGraphQL(
             repo: args.repo,
             first: 100,
             after: args.after,
+            since: args.since ?? null,
         }),
     )
     if (res.isErr) return wrap('failed to fetch issues via GraphQL', res)

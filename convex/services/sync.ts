@@ -1,21 +1,12 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { type ActionCtx } from '@convex/_generated/server'
-import { canRepoBeSynced, doesRepoNeedSyncing } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import {
-    getTokenFromUserId,
-    getUserId,
-    logger,
-    octoCatch,
-    protectedAction,
-    SECRET,
-} from '@convex/utils'
+import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
-import { getRateLimit, newOctokit, parseGithubUrl, validatePublicLicense } from './github'
-import type { should } from 'vitest'
+import { getRateLimit, newOctokit } from './github'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -66,7 +57,6 @@ export async function runHandler(ctx: ActionCtx) {
             forceSync: false,
             patId: userToken._id,
             userId: userId,
-            shouldUpdate: true,
         })
 
         if (res.isErr) {
@@ -82,7 +72,6 @@ let runSingleArgs = v.object({
     owner: v.string(),
     repo: v.string(),
     forceSync: v.optional(v.boolean()),
-    shouldUpdate: v.optional(v.boolean()),
 })
 
 export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSingleArgs>) {
@@ -113,7 +102,6 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         patId: userToken._id,
         userId: args.userId,
         forceSync: args.forceSync ?? false,
-        shouldUpdate: args.shouldUpdate ?? true,
     })
     if (res.isErr) {
         throw new Error(`failed to sync repo ${args.repo} for user ${args.userId}: ${res.err}`)
@@ -129,7 +117,6 @@ type SetupSyncCfg = {
     userId: Id<'users'>
     repoId: Id<'repos'>
     patId: Id<'pats'>
-    shouldUpdate: boolean
 }
 
 type SyncCfg = SetupSyncCfg & UpdateCfg
