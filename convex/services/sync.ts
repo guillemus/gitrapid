@@ -54,6 +54,7 @@ export async function runHandler(ctx: ActionCtx) {
             ctx,
             octo,
             repoId,
+            backfill: false,
             forceSync: false,
             patId: userToken._id,
             userId: userId,
@@ -71,6 +72,7 @@ let runSingleArgs = v.object({
     userId: v.id('users'),
     owner: v.string(),
     repo: v.string(),
+    backfill: v.boolean(),
     forceSync: v.optional(v.boolean()),
 })
 
@@ -101,6 +103,7 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         repoId,
         patId: userToken._id,
         userId: args.userId,
+        backfill: args.backfill,
         forceSync: args.forceSync ?? false,
     })
     if (res.isErr) {
@@ -113,10 +116,11 @@ export const runSingle = protectedAction({ args: runSingleArgs, handler: runSing
 type SetupSyncCfg = {
     octo: Octokit
     ctx: ActionCtx
-    forceSync: boolean
     userId: Id<'users'>
     repoId: Id<'repos'>
     patId: Id<'pats'>
+    backfill: boolean
+    forceSync: boolean
 }
 
 type SyncCfg = SetupSyncCfg & UpdateCfg
@@ -135,7 +139,7 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         ...cfg,
         savedRepo,
         lastSyncedAt: savedRepo.download.lastSyncedAt,
-        isBackfill: false,
+        isBackfill: cfg.backfill,
     }
 
     let res = await updateDownload(syncCfg, 'syncing', 'syncing')

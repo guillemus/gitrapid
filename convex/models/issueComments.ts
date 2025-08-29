@@ -19,6 +19,7 @@ export const IssueComments = {
         let id = await ctx.db.insert('issueComments', doc)
         return await ctx.db.get(id)
     },
+
     async insertMany(ctx: MutationCtx, docs: models.UpsertDoc<'issueComments'>[]) {
         let ids: Id<'issueComments'>[] = []
         for (let doc of docs) {
@@ -40,6 +41,19 @@ export const IssueComments = {
         }
         let id = await ctx.db.insert('issueComments', args)
         return await ctx.db.get(id)
+    },
+
+    async deleteByIssueId(ctx: MutationCtx, issueId: Id<'issues'>) {
+        let comments = await ctx.db
+            .query('issueComments')
+            .withIndex('by_issue', (q) => q.eq('issueId', issueId))
+            .collect()
+        let deletedIds: Id<'issueComments'>[] = []
+        for (let comment of comments) {
+            await ctx.db.delete(comment._id)
+            deletedIds.push(comment._id)
+        }
+        return deletedIds
     },
 }
 

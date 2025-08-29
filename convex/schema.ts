@@ -102,11 +102,17 @@ export const issuesCommentsWithoutIssueIdSchema = {
 }
 
 export const issueCommentsSchema = {
+    repoId: v.id('repos'),
     issueId: v.id('issues'),
     ...issuesCommentsWithoutIssueIdSchema,
 }
 
-const issueComments = defineTable(issueCommentsSchema).index('by_issue', ['issueId'])
+const issueComments = defineTable(issueCommentsSchema)
+    .index('by_issue', ['issueId'])
+    .searchIndex('search_issue_comments', {
+        searchField: 'body',
+        filterFields: ['repoId'],
+    })
 
 export const scopesSchema = v.array(
     v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),

@@ -29,12 +29,12 @@ export async function downloadIssues(cfg: UpdateCfg): R {
     let after: string | undefined = undefined
 
     while (true) {
-        let pageRes = await fetchIssuesPageGraphQL(octo, {
-            owner,
-            repo,
-            after,
-            since: cfg.lastSyncedAt,
-        })
+        let since: string | undefined = undefined
+        if (!cfg.isBackfill) {
+            since = cfg.lastSyncedAt
+        }
+
+        let pageRes = await fetchIssuesPageGraphQL(octo, { owner, repo, after, since })
         if (pageRes.isErr) return wrap('failed to fetch issues page', pageRes)
 
         let page = pageRes.val

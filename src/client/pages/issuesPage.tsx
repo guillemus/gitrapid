@@ -83,20 +83,6 @@ export function IssuesPage() {
                             }}
                         />
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-2 bg-transparent">
-                                Labels
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>bug</DropdownMenuItem>
-                            <DropdownMenuItem>enhancement</DropdownMenuItem>
-                            <DropdownMenuItem>documentation</DropdownMenuItem>
-                            <DropdownMenuItem>good first issue</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
                 <Button className="gap-2">
                     <Plus className="h-4 w-4" />

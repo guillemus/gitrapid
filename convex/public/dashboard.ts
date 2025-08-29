@@ -1,6 +1,5 @@
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
-import { action, mutation, query, type ActionCtx } from '@convex/_generated/server'
+import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import {
@@ -137,6 +136,7 @@ export const addRepo = action({
             userId,
             owner,
             repo,
+            backfill: true,
         })
 
         return ok()

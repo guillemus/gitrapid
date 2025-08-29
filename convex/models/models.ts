@@ -98,6 +98,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
                 for (let c of item.comments) {
                     docs.push({
                         issueId: issueDoc._id,
+                        repoId: issueDoc.repoId,
                         githubId: c.githubId,
                         author: c.author,
                         body: c.body,
@@ -105,6 +106,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
                         updatedAt: c.updatedAt,
                     })
                 }
+                await IssueComments.deleteByIssueId(ctx, issueDoc._id)
                 await IssueComments.insertMany(ctx, docs)
             }
         }
