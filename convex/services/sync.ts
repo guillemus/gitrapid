@@ -1,19 +1,13 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import {
-    internalAction,
-    internalMutation,
-    internalQuery,
-    type ActionCtx,
-} from '@convex/_generated/server'
+import { internalMutation, type ActionCtx } from '@convex/_generated/server'
+import { Repos } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
 import { getRateLimit, newOctokit } from './github'
-import { getAuthUserId } from '@convex-dev/auth/server'
-import { Repos } from '@convex/models/repos'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -221,9 +215,7 @@ export async function setCurrentTokenRateLimitHandler(
 }
 
 export const setCurrentTokenRateLimit = protectedAction({
-    args: {
-        userId: v.id('users'),
-    },
+    args: setCurrentTokenRateLimitArgs,
     handler: setCurrentTokenRateLimitHandler,
 })
 

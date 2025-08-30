@@ -82,7 +82,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
     },
     handler: async (ctx, { items }) => {
         for (let item of items) {
-            let issueDoc = await IssuesUtils.getOrCreateIssue(ctx, item.issue)
+            let issueDoc = await IssuesUtils.upsertIssue(ctx, item.issue)
 
             if (!issueDoc) continue
 

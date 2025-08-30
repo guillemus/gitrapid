@@ -104,14 +104,14 @@ export const searchByComments = query({
 
         // Deduplicate issueIds then fetch issues, filtering by state if provided
         let ids = new Set(commentsRes.page.map((c) => c.issueId))
-        let page = [] as any[]
+        let page: Array<Awaited<ReturnType<typeof ctx.db.get>>> = []
         for (let id of ids) {
             let issue = await ctx.db.get(id)
             if (issue && (!args.state || issue.state === args.state)) page.push(issue)
         }
 
         return {
-            page,
+            page: page.filter((i): i is NonNullable<typeof i> => i !== null),
             continueCursor: commentsRes.continueCursor,
             isDone: commentsRes.isDone,
         }

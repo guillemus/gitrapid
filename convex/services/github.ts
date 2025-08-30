@@ -7,7 +7,8 @@ import { err, ok, tryCatch, wrap, type Result } from '../shared'
  * bitten by this many times, so use this wrapper whenever creating newOctokits.
  */
 export function newOctokit(token: string) {
-    return new Octokit({ auth: token })
+    let octo = new Octokit({ auth: token })
+    return octo
 }
 
 // Octokit dependency

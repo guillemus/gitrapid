@@ -1,5 +1,6 @@
 import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
+import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 import { useParams } from 'react-router'
 
@@ -23,19 +24,11 @@ export function Header({ tab }: HeaderProps) {
                         {owner && repo && (
                             <>
                                 <div className="flex items-center space-x-1">
-                                    <Link
-                                        to="#"
-                                        className="font-medium text-blue-600 hover:underline"
-                                    >
-                                        {owner}
-                                    </Link>
+                                    {owner}
+
                                     <span className="text-muted-foreground">/</span>
-                                    <Link
-                                        to="#"
-                                        className="font-bold text-blue-600 hover:underline"
-                                    >
-                                        {repo}
-                                    </Link>
+
+                                    {repo}
                                 </div>
                             </>
                         )}
@@ -60,6 +53,11 @@ export function Header({ tab }: HeaderProps) {
                                 label="Issues"
                                 active={tab === 'issues'}
                                 icon={GitPullRequest}
+                            />
+                            <Tab
+                                href={`https://github.com/${owner}/${repo}/issues`}
+                                label="GitHub Issues"
+                                icon={Github}
                             />
                         </>
                     )}

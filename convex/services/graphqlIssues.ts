@@ -64,7 +64,14 @@ export async function fetchIssuesPageGraphQL(
     let query = `
         query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
           repository(owner: $owner, name: $repo) {
-            issues(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}, states: [OPEN, CLOSED], filterBy: { since: $since }) {
+            issues(
+                first: $first, after: $after,
+                orderBy: {
+                    field: UPDATED_AT, direction: DESC
+                },
+                states: [OPEN, CLOSED],
+                filterBy: { since: $since }
+            ) {
               pageInfo { hasNextPage endCursor }
               nodes {
                 databaseId
