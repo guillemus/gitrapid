@@ -21,16 +21,11 @@ import {
     MessageCircle,
     Plus,
     Search,
+    X,
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
-import {
-    formatRelativeTime,
-    useDebounce,
-    useGithubParams,
-    usePageQuery,
-    useTanstackQuery,
-} from '../utils'
+import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -51,6 +46,9 @@ type IssuesPageState = {
         state: 'open' | 'closed'
         sortBy: 'createdAt' | 'updatedAt' | 'comments'
     }
+    ui: {
+        searchInput: string
+    }
 }
 
 const state = proxy<IssuesPageState>({
@@ -62,6 +60,9 @@ const state = proxy<IssuesPageState>({
         state: 'open',
         sortBy: 'createdAt',
     },
+    ui: {
+        searchInput: '',
+    },
 })
 
 type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
@@ -70,7 +71,7 @@ type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 export function IssuesPage() {
     useSnapshot(state)
 
-    let debouncedSearch = useDebounce(state.filters.search, 300)
+    let activeSearch = state.filters.search
 
     let params = useGithubParams()
     let issueList = usePageQuery(api.public.issues.list, {
@@ -88,16 +89,16 @@ export function IssuesPage() {
     let searchQuery = useTanstackQuery(
         convexQuery(
             api.public.issues.search,
-            debouncedSearch
-                ? { owner: params.owner, repo: params.repo, search: debouncedSearch }
+            activeSearch
+                ? { owner: params.owner, repo: params.repo, search: activeSearch }
                 : 'skip',
         ),
     )
 
     let repo = issueList?.repo
     let issues: Doc<'issues'>[] = []
-    let isSearchLoading = !!debouncedSearch && (searchQuery.isLoading || searchQuery.isFetching)
-    if (debouncedSearch) {
+    let isSearchLoading = !!activeSearch && (searchQuery.isLoading || searchQuery.isFetching)
+    if (activeSearch) {
         if (!isSearchLoading) {
             let all: Doc<'issues'>[] =
                 (searchQuery.data?.issues as Doc<'issues'>[] | undefined) ?? []
@@ -122,20 +123,48 @@ export function IssuesPage() {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-2.5">
-                <div className="flex flex-1 items-center space-x-2.5">
+                <div className="flex flex-1 items-center space-x-0">
                     <div className="relative flex-1">
-                        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
                         <Input
                             placeholder="Search issues"
-                            className="pl-10 font-normal"
-                            value={state.filters.search}
+                            className="rounded-r-none font-normal"
+                            value={state.ui.searchInput}
                             onChange={(e) => {
-                                state.filters.search = e.target.value
-                                state.cursors = [null]
-                                state.index = 0
+                                state.ui.searchInput = e.target.value
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    state.filters.search = state.ui.searchInput.trim()
+                                    state.cursors = [null]
+                                    state.index = 0
+                                }
                             }}
                         />
                     </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="-ml-px h-10 rounded-none"
+                        onClick={() => {
+                            state.ui.searchInput = ''
+                        }}
+                        disabled={state.ui.searchInput.length === 0}
+                        aria-label="Clear search"
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="default"
+                        size="sm"
+                        className="-ml-px h-10 gap-2 rounded-l-none"
+                        onClick={() => {
+                            state.filters.search = state.ui.searchInput.trim()
+                            state.cursors = [null]
+                            state.index = 0
+                        }}
+                    >
+                        <Search className="h-4 w-4" />
+                    </Button>
                 </div>
                 <Button className="gap-2">
                     <Plus className="h-4 w-4" />
@@ -159,7 +188,7 @@ export function IssuesPage() {
                         <AlertCircle className="h-4 w-4" />
                         {isSearchLoading
                             ? '... Open'
-                            : debouncedSearch
+                            : activeSearch
                               ? (() => {
                                     let meta = (searchQuery.data as SearchResult | undefined)?.meta
                                     let count = meta?.totalOpen ?? 0
@@ -184,7 +213,7 @@ export function IssuesPage() {
                         <CheckCircle className="h-4 w-4" />
                         {isSearchLoading
                             ? '... Closed'
-                            : debouncedSearch
+                            : activeSearch
                               ? (() => {
                                     let meta = (searchQuery.data as SearchResult | undefined)?.meta
                                     let count = meta?.totalClosed ?? 0
@@ -298,10 +327,9 @@ function IssueItem({
 }
 
 function PaginationControls() {
-    let debouncedSearch = useDebounce(state.filters.search, 300)
-
+    let hasSearch = !!state.filters.search
     // Render-only decision; move hooks into child components to avoid conditional hooks
-    if (debouncedSearch) return <ClientPaginationControls />
+    if (hasSearch) return <ClientPaginationControls />
     return <ServerPaginationControls />
 }
 
@@ -358,12 +386,11 @@ function ServerPaginationControls() {
 
 function ClientPaginationControls() {
     let params = useGithubParams()
-    let debouncedSearch = useDebounce(state.filters.search, 300)
     let searchRes = useTanstackQuery(
         convexQuery(
             api.public.issues.search,
-            debouncedSearch
-                ? { owner: params.owner, repo: params.repo, search: debouncedSearch }
+            state.filters.search
+                ? { owner: params.owner, repo: params.repo, search: state.filters.search }
                 : 'skip',
         ),
     )

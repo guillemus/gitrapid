@@ -76,7 +76,7 @@ export const getWithComments = query({
     },
 })
 
-// Unified search: fetch up to 200 unique issues matching title or comment bodies.
+// Unified search: fetch up to 100 unique issues matching title or comment bodies.
 // No server-side pagination; client paginates/sorts/filters the returned array.
 export const search = query({
     args: {
@@ -126,7 +126,7 @@ export const search = query({
             .withSearchIndex('search_issue_comments', (s) =>
                 s.search('body', q).eq('repoId', repoId),
             )
-            .take(CAP * 2)
+            .take(CAP)
         for (let c of commentMatches) {
             if (results.length >= CAP) break
             let id = c.issueId as Id<'issues'>
