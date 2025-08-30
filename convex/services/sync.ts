@@ -1,12 +1,13 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { type ActionCtx } from '@convex/_generated/server'
+import { internalAction, internalQuery, type ActionCtx } from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
 import { getRateLimit, newOctokit } from './github'
+import { getAuthUserId } from '@convex-dev/auth/server'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -188,21 +189,30 @@ async function updateTokenRateLimit(cfg: { octo: Octokit; ctx: ActionCtx; patId:
     return ok()
 }
 
+let setCurrentTokenRateLimitArgs = v.object({
+    userId: v.id('users'),
+})
+
+export async function setCurrentTokenRateLimitHandler(
+    ctx: ActionCtx,
+    args: Infer<typeof setCurrentTokenRateLimitArgs>,
+) {
+    let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+        ...SECRET,
+        userId: args.userId,
+    })
+    if (!userToken) {
+        throw new Error('user token not found')
+    }
+
+    let octo = newOctokit(userToken.token)
+    let res = await updateTokenRateLimit({ ctx, octo, patId: userToken._id })
+    unwrap(res)
+}
+
 export const setCurrentTokenRateLimit = protectedAction({
     args: {
         userId: v.id('users'),
     },
-    async handler(ctx, args) {
-        let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
-            ...SECRET,
-            userId: args.userId,
-        })
-        if (!userToken) {
-            throw new Error('user token not found')
-        }
-
-        let octo = newOctokit(userToken.token)
-        let res = await updateTokenRateLimit({ ctx, octo, patId: userToken._id })
-        unwrap(res)
-    },
+    handler: setCurrentTokenRateLimitHandler,
 })
