@@ -25,7 +25,6 @@ export const Issues = {
         args: {
             repoId: Id<'repos'>
             state?: 'open' | 'closed'
-            search?: string
             sortBy?: 'createdAt' | 'updatedAt' | 'comments'
             paginationOpts: {
                 numItems: number
@@ -33,22 +32,6 @@ export const Issues = {
             }
         },
     ) {
-        // If search is provided, use search index with optional state filter
-        if (args.search && args.search.trim().length > 0) {
-            let search = args.search
-
-            return ctx.db
-                .query('issues')
-                .withSearchIndex('search_issues', (s) => {
-                    let scoped = s.search('title', search).eq('repoId', args.repoId)
-                    if (args.state) {
-                        return scoped.eq('state', args.state)
-                    }
-                    return scoped
-                })
-                .paginate(args.paginationOpts)
-        }
-
         let sortBy = args.sortBy ?? 'createdAt'
 
         // No search term; choose index based on sort and whether state filter is present

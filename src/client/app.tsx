@@ -10,6 +10,7 @@ import { DashboardPage } from '@/client/pages/dashboardPage'
 import { IssuesPage } from '@/client/pages/issuesPage'
 import { LoginPage } from '@/client/pages/loginPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
+import { SingleIssuesPage } from './pages/singleIssuesPage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     let convexAuth = useConvexAuth()
@@ -55,6 +56,7 @@ function Router() {
 
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
+                    <Route path="/:owner/:repo/issues/:issueId" element={<SingleIssuesPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

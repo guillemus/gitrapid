@@ -10,7 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Doc } from '@convex/_generated/dataModel'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -65,33 +65,7 @@ const state = proxy<IssuesPageState>({
 })
 
 type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
-type CommentsSearchResult = FunctionReturnType<typeof api.public.issues.searchByComments>
-
-function mergeIssues(
-    titleRes: IssuesListResult | null | undefined,
-    commentsRes: CommentsSearchResult | null,
-    sortBy: 'createdAt' | 'updatedAt' | 'comments',
-    pageSize: number,
-): Doc<'issues'>[] {
-    let titleIssues = titleRes?.page ?? []
-    if (!commentsRes) return titleIssues
-
-    let commentIssues = commentsRes.page ?? []
-
-    let byId = new Map<Id<'issues'>, Doc<'issues'>>()
-    for (let it of titleIssues) byId.set(it._id, it)
-    for (let it of commentIssues) byId.set(it._id, it)
-
-    let merged = Array.from(byId.values())
-    if (sortBy === 'createdAt') {
-        merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    } else if (sortBy === 'updatedAt') {
-        merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    } else {
-        merged.sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0))
-    }
-    return merged.slice(0, pageSize)
-}
+type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 
 export function IssuesPage() {
     useSnapshot(state)
@@ -102,7 +76,6 @@ export function IssuesPage() {
     let issueList = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
-        search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,
         paginationOpts: {
@@ -111,29 +84,40 @@ export function IssuesPage() {
         },
     })
 
-    let commentsParams = {
-        owner: params.owner,
-        repo: params.repo,
-        search: debouncedSearch,
-        state: state.filters.state,
-        paginationOpts: {
-            numItems: state.pageSize,
-            cursor: state.cursors[state.index] ?? null,
-        },
-    }
-
-    // When searching, also query by comment bodies via websocket-only and merge results
-    let commentBodySearchQuery = useTanstackQuery(
-        convexQuery(api.public.issues.searchByComments, debouncedSearch ? commentsParams : 'skip'),
+    // When searching, fetch unified search set (up to 200) and paginate client-side
+    let searchQuery = useTanstackQuery(
+        convexQuery(
+            api.public.issues.search,
+            debouncedSearch
+                ? { owner: params.owner, repo: params.repo, search: debouncedSearch }
+                : 'skip',
+        ),
     )
 
-    let issues = mergeIssues(
-        issueList,
-        commentBodySearchQuery.data ?? null,
-        state.filters.sortBy,
-        state.pageSize,
-    )
     let repo = issueList?.repo
+    let issues: Doc<'issues'>[] = []
+    let isSearchLoading = !!debouncedSearch && (searchQuery.isLoading || searchQuery.isFetching)
+    if (debouncedSearch) {
+        if (!isSearchLoading) {
+            let all: Doc<'issues'>[] =
+                (searchQuery.data?.issues as Doc<'issues'>[] | undefined) ?? []
+            // Filter by state client-side
+            let filtered = all.filter((i) => i.state === state.filters.state)
+            // Sort client-side
+            if (state.filters.sortBy === 'createdAt') {
+                filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            } else if (state.filters.sortBy === 'updatedAt') {
+                filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+            } else {
+                filtered.sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0))
+            }
+            // Client-side pagination
+            let start = state.index * state.pageSize
+            issues = filtered.slice(start, start + state.pageSize)
+        }
+    } else {
+        issues = issueList?.page ?? []
+    }
 
     return (
         <div className="space-y-4">
@@ -173,7 +157,18 @@ export function IssuesPage() {
                         }}
                     >
                         <AlertCircle className="h-4 w-4" />
-                        {repo ? `${repo.openIssues} Open` : '... Open'}
+                        {isSearchLoading
+                            ? '... Open'
+                            : debouncedSearch
+                              ? (() => {
+                                    let meta = (searchQuery.data as SearchResult | undefined)?.meta
+                                    let count = meta?.totalOpen ?? 0
+                                    let plus = meta?.reachedCap && count >= 200 ? '+' : ''
+                                    return `${count}${plus} Open`
+                                })()
+                              : repo
+                                ? `${repo.openIssues} Open`
+                                : '... Open'}
                     </Button>
                     <Button
                         size="sm"
@@ -187,7 +182,18 @@ export function IssuesPage() {
                         }}
                     >
                         <CheckCircle className="h-4 w-4" />
-                        {repo ? `${repo.closedIssues} Closed` : '... Closed'}
+                        {isSearchLoading
+                            ? '... Closed'
+                            : debouncedSearch
+                              ? (() => {
+                                    let meta = (searchQuery.data as SearchResult | undefined)?.meta
+                                    let count = meta?.totalClosed ?? 0
+                                    let plus = meta?.reachedCap && count >= 200 ? '+' : ''
+                                    return `${count}${plus} Closed`
+                                })()
+                              : repo
+                                ? `${repo.closedIssues} Closed`
+                                : '... Closed'}
                     </Button>
                 </div>
 
@@ -199,7 +205,9 @@ export function IssuesPage() {
             {/* Issues List */}
             <Card className="py-0">
                 <CardContent className="p-0">
-                    {issues.length === 0 ? (
+                    {isSearchLoading ? (
+                        <LoadingList />
+                    ) : issues.length === 0 ? (
                         <div className="text-muted-foreground p-8 text-center">
                             <AlertCircle className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No issues found matching your criteria.</p>
@@ -230,6 +238,8 @@ function IssueItem({
     issue: Doc<'issues'>
     sortBy: 'createdAt' | 'updatedAt' | 'comments'
 }) {
+    let params = useGithubParams()
+
     return (
         <div className="hover:bg-muted/50 p-4 py-2 transition-colors">
             <div className="flex items-center justify-between">
@@ -243,7 +253,7 @@ function IssueItem({
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 leading-[1.4rem]">
-                            <Link to={`/issues/${issue._id}`}>
+                            <Link to={`/${params.owner}/${params.repo}/issues/${issue.number}`}>
                                 <h3 className="text-foreground cursor-pointer font-medium hover:text-blue-600">
                                     {issue.title}
                                 </h3>
@@ -290,11 +300,16 @@ function IssueItem({
 function PaginationControls() {
     let debouncedSearch = useDebounce(state.filters.search, 300)
 
+    // Render-only decision; move hooks into child components to avoid conditional hooks
+    if (debouncedSearch) return <ClientPaginationControls />
+    return <ServerPaginationControls />
+}
+
+function ServerPaginationControls() {
     let params = useGithubParams()
     let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
-        search: debouncedSearch ? debouncedSearch : undefined,
         state: state.filters.state,
         sortBy: state.filters.sortBy,
         paginationOpts: {
@@ -302,7 +317,6 @@ function PaginationControls() {
             cursor: state.cursors[state.index] ?? null,
         },
     })
-
     return (
         <div className="flex items-center justify-end gap-2">
             <Button
@@ -338,6 +352,68 @@ function PaginationControls() {
                 Next
                 <ChevronRight className="h-4 w-4" />
             </Button>
+        </div>
+    )
+}
+
+function ClientPaginationControls() {
+    let params = useGithubParams()
+    let debouncedSearch = useDebounce(state.filters.search, 300)
+    let searchRes = useTanstackQuery(
+        convexQuery(
+            api.public.issues.search,
+            debouncedSearch
+                ? { owner: params.owner, repo: params.repo, search: debouncedSearch }
+                : 'skip',
+        ),
+    )
+    let loading = searchRes.isLoading || searchRes.isFetching
+    let total = loading ? 0 : ((searchRes.data?.issues?.length as number | undefined) ?? 0)
+    let pageCount = Math.ceil(total / state.pageSize)
+    let atStart = state.index === 0
+    let atEnd = pageCount === 0 || state.index >= pageCount - 1
+
+    return (
+        <div className="flex items-center justify-end gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => {
+                    if (!atStart) state.index = state.index - 1
+                }}
+                disabled={atStart || loading}
+            >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => {
+                    if (!atEnd) state.index = state.index + 1
+                }}
+                disabled={atEnd || loading}
+            >
+                {loading ? 'Loading…' : 'Next'}
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+        </div>
+    )
+}
+
+function LoadingList() {
+    return (
+        <div className="divide-y">
+            {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="p-4 py-2">
+                    <div className="animate-pulse">
+                        <div className="bg-muted mb-2 h-4 w-1/3 rounded" />
+                        <div className="bg-muted h-3 w-2/3 rounded" />
+                    </div>
+                </div>
+            ))}
         </div>
     )
 }

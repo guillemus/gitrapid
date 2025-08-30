@@ -1,3 +1,4 @@
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { query } from '@convex/_generated/server'
 import { Issues } from '@convex/models/issues'
 import { Repos } from '@convex/models/repos'
@@ -10,7 +11,6 @@ export const list = query({
     args: {
         owner: v.string(),
         repo: v.string(),
-        search: v.optional(v.string()),
         state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
         sortBy: v.optional(
             v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
@@ -29,7 +29,6 @@ export const list = query({
         let result = await Issues.paginate(ctx, {
             repoId: savedRepo._id,
             state: args.state,
-            search: args.search,
             sortBy: args.sortBy,
             paginationOpts: args.paginationOpts,
         })
@@ -77,13 +76,13 @@ export const getWithComments = query({
     },
 })
 
-export const searchByComments = query({
+// Unified search: fetch up to 200 unique issues matching title or comment bodies.
+// No server-side pagination; client paginates/sorts/filters the returned array.
+export const search = query({
     args: {
         owner: v.string(),
         repo: v.string(),
         search: v.string(),
-        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
-        paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
@@ -94,26 +93,70 @@ export const searchByComments = query({
         let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
         if (!hasRepo) return null
 
-        // Search comments by body and map to issues
-        let commentsRes = await ctx.db
-            .query('issueComments')
-            .withSearchIndex('search_issue_comments', (s) =>
-                s.search('body', args.search).eq('repoId', savedRepo._id),
-            )
-            .paginate(args.paginationOpts)
+        let repoId: Id<'repos'> = savedRepo._id
 
-        // Deduplicate issueIds then fetch issues, filtering by state if provided
-        let ids = new Set(commentsRes.page.map((c) => c.issueId))
-        let page: Array<Awaited<ReturnType<typeof ctx.db.get>>> = []
-        for (let id of ids) {
-            let issue = await ctx.db.get(id)
-            if (issue && (!args.state || issue.state === args.state)) page.push(issue)
+        let q = args.search.trim()
+        if (q.length === 0) {
+            return {
+                issues: [],
+                meta: { total: 0, totalOpen: 0, totalClosed: 0, reachedCap: false },
+            }
         }
 
+        let CAP = 50
+        let uniqueIds = new Set<Id<'issues'>>()
+        let results: Array<Doc<'issues'>> = []
+
+        // fetch top title matches
+        let titleMatches = await ctx.db
+            .query('issues')
+            .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
+            .take(CAP)
+        for (let issue of titleMatches) {
+            if (results.length >= CAP) break
+            if (!uniqueIds.has(issue._id)) {
+                uniqueIds.add(issue._id)
+                results.push(issue)
+            }
+        }
+
+        // fetch top comment matches (more than CAP to account for duplicates per issue)
+        let commentMatches = await ctx.db
+            .query('issueComments')
+            .withSearchIndex('search_issue_comments', (s) =>
+                s.search('body', q).eq('repoId', repoId),
+            )
+            .take(CAP * 2)
+        for (let c of commentMatches) {
+            if (results.length >= CAP) break
+            let id = c.issueId as Id<'issues'>
+            if (!uniqueIds.has(id)) {
+                let issue = await ctx.db.get(id)
+                if (issue) {
+                    uniqueIds.add(id)
+                    results.push(issue)
+                }
+            }
+        }
+
+        // counts based on fetched set
+        let openCount = 0
+        let closedCount = 0
+        for (let it of results) {
+            if (it.state === 'open') openCount++
+            else if (it.state === 'closed') closedCount++
+        }
+
+        let reachedCap = results.length >= CAP
+
         return {
-            page: page.filter((i): i is NonNullable<typeof i> => i !== null),
-            continueCursor: commentsRes.continueCursor,
-            isDone: commentsRes.isDone,
+            issues: results,
+            meta: {
+                total: results.length,
+                totalOpen: openCount,
+                totalClosed: closedCount,
+                reachedCap,
+            },
         }
     },
 })
