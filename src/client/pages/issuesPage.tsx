@@ -207,7 +207,11 @@ export function IssuesPage() {
                     ) : (
                         <div className="divide-y">
                             {issues.map((issue) => (
-                                <IssueItem key={issue._id} issue={issue} />
+                                <IssueItem
+                                    key={issue._id}
+                                    issue={issue}
+                                    sortBy={state.filters.sortBy}
+                                />
                             ))}
                         </div>
                     )}
@@ -219,7 +223,13 @@ export function IssuesPage() {
     )
 }
 
-function IssueItem({ issue }: { issue: Doc<'issues'> }) {
+function IssueItem({
+    issue,
+    sortBy,
+}: {
+    issue: Doc<'issues'>
+    sortBy: 'createdAt' | 'updatedAt' | 'comments'
+}) {
     return (
         <div className="hover:bg-muted/50 p-4 py-2 transition-colors">
             <div className="flex items-center justify-between">
@@ -257,6 +267,12 @@ function IssueItem({ issue }: { issue: Doc<'issues'> }) {
                             <span>•</span>
                             <span>{issue.author.login}</span>
                             <span>opened {formatRelativeTime(issue.createdAt)}</span>
+                            {sortBy === 'updatedAt' && (
+                                <>
+                                    <span>•</span>
+                                    <span>updated {formatRelativeTime(issue.updatedAt)}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
