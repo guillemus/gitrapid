@@ -133,9 +133,12 @@ export const addRepo = action({
 
         await ctx.scheduler.runAfter(0, api.services.sync.runSingle, {
             ...SECRET,
+            fetchRepoBy: {
+                type: 'by-owner-repo',
+                owner,
+                repo,
+            },
             userId,
-            owner,
-            repo,
             backfill: true,
         })
 

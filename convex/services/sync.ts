@@ -1,6 +1,11 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, internalQuery, type ActionCtx } from '@convex/_generated/server'
+import {
+    internalAction,
+    internalMutation,
+    internalQuery,
+    type ActionCtx,
+} from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
@@ -8,6 +13,7 @@ import { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
 import { getRateLimit, newOctokit } from './github'
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { Repos } from '@convex/models/repos'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -41,40 +47,35 @@ export async function runHandler(ctx: ActionCtx) {
     }
 
     for (let [repoId, userId] of repoUserIds.entries()) {
-        let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
+        await ctx.scheduler.runAfter(0, api.services.sync.runSingle, {
             ...SECRET,
             userId: userId,
-        })
-        if (!userToken) {
-            logger.error(`user token for user id ${userId} not found`)
-            continue
-        }
-
-        let octo = newOctokit(userToken.token)
-        let res = await setupAndRunSync({
-            ctx,
-            octo,
-            repoId,
+            fetchRepoBy: {
+                type: 'by-repo-id',
+                repoId: repoId,
+            },
             backfill: false,
-            forceSync: false,
-            patId: userToken._id,
-            userId: userId,
         })
-
-        if (res.isErr) {
-            logger.error(`failed to sync repo ${repoId} for user ${userId}: ${res.err}`)
-        }
     }
 }
 
 export const run = protectedAction({ args: {}, handler: runHandler })
 
 let runSingleArgs = v.object({
+    fetchRepoBy: v.union(
+        v.object({
+            type: v.literal('by-owner-repo'),
+            owner: v.string(),
+            repo: v.string(),
+        }),
+        v.object({
+            type: v.literal('by-repo-id'),
+            repoId: v.id('repos'),
+        }),
+    ),
+
     userId: v.id('users'),
-    owner: v.string(),
-    repo: v.string(),
     backfill: v.boolean(),
-    forceSync: v.optional(v.boolean()),
 })
 
 export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSingleArgs>) {
@@ -86,16 +87,25 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         throw new Error('user token not found')
     }
 
-    let repo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
-        ...SECRET,
-        owner: args.owner,
-        repo: args.repo,
-    })
-    if (!repo) {
+    let savedRepo
+    if (args.fetchRepoBy.type === 'by-owner-repo') {
+        savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
+            ...SECRET,
+            owner: args.fetchRepoBy.owner,
+            repo: args.fetchRepoBy.repo,
+        })
+    } else if (args.fetchRepoBy.type === 'by-repo-id') {
+        savedRepo = await ctx.runQuery(api.models.repos.get, {
+            ...SECRET,
+            repoId: args.fetchRepoBy.repoId,
+        })
+    }
+
+    if (!savedRepo) {
         throw new Error('repo not found')
     }
 
-    let repoId = repo._id
+    let repoId = savedRepo._id
 
     let octo = newOctokit(userToken.token)
     let res = await setupAndRunSync({
@@ -105,10 +115,11 @@ export async function runSingleHandler(ctx: ActionCtx, args: Infer<typeof runSin
         patId: userToken._id,
         userId: args.userId,
         backfill: args.backfill,
-        forceSync: args.forceSync ?? false,
     })
     if (res.isErr) {
-        throw new Error(`failed to sync repo ${args.repo} for user ${args.userId}: ${res.err}`)
+        throw new Error(
+            `failed to sync repo ${savedRepo.owner}/${savedRepo.repo} for user ${args.userId}: ${res.err}`,
+        )
     }
 }
 
@@ -121,7 +132,6 @@ type SetupSyncCfg = {
     repoId: Id<'repos'>
     patId: Id<'pats'>
     backfill: boolean
-    forceSync: boolean
 }
 
 type SyncCfg = SetupSyncCfg & UpdateCfg
@@ -215,4 +225,30 @@ export const setCurrentTokenRateLimit = protectedAction({
         userId: v.id('users'),
     },
     handler: setCurrentTokenRateLimitHandler,
+})
+
+export const setIssueCounts = internalMutation({
+    args: {
+        repo: v.string(),
+        owner: v.string(),
+    },
+    async handler(ctx, args) {
+        let repo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+        if (!repo) {
+            return err('repo not found')
+        }
+
+        let issues = await ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repo._id))
+            .collect()
+
+        let openIssues = issues.filter((issue) => issue.state === 'open').length
+        let closedIssues = issues.filter((issue) => issue.state === 'closed').length
+
+        await ctx.db.patch(repo._id, {
+            openIssues: openIssues,
+            closedIssues: closedIssues,
+        })
+    },
 })

@@ -3,10 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
+import { useConvexAuth } from 'convex/react'
 import { Loader2, Zap } from 'lucide-react'
 import { useState } from 'react'
+import { Navigate } from 'react-router'
 
 export function LoginPage() {
+    let auth = useConvexAuth()
     let actions = useAuthActions()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -21,6 +24,10 @@ export function LoginPage() {
             setError('Failed to sign in with GitHub. Please try again.')
             setIsLoading(false)
         }
+    }
+
+    if (auth.isAuthenticated) {
+        return <Navigate to="/dash" />
     }
 
     return (
