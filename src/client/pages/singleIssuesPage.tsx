@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Calendar, CheckCircle, MessageCircle, Plus, User } from 'lucide-react'
-import { useGithubParams, usePageQuery } from '../utils'
+import { formatRelativeTime, useGithubParams, usePageQuery } from '../utils'
 import { useParams } from 'react-router'
 import { api } from '@convex/_generated/api'
 
@@ -40,19 +40,6 @@ export function SingleIssuesPage() {
     let issueBody = issueBodies[0]?.body || ''
     let commentCount = issue.comments || 0
 
-    function formatDate(dateString: string) {
-        let date = new Date(dateString)
-        let now = new Date()
-        let diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-        if (diffInDays === 0) return 'today'
-        if (diffInDays === 1) return 'yesterday'
-        if (diffInDays < 7) return `${diffInDays} days ago`
-        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`
-        if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`
-        return `${Math.floor(diffInDays / 365)} years ago`
-    }
-
     return (
         <div className="space-y-4">
             {/* Header */}
@@ -81,7 +68,7 @@ export function SingleIssuesPage() {
                         <span className="text-muted-foreground">•</span>
                         <Calendar className="text-muted-foreground h-3.5 w-3.5" />
                         <span className="text-muted-foreground">
-                            opened {formatDate(issue.createdAt)}
+                            opened {formatRelativeTime(issue.createdAt)}
                         </span>
                         <span className="text-muted-foreground">•</span>
                         <MessageCircle className="text-muted-foreground h-3.5 w-3.5" />
@@ -143,7 +130,7 @@ export function SingleIssuesPage() {
                                                     {issue.author.login}
                                                 </span>
                                                 <span className="text-muted-foreground">
-                                                    commented {formatDate(issue.createdAt)}
+                                                    commented {formatRelativeTime(issue.createdAt)}
                                                 </span>
                                             </div>
                                         </div>
@@ -168,7 +155,8 @@ export function SingleIssuesPage() {
                                                     {comment.author.login}
                                                 </span>
                                                 <span className="text-muted-foreground">
-                                                    commented {formatDate(comment.createdAt)}
+                                                    commented{' '}
+                                                    {formatRelativeTime(comment.createdAt)}
                                                 </span>
                                             </div>
                                         </div>
@@ -298,18 +286,18 @@ export function SingleIssuesPage() {
                             <div className="text-muted-foreground space-y-2 text-xs">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="h-3.5 w-3.5" />
-                                    <span>Opened {formatDate(issue.createdAt)}</span>
+                                    <span>Opened {formatRelativeTime(issue.createdAt)}</span>
                                 </div>
                                 {issue.closedAt && (
                                     <div className="flex items-center gap-2">
                                         <CheckCircle className="h-3.5 w-3.5" />
-                                        <span>Closed {formatDate(issue.closedAt)}</span>
+                                        <span>Closed {formatRelativeTime(issue.closedAt)}</span>
                                     </div>
                                 )}
                                 {issue.updatedAt !== issue.createdAt && (
                                     <div className="flex items-center gap-2">
                                         <Calendar className="h-3.5 w-3.5" />
-                                        <span>Updated {formatDate(issue.updatedAt)}</span>
+                                        <span>Updated {formatRelativeTime(issue.updatedAt)}</span>
                                     </div>
                                 )}
                             </div>

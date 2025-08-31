@@ -270,7 +270,12 @@ function IssueItem({
     let params = useGithubParams()
 
     return (
-        <div className="hover:bg-muted/50 p-4 py-2 transition-colors">
+        <div
+            className="hover:bg-muted/50 p-4 py-2 transition-colors"
+            onMouseOver={() => {
+                console.log('mouse over', issue._id)
+            }}
+        >
             <div className="flex items-center justify-between">
                 <div className="flex flex-1 items-start space-x-3">
                     <div className="mt-1">
