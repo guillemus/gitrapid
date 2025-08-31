@@ -1,9 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
-import { v } from 'convex/values'
-import * as schemas from '../schema'
-import { protectedMutation } from '../utils'
-import * as models from './models'
+import type { QueryCtx } from '@convex/_generated/server'
 
 export const IssueBodies = {
     async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
@@ -14,10 +10,10 @@ export const IssueBodies = {
         return matches
     },
 
-    async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
+    async getByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
         return ctx.db
             .query('issueBodies')
             .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
-            .collect()
+            .unique()
     },
 }

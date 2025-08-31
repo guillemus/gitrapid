@@ -82,12 +82,13 @@ export const get = query({
         })
         if (!issue) return null
 
-        let issueBodies = await IssueBodies.listByIssueId(ctx, issue._id)
+        let issueBody = await IssueBodies.getByIssueId(ctx, issue._id)
         let issueComments = await IssueComments.listByIssueId(ctx, issue._id)
+
         return {
             issue,
-            issueBodies,
-            issueComments,
+            body: issueBody,
+            comments: issueComments,
         }
     },
 })

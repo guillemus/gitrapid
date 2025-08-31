@@ -44,27 +44,34 @@ export function Header({ tab }: HeaderProps) {
                         </Link>
                     </div>
                 </div>
-                <div className="flex items-center space-x-6 overflow-x-auto overflow-y-hidden pb-0">
-                    {tab === 'none' && <div className="py-2" />}
-                    {tab !== 'none' && (
-                        <>
-                            <Tab
-                                href={`/${owner}/${repo}/issues`}
-                                label="Issues"
-                                active={tab === 'issues'}
-                                icon={GitPullRequest}
-                            />
-                            <Tab
-                                href={`https://github.com/${owner}/${repo}/issues`}
-                                label="GitHub Issues"
-                                icon={Github}
-                            />
-                        </>
-                    )}
+                <div className="flex items-center justify-between space-x-6 overflow-x-auto overflow-y-hidden pb-0">
+                    <div>
+                        {tab === 'none' && <div className="py-2" />}
+                        {tab !== 'none' && (
+                            <>
+                                <Tab
+                                    href={`/${owner}/${repo}/issues`}
+                                    label="Issues"
+                                    active={tab === 'issues'}
+                                    icon={GitPullRequest}
+                                />
+                            </>
+                        )}
+                    </div>
+
+                    <div>
+                        <SeeOnGitHubTab />
+                    </div>
                 </div>
             </div>
         </div>
     )
+}
+
+function SeeOnGitHubTab() {
+    let path = window.location.pathname
+
+    return <Tab href={`https://github.com${path}`} label="See on GitHub" icon={Github} />
 }
 
 function Tab(props: {

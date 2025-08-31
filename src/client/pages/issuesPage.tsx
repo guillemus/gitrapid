@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
+import { queryClient } from '../convex'
 import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
 
 const labelColors: Record<string, string> = {
@@ -272,8 +273,14 @@ function IssueItem({
     return (
         <div
             className="hover:bg-muted/50 p-4 py-2 transition-colors"
-            onMouseOver={() => {
-                console.log('mouse over', issue._id)
+            onMouseDown={() => {
+                return queryClient.prefetchQuery(
+                    convexQuery(api.public.issues.get, {
+                        owner: params.owner,
+                        repo: params.repo,
+                        number: issue.number,
+                    }),
+                )
             }}
         >
             <div className="flex items-center justify-between">
