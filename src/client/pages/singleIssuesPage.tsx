@@ -34,8 +34,6 @@ export function SingleIssuesPage() {
     let issueBodyMd = data?.body?.body || ''
     let issueBodyHtml = useMemo(() => renderMarkdownToHtml(issueBodyMd), [issueBodyMd])
 
-    console.log(issueBodyHtml)
-
     if (!data) {
         return (
             <div className="flex items-center justify-center p-8">
