@@ -23,6 +23,7 @@ import {
     Search,
     X,
 } from 'lucide-react'
+import { IssueOpenedIcon } from '@primer/octicons-react'
 import { Link } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '../convex'
@@ -287,7 +288,7 @@ function IssueItem({
                 <div className="flex flex-1 items-start space-x-3">
                     <div className="mt-1">
                         {issue.state === 'open' ? (
-                            <AlertCircle className="h-5 w-5 text-green-600" />
+                            <IssueOpenedIcon className="h-4 w-4 text-green-600" />
                         ) : (
                             <CheckCircle className="h-5 w-5 text-purple-600" />
                         )}

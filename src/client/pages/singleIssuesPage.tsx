@@ -42,14 +42,12 @@ export function SingleIssuesPage() {
         )
     }
 
-    let commentCount = data.comments.length
-
     return (
         <div className="space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-2.5">
                 <div className="min-w-0 flex-1">
-                    <h1 className="text-foreground truncate text-2xl font-semibold md:text-3xl">
+                    <h1 className="text-foreground truncate text-4xl">
                         {data.issue.title}
                         <span className="text-muted-foreground ml-2 font-normal">
                             #{data.issue.number}
@@ -66,68 +64,27 @@ export function SingleIssuesPage() {
                             <AlertCircle className="h-3.5 w-3.5" />
                             {data.issue.state === 'open' ? 'Open' : 'Closed'}
                         </span>
-                        <span className="text-muted-foreground">•</span>
-                        <User className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">{data.issue.author.login}</span>
-                        <span className="text-muted-foreground">•</span>
-                        <Calendar className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">
-                            opened {formatRelativeTime(data.issue.createdAt)}
-                        </span>
-                        <span className="text-muted-foreground">•</span>
-                        <MessageCircle className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">
-                            {commentCount} comment{commentCount !== 1 ? 's' : ''}
-                        </span>
                     </div>
-                    {/* Labels below title */}
-                    {data.issue.labels && data.issue.labels.length > 0 && (
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {data.issue.labels.map((label, index) => (
-                                <Badge
-                                    key={index}
-                                    variant="outline"
-                                    className="border-gray-200 bg-gray-100 text-xs text-gray-800"
-                                >
-                                    {label}
-                                </Badge>
-                            ))}
-                        </div>
-                    )}
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
-                    <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                        Edit
-                    </Button>
                     <Button size="sm" className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        New comment
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 border-red-200 bg-transparent text-red-600"
-                    >
-                        {data.issue.state === 'open' ? 'Close issue' : 'Reopen issue'}
+                        New issue
                     </Button>
                 </div>
             </div>
+
+            <div className="bg-border h-px" />
 
             {/* Content */}
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
                 {/* Conversation */}
                 <div className="md:col-span-2">
                     <div className="relative">
-                        <div
-                            className="bg-border absolute top-0 bottom-0 left-4 w-px"
-                            aria-hidden
-                        />
                         <div className="space-y-6 pl-8">
                             {/* Issue description */}
                             {issueBodyMd && (
                                 <div className="overflow-hidden rounded-md border">
-                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
-                                        <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
+                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span className="font-medium">
@@ -152,8 +109,7 @@ export function SingleIssuesPage() {
                                     key={comment.githubId}
                                     className="overflow-hidden rounded-md border"
                                 >
-                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
-                                        <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
+                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span className="font-medium">
@@ -205,20 +161,6 @@ export function SingleIssuesPage() {
                 {/* Sidebar */}
                 <div className="md:col-span-1">
                     <div className="text-sm">
-                        {/* Status */}
-                        <div className="mb-4">
-                            <div className="mb-2 font-medium">Status</div>
-                            <div className="flex items-center gap-2">
-                                {data.issue.state === 'open' ? (
-                                    <AlertCircle className="h-4 w-4 text-green-600" />
-                                ) : (
-                                    <CheckCircle className="h-4 w-4 text-red-600" />
-                                )}
-                                <span className="capitalize">{data.issue.state}</span>
-                            </div>
-                        </div>
-                        <div className="bg-border my-4 h-px" />
-
                         {/* Assignees */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Assignees</div>
@@ -249,7 +191,7 @@ export function SingleIssuesPage() {
                                         <Badge
                                             key={index}
                                             variant="outline"
-                                            className="border-gray-200 bg-gray-100 text-xs text-gray-800"
+                                            className="border-gray-200 bg-gray-100 text-gray-800"
                                         >
                                             {label}
                                         </Badge>
@@ -260,61 +202,6 @@ export function SingleIssuesPage() {
                             )}
                         </div>
                         <div className="bg-border my-4 h-px" />
-
-                        {/* Type */}
-                        <div className="mb-4">
-                            <div className="mb-2 font-medium">Type</div>
-                            <div className="text-muted-foreground">No type</div>
-                        </div>
-                        <div className="bg-border my-4 h-px" />
-
-                        {/* Projects */}
-                        <div className="mb-4">
-                            <div className="mb-2 font-medium">Projects</div>
-                            <div className="text-muted-foreground">No projects</div>
-                        </div>
-                        <div className="bg-border my-4 h-px" />
-
-                        {/* Milestone */}
-                        <div className="mb-4">
-                            <div className="mb-2 font-medium">Milestone</div>
-                            <div className="text-muted-foreground">No milestone</div>
-                        </div>
-                        <div className="bg-border my-4 h-px" />
-
-                        {/* Relationships */}
-                        <div className="mb-4">
-                            <div className="mb-2 font-medium">Relationships</div>
-                            <div className="text-muted-foreground">None yet</div>
-                        </div>
-                        <div className="bg-border my-4 h-px" />
-
-                        {/* Timeline */}
-                        <div className="mb-2">
-                            <div className="mb-2 font-medium">Timeline</div>
-                            <div className="text-muted-foreground space-y-2 text-xs">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    <span>Opened {formatRelativeTime(data.issue.createdAt)}</span>
-                                </div>
-                                {data.issue.closedAt && (
-                                    <div className="flex items-center gap-2">
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                        <span>
-                                            Closed {formatRelativeTime(data.issue.closedAt)}
-                                        </span>
-                                    </div>
-                                )}
-                                {data.issue.updatedAt !== data.issue.createdAt && (
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="h-3.5 w-3.5" />
-                                        <span>
-                                            Updated {formatRelativeTime(data.issue.updatedAt)}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
