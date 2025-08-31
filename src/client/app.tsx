@@ -56,7 +56,7 @@ function Router() {
 
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
-                    <Route path="/:owner/:repo/issues/:issueId" element={<SingleIssuesPage />} />
+                    <Route path={SingleIssuesPage.path} element={<SingleIssuesPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

@@ -1,11 +1,18 @@
 import type { Id } from '@convex/_generated/dataModel'
-import type { MutationCtx } from '@convex/_generated/server'
+import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
 import { protectedMutation } from '../utils'
 import * as models from './models'
 
 export const IssueComments = {
+    async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
+        return ctx.db
+            .query('issueComments')
+            .withIndex('by_issue', (q) => q.eq('issueId', issueId))
+            .collect()
+    },
+
     async insertIfNotExists(
         ctx: MutationCtx,
         issueCommentId: Id<'issueComments'>,
@@ -54,6 +61,16 @@ export const IssueComments = {
             deletedIds.push(comment._id)
         }
         return deletedIds
+    },
+
+    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
+        let matches = await ctx.db
+            .query('issueComments')
+            .withSearchIndex('search_issue_comments', (s) =>
+                s.search('body', q).eq('repoId', repoId),
+            )
+            .take(CAP)
+        return matches
     },
 }
 

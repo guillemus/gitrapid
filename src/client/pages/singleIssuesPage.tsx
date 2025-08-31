@@ -1,46 +1,108 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Calendar, CheckCircle, MessageCircle, Plus, User } from 'lucide-react'
+import { useGithubParams, usePageQuery } from '../utils'
+import { useParams } from 'react-router'
+import { api } from '@convex/_generated/api'
+
+function usePageParams() {
+    let { owner, repo, number } = useParams()
+    if (!owner) throw new Error('owner not found')
+    if (!repo) throw new Error('repo not found')
+    if (!number) throw new Error('number not found')
+
+    let numberInt = parseInt(number)
+    if (isNaN(numberInt)) throw new Error('number is not a number')
+
+    return { owner, repo, number: numberInt }
+}
+
+SingleIssuesPage.path = '/:owner/:repo/issues/:number'
 
 export function SingleIssuesPage() {
+    let { owner, repo, number } = usePageParams()
+
+    let data = usePageQuery(api.public.issues.get, {
+        owner,
+        repo,
+        number,
+    })
+
+    if (!data) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <div className="text-muted-foreground">Loading...</div>
+            </div>
+        )
+    }
+
+    let { issue, issueBodies, issueComments } = data
+    let issueBody = issueBodies[0]?.body || ''
+    let commentCount = issue.comments || 0
+
+    function formatDate(dateString: string) {
+        let date = new Date(dateString)
+        let now = new Date()
+        let diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+        if (diffInDays === 0) return 'today'
+        if (diffInDays === 1) return 'yesterday'
+        if (diffInDays < 7) return `${diffInDays} days ago`
+        if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`
+        if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`
+        return `${Math.floor(diffInDays / 365)} years ago`
+    }
+
     return (
         <div className="space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-2.5">
                 <div className="min-w-0 flex-1">
                     <h1 className="text-foreground truncate text-2xl font-semibold md:text-3xl">
-                        Issue title goes here
-                        <span className="text-muted-foreground ml-2 font-normal">#1234</span>
+                        {issue.title}
+                        <span className="text-muted-foreground ml-2 font-normal">
+                            #{issue.number}
+                        </span>
                     </h1>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-green-800">
-                            <AlertCircle className="h-3.5 w-3.5" /> Open
+                        <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+                                issue.state === 'open'
+                                    ? 'border-green-200 bg-green-100 text-green-800'
+                                    : 'border-red-200 bg-red-100 text-red-800'
+                            }`}
+                        >
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            {issue.state === 'open' ? 'Open' : 'Closed'}
                         </span>
                         <span className="text-muted-foreground">•</span>
                         <User className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">author</span>
+                        <span className="text-muted-foreground">{issue.author.login}</span>
                         <span className="text-muted-foreground">•</span>
                         <Calendar className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">opened 2 days ago</span>
+                        <span className="text-muted-foreground">
+                            opened {formatDate(issue.createdAt)}
+                        </span>
                         <span className="text-muted-foreground">•</span>
                         <MessageCircle className="text-muted-foreground h-3.5 w-3.5" />
-                        <span className="text-muted-foreground">12 comments</span>
+                        <span className="text-muted-foreground">
+                            {commentCount} comment{commentCount !== 1 ? 's' : ''}
+                        </span>
                     </div>
                     {/* Labels below title */}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Badge
-                            variant="outline"
-                            className="border-blue-200 bg-blue-100 text-xs text-blue-800"
-                        >
-                            enhancement
-                        </Badge>
-                        <Badge
-                            variant="outline"
-                            className="border-gray-200 bg-gray-100 text-xs text-gray-800"
-                        >
-                            ui
-                        </Badge>
-                    </div>
+                    {issue.labels && issue.labels.length > 0 && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {issue.labels.map((label, index) => (
+                                <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="border-gray-200 bg-gray-100 text-xs text-gray-800"
+                                >
+                                    {label}
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
                     <Button variant="outline" size="sm" className="gap-2 bg-transparent">
@@ -55,7 +117,7 @@ export function SingleIssuesPage() {
                         size="sm"
                         className="gap-2 border-red-200 bg-transparent text-red-600"
                     >
-                        Close issue
+                        {issue.state === 'open' ? 'Close issue' : 'Reopen issue'}
                     </Button>
                 </div>
             </div>
@@ -71,51 +133,51 @@ export function SingleIssuesPage() {
                         />
                         <div className="space-y-6 pl-8">
                             {/* Issue description */}
-                            <div className="overflow-hidden rounded-md border">
-                                <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
-                                    <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-medium">author</span>
-                                            <span className="text-muted-foreground">
-                                                commented 2 days ago
-                                            </span>
+                            {issueBody && (
+                                <div className="overflow-hidden rounded-md border">
+                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
+                                        <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-medium">
+                                                    {issue.author.login}
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    commented {formatDate(issue.createdAt)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="prose prose-sm dark:prose-invert max-w-none p-4">
+                                        <div dangerouslySetInnerHTML={{ __html: issueBody }} />
+                                    </div>
                                 </div>
-                                <div className="prose prose-sm dark:prose-invert max-w-none p-4">
-                                    <p>
-                                        This is a placeholder for the issue body. It uses the
-                                        current styles and layout but does not include any data
-                                        fetching or logic.
-                                    </p>
-                                    <p>
-                                        Add your markdown-rendered content here. Keep paragraphs
-                                        concise to mirror typical GitHub issue descriptions.
-                                    </p>
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Comment */}
-                            <div className="overflow-hidden rounded-md border">
-                                <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
-                                    <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-medium">contributor</span>
-                                            <span className="text-muted-foreground">
-                                                commented yesterday
-                                            </span>
+                            {/* Comments */}
+                            {issueComments.map((comment) => (
+                                <div
+                                    key={comment.githubId}
+                                    className="overflow-hidden rounded-md border"
+                                >
+                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2 text-xs">
+                                        <div className="bg-muted h-8 w-8 shrink-0 rounded-full" />
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-medium">
+                                                    {comment.author.login}
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    commented {formatDate(comment.createdAt)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="prose prose-sm dark:prose-invert max-w-none p-4">
+                                        <div dangerouslySetInnerHTML={{ __html: comment.body }} />
+                                    </div>
                                 </div>
-                                <div className="prose prose-sm dark:prose-invert max-w-none p-4">
-                                    <p>
-                                        Placeholder for a comment. Include sample text to show
-                                        spacing and visual rhythm.
-                                    </p>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
 
@@ -150,8 +212,12 @@ export function SingleIssuesPage() {
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Status</div>
                             <div className="flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-green-600" />
-                                <span>Open</span>
+                                {issue.state === 'open' ? (
+                                    <AlertCircle className="h-4 w-4 text-green-600" />
+                                ) : (
+                                    <CheckCircle className="h-4 w-4 text-red-600" />
+                                )}
+                                <span className="capitalize">{issue.state}</span>
                             </div>
                         </div>
                         <div className="bg-border my-4 h-px" />
@@ -159,36 +225,42 @@ export function SingleIssuesPage() {
                         {/* Assignees */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Assignees</div>
-                            <div className="text-muted-foreground flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                <span>No one assigned</span>
-                            </div>
+                            {issue.assignees && issue.assignees.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {issue.assignees.map((assignee, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <User className="h-4 w-4" />
+                                            <span>{assignee}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-muted-foreground flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    <span>No one assigned</span>
+                                </div>
+                            )}
                         </div>
                         <div className="bg-border my-4 h-px" />
 
                         {/* Labels */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Labels</div>
-                            <div className="flex flex-wrap gap-2">
-                                <Badge
-                                    variant="outline"
-                                    className="border-blue-200 bg-blue-100 text-xs text-blue-800"
-                                >
-                                    enhancement
-                                </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className="border-purple-200 bg-purple-100 text-xs text-purple-800"
-                                >
-                                    good first issue
-                                </Badge>
-                                <Badge
-                                    variant="outline"
-                                    className="border-gray-200 bg-gray-100 text-xs text-gray-800"
-                                >
-                                    ui
-                                </Badge>
-                            </div>
+                            {issue.labels && issue.labels.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {issue.labels.map((label, index) => (
+                                        <Badge
+                                            key={index}
+                                            variant="outline"
+                                            className="border-gray-200 bg-gray-100 text-xs text-gray-800"
+                                        >
+                                            {label}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-muted-foreground">No labels</div>
+                            )}
                         </div>
                         <div className="bg-border my-4 h-px" />
 
@@ -226,12 +298,20 @@ export function SingleIssuesPage() {
                             <div className="text-muted-foreground space-y-2 text-xs">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="h-3.5 w-3.5" />
-                                    <span>Opened 2 days ago</span>
+                                    <span>Opened {formatDate(issue.createdAt)}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    <span>No closing activity</span>
-                                </div>
+                                {issue.closedAt && (
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        <span>Closed {formatDate(issue.closedAt)}</span>
+                                    </div>
+                                )}
+                                {issue.updatedAt !== issue.createdAt && (
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-3.5 w-3.5" />
+                                        <span>Updated {formatDate(issue.updatedAt)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

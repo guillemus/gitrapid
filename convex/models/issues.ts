@@ -20,6 +20,15 @@ export const Issues = {
             .collect()
     },
 
+    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
+        let matches = await ctx.db
+            .query('issues')
+            .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
+            .take(CAP)
+
+        return matches
+    },
+
     async paginate(
         ctx: QueryCtx,
         args: {

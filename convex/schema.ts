@@ -78,11 +78,17 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
 export const issueBodiesSchema = {
+    repoId: v.id('repos'),
     issueId: v.id('issues'),
     body: v.string(),
 }
 
-const issueBodies = defineTable(issueBodiesSchema).index('by_issue_id', ['issueId'])
+const issueBodies = defineTable(issueBodiesSchema)
+    .index('by_issue_id', ['issueId'])
+    .searchIndex('search_issue_bodies', {
+        searchField: 'body',
+        filterFields: ['repoId'],
+    })
 
 export const issuesCommentsWithoutIssueIdSchema = {
     githubId: v.number(),

@@ -11,9 +11,11 @@
     "truncate": "bun run scripts/cmd/truncate.ts",
     "astro:dev": "astro dev --port 3000",
     "format": "prettier ./src ./convex --write --config .prettierrc-org-imports",
-    "preview": "astro preview --port 3000",
+    "preview": "USE_NODE=true astro preview --port 3000",
     "test": "vitest",
-    "astro": "astro"
+    "astro": "astro",
+    "migrations:runIt": "convex run convex/migrations.ts:runIt",
+    "migrations:watch": "convex run --component migrations --watch lib:getStatus"
   },
   "dependencies": {
     "@astrojs/check": "0.9.4",

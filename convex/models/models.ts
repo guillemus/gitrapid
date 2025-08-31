@@ -88,6 +88,7 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
 
             if (item.body) {
                 await IssuesUtils.upsertIssueBody(ctx, {
+                    repoId: issueDoc.repoId,
                     issueId: issueDoc._id,
                     body: item.body,
                 })
