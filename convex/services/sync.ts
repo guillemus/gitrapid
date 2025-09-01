@@ -7,7 +7,7 @@ import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
-import { getRateLimit, newOctokit } from './github'
+import { Github, newOctokit } from './github'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -180,7 +180,7 @@ async function runSync(cfg: SyncCfg): R {
 }
 
 async function updateTokenRateLimit(cfg: { octo: Octokit; ctx: ActionCtx; patId: Id<'pats'> }): R {
-    let rateLimit = await getRateLimit(cfg)
+    let rateLimit = await Github.getRateLimit(cfg)
     if (rateLimit.isErr) {
         return wrap('failed to get rate limit', rateLimit)
     }

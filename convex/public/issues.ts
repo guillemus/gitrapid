@@ -4,7 +4,7 @@ import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
-import { createIssue, newOctokit } from '@convex/services/github'
+import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
 import { unwrap } from '@convex/shared'
 import { SECRET, logger } from '@convex/utils'
@@ -105,7 +105,7 @@ export const create = action({
 
         let octo = newOctokit(token.val)
 
-        let issueDoc = await createIssue(
+        let issueDoc = await Github.createIssue(
             { octo },
             {
                 owner: args.owner,
@@ -132,5 +132,36 @@ export const create = action({
         })
 
         return { githubIssueNumber: issueDoc.val.number }
+    },
+})
+
+export const addComment = action({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        number: v.number(),
+        comment: v.string(),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+        let hasAccess = await ctx.runQuery(api.services.auth.hasUserAccessToRepo, {
+            ...SECRET,
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
+        let savedRepo = unwrap(hasAccess)
+
+        let token = await getTokenFromUserId(ctx, userId)
+        if (token.isErr) throw new Error('no PAT found')
+
+        let octo = newOctokit(token.val)
+
+        let issue = await Github.addComment(
+            { octo },
+            { owner: args.owner, repo: args.repo, number: args.number, comment: args.comment },
+        )
+
+        // fixme: finish
     },
 })

@@ -4,6 +4,17 @@ import { octoCatch, octoCatchFull, OctoError, octoWrap, parseDate } from '@conve
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap, type Result } from '../shared'
 
+export const Github = {
+    getAllRefs,
+    getTokenExpiration,
+    validatePublicLicense,
+    parseGithubUrl,
+    getRateLimit,
+    getRepoIssuePrCounts,
+    createIssue,
+    addComment,
+}
+
 /**
  * Octokit for some reason accepts auth as any. This is bad, and I've been
  * bitten by this many times, so use this wrapper whenever creating newOctokits.
@@ -24,7 +35,7 @@ export type GitRefInfo = {
     isTag: boolean
 }
 
-export async function getAllRefs(cfg: OctoCfg, args: { owner: string; repo: string }) {
+async function getAllRefs(cfg: OctoCfg, args: { owner: string; repo: string }) {
     let heads = await octoCatch(cfg.octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
     if (heads.isErr) return err(`Failed to list heads refs: ${heads.err.error()}`)
 
@@ -47,7 +58,7 @@ export async function getAllRefs(cfg: OctoCfg, args: { owner: string; repo: stri
     return ok(data)
 }
 
-export async function getTokenExpiration(token: string): R<Date> {
+async function getTokenExpiration(token: string): R<Date> {
     const octo = newOctokit(token)
 
     let res = await tryCatch(octo.rest.users.getAuthenticated())
@@ -121,7 +132,7 @@ export function parseGithubUrl(raw: string): Result<{ owner: string; repo: strin
     return ok({ owner, repo })
 }
 
-export async function getRateLimit(cfg: OctoCfg) {
+async function getRateLimit(cfg: OctoCfg) {
     let rateLimit = await octoCatchFull(cfg.octo.rest.rateLimit.get())
     if (rateLimit.isErr) {
         return octoWrap('failed to get rate limit', rateLimit)
@@ -134,7 +145,7 @@ export async function getRateLimit(cfg: OctoCfg) {
     return ok({ limit, remaining, reset })
 }
 
-export async function getRepoIssuePrCounts(
+async function getRepoIssuePrCounts(
     cfg: OctoCfg,
     args: { owner: string; repo: string },
 ): R<{
@@ -188,7 +199,7 @@ export async function getRepoIssuePrCounts(
     })
 }
 
-export async function createIssue(
+async function createIssue(
     cfg: OctoCfg,
     args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
 ): R<UpsertDoc<'issues'>, OctoError> {
@@ -231,4 +242,20 @@ export async function createIssue(
     }
 
     return ok(issueDoc)
+}
+
+async function addComment(
+    cfg: OctoCfg,
+    args: { owner: string; repo: string; number: number; comment: string },
+): R<null, OctoError> {
+    let added = await octoCatch(
+        cfg.octo.rest.issues.createComment({
+            owner: args.owner,
+            repo: args.repo,
+            issue_number: args.number,
+            body: args.comment,
+        }),
+    )
+    if (added.isErr) return added
+    return ok()
 }

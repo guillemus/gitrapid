@@ -2,7 +2,7 @@ import { api } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { scopesSchema } from '@convex/schema'
 import { getUserId } from '@convex/services/auth'
-import { getTokenExpiration } from '@convex/services/github'
+import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
 import { SECRET } from '@convex/utils'
 import { v } from 'convex/values'
@@ -33,7 +33,7 @@ export const savePAT = action({
     async handler(ctx, { token, scopes }): R {
         let userId = await getUserId(ctx)
 
-        let expiresAt = await getTokenExpiration(token)
+        let expiresAt = await Github.getTokenExpiration(token)
         if (expiresAt.isErr) {
             return wrap('Failed to validate token', expiresAt)
         }
