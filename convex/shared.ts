@@ -33,7 +33,7 @@ export async function tryCatch<T>(promise: Promise<T>): Promise<Result<T>> {
     } catch (error) {
         // @ts-expect-error: if it has a `message` property it is quite probable
         // that it is an error
-        if (error?.message) return { isErr: true, error: error.message }
+        if (error?.message) return { isErr: true, err: error.message }
 
         return { isErr: true, err: String(error) }
     }

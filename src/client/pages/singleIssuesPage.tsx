@@ -2,11 +2,11 @@ import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api } from '@convex/_generated/api'
+import { useAction } from 'convex/react'
 import { AlertCircle, Plus, User } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams } from 'react-router'
 import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
-import { useAction } from 'convex/react'
 
 function usePageParams() {
     let { owner, repo, number } = useParams()

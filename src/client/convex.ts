@@ -23,6 +23,7 @@ export const queryClient = new QueryClient({
         queries: {
             queryKeyHashFn: convexQueryClient.hashFn(),
             queryFn: convexQueryClient.queryFn(),
+            gcTime: 5 * 60 * 1000, // 5 minutes
         },
     },
 })

@@ -2,12 +2,7 @@
 
 import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import { ConvexHttpClient } from 'convex/browser'
-import type {
-    FunctionArgs,
-    FunctionReference,
-    FunctionReturnType,
-    OptionalRestArgs,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import pino from 'pino'

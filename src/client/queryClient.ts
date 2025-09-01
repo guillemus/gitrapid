@@ -1,29 +1,21 @@
 import { QueryClient } from '@tanstack/react-query'
-import { persistQueryClient } from '@tanstack/react-query-persist-client'
+import { persistQueryClient as tanstackPersistQueryClient } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
 
-// caches queries to indexeddb
-export const idbQueryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            gcTime: 1000 * 60 * 60 * 24, // 24 hours
+// Caches to indexed db. I might want to do this for max (perceived) performance.
+export async function persistQueryClient(queryClient: QueryClient) {
+    const persister = {
+        persistClient: async (client: unknown) => {
+            await set('react-query-cache', client)
         },
-    },
-})
+        restoreClient: async () => {
+            return await get('react-query-cache')
+        },
+        removeClient: async () => {
+            await del('react-query-cache')
+        },
+    }
 
-const idbPersister = {
-    persistClient: async (client: unknown) => {
-        await set('react-query-cache', client)
-    },
-    restoreClient: async () => {
-        return await get('react-query-cache')
-    },
-    removeClient: async () => {
-        await del('react-query-cache')
-    },
+    let [, p] = tanstackPersistQueryClient({ queryClient, persister })
+    await p
 }
-
-void persistQueryClient({
-    queryClient: idbQueryClient,
-    persister: idbPersister,
-})
