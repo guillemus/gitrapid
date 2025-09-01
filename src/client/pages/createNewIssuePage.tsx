@@ -32,18 +32,12 @@ export function CreateNewIssuePage() {
         title: '',
         body: '',
         tab: 'write' as 'write' | 'preview',
-        errorMessage: null as string | null,
     })
 
     let createIssueAction = useAction(api.public.issues.create)
 
-    async function createIssue() {
-        state.errorMessage = null
-        if (!state.title.trim()) {
-            state.errorMessage = 'Please enter a title'
-            setTimeout(() => (state.errorMessage = null), 4000)
-            return
-        }
+    async function createIssue(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
 
         state.creatingIssue = true
         let res = await createIssueAction({
@@ -56,6 +50,7 @@ export function CreateNewIssuePage() {
 
         await navigate(`/${owner}/${repo}/issues/${res.githubIssueNumber}`)
     }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -64,7 +59,7 @@ export function CreateNewIssuePage() {
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 {/* Main form */}
-                <div className="md:col-span-2">
+                <form className="md:col-span-2" onSubmit={createIssue}>
                     {/* Title */}
                     <div className="space-y-2">
                         <label htmlFor="title" className="text-sm font-medium">
@@ -72,6 +67,7 @@ export function CreateNewIssuePage() {
                         </label>
                         <Input
                             autoFocus
+                            required
                             placeholder="Title"
                             id="title"
                             value={state.title}
@@ -141,16 +137,12 @@ export function CreateNewIssuePage() {
                             >
                                 Cancel
                             </Button>
-                            <Button disabled={state.creatingIssue} onClick={createIssue}>
+                            <Button type="submit" disabled={state.creatingIssue}>
                                 {state.creatingIssue ? 'Creating...' : 'Create'}
                             </Button>
                         </div>
                     </div>
-
-                    {state.errorMessage && (
-                        <div className="mt-4 text-sm text-red-500">{state.errorMessage}</div>
-                    )}
-                </div>
+                </form>
 
                 {/* Sidebar */}
                 <div className="space-y-6">

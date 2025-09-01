@@ -246,8 +246,15 @@ async function createIssue(
 
 async function addComment(
     cfg: OctoCfg,
-    args: { owner: string; repo: string; number: number; comment: string },
-): R<null, OctoError> {
+    args: {
+        owner: string
+        repo: string
+        number: number
+        comment: string
+        repoId: Id<'repos'>
+        issueId: Id<'issues'>
+    },
+): R<UpsertDoc<'issueComments'>, OctoError> {
     let added = await octoCatch(
         cfg.octo.rest.issues.createComment({
             owner: args.owner,
@@ -257,5 +264,16 @@ async function addComment(
         }),
     )
     if (added.isErr) return added
-    return ok()
+
+    let doc: UpsertDoc<'issueComments'> = {
+        issueId: args.issueId,
+        repoId: args.repoId,
+        githubId: added.val.id,
+        author: { login: added.val.user?.login ?? '', id: added.val.user?.id ?? 0 },
+        body: added.val.body ?? '',
+        createdAt: added.val.created_at ?? new Date().toISOString(),
+        updatedAt: added.val.updated_at ?? new Date().toISOString(),
+    }
+
+    return ok(doc)
 }

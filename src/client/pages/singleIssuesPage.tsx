@@ -3,9 +3,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api } from '@convex/_generated/api'
 import { AlertCircle, Plus, User } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router'
-import { formatRelativeTime, usePageQuery } from '../utils'
+import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
+import { useAction } from 'convex/react'
 
 function usePageParams() {
     let { owner, repo, number } = useParams()
@@ -135,27 +136,7 @@ export function SingleIssuesPage() {
                     </div>
 
                     {/* Add comment box */}
-                    <div className="mt-6 rounded-md border">
-                        <div className="p-4">
-                            <div className="mb-2 text-sm font-medium">Add a comment</div>
-                            <div className="rounded-md border">
-                                <textarea
-                                    rows={5}
-                                    className="bg-background placeholder:text-muted-foreground w-full resize-none rounded-md p-3 text-sm outline-none"
-                                    placeholder="Write a comment..."
-                                />
-                            </div>
-                            <div className="mt-3 flex items-center justify-end gap-2">
-                                <Button variant="outline" size="sm" className="bg-transparent">
-                                    Preview
-                                </Button>
-                                <Button size="sm" className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Comment
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+                    <AddCommentBox></AddCommentBox>
                 </div>
 
                 {/* Sidebar */}
@@ -205,6 +186,61 @@ export function SingleIssuesPage() {
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+function AddCommentBox() {
+    let { owner, repo, number } = usePageParams()
+    let addComment = useAction(api.public.issues.addComment)
+
+    let state = useMutable({
+        addingComment: false,
+        comment: '',
+    })
+
+    async function handleAddComment(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
+
+        state.addingComment = true
+        await addComment({
+            owner,
+            repo,
+            number,
+            comment: state.comment,
+        })
+        state.addingComment = false
+        state.comment = ''
+    }
+
+    return (
+        <div className="mt-6 rounded-md border">
+            <form className="p-4" onSubmit={handleAddComment}>
+                <div className="mb-2 text-sm font-medium">Add a comment</div>
+                <div className="rounded-md border">
+                    <textarea
+                        rows={5}
+                        onChange={(e) => (state.comment = e.target.value)}
+                        value={state.comment}
+                        className="bg-background placeholder:text-muted-foreground w-full resize-none rounded-md p-3 text-sm outline-none"
+                        placeholder="Write a comment..."
+                    />
+                </div>
+                <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button variant="outline" size="sm" className="bg-transparent">
+                        Preview
+                    </Button>
+                    <Button
+                        type="submit"
+                        size="sm"
+                        className="gap-2"
+                        disabled={state.addingComment}
+                    >
+                        <Plus className="h-4 w-4" />
+                        {state.addingComment ? 'Adding...' : 'Comment'}
+                    </Button>
+                </div>
+            </form>
         </div>
     )
 }

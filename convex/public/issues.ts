@@ -6,7 +6,7 @@ import { Issues } from '@convex/models/issues'
 import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
-import { unwrap } from '@convex/shared'
+import { ok, unwrap } from '@convex/shared'
 import { SECRET, logger } from '@convex/utils'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
@@ -157,11 +157,29 @@ export const addComment = action({
 
         let octo = newOctokit(token.val)
 
-        let issue = await Github.addComment(
-            { octo },
-            { owner: args.owner, repo: args.repo, number: args.number, comment: args.comment },
-        )
+        let issue = await ctx.runQuery(api.models.issues.getByRepoAndNumber, {
+            ...SECRET,
+            repoId: savedRepo._id,
+            number: args.number,
+        })
+        if (!issue) throw new Error('issue not found')
 
-        // fixme: finish
+        let issueComment = await Github.addComment(
+            { octo },
+            {
+                owner: args.owner,
+                repo: args.repo,
+                number: args.number,
+                comment: args.comment,
+                repoId: savedRepo._id,
+                issueId: issue._id,
+            },
+        )
+        if (issueComment.isErr) throw new Error('octo error: failed to add comment')
+
+        await ctx.runMutation(api.models.issueComments.insertMany, {
+            ...SECRET,
+            comments: [issueComment.val],
+        })
     },
 })

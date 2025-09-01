@@ -13,20 +13,6 @@ export const IssueComments = {
             .collect()
     },
 
-    async insertIfNotExists(
-        ctx: MutationCtx,
-        issueCommentId: Id<'issueComments'>,
-        doc: models.UpsertDoc<'issueComments'>,
-    ) {
-        let existing = await ctx.db.get(issueCommentId)
-        if (existing) {
-            return existing
-        }
-
-        let id = await ctx.db.insert('issueComments', doc)
-        return await ctx.db.get(id)
-    },
-
     async insertMany(ctx: MutationCtx, docs: models.UpsertDoc<'issueComments'>[]) {
         let ids: Id<'issueComments'>[] = []
         for (let doc of docs) {
@@ -73,14 +59,6 @@ export const IssueComments = {
         return matches
     },
 }
-
-export const insertIfNotExists = protectedMutation({
-    args: {
-        issueCommentId: v.id('issueComments'),
-        doc: v.object(schemas.issueCommentsSchema),
-    },
-    handler: (ctx, args) => IssueComments.insertIfNotExists(ctx, args.issueCommentId, args.doc),
-})
 
 export const insertMany = protectedMutation({
     args: { comments: v.array(v.object(schemas.issueCommentsSchema)) },
