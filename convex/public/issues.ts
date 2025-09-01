@@ -1,11 +1,13 @@
-import { query } from '@convex/_generated/server'
+import { api } from '@convex/_generated/api'
+import { action, query } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
-import { Repos } from '@convex/models/repos'
-import { UserRepos } from '@convex/models/userRepos'
+import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
+import { createIssue, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
-import { getUserId } from '@convex/utils'
+import { unwrap } from '@convex/shared'
+import { SECRET, logger } from '@convex/utils'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -21,12 +23,8 @@ export const list = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-
-        let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-        if (!savedRepo) return null
-
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
-        if (!hasRepo) return null
+        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let savedRepo = unwrap(hasAccess)
 
         let result = await Issues.paginate(ctx, {
             repoId: savedRepo._id,
@@ -50,12 +48,8 @@ export const search = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-
-        let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-        if (!savedRepo) return null
-
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
-        if (!hasRepo) return null
+        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let savedRepo = unwrap(hasAccess)
 
         return IssueSearch.search(ctx, savedRepo, args.search)
     },
@@ -69,12 +63,8 @@ export const get = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-
-        let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-        if (!savedRepo) return null
-
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
-        if (!hasRepo) return null
+        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let savedRepo = unwrap(hasAccess)
 
         let issue = await Issues.getByRepoAndNumber(ctx, {
             number: args.number,
@@ -90,5 +80,57 @@ export const get = query({
             body: issueBody,
             comments: issueComments,
         }
+    },
+})
+
+export const create = action({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        title: v.string(),
+        body: v.string(),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+        let hasAccess = await ctx.runQuery(api.services.auth.hasUserAccessToRepo, {
+            ...SECRET,
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
+        let savedRepo = unwrap(hasAccess)
+
+        let token = await getTokenFromUserId(ctx, userId)
+        if (token.isErr) throw new Error('no PAT found')
+
+        let octo = newOctokit(token.val)
+
+        let issueDoc = await createIssue(
+            { octo },
+            {
+                owner: args.owner,
+                repo: args.repo,
+                title: args.title,
+                body: args.body,
+                repoId: savedRepo._id,
+            },
+        )
+        if (issueDoc.isErr) {
+            logger.error({ error: issueDoc.err.error() }, 'octo error: failed to create issue')
+            throw new Error('octo error: failed to create issue')
+        }
+
+        await ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
+            ...SECRET,
+            items: [
+                {
+                    issue: issueDoc.val,
+                    body: args.body,
+                    comments: [],
+                },
+            ],
+        })
+
+        return { githubIssueNumber: issueDoc.val.number }
     },
 })

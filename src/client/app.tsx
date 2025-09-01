@@ -10,6 +10,7 @@ import { DashboardPage } from '@/client/pages/dashboardPage'
 import { IssuesPage } from '@/client/pages/issuesPage'
 import { LoginPage } from '@/client/pages/loginPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
+import { CreateNewIssuePage } from './pages/createNewIssuePage'
 import { SingleIssuesPage } from './pages/singleIssuesPage'
 
 function AuthenticatedWithToken(props: { children: React.ReactNode }) {
@@ -57,6 +58,10 @@ function Router() {
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                     <Route path={SingleIssuesPage.path} element={<SingleIssuesPage />} />
+                    <Route path={CreateNewIssuePage.path} element={<CreateNewIssuePage />} />
+                </Route>
+                <Route element={<AppLayout tab="none" />}>
+                    <Route path={CreateNewIssuePage.path} element={<CreateNewIssuePage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

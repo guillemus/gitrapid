@@ -2,6 +2,7 @@ import { api } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
+import { getTokenFromUserId, getUserId } from '@convex/services/auth'
 import {
     newOctokit,
     parseGithubUrl,
@@ -9,7 +10,7 @@ import {
     type LicenseError,
 } from '@convex/services/github'
 import { err, ok } from '@convex/shared'
-import { getTokenFromUserId, getUserId, logger, octoCatch, SECRET } from '@convex/utils'
+import { logger, octoCatch, SECRET } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const get = query({

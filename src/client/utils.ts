@@ -151,10 +151,12 @@ export function useClickOutside(onclickOutside: () => void) {
     return containerRef
 }
 
+import useConstant from 'use-constant'
+
 export function useMutable<T extends object>(initial: T): T {
-    const p = useRef(proxy(initial)).current
-    useSnapshot(p)
-    return p
+    let c = useConstant(() => proxy(initial))
+    useSnapshot(c)
+    return c
 }
 
 export const authClient = createAuthClient()

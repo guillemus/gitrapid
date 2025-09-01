@@ -1,4 +1,6 @@
-import { octoCatch, octoCatchFull, octoWrap, parseDate } from '@convex/utils'
+import type { Id } from '@convex/_generated/dataModel'
+import type { UpsertDoc } from '@convex/models/models'
+import { octoCatch, octoCatchFull, OctoError, octoWrap, parseDate } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap, type Result } from '../shared'
 
@@ -186,10 +188,47 @@ export async function getRepoIssuePrCounts(
     })
 }
 
-export type GithubIssue = Awaited<
-    ReturnType<Octokit['rest']['issues']['listForRepo']>
->['data'][number]
+export async function createIssue(
+    cfg: OctoCfg,
+    args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
+): R<UpsertDoc<'issues'>, OctoError> {
+    let created = await octoCatch(
+        cfg.octo.rest.issues.create({
+            owner: args.owner,
+            repo: args.repo,
+            title: args.title,
+            body: args.body,
+        }),
+    )
+    if (created.isErr) return created
 
-export type GithubIssueComment = Awaited<
-    ReturnType<Octokit['rest']['issues']['listComments']>
->['data'][number]
+    let gh = created.val
+
+    let labels = Array.isArray(gh.labels)
+        ? gh.labels.map((l) => (typeof l === 'string' ? l : l.name)).filter((n): n is string => !!n)
+        : []
+    let assignees = Array.isArray(gh.assignees)
+        ? gh.assignees
+              .map((a) => (typeof a === 'string' ? a : a.login))
+              .filter((n): n is string => !!n)
+        : []
+
+    let state: 'open' | 'closed' = gh.state === 'closed' ? 'closed' : 'open'
+
+    let issueDoc: UpsertDoc<'issues'> = {
+        repoId: args.repoId,
+        githubId: gh.id ?? 0,
+        number: gh.number,
+        title: gh.title ?? args.title,
+        state,
+        author: { login: gh.user?.login ?? '', id: gh.user?.id ?? 0 },
+        labels: labels.length ? labels : undefined,
+        assignees: assignees.length ? assignees : undefined,
+        createdAt: gh.created_at ?? new Date().toISOString(),
+        updatedAt: gh.updated_at ?? new Date().toISOString(),
+        closedAt: gh.closed_at ?? undefined,
+        comments: typeof gh.comments === 'number' ? gh.comments : undefined,
+    }
+
+    return ok(issueDoc)
+}

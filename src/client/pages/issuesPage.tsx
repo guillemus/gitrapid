@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
+import { IssueOpenedIcon } from '@primer/octicons-react'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -23,8 +24,7 @@ import {
     Search,
     X,
 } from 'lucide-react'
-import { IssueOpenedIcon } from '@primer/octicons-react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '../convex'
 import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
@@ -71,6 +71,7 @@ type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
 type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 
 export function IssuesPage() {
+    let navigate = useNavigate()
     useSnapshot(state)
 
     let activeSearch = state.filters.search
@@ -168,7 +169,12 @@ export function IssuesPage() {
                         <Search className="h-4 w-4" />
                     </Button>
                 </div>
-                <Button className="gap-2">
+                <Button
+                    className="gap-2"
+                    onClick={() => {
+                        navigate(`/${params.owner}/${params.repo}/issues/new`)
+                    }}
+                >
                     <Plus className="h-4 w-4" />
                     New issue
                 </Button>

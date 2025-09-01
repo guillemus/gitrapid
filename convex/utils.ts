@@ -1,6 +1,5 @@
 /* eslint-disable */
 
-import { getAuthUserId } from '@convex-dev/auth/server'
 import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import { ConvexHttpClient } from 'convex/browser'
 import type {
@@ -8,78 +7,14 @@ import type {
     FunctionReference,
     FunctionReturnType,
     OptionalRestArgs,
-    UserIdentity,
 } from 'convex/server'
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import pino from 'pino'
-import { api } from './_generated/api'
-import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
 import { env } from './env'
 import { err, ok, type Err, type Result } from './shared'
-
-export interface Context {
-    runQuery<Query extends FunctionReference<'query', 'internal' | 'public'>>(
-        query: Query,
-        ...args: OptionalRestArgs<Query>
-    ): Promise<FunctionReturnType<Query>>
-    runMutation<Mutation extends FunctionReference<'mutation', 'internal' | 'public'>>(
-        mutation: Mutation,
-        ...args: OptionalRestArgs<Mutation>
-    ): Promise<FunctionReturnType<Mutation>>
-}
-
-export async function withExponentialBackoff<T>(
-    operation: () => Promise<T>,
-    maxRetries: number = 4,
-): Promise<T> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return await operation()
-        } catch (error) {
-            if (attempt === maxRetries - 1) {
-                logger.error(
-                    { err: error },
-                    `BACKOFF: Operation failed after ${maxRetries} attempts`,
-                )
-                throw error
-            }
-
-            const delay = Math.pow(2, attempt) * 1000 // 1s, 2s, 4s, 8s
-            logger.warn(
-                { err: error, attempt: attempt + 1, delay },
-                'BACKOFF: attempt failed, retrying',
-            )
-            await new Promise((resolve) => setTimeout(resolve, delay))
-        }
-    }
-    throw new Error('BACKOFF: Should not reach here')
-}
-
-type Auth = {
-    getUserIdentity: () => Promise<UserIdentity | null>
-}
-
-export async function getUserId(ctx: { auth: Auth }) {
-    const userId = await getAuthUserId(ctx)
-    if (!userId) {
-        throw new Error('User not authenticated')
-    }
-
-    return userId
-}
-
-export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
-    let token = await ctx.runQuery(api.models.pats.getByUserId, {
-        ...SECRET,
-        userId,
-    })
-    if (!token) return err('No PAT found')
-
-    return ok(token.token)
-}
 
 export class OctoError extends RequestError {
     constructor(err: RequestError) {
@@ -215,15 +150,6 @@ function debugLogger() {
     })
 }
 
-export function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
-    this: ActionCtx,
-    query: Query,
-    args: Omit<FunctionArgs<Query>, 'secret'>,
-): Promise<FunctionReturnType<Query>> {
-    // @ts-expect-error: hard to make ts happy
-    return this.runQuery(query, { secret: SECRET.secret, ...args })
-}
-
 function preventInProd() {
     if (process.env.DEV !== 'true') throw new Error('>:(')
 }
@@ -262,4 +188,37 @@ export function parseDate(date: string): Result<Date> {
     }
 
     return ok(d)
+}
+
+export const Protected = {
+    runQuery: runProtectedQuery,
+    runMutation: runProtectedMutation,
+    runAction: runProtectedAction,
+}
+
+function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
+    ctx: ActionCtx,
+    query: Query,
+    args: Omit<FunctionArgs<Query>, 'secret'>,
+): Promise<FunctionReturnType<Query>> {
+    // @ts-expect-error: hard to make ts happy
+    return ctx.runQuery(query, { secret: SECRET.secret, ...args })
+}
+
+function runProtectedMutation<Query extends FunctionReference<'mutation', 'public' | 'internal'>>(
+    ctx: ActionCtx,
+    query: Query,
+    args: Omit<FunctionArgs<Query>, 'secret'>,
+): Promise<FunctionReturnType<Query>> {
+    // @ts-expect-error: hard to make ts happy
+    return ctx.runMutation(query, { secret: SECRET.secret, ...args })
+}
+
+function runProtectedAction<Query extends FunctionReference<'action', 'public' | 'internal'>>(
+    ctx: ActionCtx,
+    query: Query,
+    args: Omit<FunctionArgs<Query>, 'secret'>,
+): Promise<FunctionReturnType<Query>> {
+    // @ts-expect-error: hard to make ts happy
+    return ctx.runAction(query, { secret: SECRET.secret, ...args })
 }
