@@ -6,8 +6,8 @@ import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
-import { Repos } from './repos'
 import { IssueTimelineItems } from './issueTimelineItems'
+import { Repos } from './repos'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 

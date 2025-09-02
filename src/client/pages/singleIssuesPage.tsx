@@ -3,7 +3,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api } from '@convex/_generated/api'
 import { useAction } from 'convex/react'
-import { AlertCircle, Plus, User } from 'lucide-react'
+import type { FunctionReturnType } from 'convex/server'
+import {
+    AlertCircle,
+    CheckCircle2,
+    GitCommit,
+    MoveRight,
+    Pin,
+    PinOff,
+    Plus,
+    RotateCcw,
+    Tag,
+    Unlock,
+    User,
+    UserMinus,
+    UserPlus,
+} from 'lucide-react'
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
 import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
@@ -21,6 +36,10 @@ function usePageParams() {
 }
 
 SingleIssuesPage.path = '/:owner/:repo/issues/:number'
+
+type Data = Exclude<FunctionReturnType<typeof api.public.issues.get>, null>
+type Comments = Data['comments']
+type TimelineItems = Data['timelineItems']
 
 export function SingleIssuesPage() {
     let { owner, repo, number } = usePageParams()
@@ -82,56 +101,17 @@ export function SingleIssuesPage() {
                 <div className="md:col-span-2">
                     <div className="relative">
                         <div className="space-y-6 pl-8">
-                            {/* Issue description */}
+                            {/* Issue description - always first */}
                             {issueBodyMd && (
-                                <div className="overflow-hidden rounded-md border">
-                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="font-medium">
-                                                    {data.issue.author.login}
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    commented{' '}
-                                                    {formatRelativeTime(data.issue.createdAt)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
-                                        <div dangerouslySetInnerHTML={{ __html: issueBodyHtml }} />
-                                    </div>
-                                </div>
+                                <IssueBody
+                                    author={data.issue.author.login}
+                                    createdAt={data.issue.createdAt}
+                                    bodyHtml={issueBodyHtml}
+                                />
                             )}
 
-                            {/* Comments */}
-                            {data.comments.map((comment) => (
-                                <div
-                                    key={comment.githubId}
-                                    className="overflow-hidden rounded-md border"
-                                >
-                                    <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="font-medium">
-                                                    {comment.author.login}
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    commented{' '}
-                                                    {formatRelativeTime(comment.createdAt)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
-                                        <div
-                                            dangerouslySetInnerHTML={{
-                                                __html: renderMarkdownToHtml(comment.body || ''),
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
+                            {/* Timeline items and comments in chronological order */}
+                            {renderTimelineItems(data.timelineItems, data.comments)}
                         </div>
                     </div>
 
@@ -188,6 +168,176 @@ export function SingleIssuesPage() {
             </div>
         </div>
     )
+}
+
+function IssueBody({
+    author,
+    createdAt,
+    bodyHtml,
+}: {
+    author: string
+    createdAt: string
+    bodyHtml: string
+}) {
+    return (
+        <div className="overflow-hidden rounded-md border">
+            <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{author}</span>
+                        <span className="text-muted-foreground">
+                            commented {formatRelativeTime(createdAt)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
+                <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+            </div>
+        </div>
+    )
+}
+
+function CommentItem({ comment }: { comment: Comments[number] }) {
+    return (
+        <div className="overflow-hidden rounded-md border">
+            <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{comment.author.login}</span>
+                        <span className="text-muted-foreground">
+                            commented {formatRelativeTime(comment.createdAt)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
+                <div
+                    dangerouslySetInnerHTML={{
+                        __html: renderMarkdownToHtml(comment.body || ''),
+                    }}
+                />
+            </div>
+        </div>
+    )
+}
+
+function TimelineEvent({ event }: { event: TimelineItems[number] }) {
+    return (
+        <div className="flex items-center gap-3 text-sm">
+            <TimelineEventIcon event={event} />
+            <span>{describeTimelineEvent(event)}</span>
+            <span className="text-muted-foreground">{formatRelativeTime(event.createdAt)}</span>
+        </div>
+    )
+}
+
+function TimelineEventIcon({ event }: { event: TimelineItems[number] }) {
+    switch (event.item.type) {
+        case 'assigned':
+            return <UserPlus className="h-4 w-4" />
+        case 'unassigned':
+            return <UserMinus className="h-4 w-4" />
+        case 'labeled':
+        case 'unlabeled':
+            return <Tag className="h-4 w-4" />
+        case 'milestoned':
+        case 'demilestoned':
+            return <MoveRight className="h-4 w-4" />
+        case 'closed':
+            return <CheckCircle2 className="h-4 w-4" />
+        case 'reopened':
+            return <RotateCcw className="h-4 w-4" />
+        case 'referenced':
+        case 'cross_referenced':
+            return <GitCommit className="h-4 w-4" />
+        case 'locked':
+            return <AlertCircle className="h-4 w-4" />
+        case 'unlocked':
+            return <Unlock className="h-4 w-4" />
+        case 'pinned':
+            return <Pin className="h-4 w-4" />
+        case 'unpinned':
+            return <PinOff className="h-4 w-4" />
+        case 'transferred':
+            return <MoveRight className="h-4 w-4" />
+        default:
+            return <AlertCircle className="h-4 w-4" />
+    }
+}
+
+function describeTimelineEvent(event: TimelineItems[number]): string {
+    let actor = event.actor.login
+    let t = event.item
+    switch (t.type) {
+        case 'assigned':
+            return `${actor} assigned ${t.assignee.login}`
+        case 'unassigned':
+            return `${actor} unassigned ${t.assignee.login}`
+        case 'labeled':
+            return `${actor} added the label ${t.label.name}`
+        case 'unlabeled':
+            return `${actor} removed the label ${t.label.name}`
+        case 'milestoned':
+            return `${actor} added this to the milestone ${t.milestoneTitle}`
+        case 'demilestoned':
+            return `${actor} removed this from the milestone ${t.milestoneTitle}`
+        case 'closed':
+            return `${actor} closed this`
+        case 'reopened':
+            return `${actor} reopened this`
+        case 'referenced':
+            return `${actor} referenced a commit ${t.commit.oid.slice(0, 7)}`
+        case 'cross_referenced':
+            return `${actor} cross-referenced from ${t.source.owner}/${t.source.name}#${t.source.number}`
+        case 'locked':
+            return `${actor} locked as resolved`
+        case 'unlocked':
+            return `${actor} unlocked this conversation`
+        case 'pinned':
+            return `${actor} pinned this issue`
+        case 'unpinned':
+            return `${actor} unpinned this issue`
+        case 'transferred':
+            return `${actor} transferred this issue from ${t.fromRepository.owner}/${t.fromRepository.name}`
+        default:
+            return `${actor} did something`
+    }
+}
+
+function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
+    // Combine timeline items and comments, sort by createdAt
+    let allItems: Array<
+        | {
+              type: 'timeline'
+              item: TimelineItems[number]
+              createdAt: string
+          }
+        | {
+              type: 'comment'
+              item: Comments[number]
+              createdAt: string
+          }
+    > = []
+
+    for (let item of timelineItems) {
+        allItems.push({ type: 'timeline', item, createdAt: item.createdAt })
+    }
+
+    for (let comment of comments) {
+        allItems.push({ type: 'comment', item: comment, createdAt: comment.createdAt })
+    }
+
+    // Sort by creation time (oldest first)
+    allItems.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    return allItems.map((item) => {
+        if (item.type === 'timeline') {
+            return <TimelineEvent key={`timeline-${item.createdAt}`} event={item.item} />
+        } else {
+            return <CommentItem key={`comment-${item.item._id}`} comment={item.item} />
+        }
+    })
 }
 
 function AddCommentBox() {
