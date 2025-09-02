@@ -215,14 +215,27 @@ async function createIssue(
 
     let gh = created.val
 
-    let labels = Array.isArray(gh.labels)
-        ? gh.labels.map((l) => (typeof l === 'string' ? l : l.name)).filter((n): n is string => !!n)
-        : []
-    let assignees = Array.isArray(gh.assignees)
-        ? gh.assignees
-              .map((a) => (typeof a === 'string' ? a : a.login))
-              .filter((n): n is string => !!n)
-        : []
+    let labels: string[] = []
+    if (Array.isArray(gh.labels)) {
+        for (let l of gh.labels) {
+            if (typeof l === 'string') {
+                labels.push(l)
+            } else if (l.name) {
+                labels.push(l.name)
+            }
+        }
+    }
+
+    let assignees: string[] = []
+    if (Array.isArray(gh.assignees)) {
+        for (let a of gh.assignees) {
+            if (typeof a === 'string') {
+                assignees.push(a)
+            } else if (a.login) {
+                assignees.push(a.login)
+            }
+        }
+    }
 
     let state: 'open' | 'closed' = gh.state === 'closed' ? 'closed' : 'open'
 

@@ -77,6 +77,8 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
     .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
+export const issueTimelineItemSchema = v.union()
+
 export const issueBodiesSchema = {
     repoId: v.id('repos'),
     issueId: v.id('issues'),

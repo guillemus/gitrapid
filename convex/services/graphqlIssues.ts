@@ -110,7 +110,9 @@ export async function fetchIssuesPageGraphQL(
             since: args.since ?? null,
         }),
     )
-    if (res.isErr) return wrap('failed to fetch issues via GraphQL', res)
+    if (res.isErr) {
+        return wrap('failed to fetch issues via GraphQL', res)
+    }
 
     let repo = res.val.repository
     let issues = repo?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
