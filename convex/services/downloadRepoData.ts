@@ -244,6 +244,12 @@ function issueNodeToTimelineItemsForInsert(
             item = {
                 type: 'reopened',
             }
+        } else if (t.__typename === 'RenamedTitleEvent') {
+            item = {
+                type: 'renamed',
+                previousTitle: t.previousTitle ?? '',
+                currentTitle: t.currentTitle ?? '',
+            }
         } else if (t.__typename === 'ReferencedEvent') {
             item = {
                 type: 'referenced',

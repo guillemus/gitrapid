@@ -7,6 +7,7 @@ import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
     CheckCircle2,
+    Edit,
     GitCommit,
     MoveRight,
     Pin,
@@ -248,6 +249,8 @@ function TimelineEventIcon({ event }: { event: TimelineItems[number] }) {
             return <CheckCircle2 className="h-4 w-4" />
         case 'reopened':
             return <RotateCcw className="h-4 w-4" />
+        case 'renamed':
+            return <Edit className="h-4 w-4" />
         case 'referenced':
         case 'cross_referenced':
             return <GitCommit className="h-4 w-4" />
@@ -294,6 +297,8 @@ function describeTimelineEvent(event: TimelineItems[number]): string {
             return `${actor} closed this`
         case 'reopened':
             return `${actor} reopened this`
+        case 'renamed':
+            return `${actor} renamed this from "${t.previousTitle}" to "${t.currentTitle}"`
         case 'referenced':
             return `${actor} referenced a commit ${t.commit.oid.slice(0, 7)}`
         case 'cross_referenced':

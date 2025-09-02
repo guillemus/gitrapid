@@ -100,14 +100,6 @@ export const issueTimelineItemsSchemaWithoutIssueId = {
             label: timelineLabel,
         }),
         v.object({
-            type: v.literal('unassigned'),
-            assignee: timelineActor,
-        }),
-        v.object({
-            type: v.literal('labeled'),
-            label: timelineLabel,
-        }),
-        v.object({
             type: v.literal('unlabeled'),
             label: timelineLabel,
         }),
@@ -121,6 +113,11 @@ export const issueTimelineItemsSchemaWithoutIssueId = {
         }),
         v.object({ type: v.literal('closed') }),
         v.object({ type: v.literal('reopened') }),
+        v.object({
+            type: v.literal('renamed'),
+            previousTitle: v.string(),
+            currentTitle: v.string(),
+        }),
         v.object({
             type: v.literal('referenced'),
             commit: v.object({ oid: v.string(), url: v.string() }),

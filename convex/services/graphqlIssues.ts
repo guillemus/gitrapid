@@ -75,6 +75,14 @@ export type IssueTimelineItemNode =
           actor: GqlActor
       }
     | {
+          __typename: 'RenamedTitleEvent'
+          id: string
+          createdAt: string
+          actor: GqlActor
+          previousTitle: string
+          currentTitle: string
+      }
+    | {
           __typename: 'ReferencedEvent'
           id: string
           createdAt: string
@@ -221,6 +229,7 @@ export async function fetchIssuesPageGraphQL(
                     DEMILESTONED_EVENT,
                     CLOSED_EVENT,
                     REOPENED_EVENT,
+                    RENAMED_TITLE_EVENT,
                     REFERENCED_EVENT,
                     CROSS_REFERENCED_EVENT,
                     LOCKED_EVENT,
@@ -287,6 +296,13 @@ export async function fetchIssuesPageGraphQL(
                       id
                       createdAt
                       actor { login ... on User { databaseId } }
+                    }
+                    ... on RenamedTitleEvent {
+                      id
+                      createdAt
+                      actor { login ... on User { databaseId } }
+                      previousTitle
+                      currentTitle
                     }
                     ... on ReferencedEvent {
                       id
