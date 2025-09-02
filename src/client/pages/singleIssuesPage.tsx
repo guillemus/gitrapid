@@ -271,8 +271,16 @@ function describeTimelineEvent(event: TimelineItems[number]): string {
     let t = event.item
     switch (t.type) {
         case 'assigned':
+            // Check if user is assigning to themselves
+            if (actor === t.assignee.login) {
+                return `${actor} self-assigned this`
+            }
             return `${actor} assigned ${t.assignee.login}`
         case 'unassigned':
+            // Check if user is unassigning themselves
+            if (actor === t.assignee.login) {
+                return `${actor} unassigned themselves`
+            }
             return `${actor} unassigned ${t.assignee.login}`
         case 'labeled':
             return `${actor} added the label ${t.label.name}`
