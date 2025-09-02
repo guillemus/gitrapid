@@ -126,6 +126,7 @@ export const create = action({
                 {
                     issue: issueDoc.val,
                     body: args.body,
+                    timelineItems: [],
                     comments: [],
                 },
             ],

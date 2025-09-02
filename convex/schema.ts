@@ -1,6 +1,6 @@
 import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { v, type Infer, type VObject } from 'convex/values'
 
 export const reposSchema = {
     owner: v.string(),
@@ -77,7 +77,85 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
     .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
-export const issueTimelineItemSchema = v.union()
+const timelineActor = v.object({ login: v.string(), id: v.number() })
+const timelineLabel = v.object({ name: v.string(), color: v.string() })
+
+export const issueTimelineItemsSchemaWithoutIssueId = {
+    repoId: v.id('repos'),
+    actor: timelineActor,
+    createdAt: v.string(),
+    githubNodeId: v.optional(v.string()),
+
+    item: v.union(
+        v.object({
+            type: v.literal('assigned'),
+            assignee: timelineActor,
+        }),
+        v.object({
+            type: v.literal('unassigned'),
+            assignee: timelineActor,
+        }),
+        v.object({
+            type: v.literal('labeled'),
+            label: timelineLabel,
+        }),
+        v.object({
+            type: v.literal('unassigned'),
+            assignee: timelineActor,
+        }),
+        v.object({
+            type: v.literal('labeled'),
+            label: timelineLabel,
+        }),
+        v.object({
+            type: v.literal('unlabeled'),
+            label: timelineLabel,
+        }),
+        v.object({
+            type: v.literal('milestoned'),
+            milestoneTitle: v.string(),
+        }),
+        v.object({
+            type: v.literal('demilestoned'),
+            milestoneTitle: v.string(),
+        }),
+        v.object({ type: v.literal('closed') }),
+        v.object({ type: v.literal('reopened') }),
+        v.object({
+            type: v.literal('referenced'),
+            commit: v.object({ oid: v.string(), url: v.string() }),
+        }),
+        v.object({
+            type: v.literal('cross_referenced'),
+            source: v.object({
+                type: v.union(v.literal('Issue'), v.literal('PullRequest')),
+                owner: v.string(),
+                name: v.string(),
+                number: v.number(),
+            }),
+        }),
+        v.object({ type: v.literal('locked') }),
+        v.object({ type: v.literal('unlocked') }),
+        v.object({ type: v.literal('pinned') }),
+        v.object({ type: v.literal('unpinned') }),
+        v.object({
+            type: v.literal('transferred'),
+            from: v.object({ owner: v.string(), name: v.string() }),
+            to: v.object({ owner: v.string(), name: v.string() }),
+        }),
+    ),
+}
+
+const issueTimelineItemsSchema = {
+    ...issueTimelineItemsSchemaWithoutIssueId,
+    issueId: v.id('issues'),
+}
+
+const issueTimelineItems = defineTable(issueTimelineItemsSchema)
+    .index('by_issueId', ['issueId'])
+    .index('by_repoId', ['repoId'])
+    .index('by_issueId_and_createdAt', ['issueId', 'createdAt'])
+    .index('by_githubNodeId', ['githubNodeId'])
 
 export const issueBodiesSchema = {
     repoId: v.id('repos'),
@@ -93,6 +171,7 @@ const issueBodies = defineTable(issueBodiesSchema)
     })
 
 export const issuesCommentsWithoutIssueIdSchema = {
+    repoId: v.id('repos'),
     githubId: v.number(),
     author: v.object({ login: v.string(), id: v.number() }),
     body: v.string(),
@@ -110,7 +189,6 @@ export const issuesCommentsWithoutIssueIdSchema = {
 }
 
 export const issueCommentsSchema = {
-    repoId: v.id('repos'),
     issueId: v.id('issues'),
     ...issuesCommentsWithoutIssueIdSchema,
 }
@@ -152,6 +230,7 @@ export default defineSchema({
     issues,
     issueBodies,
     issueComments,
+    issueTimelineItems,
 
     pats,
 })

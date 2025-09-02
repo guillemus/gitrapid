@@ -2,7 +2,7 @@ import type { Doc, TableNames } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
 import { protectedMutation } from '@convex/utils'
 import type { WithoutSystemFields } from 'convex/server'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
@@ -70,13 +70,20 @@ export const IssuesUtils = {
     },
 }
 
+const timelineItemVal = v.object(schemas.issueTimelineItemsSchemaWithoutIssueId)
+const commentVal = v.object(schemas.issuesCommentsWithoutIssueIdSchema)
+
+export type TimelineItemForInsert = Infer<typeof timelineItemVal>
+export type CommentForInsert = Infer<typeof commentVal>
+
 export const insertIssuesWithCommentsBatch = protectedMutation({
     args: {
         items: v.array(
             v.object({
                 issue: v.object(schemas.issuesSchema),
                 body: v.string(),
-                comments: v.array(v.object(schemas.issuesCommentsWithoutIssueIdSchema)),
+                timelineItems: v.array(timelineItemVal),
+                comments: v.array(commentVal),
             }),
         ),
     },
