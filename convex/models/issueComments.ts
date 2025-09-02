@@ -3,7 +3,7 @@ import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
 import { protectedMutation } from '../utils'
-import * as models from './models'
+import type { UpsertDoc } from './models'
 
 export const IssueComments = {
     async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
@@ -13,7 +13,7 @@ export const IssueComments = {
             .collect()
     },
 
-    async insertMany(ctx: MutationCtx, docs: models.UpsertDoc<'issueComments'>[]) {
+    async insertMany(ctx: MutationCtx, docs: UpsertDoc<'issueComments'>[]) {
         let ids: Id<'issueComments'>[] = []
         for (let doc of docs) {
             let id = await ctx.db.insert('issueComments', doc)
@@ -25,7 +25,7 @@ export const IssueComments = {
     async upsert(
         ctx: MutationCtx,
         issueCommentId: Id<'issueComments'>,
-        args: models.UpsertDoc<'issueComments'>,
+        args: UpsertDoc<'issueComments'>,
     ) {
         let existing = await ctx.db.get(issueCommentId)
         if (existing) {

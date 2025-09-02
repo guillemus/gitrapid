@@ -7,6 +7,7 @@ import * as schemas from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
 import { Repos } from './repos'
+import { IssueTimelineItems } from './issueTimelineItems'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -99,6 +100,22 @@ export const insertIssuesWithCommentsBatch = protectedMutation({
                     issueId: issueDoc._id,
                     body: item.body,
                 })
+            }
+
+            if (item.timelineItems.length > 0) {
+                let docs: UpsertDoc<'issueTimelineItems'>[] = []
+                for (let t of item.timelineItems) {
+                    docs.push({
+                        actor: t.actor,
+                        createdAt: t.createdAt,
+                        githubNodeId: t.githubNodeId,
+                        item: t.item,
+                        issueId: issueDoc._id,
+                        repoId: issueDoc.repoId,
+                    })
+                }
+                await IssueTimelineItems.deleteByIssueId(ctx, issueDoc._id)
+                await IssueTimelineItems.insertMany(ctx, docs)
             }
 
             if (item.comments.length > 0) {

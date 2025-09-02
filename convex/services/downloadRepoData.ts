@@ -281,13 +281,9 @@ function issueNodeToTimelineItemsForInsert(
         } else if (t.__typename === 'TransferredEvent') {
             item = {
                 type: 'transferred',
-                from: {
-                    name: t.fromRepository.name ?? '',
+                fromRepository: {
                     owner: t.fromRepository.owner.login ?? '',
-                },
-                to: {
-                    name: t.toRepository.name ?? '',
-                    owner: t.toRepository.owner.login ?? '',
+                    name: t.fromRepository.name ?? '',
                 },
             }
         } else {

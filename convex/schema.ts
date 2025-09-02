@@ -1,6 +1,6 @@
 import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
-import { v, type Infer, type VObject } from 'convex/values'
+import { v } from 'convex/values'
 
 export const reposSchema = {
     owner: v.string(),
@@ -140,13 +140,12 @@ export const issueTimelineItemsSchemaWithoutIssueId = {
         v.object({ type: v.literal('unpinned') }),
         v.object({
             type: v.literal('transferred'),
-            from: v.object({ owner: v.string(), name: v.string() }),
-            to: v.object({ owner: v.string(), name: v.string() }),
+            fromRepository: v.object({ owner: v.string(), name: v.string() }),
         }),
     ),
 }
 
-const issueTimelineItemsSchema = {
+export const issueTimelineItemsSchema = {
     ...issueTimelineItemsSchemaWithoutIssueId,
     issueId: v.id('issues'),
 }

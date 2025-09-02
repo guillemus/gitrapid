@@ -3,6 +3,7 @@ import { action, query } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
+import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
@@ -72,13 +73,15 @@ export const get = query({
         })
         if (!issue) return null
 
-        let issueBody = await IssueBodies.getByIssueId(ctx, issue._id)
-        let issueComments = await IssueComments.listByIssueId(ctx, issue._id)
+        let body = await IssueBodies.getByIssueId(ctx, issue._id)
+        let timelineItems = await IssueTimelineItems.listByIssueId(ctx, issue._id)
+        let comments = await IssueComments.listByIssueId(ctx, issue._id)
 
         return {
             issue,
-            body: issueBody,
-            comments: issueComments,
+            body,
+            timelineItems,
+            comments,
         }
     },
 })

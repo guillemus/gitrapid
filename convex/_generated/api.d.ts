@@ -17,6 +17,7 @@ import type * as migrations from "../migrations.js";
 import type * as models_authAccounts from "../models/authAccounts.js";
 import type * as models_issueBodies from "../models/issueBodies.js";
 import type * as models_issueComments from "../models/issueComments.js";
+import type * as models_issueTimelineItems from "../models/issueTimelineItems.js";
 import type * as models_issues from "../models/issues.js";
 import type * as models_models from "../models/models.js";
 import type * as models_pats from "../models/pats.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "models/authAccounts": typeof models_authAccounts;
   "models/issueBodies": typeof models_issueBodies;
   "models/issueComments": typeof models_issueComments;
+  "models/issueTimelineItems": typeof models_issueTimelineItems;
   "models/issues": typeof models_issues;
   "models/models": typeof models_models;
   "models/pats": typeof models_pats;

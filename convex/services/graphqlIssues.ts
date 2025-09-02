@@ -118,7 +118,6 @@ export type IssueTimelineItemNode =
           createdAt: string
           actor: GqlActor
           fromRepository: GqlRepoRef
-          toRepository: GqlRepoRef
       }
 
 export type IssueNode = {
@@ -227,15 +226,12 @@ export async function fetchIssuesPageGraphQL(
                     LOCKED_EVENT,
                     UNLOCKED_EVENT,
                     PINNED_EVENT,
-                    UNPINNED_EVENT,
-                    TRANSFERRED_EVENT
+                    UNPINNED_EVENT
                   ]
                 ) {
                   pageInfo { hasNextPage endCursor }
                   nodes {
                     __typename
-                    ... on UniformResourceLocatable { id }
-                    ... on Actor { }
                     ... on AssignedEvent {
                       id
                       createdAt
@@ -342,7 +338,6 @@ export async function fetchIssuesPageGraphQL(
                       createdAt
                       actor { login ... on User { databaseId } }
                       fromRepository { name owner { login } }
-                      toRepository { name owner { login } }
                     }
                   }
                 }
