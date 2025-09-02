@@ -178,7 +178,7 @@ export const devAction = customAction(action, {
 
 export function parseDate(date: string): Result<Date> {
     let d = new Date(date)
-    if (isNaN(d.getTime())) {
+    if (Number.isNaN(d.getTime())) {
         return err('invalid date')
     }
 
