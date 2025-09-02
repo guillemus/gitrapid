@@ -1,6 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
 import type { UpsertDoc } from '@convex/models/models'
-import { octoCatch, octoCatchFull, OctoError, octoWrap, parseDate } from '@convex/utils'
+import { octoCatch, octoCatchFull, octoWrap, parseDate, type OctoError } from '@convex/utils'
 import { Octokit } from 'octokit'
 import { err, ok, tryCatch, wrap, type Result } from '../shared'
 

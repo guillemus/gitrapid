@@ -1,5 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
 import * as schemas from '@convex/schema'
 import { protectedMutation, protectedQuery } from '@convex/utils'
 import { v } from 'convex/values'

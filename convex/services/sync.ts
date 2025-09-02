@@ -5,7 +5,7 @@ import { Repos } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
-import { Octokit } from 'octokit'
+import type { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
 import { Github, newOctokit } from './github'
 

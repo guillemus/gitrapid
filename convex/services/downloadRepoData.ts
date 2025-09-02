@@ -26,10 +26,10 @@ export async function downloadIssues(cfg: UpdateCfg): R {
     let totalCommentsProcessed = 0
     let pagesProcessed = 0
 
-    let after: string | undefined = undefined
+    let after: string | undefined
 
     while (true) {
-        let since: string | undefined = undefined
+        let since: string | undefined
         if (!cfg.isBackfill) {
             since = cfg.lastSyncedAt
         }

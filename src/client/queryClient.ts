@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { persistQueryClient as tanstackPersistQueryClient } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
 

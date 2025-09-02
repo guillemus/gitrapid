@@ -84,6 +84,7 @@ export function CreateNewIssuePage() {
                             {/* Tabs header */}
                             <div className="bg-muted/40 flex items-center gap-3 border-b px-3 py-2 text-sm">
                                 <button
+                                    type="button"
                                     className={`rounded px-2 py-1 font-medium ${
                                         state.tab === 'write'
                                             ? 'text-foreground'
@@ -94,6 +95,7 @@ export function CreateNewIssuePage() {
                                     Write
                                 </button>
                                 <button
+                                    type="button"
                                     className={`rounded px-2 py-1 font-medium ${
                                         state.tab === 'preview'
                                             ? 'text-foreground'

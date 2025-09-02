@@ -7,5 +7,3 @@ declare global {
      */
     export type R<T = null, E = string> = Promise<Result<T, E>>
 }
-
-export {}

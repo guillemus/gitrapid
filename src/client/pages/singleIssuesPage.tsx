@@ -31,7 +31,7 @@ function usePageParams() {
     if (!number) throw new Error('number not found')
 
     let numberInt = parseInt(number)
-    if (isNaN(numberInt)) throw new Error('number is not a number')
+    if (Number.isNaN(numberInt)) throw new Error('number is not a number')
 
     return { owner, repo, number: numberInt }
 }
