@@ -12,6 +12,9 @@ export default defineConfig({
         },
     },
     test: {
+        env: {
+            AUTH_GITHUB_WEBHOOK_SECRET: '123',
+        },
         environment: 'edge-runtime',
         server: { deps: { inline: ['convex-test'] } },
     },
