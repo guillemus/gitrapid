@@ -103,11 +103,16 @@ export function SingleIssuesPage() {
                     <div className="relative">
                         <div className="space-y-6 pl-8">
                             {/* Issue description - always first */}
-                            {issueBodyMd && (
+                            {issueBodyMd ? (
                                 <IssueBody
                                     author={data.issue.author.login}
                                     createdAt={data.issue.createdAt}
                                     bodyHtml={issueBodyHtml}
+                                />
+                            ) : (
+                                <EmptyIssueBody
+                                    author={data.issue.author.login}
+                                    createdAt={data.issue.createdAt}
                                 />
                             )}
 
@@ -194,6 +199,26 @@ function IssueBody({
             </div>
             <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
                 <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+            </div>
+        </div>
+    )
+}
+
+function EmptyIssueBody({ author, createdAt }: { author: string; createdAt: string }) {
+    return (
+        <div className="overflow-hidden rounded-md border">
+            <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{author}</span>
+                        <span className="text-muted-foreground">
+                            opened {formatRelativeTime(createdAt)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-white p-4 text-black">
+                <div className="text-muted-foreground italic">No description provided.</div>
             </div>
         </div>
     )

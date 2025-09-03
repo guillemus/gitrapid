@@ -26,7 +26,7 @@ export const insert = protectedMutation({
 })
 
 export const doSomethingAsUser = query({
-    async handler(ctx, args) {
+    async handler(ctx) {
         let userId = await getUserId(ctx)
         console.log('userId', userId)
         let user = await ctx.db.get(userId)
