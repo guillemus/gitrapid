@@ -160,11 +160,6 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         return wrap('failed to sync repo', syncRes)
     }
 
-    let updateRes = await updateTokenRateLimit(cfg)
-    if (updateRes.isErr) {
-        logger.error({ err: updateRes.err }, 'failed to update rate limit for token')
-    }
-
     await finishDownload(syncCfg, downloadStart)
 
     return ok()

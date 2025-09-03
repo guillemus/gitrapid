@@ -13,6 +13,7 @@
     "truncate": "bun run scripts/cmd/truncate.ts",
     "astro:dev": "astro dev --port 3000",
     "format": "prettier ./src ./convex --write --config .prettierrc-org-imports",
+    "build:preview": "USE_NODE=true astro build && USE_NODE=true astro preview --port 3000",
     "preview": "USE_NODE=true astro preview --port 3000",
     "test": "vitest",
     "astro": "astro",
