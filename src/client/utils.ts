@@ -2,7 +2,7 @@ import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
 import { formatDistanceToNow } from 'date-fns'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
@@ -152,7 +152,8 @@ export function useClickOutside(onclickOutside: () => void) {
 }
 
 export function useMutable<T extends object>(initial: T): T {
-    let [c] = useState(() => proxy(initial))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let c = useMemo(() => proxy(initial), [])
     useSnapshot(c)
     return c
 }

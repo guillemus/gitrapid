@@ -1,182 +1,172 @@
 import type { Octokit } from 'octokit'
 import { ok, tryCatch, wrap } from '../shared'
+import { z } from 'zod'
 
 export type IssueCommentNode = {
-    databaseId: number | null
-    author: { login: string | null; databaseId: number | null } | null
-    body: string | null
-    createdAt: string
-    updatedAt: string
+    databaseId?: number | null
+    author?: { login?: string | null; databaseId?: number | null } | null
+    body?: string | null
+    createdAt?: string
+    updatedAt?: string
 }
 
 // GraphQL timeline item types (discriminated by __typename)
-export type GqlActor = { login: string | null; databaseId?: number | null }
-export type GqlAssignee = { login: string | null; databaseId: number | null }
-export type GqlLabel = { name: string; color: string }
-export type GqlCommit = { oid: string; url: string }
-export type GqlRepoRef = { name: string; owner: { login: string } }
+export type GqlActor = { login?: string | null; databaseId?: number | null }
+export type GqlAssignee = { login?: string | null; databaseId?: number | null }
+export type GqlLabel = { name?: string; color?: string }
+export type GqlCommit = { oid?: string; url?: string }
+export type GqlRepoRef = { name?: string; owner?: { login?: string } }
 export type GqlCrossRefSource =
-    | { __typename: 'Issue'; number: number; repository: GqlRepoRef }
-    | { __typename: 'PullRequest'; number: number; repository: GqlRepoRef }
+    | { __typename?: 'Issue'; number?: number; repository?: GqlRepoRef }
+    | { __typename?: 'PullRequest'; number?: number; repository?: GqlRepoRef }
 
 export type IssueTimelineItemNode =
     | {
-          __typename: 'AssignedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          assignee: GqlAssignee
+          __typename?: 'AssignedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          assignee?: GqlAssignee
       }
     | {
-          __typename: 'UnassignedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          assignee: GqlAssignee
+          __typename?: 'UnassignedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          assignee?: GqlAssignee
       }
     | {
-          __typename: 'LabeledEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          label: GqlLabel
+          __typename?: 'LabeledEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          label?: GqlLabel
       }
     | {
-          __typename: 'UnlabeledEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          label: GqlLabel
+          __typename?: 'UnlabeledEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          label?: GqlLabel
       }
     | {
-          __typename: 'MilestonedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          milestoneTitle: string
+          __typename?: 'MilestonedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          milestoneTitle?: string
       }
     | {
-          __typename: 'DemilestonedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          milestoneTitle: string
+          __typename?: 'DemilestonedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          milestoneTitle?: string
       }
     | {
-          __typename: 'ClosedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'ClosedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'ReopenedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'ReopenedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'RenamedTitleEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          previousTitle: string
-          currentTitle: string
+          __typename?: 'RenamedTitleEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          previousTitle?: string
+          currentTitle?: string
       }
     | {
-          __typename: 'ReferencedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          commit: GqlCommit
+          __typename?: 'ReferencedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          commit?: GqlCommit
       }
     | {
-          __typename: 'CrossReferencedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          source: GqlCrossRefSource
+          __typename?: 'CrossReferencedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          source?: GqlCrossRefSource
       }
     | {
-          __typename: 'LockedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'LockedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'UnlockedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'UnlockedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'PinnedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'PinnedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'UnpinnedEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
+          __typename?: 'UnpinnedEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
       }
     | {
-          __typename: 'TransferredEvent'
-          id: string
-          createdAt: string
-          actor: GqlActor
-          fromRepository: GqlRepoRef
+          __typename?: 'TransferredEvent'
+          id?: string
+          createdAt?: string
+          actor?: GqlActor
+          fromRepository?: GqlRepoRef
       }
 
 export type IssueNode = {
-    databaseId: number | null
-    number: number
-    title: string
-    state: 'OPEN' | 'CLOSED'
-    body: string | null
-    createdAt: string
-    updatedAt: string
-    closedAt: string | null
-    author: { login: string | null; databaseId: number | null } | null
-    labels: { nodes: { name: string | null }[] }
-    assignees: { nodes: { login: string | null }[] }
-    comments: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null }
-        nodes: IssueCommentNode[]
+    databaseId?: number | null
+    number?: number
+    title?: string
+    state?: 'OPEN' | 'CLOSED'
+    body?: string | null
+    createdAt?: string
+    updatedAt?: string
+    closedAt?: string | null
+    author?: { login?: string | null; databaseId?: number | null } | null
+    labels?: { nodes?: { name?: string | null }[] }
+    assignees?: { nodes?: { login?: string | null }[] }
+    comments?: {
+        pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+        nodes?: IssueCommentNode[]
     }
     timelineItems?: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null }
-        nodes: Array<IssueTimelineItemNode>
+        pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+        nodes?: Array<IssueTimelineItemNode>
     }
 }
 
 export type IssuesPage = {
-    nodes: IssueNode[]
-    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    nodes?: IssueNode[]
+    pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
 }
 
 export type IssueCommentsPage = {
-    nodes: IssueCommentNode[]
-    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    nodes?: IssueCommentNode[]
+    pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
 }
 
 type IssuesGraphQLResponse = {
-    repository: {
-        issues: {
-            pageInfo: { hasNextPage: boolean; endCursor: string | null }
-            nodes: IssueNode[]
+    repository?: {
+        issues?: {
+            pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+            nodes?: IssueNode[]
         }
-    } | null
-}
-
-type IssueCommentsGraphQLResponse = {
-    repository: {
-        issue: {
-            comments: {
-                pageInfo: { hasNextPage: boolean; endCursor: string | null }
-                nodes: IssueCommentNode[]
-            }
-        } | null
     } | null
 }
 
@@ -379,46 +369,8 @@ export async function fetchIssuesPageGraphQL(
     let repo = res.val.repository
     let issues = repo?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
 
-    return ok({ nodes: issues.nodes, pageInfo: issues.pageInfo })
-}
-
-export async function fetchIssueCommentsGraphQL(
-    octo: Octokit,
-    args: { owner: string; repo: string; issueNumber: number; after?: string },
-): R<IssueCommentsPage> {
-    let query = `
-        query GetIssueComments($owner: String!, $repo: String!, $issueNumber: Int!, $after: String) {
-          repository(owner: $owner, name: $repo) {
-            issue(number: $issueNumber) {
-              comments(first: 100, after: $after) {
-                pageInfo { hasNextPage endCursor }
-                nodes {
-                  databaseId
-                  author { login ... on User { databaseId } }
-                  body
-                  createdAt
-                  updatedAt
-                }
-              }
-            }
-          }
-        }
-    `
-
-    let res = await tryCatch(
-        octo.graphql<IssueCommentsGraphQLResponse>(query, {
-            owner: args.owner,
-            repo: args.repo,
-            issueNumber: args.issueNumber,
-            after: args.after,
-        }),
-    )
-    if (res.isErr) return wrap('failed to fetch issue comments via GraphQL', res)
-
-    let comments = res.val.repository?.issue?.comments ?? {
-        nodes: [],
-        pageInfo: { hasNextPage: false, endCursor: null },
-    }
-
-    return ok({ nodes: comments.nodes, pageInfo: comments.pageInfo })
+    return ok({
+        nodes: issues.nodes ?? [],
+        pageInfo: issues.pageInfo ?? { hasNextPage: false, endCursor: null },
+    })
 }

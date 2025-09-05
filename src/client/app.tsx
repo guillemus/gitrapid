@@ -56,6 +56,7 @@ function Router() {
                 </Route>
 
                 <Route element={<AppLayout tab="issues" />}>
+                    <Route path="/:owner/:repo" element={<Navigate to="/:owner/:repo/issues" />} />
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
                     <Route path={SingleIssuesPage.path} element={<SingleIssuesPage />} />
                     <Route path={CreateNewIssuePage.path} element={<CreateNewIssuePage />} />

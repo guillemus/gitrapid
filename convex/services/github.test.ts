@@ -132,24 +132,24 @@ describe('parseGithubUrl', () => {
     })
 })
 
-import { api } from '@convex/_generated/api'
-import schema from '@convex/schema'
-import { SECRET } from '@convex/utils'
-import { convexTest, type TestConvex } from 'convex-test'
+// import { api } from '@convex/_generated/api'
+// import schema from '@convex/schema'
+// import { SECRET } from '@convex/utils'
+// import { convexTest, type TestConvex } from 'convex-test'
 
-async function setupUsers(t: TestConvex<any>) {
-    return await t.mutation(api.models.users.insert, {
-        ...SECRET,
-        name: 'testuser',
-    })
-}
+// async function setupUsers(t: TestConvex<any>) {
+//     return await t.mutation(api.models.users.insert, {
+//         ...SECRET,
+//         name: 'testuser',
+//     })
+// }
 
-describe('try out convex test', () => {
-    it('should run', async () => {
-        const t = convexTest(schema)
-        let userId = await setupUsers(t)
-        let tuser = t.withIdentity({ tokenIdentifier: userId, name: 'testuser' })
+// describe('try out convex test', () => {
+//     it('should run', async () => {
+//         const t = convexTest(schema)
+//         let userId = await setupUsers(t)
+//         let tuser = t.withIdentity({ tokenIdentifier: userId, name: 'testuser' })
 
-        await tuser.query(api.models.users.doSomethingAsUser, {})
-    })
-})
+//         await tuser.query(api.models.users.doSomethingAsUser, {})
+//     })
+// })

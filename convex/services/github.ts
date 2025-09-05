@@ -13,6 +13,7 @@ export const Github = {
     getRepoIssuePrCounts,
     createIssue,
     addComment,
+    getAuthenticatedUser,
 }
 
 /**
@@ -289,4 +290,24 @@ async function addComment(
     }
 
     return ok(doc)
+}
+
+export type AuthenticatedUser = {
+    id: number
+    login: string
+    name: string | null
+    avatarUrl: string
+}
+
+async function getAuthenticatedUser(cfg: OctoCfg): Promise<Result<AuthenticatedUser>> {
+    let res = await tryCatch(cfg.octo.rest.users.getAuthenticated())
+    if (res.isErr) return wrap('failed to get authenticated user', res)
+
+    let user = res.val.data
+    return ok({
+        id: user.id,
+        login: user.login,
+        name: user.name,
+        avatarUrl: user.avatar_url,
+    })
 }

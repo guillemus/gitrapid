@@ -2,7 +2,7 @@ import { api } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import type { CommentForInsert, TimelineItemForInsert, UpsertDoc } from '@convex/models/models'
-import { ok, wrap } from '@convex/shared'
+import { err, ok, wrap, type Result } from '@convex/shared'
 import { SECRET, logger } from '@convex/utils'
 import type { Octokit } from 'octokit'
 import { fetchIssuesPageGraphQL, type IssueNode } from './graphqlIssues'
@@ -40,11 +40,11 @@ export async function downloadIssues(cfg: UpdateCfg): R {
         let page = pageRes.val
         pagesProcessed++
         logger.debug(
-            { after, count: page.nodes.length, hasNextPage: page.pageInfo.hasNextPage },
+            { after, count: page.nodes?.length, hasNextPage: page.pageInfo?.hasNextPage },
             'fetched issues page',
         )
 
-        let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes)
+        let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes ?? [])
 
         let commentsInBatch = 0
         for (let it of items) commentsInBatch += it.comments.length
@@ -80,7 +80,8 @@ export async function downloadIssues(cfg: UpdateCfg): R {
             if (res.isErr) return res
         }
 
-        if (!page.pageInfo.hasNextPage) break
+        if (!page.pageInfo?.hasNextPage) break
+
         after = page.pageInfo.endCursor ?? undefined
     }
 
@@ -98,8 +99,14 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, nodes: IssueNode[]) {
     }[] = []
 
     for (let node of nodes) {
+        let issueDoc = issueNodeToIssueDoc(node, repoId)
+        if (issueDoc.isErr) {
+            logger.error({ node }, 'failed to convert issue node to issue doc')
+            continue
+        }
+
         items.push({
-            issue: issueNodeToIssueDoc(node, repoId),
+            issue: issueDoc.val,
             body: node.body ?? '',
             timelineItems: issueNodeToTimelineItemsForInsert(node, repoId),
             comments: issueNodeToCommentsForInsert(node, repoId),
@@ -148,35 +155,60 @@ export async function finishDownload(
     })
 }
 
-function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): UpsertDoc<'issues'> {
+function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<UpsertDoc<'issues'>> {
     let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
-    let labels = node.labels.nodes.map((l) => l.name).filter((n): n is string => !!n)
-    let assignees = node.assignees.nodes.map((a) => a.login).filter((n): n is string => !!n)
-    let authorLogin = node.author?.login ?? ''
-    let authorId = node.author?.databaseId ?? 0
+    let labels = node.labels?.nodes?.map((l) => l.name).filter((n): n is string => !!n) ?? []
+    let assignees = node.assignees?.nodes?.map((a) => a.login).filter((n): n is string => !!n) ?? []
 
-    return {
+    if (
+        !node.number ||
+        !node.title ||
+        !node.databaseId ||
+        !node.createdAt ||
+        !node.updatedAt ||
+        !node.author ||
+        !node.author.login ||
+        !node.author.databaseId
+    ) {
+        return err(`missing required fields for node ${JSON.stringify(node)}`)
+    }
+
+    let doc: UpsertDoc<'issues'> = {
         repoId,
-        githubId: node.databaseId ?? 0,
+        githubId: node.databaseId,
         number: node.number,
         title: node.title,
         state,
-        author: { login: authorLogin, id: authorId },
-        labels: labels.length ? labels : undefined,
-        assignees: assignees.length ? assignees : undefined,
+        author: { login: node.author.login, id: node.author.databaseId },
+        labels,
+        assignees,
         createdAt: node.createdAt,
         updatedAt: node.updatedAt,
         closedAt: node.closedAt ?? undefined,
-        comments: node.comments.nodes.length || undefined,
+        comments: node.comments?.nodes?.length ?? undefined,
     }
+
+    return ok(doc)
 }
 
 function issueNodeToCommentsForInsert(node: IssueNode, repoId: Id<'repos'>): CommentForInsert[] {
     let comments: CommentForInsert[] = []
-    for (let c of node.comments.nodes) {
+    for (let c of node.comments?.nodes ?? []) {
+        if (
+            !c.databaseId ||
+            !c.author ||
+            !c.author.login ||
+            !c.author.databaseId ||
+            !c.createdAt ||
+            !c.updatedAt
+        ) {
+            logger.error({ c }, 'missing required fields')
+            continue
+        }
+
         comments.push({
-            githubId: c.databaseId ?? 0,
-            author: { login: c.author?.login ?? '', id: c.author?.databaseId ?? 0 },
+            githubId: c.databaseId,
+            author: { login: c.author.login, id: c.author.databaseId },
             body: c.body ?? '',
             createdAt: c.createdAt,
             updatedAt: c.updatedAt,
@@ -194,47 +226,78 @@ function issueNodeToTimelineItemsForInsert(
     let timelineItems: TimelineItemForInsert[] = []
     for (let t of node.timelineItems?.nodes ?? []) {
         let item: TimelineItemForInsert['item']
+
         if (t.__typename === 'AssignedEvent') {
+            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'assigned',
                 assignee: {
-                    id: t.actor.databaseId ?? 0,
-                    login: t.actor.login ?? '',
+                    id: t.actor.databaseId,
+                    login: t.actor.login,
                 },
             }
         } else if (t.__typename === 'UnassignedEvent') {
+            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'unassigned',
                 assignee: {
-                    id: t.actor.databaseId ?? 0,
-                    login: t.actor.login ?? '',
+                    id: t.actor.databaseId,
+                    login: t.actor.login,
                 },
             }
         } else if (t.__typename === 'LabeledEvent') {
+            if (!t.label?.name || !t.label?.color) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'labeled',
                 label: {
-                    name: t.label.name ?? '',
-                    color: t.label.color ?? '',
+                    name: t.label.name,
+                    color: t.label.color,
                 },
             }
         } else if (t.__typename === 'UnlabeledEvent') {
+            if (!t.label?.name || !t.label?.color) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'unlabeled',
                 label: {
-                    name: t.label.name ?? '',
-                    color: t.label.color ?? '',
+                    name: t.label.name,
+                    color: t.label.color,
                 },
             }
         } else if (t.__typename === 'MilestonedEvent') {
+            if (!t.milestoneTitle) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'milestoned',
-                milestoneTitle: t.milestoneTitle ?? '',
+                milestoneTitle: t.milestoneTitle,
             }
         } else if (t.__typename === 'DemilestonedEvent') {
+            if (!t.milestoneTitle) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'demilestoned',
-                milestoneTitle: t.milestoneTitle ?? '',
+                milestoneTitle: t.milestoneTitle,
             }
         } else if (t.__typename === 'ClosedEvent') {
             item = {
@@ -245,27 +308,50 @@ function issueNodeToTimelineItemsForInsert(
                 type: 'reopened',
             }
         } else if (t.__typename === 'RenamedTitleEvent') {
+            if (!t.previousTitle || !t.currentTitle) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'renamed',
-                previousTitle: t.previousTitle ?? '',
-                currentTitle: t.currentTitle ?? '',
+                previousTitle: t.previousTitle,
+                currentTitle: t.currentTitle,
             }
         } else if (t.__typename === 'ReferencedEvent') {
+            if (!t.commit || !t.commit.oid || !t.commit.url) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'referenced',
                 commit: {
-                    oid: t.commit.oid ?? '',
-                    url: t.commit.url ?? '',
+                    oid: t.commit.oid,
+                    url: t.commit.url,
                 },
             }
         } else if (t.__typename === 'CrossReferencedEvent') {
+            if (
+                !t.source ||
+                !t.source.__typename ||
+                !t.source.repository ||
+                !t.source.repository.owner ||
+                !t.source.repository.owner.login ||
+                !t.source.repository.name ||
+                !t.source.number
+            ) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'cross_referenced',
                 source: {
                     type: t.source.__typename,
-                    owner: t.source.repository.owner.login ?? '',
-                    name: t.source.repository.name ?? '',
-                    number: t.source.number ?? 0,
+                    owner: t.source.repository.owner.login,
+                    name: t.source.repository.name,
+                    number: t.source.number,
                 },
             }
         } else if (t.__typename === 'LockedEvent') {
@@ -285,16 +371,34 @@ function issueNodeToTimelineItemsForInsert(
                 type: 'unpinned',
             }
         } else if (t.__typename === 'TransferredEvent') {
+            if (
+                !t.fromRepository ||
+                !t.fromRepository.owner ||
+                !t.fromRepository.owner.login ||
+                !t.fromRepository.name
+            ) {
+                logger.error({ t }, 'missing required fields')
+                continue
+            }
+
             item = {
                 type: 'transferred',
                 fromRepository: {
-                    owner: t.fromRepository.owner.login ?? '',
-                    name: t.fromRepository.name ?? '',
+                    owner: t.fromRepository.owner.login,
+                    name: t.fromRepository.name,
                 },
             }
+        } else if (!t.__typename) {
+            logger.error({ t }, 'missing required fields')
+            continue
         } else {
-            t satisfies never
+            t.__typename satisfies never
             logger.error({ t }, 'unknown timeline item type')
+            continue
+        }
+
+        if (!t.id || !t.createdAt || !t.actor || !t.actor.databaseId || !t.actor.login) {
+            logger.error({ t }, 'missing required fields')
             continue
         }
 
@@ -303,11 +407,12 @@ function issueNodeToTimelineItemsForInsert(
             githubNodeId: t.id,
             createdAt: t.createdAt,
             actor: {
-                id: t.actor.databaseId ?? 0,
-                login: t.actor.login ?? '',
+                id: t.actor.databaseId,
+                login: t.actor.login,
             },
             item,
         })
     }
+
     return timelineItems
 }
