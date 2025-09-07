@@ -26,6 +26,7 @@ export async function downloadIssues(cfg: UpdateCfg): R {
     let pagesProcessed = 0
 
     let after: string | undefined
+    let dbInsertsP = Promise.resolve<unknown>('')
 
     while (true) {
         let since: string | undefined
@@ -43,46 +44,55 @@ export async function downloadIssues(cfg: UpdateCfg): R {
             'fetched issues page',
         )
 
-        let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes)
+        dbInsertsP = dbInsertsP.then(insertData)
+        async function insertData() {
+            let items = buildIssuesWithCommentsBatch(savedRepo._id, page.nodes)
 
-        let commentsInBatch = 0
-        for (let it of items) commentsInBatch += it.comments.length
-        logger.debug(
-            { issues: items.length, comments: commentsInBatch },
-            'built issues+comments batch',
-        )
-
-        if (items.length > 0) {
-            logger.info({ issues: items.length }, 'writing issues+comments batch')
-            await cfg.ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
-                ...SECRET,
-                items,
-            })
-            totalIssuesProcessed += items.length
-            totalCommentsProcessed += commentsInBatch
-            logger.debug('batch written')
-        }
-
-        if (cfg.isBackfill) {
-            let res = await updateDownload(
-                cfg,
-                'backfilling',
-                `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
+            let commentsInBatch = 0
+            for (let it of items) commentsInBatch += it.comments.length
+            logger.debug(
+                { issues: items.length, comments: commentsInBatch },
+                'built issues+comments batch',
             )
-            if (res.isErr) return res
-        } else {
-            let res = await updateDownload(
-                cfg,
-                'syncing',
-                `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
-            )
-            if (res.isErr) return res
+
+            if (items.length > 0) {
+                logger.info({ issues: items.length }, 'writing issues+comments batch')
+
+                console.time('inserting issues')
+                await cfg.ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
+                    ...SECRET,
+                    items,
+                })
+                console.timeEnd('inserting issues')
+
+                totalIssuesProcessed += items.length
+                totalCommentsProcessed += commentsInBatch
+                logger.debug('batch written')
+            }
+
+            if (cfg.isBackfill) {
+                let res = await updateDownload(
+                    cfg,
+                    'backfilling',
+                    `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
+                )
+                if (res.isErr) return res
+            } else {
+                let res = await updateDownload(
+                    cfg,
+                    'syncing',
+                    `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
+                )
+                if (res.isErr) return res
+            }
         }
 
         if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) break
 
         after = page.pageInfo.endCursor
     }
+
+    await dbInsertsP
 
     logger.info({ pagesProcessed, totalIssuesProcessed, totalCommentsProcessed }, 'issues updated')
 

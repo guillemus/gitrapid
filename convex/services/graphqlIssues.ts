@@ -526,13 +526,14 @@ function issueNodeToTimelineItemsForInsert(
     let timelineItems: TimelineItemForInsert[] = []
 
     for (let tUnknown of node.timelineItems.nodes) {
+        let l = logger.child({ timelineItem: tUnknown, repoId, issueId: node.number })
+
         let parsed = zodParse(IssueTimelineItemNodeSchema, tUnknown)
         if (parsed.isErr) {
-            logger.error({ t: tUnknown, error: parsed.err }, 'invalid timeline item, skipping')
+            l.error({ t: tUnknown, error: parsed.err }, 'invalid timeline item, skipping')
             continue
         }
         let t = parsed.val
-        let l = logger.child({ timelineItem: t, repoId, issueId: node.number })
         let item: TimelineItemForInsert['item']
 
         if (t.__typename === 'AssignedEvent') {
