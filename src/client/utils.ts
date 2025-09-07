@@ -2,10 +2,11 @@ import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createAuthClient } from 'better-auth/react'
 import { formatDistanceToNow } from 'date-fns'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
+import type { Doc } from '@convex/_generated/dataModel'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useConvexHttp } from './convex'
 
@@ -199,4 +200,21 @@ export function formatRelativeTime(date: string | number | Date): string {
         // Fallback to locale date string if parsing fails
         return new Date(date).toLocaleDateString()
     }
+}
+
+type GithubUser = Doc<'issues'>['author']
+
+export function isGithubUserObject(u: GithubUser): u is { id: number; login: string } {
+    return typeof u === 'object' && u !== null && 'login' in u
+}
+
+export function userLogin(u: GithubUser): string | null {
+    if (isGithubUserObject(u)) return u.login
+    return null
+}
+
+export function userLabel(u: GithubUser): string {
+    if (u === 'github-actions') return 'GitHub Actions'
+    let login = userLogin(u)
+    return login ?? 'ghost'
 }

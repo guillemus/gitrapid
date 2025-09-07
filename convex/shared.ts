@@ -20,7 +20,7 @@ export function err<E>(msg: E): Err<E> {
 }
 
 export function wrap(context: string, err: Err<string>): Err<string> {
-    return { isErr: true, err: `${context}: ${err.err}` }
+    return { isErr: true, err: `${context}\n\t- ${err.err}` }
 }
 
 /**

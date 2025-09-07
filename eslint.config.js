@@ -1,3 +1,5 @@
+// @ts-check
+
 import js from '@eslint/js'
 import pluginReact from 'eslint-plugin-react'
 import reacthooks from 'eslint-plugin-react-hooks'
@@ -20,6 +22,7 @@ export default defineConfig([
     },
     tseslint.configs.recommended,
     pluginReact.configs.flat.recommended,
+
     reacthooks.configs['recommended-latest'],
     {
         files: ['**/*.{ts,mts,cts,tsx}'],

@@ -1,179 +1,225 @@
+import type { Id } from '@convex/_generated/dataModel'
+import type { CommentForInsert, TimelineItemForInsert, UpsertDoc } from '@convex/models/models'
+import { logger, zodParse } from '@convex/utils'
 import type { Octokit } from 'octokit'
-import { ok, tryCatch, wrap } from '../shared'
 import { z } from 'zod'
+import { ok, tryCatch, wrap, type Result } from '../shared'
 
-export type IssueCommentNode = {
-    databaseId?: number | null
-    author?: { login?: string | null; databaseId?: number | null } | null
-    body?: string | null
-    createdAt?: string
-    updatedAt?: string
-}
+// Zod schemas for runtime validation
+const GqlActorSchema = z.object({
+    login: z.string().nullish(),
+    databaseId: z.number().nullish(),
+})
 
-// GraphQL timeline item types (discriminated by __typename)
-export type GqlActor = { login?: string | null; databaseId?: number | null }
-export type GqlAssignee = { login?: string | null; databaseId?: number | null }
-export type GqlLabel = { name?: string; color?: string }
-export type GqlCommit = { oid?: string; url?: string }
-export type GqlRepoRef = { name?: string; owner?: { login?: string } }
-export type GqlCrossRefSource =
-    | { __typename?: 'Issue'; number?: number; repository?: GqlRepoRef }
-    | { __typename?: 'PullRequest'; number?: number; repository?: GqlRepoRef }
+const GqlAssigneeSchema = z.object({
+    login: z.string().nullish(),
+    databaseId: z.number().nullish(),
+})
 
-export type IssueTimelineItemNode =
-    | {
-          __typename?: 'AssignedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          assignee?: GqlAssignee
-      }
-    | {
-          __typename?: 'UnassignedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          assignee?: GqlAssignee
-      }
-    | {
-          __typename?: 'LabeledEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          label?: GqlLabel
-      }
-    | {
-          __typename?: 'UnlabeledEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          label?: GqlLabel
-      }
-    | {
-          __typename?: 'MilestonedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          milestoneTitle?: string
-      }
-    | {
-          __typename?: 'DemilestonedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          milestoneTitle?: string
-      }
-    | {
-          __typename?: 'ClosedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'ReopenedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'RenamedTitleEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          previousTitle?: string
-          currentTitle?: string
-      }
-    | {
-          __typename?: 'ReferencedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          commit?: GqlCommit
-      }
-    | {
-          __typename?: 'CrossReferencedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          source?: GqlCrossRefSource
-      }
-    | {
-          __typename?: 'LockedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'UnlockedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'PinnedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'UnpinnedEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-      }
-    | {
-          __typename?: 'TransferredEvent'
-          id?: string
-          createdAt?: string
-          actor?: GqlActor
-          fromRepository?: GqlRepoRef
-      }
+const GqlLabelSchema = z.object({
+    name: z.string().optional(),
+    color: z.string().optional(),
+})
 
-export type IssueNode = {
-    databaseId?: number | null
-    number?: number
-    title?: string
-    state?: 'OPEN' | 'CLOSED'
-    body?: string | null
-    createdAt?: string
-    updatedAt?: string
-    closedAt?: string | null
-    author?: { login?: string | null; databaseId?: number | null } | null
-    labels?: { nodes?: { name?: string | null }[] }
-    assignees?: { nodes?: { login?: string | null }[] }
-    comments?: {
-        pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
-        nodes?: IssueCommentNode[]
-    }
-    timelineItems?: {
-        pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
-        nodes?: Array<IssueTimelineItemNode>
-    }
-}
+const GqlCommitSchema = z.object({
+    oid: z.string().optional(),
+    url: z.string().optional(),
+})
 
-export type IssuesPage = {
-    nodes?: IssueNode[]
-    pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
-}
+const GqlRepoRefSchema = z.object({
+    name: z.string().optional(),
+    owner: z
+        .object({
+            login: z.string().optional(),
+        })
+        .optional(),
+})
 
-export type IssueCommentsPage = {
-    nodes?: IssueCommentNode[]
-    pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
-}
+const GqlCrossRefSourceSchema = z.discriminatedUnion('__typename', [
+    z.object({
+        __typename: z.literal('Issue'),
+        number: z.number().optional(),
+        repository: GqlRepoRefSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('PullRequest'),
+        number: z.number().optional(),
+        repository: GqlRepoRefSchema.optional(),
+    }),
+])
 
-type IssuesGraphQLResponse = {
-    repository?: {
-        issues?: {
-            pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
-            nodes?: IssueNode[]
-        }
-    } | null
-}
+const IssueTimelineItemNodeSchema = z.discriminatedUnion('__typename', [
+    z.object({
+        __typename: z.literal('AssignedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        assignee: GqlAssigneeSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('UnassignedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        assignee: GqlAssigneeSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('LabeledEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        label: GqlLabelSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('UnlabeledEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        label: GqlLabelSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('MilestonedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        milestoneTitle: z.string().optional(),
+    }),
+    z.object({
+        __typename: z.literal('DemilestonedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        milestoneTitle: z.string().optional(),
+    }),
+    z.object({
+        __typename: z.literal('ClosedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('ReopenedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('RenamedTitleEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        previousTitle: z.string().optional(),
+        currentTitle: z.string().optional(),
+    }),
+    z.object({
+        __typename: z.literal('ReferencedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        commit: GqlCommitSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('CrossReferencedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        source: GqlCrossRefSourceSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('LockedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('UnlockedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('PinnedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('UnpinnedEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+    }),
+    z.object({
+        __typename: z.literal('TransferredEvent'),
+        id: z.string(),
+        createdAt: z.string(),
+        actor: GqlActorSchema.optional(),
+        fromRepository: GqlRepoRefSchema.optional(),
+    }),
+])
+
+const PageInfoSchema = z.object({
+    hasNextPage: z.boolean(),
+    endCursor: z.string().nullish(),
+})
+
+const FetchIssuesResSchema = z.object({
+    repository: z.object({
+        issues: z.object({
+            nodes: z.array(z.unknown()),
+            pageInfo: PageInfoSchema,
+        }),
+    }),
+})
+
+type FetchIssuesRes = z.infer<typeof FetchIssuesResSchema>
+
+const StrictAuthorSchema = z.object({
+    login: z.string(),
+    databaseId: z.number().nullish(),
+})
+
+const StrictIssueNodeSchema = z.object({
+    databaseId: z.number(),
+    number: z.number(),
+    title: z.string(),
+    state: z.enum(['OPEN', 'CLOSED']),
+    body: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? ''),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    closedAt: z.string().nullish(),
+    author: StrictAuthorSchema,
+    labels: z
+        .object({
+            nodes: z.array(z.object({ name: z.string(), color: z.string() })),
+        })
+        .optional(),
+    assignees: z
+        .object({
+            nodes: z.array(z.object({ login: z.string() })),
+        })
+        .optional(),
+    comments: z
+        .object({
+            pageInfo: PageInfoSchema.optional(),
+            nodes: z.array(z.unknown()),
+        })
+        .optional(),
+    timelineItems: z
+        .object({
+            pageInfo: PageInfoSchema.optional(),
+            nodes: z.array(z.unknown()),
+        })
+        .optional(),
+})
 
 export async function fetchIssuesPageGraphQL(
     octo: Octokit,
     args: { owner: string; repo: string; after?: string; since?: string },
-): R<IssuesPage> {
+): R<FetchIssuesRes['repository']['issues']> {
     let query = `
         query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
           repository(owner: $owner, name: $repo) {
@@ -196,7 +242,7 @@ export async function fetchIssuesPageGraphQL(
                 updatedAt
                 closedAt
                 author { login ... on User { databaseId } }
-                labels(first: 10) { nodes { name } }
+                labels(first: 10) { nodes { name color } }
                 assignees(first: 10) { nodes { login } }
                 comments(first: 100) {
                   pageInfo { hasNextPage endCursor }
@@ -354,23 +400,346 @@ export async function fetchIssuesPageGraphQL(
     `
 
     let res = await tryCatch(
-        octo.graphql<IssuesGraphQLResponse>(query, {
+        octo.graphql(query, {
             owner: args.owner,
             repo: args.repo,
             first: 100,
             after: args.after,
-            since: args.since ?? null,
+            since: args.since,
         }),
     )
     if (res.isErr) {
         return wrap('failed to fetch issues via GraphQL', res)
     }
 
-    let repo = res.val.repository
-    let issues = repo?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+    let parsed = zodParse(FetchIssuesResSchema, res.val)
+    if (parsed.isErr) {
+        return wrap('failed to parse issues', parsed)
+    }
 
-    return ok({
-        nodes: issues.nodes ?? [],
-        pageInfo: issues.pageInfo ?? { hasNextPage: false, endCursor: null },
-    })
+    return ok(parsed.val.repository.issues)
+}
+
+type IssuesPageItem = {
+    issue: UpsertDoc<'issues'>
+    body: string
+    timelineItems: TimelineItemForInsert[]
+    comments: CommentForInsert[]
+}
+
+export function buildIssuesWithCommentsBatch(
+    repoId: Id<'repos'>,
+    fetchedIssues: FetchIssuesRes['repository']['issues']['nodes'],
+) {
+    let items: IssuesPageItem[] = []
+    for (let nodeUnknown of fetchedIssues) {
+        let parsed = zodParse(StrictIssueNodeSchema, nodeUnknown)
+        if (parsed.isErr) {
+            logger.error({ repoId, error: parsed.err }, 'invalid issue node, skipping')
+            continue
+        }
+        let issue = parsed.val
+
+        let issueDoc = issueNodeToIssueDoc(issue, repoId)
+        if (issueDoc.isErr) {
+            logger.error(
+                { repoId, issueNumber: issue.number, error: issueDoc.err },
+                'failed to convert issue node to issue doc',
+            )
+            continue
+        }
+
+        items.push({
+            issue: issueDoc.val,
+            body: issue.body,
+            timelineItems: issueNodeToTimelineItemsForInsert(issue, repoId),
+            comments: issueNodeToCommentsForInsert(issue, repoId),
+        })
+    }
+
+    return items
+}
+
+type IssueNode = z.infer<typeof StrictIssueNodeSchema>
+
+function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<UpsertDoc<'issues'>> {
+    let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
+    let labels = node.labels?.nodes?.map((l) => l.name).filter((n): n is string => !!n) ?? []
+    let assignees = node.assignees?.nodes?.map((a) => a.login).filter((n): n is string => !!n) ?? []
+
+    let author
+    if (!node.author.databaseId) {
+        author = 'github-actions' as const
+    } else {
+        author = { login: node.author.login, id: node.author.databaseId }
+    }
+
+    let doc: UpsertDoc<'issues'> = {
+        repoId,
+        githubId: node.databaseId,
+        number: node.number,
+        title: node.title,
+        state,
+        author,
+        labels,
+        assignees,
+        createdAt: node.createdAt,
+        updatedAt: node.updatedAt,
+        closedAt: node.closedAt ?? undefined,
+        comments: node.comments?.nodes?.length ?? undefined,
+    }
+
+    return ok(doc)
+}
+
+const StrictIssueCommentSchema = z.object({
+    databaseId: z.number(),
+    author: StrictAuthorSchema,
+    body: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? ''),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+})
+
+function issueNodeToCommentsForInsert(issue: IssueNode, repoId: Id<'repos'>): CommentForInsert[] {
+    let comments: CommentForInsert[] = []
+    for (let cUnknown of issue.comments?.nodes ?? []) {
+        let parsed = zodParse(StrictIssueCommentSchema, cUnknown)
+        if (parsed.isErr) {
+            logger.error({ c: cUnknown, error: parsed.err }, 'invalid issue comment, skipping')
+            continue
+        }
+        let c = parsed.val
+
+        let author
+        if (!c.author.databaseId) {
+            author = 'github-actions' as const
+        } else {
+            author = { login: c.author.login, id: c.author.databaseId }
+        }
+
+        comments.push({
+            githubId: c.databaseId,
+            author,
+            body: c.body,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+            repoId,
+        })
+    }
+
+    return comments
+}
+
+function issueNodeToTimelineItemsForInsert(
+    node: IssueNode,
+    repoId: Id<'repos'>,
+): TimelineItemForInsert[] {
+    let timelineItems: TimelineItemForInsert[] = []
+
+    for (let tUnknown of node.timelineItems?.nodes ?? []) {
+        let parsed = zodParse(IssueTimelineItemNodeSchema, tUnknown)
+        if (parsed.isErr) {
+            logger.error({ t: tUnknown, error: parsed.err }, 'invalid timeline item, skipping')
+            continue
+        }
+        let t = parsed.val
+        let l = logger.child({ timelineItem: t, repoId, issueId: node.number })
+        let item: TimelineItemForInsert['item']
+
+        if (t.__typename === 'AssignedEvent') {
+            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
+                l.error('missing required fields for event type AssignedEvent')
+                continue
+            }
+
+            item = {
+                type: 'assigned',
+                assignee: {
+                    id: t.actor.databaseId,
+                    login: t.actor.login,
+                },
+            }
+        } else if (t.__typename === 'UnassignedEvent') {
+            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
+                l.error('missing required fields for event type UnassignedEvent')
+                continue
+            }
+
+            item = {
+                type: 'unassigned',
+                assignee: {
+                    id: t.actor.databaseId,
+                    login: t.actor.login,
+                },
+            }
+        } else if (t.__typename === 'LabeledEvent') {
+            if (!t.label?.name || !t.label?.color) {
+                l.error('missing required fields for event type LabeledEvent')
+                continue
+            }
+
+            item = {
+                type: 'labeled',
+                label: {
+                    name: t.label.name,
+                    color: t.label.color,
+                },
+            }
+        } else if (t.__typename === 'UnlabeledEvent') {
+            if (!t.label?.name || !t.label?.color) {
+                l.error('missing required fields for event type UnlabeledEvent')
+                continue
+            }
+
+            item = {
+                type: 'unlabeled',
+                label: {
+                    name: t.label.name,
+                    color: t.label.color,
+                },
+            }
+        } else if (t.__typename === 'MilestonedEvent') {
+            if (!t.milestoneTitle) {
+                l.error('missing required fields for event type MilestonedEvent')
+                continue
+            }
+
+            item = {
+                type: 'milestoned',
+                milestoneTitle: t.milestoneTitle,
+            }
+        } else if (t.__typename === 'DemilestonedEvent') {
+            if (!t.milestoneTitle) {
+                l.error('missing required fields for event type DemilestonedEvent')
+                continue
+            }
+
+            item = {
+                type: 'demilestoned',
+                milestoneTitle: t.milestoneTitle,
+            }
+        } else if (t.__typename === 'ClosedEvent') {
+            item = {
+                type: 'closed',
+            }
+        } else if (t.__typename === 'ReopenedEvent') {
+            item = {
+                type: 'reopened',
+            }
+        } else if (t.__typename === 'RenamedTitleEvent') {
+            if (!t.previousTitle || !t.currentTitle) {
+                l.error('missing required fields for event type RenamedTitleEvent')
+                continue
+            }
+
+            item = {
+                type: 'renamed',
+                previousTitle: t.previousTitle,
+                currentTitle: t.currentTitle,
+            }
+        } else if (t.__typename === 'ReferencedEvent') {
+            if (!t.commit || !t.commit.oid || !t.commit.url) {
+                l.error('missing required fields for event type ReferencedEvent')
+                continue
+            }
+
+            item = {
+                type: 'referenced',
+                commit: {
+                    oid: t.commit.oid,
+                    url: t.commit.url,
+                },
+            }
+        } else if (t.__typename === 'CrossReferencedEvent') {
+            if (
+                !t.source ||
+                !t.source.__typename ||
+                !t.source.repository?.owner?.login ||
+                !t.source.repository.name ||
+                !t.source.number
+            ) {
+                l.error('missing required fields for event type CrossReferencedEvent')
+                continue
+            }
+
+            item = {
+                type: 'cross_referenced',
+                source: {
+                    type: t.source.__typename,
+                    owner: t.source.repository.owner.login,
+                    name: t.source.repository.name,
+                    number: t.source.number,
+                },
+            }
+        } else if (t.__typename === 'LockedEvent') {
+            item = {
+                type: 'locked',
+            }
+        } else if (t.__typename === 'UnlockedEvent') {
+            item = {
+                type: 'unlocked',
+            }
+        } else if (t.__typename === 'PinnedEvent') {
+            item = {
+                type: 'pinned',
+            }
+        } else if (t.__typename === 'UnpinnedEvent') {
+            item = {
+                type: 'unpinned',
+            }
+        } else if (t.__typename === 'TransferredEvent') {
+            if (
+                !t.fromRepository ||
+                !t.fromRepository.owner ||
+                !t.fromRepository.owner.login ||
+                !t.fromRepository.name
+            ) {
+                l.error('missing required fields for event type TransferredEvent')
+                continue
+            }
+
+            item = {
+                type: 'transferred',
+                fromRepository: {
+                    owner: t.fromRepository.owner.login,
+                    name: t.fromRepository.name,
+                },
+            }
+        } else {
+            t satisfies never
+            l.error('unknown timeline item type')
+            continue
+        }
+
+        if (!t.id) {
+            l.error('missing id field for timeline item')
+            continue
+        }
+        if (!t.createdAt) {
+            l.error('missing createdAt field for timeline item')
+            continue
+        }
+
+        let actor
+        if (!t.actor || !t.actor.login) {
+            actor = null
+        } else if (!t.actor.databaseId) {
+            actor = 'github-actions' as const
+        } else {
+            actor = { login: t.actor.login, id: t.actor.databaseId }
+        }
+
+        timelineItems.push({
+            repoId,
+            githubNodeId: t.id,
+            createdAt: t.createdAt,
+            actor,
+            item,
+        })
+    }
+
+    return timelineItems
 }

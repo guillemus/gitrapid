@@ -6,6 +6,7 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { v } from 'convex/values'
 import { RequestError } from 'octokit'
 import pino from 'pino'
+import { z } from 'zod'
 import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
 import { env } from './env'
@@ -216,4 +217,13 @@ function runProtectedAction<Query extends FunctionReference<'action', 'public' |
 ): Promise<FunctionReturnType<Query>> {
     // @ts-expect-error: hard to make ts happy
     return ctx.runAction(query, { secret: SECRET.secret, ...args })
+}
+
+export function zodParse<T extends z.ZodTypeAny>(schema: T, value: unknown): Result<z.infer<T>> {
+    let result = schema.safeParse(value)
+    if (result.success) {
+        return ok(result.data)
+    }
+
+    return err(z.prettifyError(result.error))
 }

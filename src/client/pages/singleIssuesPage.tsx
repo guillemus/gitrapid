@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
-import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
+import { formatRelativeTime, useMutable, usePageQuery, userLabel, userLogin } from '../utils'
 
 function usePageParams() {
     let { owner, repo, number } = useParams()
@@ -105,13 +105,13 @@ export function SingleIssuesPage() {
                             {/* Issue description - always first */}
                             {issueBodyMd ? (
                                 <IssueBody
-                                    author={data.issue.author.login}
+                                    author={userLabel(data.issue.author)}
                                     createdAt={data.issue.createdAt}
                                     bodyHtml={issueBodyHtml}
                                 />
                             ) : (
                                 <EmptyIssueBody
-                                    author={data.issue.author.login}
+                                    author={userLabel(data.issue.author)}
                                     createdAt={data.issue.createdAt}
                                 />
                             )}
@@ -230,7 +230,7 @@ function CommentItem({ comment }: { comment: Comments[number] }) {
             <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{comment.author.login}</span>
+                        <span className="font-medium">{userLabel(comment.author)}</span>
                         <span className="text-muted-foreground">
                             commented {formatRelativeTime(comment.createdAt)}
                         </span>
@@ -295,21 +295,26 @@ function TimelineEventIcon({ event }: { event: TimelineItems[number] }) {
 }
 
 function describeTimelineEvent(event: TimelineItems[number]): string {
-    let actor = event.actor.login
+    let actor = userLabel(event.actor)
+    let actorLogin = userLogin(event.actor)
     let t = event.item
     switch (t.type) {
-        case 'assigned':
-            // Check if user is assigning to themselves
-            if (actor === t.assignee.login) {
+        case 'assigned': {
+            let assigneeLabel = userLabel(t.assignee)
+            let assigneeLogin = userLogin(t.assignee)
+            if (actorLogin && assigneeLogin && actorLogin === assigneeLogin) {
                 return `${actor} self-assigned this`
             }
-            return `${actor} assigned ${t.assignee.login}`
-        case 'unassigned':
-            // Check if user is unassigning themselves
-            if (actor === t.assignee.login) {
+            return `${actor} assigned ${assigneeLabel}`
+        }
+        case 'unassigned': {
+            let assigneeLabel = userLabel(t.assignee)
+            let assigneeLogin = userLogin(t.assignee)
+            if (actorLogin && assigneeLogin && actorLogin === assigneeLogin) {
                 return `${actor} unassigned themselves`
             }
-            return `${actor} unassigned ${t.assignee.login}`
+            return `${actor} unassigned ${assigneeLabel}`
+        }
         case 'labeled':
             return `${actor} added the label ${t.label.name}`
         case 'unlabeled':

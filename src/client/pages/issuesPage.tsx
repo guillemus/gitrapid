@@ -27,7 +27,13 @@ import {
 import { Link, useNavigate } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '../convex'
-import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
+import {
+    formatRelativeTime,
+    useGithubParams,
+    usePageQuery,
+    userLabel,
+    useTanstackQuery,
+} from '../utils'
 
 const labelColors: Record<string, string> = {
     bug: 'bg-red-100 text-red-800 border-red-200',
@@ -321,7 +327,7 @@ function IssueItem({
                         <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
                             <span>#{issue.number}</span>
                             <span>•</span>
-                            <span>{issue.author.login}</span>
+                            <span>{userLabel(issue.author)}</span>
                             <span>opened {formatRelativeTime(issue.createdAt)}</span>
                             {sortBy === 'updatedAt' && (
                                 <>

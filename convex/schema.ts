@@ -44,16 +44,25 @@ export const userReposSchema = {
 
 const userRepos = defineTable(userReposSchema).index('by_userId_repoId', ['userId', 'repoId'])
 
+const githubUser = v.union(
+    // Null means that the user no longer exists or for some reason the actor could not be fetched from github.
+    // This could be the equivalent of the "ghost" user.
+    v.null(),
+    v.literal('github-actions'),
+    v.object({
+        id: v.number(),
+        login: v.string(),
+    }),
+)
+
 export const issuesSchema = {
     repoId: v.id('repos'),
     githubId: v.number(),
     number: v.number(), // Issue number in the repo
     title: v.string(),
     state: v.union(v.literal('open'), v.literal('closed')),
-    author: v.object({
-        login: v.string(),
-        id: v.number(),
-    }),
+
+    author: githubUser,
     labels: v.optional(v.array(v.string())),
     assignees: v.optional(v.array(v.string())), // logins or ids
     createdAt: v.string(),
@@ -77,23 +86,22 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
     .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
-const timelineActor = v.object({ login: v.string(), id: v.number() })
 const timelineLabel = v.object({ name: v.string(), color: v.string() })
 
 export const issueTimelineItemsSchemaWithoutIssueId = {
     repoId: v.id('repos'),
-    actor: timelineActor,
+    actor: githubUser,
     createdAt: v.string(),
     githubNodeId: v.optional(v.string()),
 
     item: v.union(
         v.object({
             type: v.literal('assigned'),
-            assignee: timelineActor,
+            assignee: githubUser,
         }),
         v.object({
             type: v.literal('unassigned'),
-            assignee: timelineActor,
+            assignee: githubUser,
         }),
         v.object({
             type: v.literal('labeled'),
@@ -169,14 +177,14 @@ const issueBodies = defineTable(issueBodiesSchema)
 export const issuesCommentsWithoutIssueIdSchema = {
     repoId: v.id('repos'),
     githubId: v.number(),
-    author: v.object({ login: v.string(), id: v.number() }),
+    author: githubUser,
     body: v.string(),
     createdAt: v.string(),
     updatedAt: v.string(),
     reactions: v.optional(
         v.array(
             v.object({
-                user: v.object({ login: v.string(), id: v.number() }),
+                user: githubUser,
                 content: v.string(),
             }),
         ),
