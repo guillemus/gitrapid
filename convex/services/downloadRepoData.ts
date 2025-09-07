@@ -70,19 +70,13 @@ export async function downloadIssues(cfg: UpdateCfg): R {
                 logger.debug('batch written')
             }
 
+            let updateMsg = `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`
+
             if (cfg.isBackfill) {
-                let res = await updateDownload(
-                    cfg,
-                    'backfilling',
-                    `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
-                )
+                let res = await updateDownload(cfg, 'backfilling', updateMsg)
                 if (res.isErr) return res
             } else {
-                let res = await updateDownload(
-                    cfg,
-                    'syncing',
-                    `Processed ${totalIssuesProcessed + items.length} issues, ${totalCommentsProcessed + commentsInBatch} comments`,
-                )
+                let res = await updateDownload(cfg, 'syncing', updateMsg)
                 if (res.isErr) return res
             }
         }
