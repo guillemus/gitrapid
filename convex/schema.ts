@@ -1,6 +1,6 @@
 import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 
 export const reposSchema = {
     owner: v.string(),
@@ -54,6 +54,8 @@ const githubUser = v.union(
         login: v.string(),
     }),
 )
+
+export type GithubUser = Infer<typeof githubUser>
 
 export const issuesSchema = {
     repoId: v.id('repos'),

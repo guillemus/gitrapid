@@ -1,50 +1,57 @@
 import type { Id } from '@convex/_generated/dataModel'
 import type { CommentForInsert, TimelineItemForInsert, UpsertDoc } from '@convex/models/models'
+import type { GithubUser } from '@convex/schema'
 import { logger, zodParse } from '@convex/utils'
 import type { Octokit } from 'octokit'
 import { z } from 'zod'
 import { ok, tryCatch, wrap, type Result } from '../shared'
 
-// Zod schemas for runtime validation
-const GqlActorSchema = z.object({
-    login: z.string().nullish(),
-    databaseId: z.number().nullish(),
-})
+const GqlGithubUserSchema = z
+    .object({
+        login: z.string(),
+        databaseId: z.number().nullish(),
+    })
+    // If null means user doesn't exist no more (deleted, ghost), or other reasons.
+    .nullable()
 
-const GqlAssigneeSchema = z.object({
-    login: z.string().nullish(),
-    databaseId: z.number().nullish(),
-})
+function gqlGithubUserToDbGithubUser(gqlUser: z.infer<typeof GqlGithubUserSchema>): GithubUser {
+    let dbuser
+    if (!gqlUser) {
+        dbuser = null
+    } else if (!gqlUser.databaseId) {
+        dbuser = 'github-actions' as const
+    } else {
+        dbuser = { login: gqlUser.login, id: gqlUser.databaseId }
+    }
+
+    return dbuser
+}
 
 const GqlLabelSchema = z.object({
-    name: z.string().optional(),
-    color: z.string().optional(),
+    name: z.string(),
+    color: z.string(),
 })
 
 const GqlCommitSchema = z.object({
-    oid: z.string().optional(),
-    url: z.string().optional(),
+    oid: z.string(),
+    url: z.string(),
 })
 
 const GqlRepoRefSchema = z.object({
-    name: z.string().optional(),
-    owner: z
-        .object({
-            login: z.string().optional(),
-        })
-        .optional(),
+    name: z.string(),
+    owner: z.object({ login: z.string() }),
 })
 
 const GqlCrossRefSourceSchema = z.discriminatedUnion('__typename', [
     z.object({
         __typename: z.literal('Issue'),
-        number: z.number().optional(),
-        repository: GqlRepoRefSchema.optional(),
+        number: z.number(),
+        repository: GqlRepoRefSchema,
     }),
     z.object({
         __typename: z.literal('PullRequest'),
-        number: z.number().optional(),
-        repository: GqlRepoRefSchema.optional(),
+        number: z.number(),
+        repository: GqlRepoRefSchema,
     }),
 ])
 
@@ -53,108 +60,108 @@ const IssueTimelineItemNodeSchema = z.discriminatedUnion('__typename', [
         __typename: z.literal('AssignedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        assignee: GqlAssigneeSchema.optional(),
+        actor: GqlGithubUserSchema,
+        assignee: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('UnassignedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        assignee: GqlAssigneeSchema.optional(),
+        actor: GqlGithubUserSchema,
+        assignee: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('LabeledEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        label: GqlLabelSchema.optional(),
+        actor: GqlGithubUserSchema,
+        label: GqlLabelSchema,
     }),
     z.object({
         __typename: z.literal('UnlabeledEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        label: GqlLabelSchema.optional(),
+        actor: GqlGithubUserSchema,
+        label: GqlLabelSchema,
     }),
     z.object({
         __typename: z.literal('MilestonedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        milestoneTitle: z.string().optional(),
+        actor: GqlGithubUserSchema,
+        milestoneTitle: z.string(),
     }),
     z.object({
         __typename: z.literal('DemilestonedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        milestoneTitle: z.string().optional(),
+        actor: GqlGithubUserSchema,
+        milestoneTitle: z.string(),
     }),
     z.object({
         __typename: z.literal('ClosedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('ReopenedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('RenamedTitleEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        previousTitle: z.string().optional(),
-        currentTitle: z.string().optional(),
+        actor: GqlGithubUserSchema,
+        previousTitle: z.string(),
+        currentTitle: z.string(),
     }),
     z.object({
         __typename: z.literal('ReferencedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        commit: GqlCommitSchema.optional(),
+        actor: GqlGithubUserSchema,
+        commit: GqlCommitSchema,
     }),
     z.object({
         __typename: z.literal('CrossReferencedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        source: GqlCrossRefSourceSchema.optional(),
+        actor: GqlGithubUserSchema,
+        source: GqlCrossRefSourceSchema,
     }),
     z.object({
         __typename: z.literal('LockedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('UnlockedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('PinnedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('UnpinnedEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
+        actor: GqlGithubUserSchema,
     }),
     z.object({
         __typename: z.literal('TransferredEvent'),
         id: z.string(),
         createdAt: z.string(),
-        actor: GqlActorSchema.optional(),
-        fromRepository: GqlRepoRefSchema.optional(),
+        actor: GqlGithubUserSchema,
+        fromRepository: GqlRepoRefSchema,
     }),
 ])
 
@@ -174,12 +181,7 @@ const FetchIssuesResSchema = z.object({
 
 type FetchIssuesRes = z.infer<typeof FetchIssuesResSchema>
 
-const StrictAuthorSchema = z.object({
-    login: z.string(),
-    databaseId: z.number().nullish(),
-})
-
-const StrictIssueNodeSchema = z.object({
+const IssueNodeSchema = z.object({
     databaseId: z.number(),
     number: z.number(),
     title: z.string(),
@@ -191,29 +193,21 @@ const StrictIssueNodeSchema = z.object({
     createdAt: z.string(),
     updatedAt: z.string(),
     closedAt: z.string().nullish(),
-    author: StrictAuthorSchema,
-    labels: z
-        .object({
-            nodes: z.array(z.object({ name: z.string(), color: z.string() })),
-        })
-        .optional(),
-    assignees: z
-        .object({
-            nodes: z.array(z.object({ login: z.string() })),
-        })
-        .optional(),
-    comments: z
-        .object({
-            pageInfo: PageInfoSchema.optional(),
-            nodes: z.array(z.unknown()),
-        })
-        .optional(),
-    timelineItems: z
-        .object({
-            pageInfo: PageInfoSchema.optional(),
-            nodes: z.array(z.unknown()),
-        })
-        .optional(),
+    author: GqlGithubUserSchema,
+    labels: z.object({
+        nodes: z.array(GqlLabelSchema),
+    }),
+    assignees: z.object({
+        nodes: z.array(z.object({ login: z.string() })),
+    }),
+    comments: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(z.unknown()),
+    }),
+    timelineItems: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(z.unknown()),
+    }),
 })
 
 export async function fetchIssuesPageGraphQL(
@@ -399,6 +393,7 @@ export async function fetchIssuesPageGraphQL(
         }
     `
 
+    console.time(fetchIssuesPageGraphQL.name)
     let res = await tryCatch(
         octo.graphql(query, {
             owner: args.owner,
@@ -408,6 +403,7 @@ export async function fetchIssuesPageGraphQL(
             since: args.since,
         }),
     )
+    console.timeEnd(fetchIssuesPageGraphQL.name)
     if (res.isErr) {
         return wrap('failed to fetch issues via GraphQL', res)
     }
@@ -433,7 +429,7 @@ export function buildIssuesWithCommentsBatch(
 ) {
     let items: IssuesPageItem[] = []
     for (let nodeUnknown of fetchedIssues) {
-        let parsed = zodParse(StrictIssueNodeSchema, nodeUnknown)
+        let parsed = zodParse(IssueNodeSchema, nodeUnknown)
         if (parsed.isErr) {
             logger.error({ repoId, error: parsed.err }, 'invalid issue node, skipping')
             continue
@@ -460,19 +456,14 @@ export function buildIssuesWithCommentsBatch(
     return items
 }
 
-type IssueNode = z.infer<typeof StrictIssueNodeSchema>
+type IssueNode = z.infer<typeof IssueNodeSchema>
 
 function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<UpsertDoc<'issues'>> {
     let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
-    let labels = node.labels?.nodes?.map((l) => l.name).filter((n): n is string => !!n) ?? []
-    let assignees = node.assignees?.nodes?.map((a) => a.login).filter((n): n is string => !!n) ?? []
+    let labels = node.labels.nodes.map((l) => l.name)
+    let assignees = node.assignees.nodes.map((a) => a.login)
 
-    let author
-    if (!node.author.databaseId) {
-        author = 'github-actions' as const
-    } else {
-        author = { login: node.author.login, id: node.author.databaseId }
-    }
+    let author = gqlGithubUserToDbGithubUser(node.author)
 
     let doc: UpsertDoc<'issues'> = {
         repoId,
@@ -486,7 +477,7 @@ function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<Upser
         createdAt: node.createdAt,
         updatedAt: node.updatedAt,
         closedAt: node.closedAt ?? undefined,
-        comments: node.comments?.nodes?.length ?? undefined,
+        comments: node.comments.nodes.length,
     }
 
     return ok(doc)
@@ -494,7 +485,7 @@ function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<Upser
 
 const StrictIssueCommentSchema = z.object({
     databaseId: z.number(),
-    author: StrictAuthorSchema,
+    author: GqlGithubUserSchema,
     body: z
         .string()
         .nullish()
@@ -505,7 +496,7 @@ const StrictIssueCommentSchema = z.object({
 
 function issueNodeToCommentsForInsert(issue: IssueNode, repoId: Id<'repos'>): CommentForInsert[] {
     let comments: CommentForInsert[] = []
-    for (let cUnknown of issue.comments?.nodes ?? []) {
+    for (let cUnknown of issue.comments.nodes) {
         let parsed = zodParse(StrictIssueCommentSchema, cUnknown)
         if (parsed.isErr) {
             logger.error({ c: cUnknown, error: parsed.err }, 'invalid issue comment, skipping')
@@ -513,12 +504,7 @@ function issueNodeToCommentsForInsert(issue: IssueNode, repoId: Id<'repos'>): Co
         }
         let c = parsed.val
 
-        let author
-        if (!c.author.databaseId) {
-            author = 'github-actions' as const
-        } else {
-            author = { login: c.author.login, id: c.author.databaseId }
-        }
+        let author = gqlGithubUserToDbGithubUser(c.author)
 
         comments.push({
             githubId: c.databaseId,
@@ -539,7 +525,7 @@ function issueNodeToTimelineItemsForInsert(
 ): TimelineItemForInsert[] {
     let timelineItems: TimelineItemForInsert[] = []
 
-    for (let tUnknown of node.timelineItems?.nodes ?? []) {
+    for (let tUnknown of node.timelineItems.nodes) {
         let parsed = zodParse(IssueTimelineItemNodeSchema, tUnknown)
         if (parsed.isErr) {
             logger.error({ t: tUnknown, error: parsed.err }, 'invalid timeline item, skipping')
@@ -550,37 +536,16 @@ function issueNodeToTimelineItemsForInsert(
         let item: TimelineItemForInsert['item']
 
         if (t.__typename === 'AssignedEvent') {
-            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
-                l.error('missing required fields for event type AssignedEvent')
-                continue
-            }
-
             item = {
                 type: 'assigned',
-                assignee: {
-                    id: t.actor.databaseId,
-                    login: t.actor.login,
-                },
+                assignee: gqlGithubUserToDbGithubUser(t.actor),
             }
         } else if (t.__typename === 'UnassignedEvent') {
-            if (!t.actor || !t.actor.databaseId || !t.actor.login) {
-                l.error('missing required fields for event type UnassignedEvent')
-                continue
-            }
-
             item = {
                 type: 'unassigned',
-                assignee: {
-                    id: t.actor.databaseId,
-                    login: t.actor.login,
-                },
+                assignee: gqlGithubUserToDbGithubUser(t.actor),
             }
         } else if (t.__typename === 'LabeledEvent') {
-            if (!t.label?.name || !t.label?.color) {
-                l.error('missing required fields for event type LabeledEvent')
-                continue
-            }
-
             item = {
                 type: 'labeled',
                 label: {
@@ -589,11 +554,6 @@ function issueNodeToTimelineItemsForInsert(
                 },
             }
         } else if (t.__typename === 'UnlabeledEvent') {
-            if (!t.label?.name || !t.label?.color) {
-                l.error('missing required fields for event type UnlabeledEvent')
-                continue
-            }
-
             item = {
                 type: 'unlabeled',
                 label: {
@@ -602,21 +562,11 @@ function issueNodeToTimelineItemsForInsert(
                 },
             }
         } else if (t.__typename === 'MilestonedEvent') {
-            if (!t.milestoneTitle) {
-                l.error('missing required fields for event type MilestonedEvent')
-                continue
-            }
-
             item = {
                 type: 'milestoned',
                 milestoneTitle: t.milestoneTitle,
             }
         } else if (t.__typename === 'DemilestonedEvent') {
-            if (!t.milestoneTitle) {
-                l.error('missing required fields for event type DemilestonedEvent')
-                continue
-            }
-
             item = {
                 type: 'demilestoned',
                 milestoneTitle: t.milestoneTitle,
@@ -630,22 +580,12 @@ function issueNodeToTimelineItemsForInsert(
                 type: 'reopened',
             }
         } else if (t.__typename === 'RenamedTitleEvent') {
-            if (!t.previousTitle || !t.currentTitle) {
-                l.error('missing required fields for event type RenamedTitleEvent')
-                continue
-            }
-
             item = {
                 type: 'renamed',
                 previousTitle: t.previousTitle,
                 currentTitle: t.currentTitle,
             }
         } else if (t.__typename === 'ReferencedEvent') {
-            if (!t.commit || !t.commit.oid || !t.commit.url) {
-                l.error('missing required fields for event type ReferencedEvent')
-                continue
-            }
-
             item = {
                 type: 'referenced',
                 commit: {
@@ -654,17 +594,6 @@ function issueNodeToTimelineItemsForInsert(
                 },
             }
         } else if (t.__typename === 'CrossReferencedEvent') {
-            if (
-                !t.source ||
-                !t.source.__typename ||
-                !t.source.repository?.owner?.login ||
-                !t.source.repository.name ||
-                !t.source.number
-            ) {
-                l.error('missing required fields for event type CrossReferencedEvent')
-                continue
-            }
-
             item = {
                 type: 'cross_referenced',
                 source: {
@@ -691,16 +620,6 @@ function issueNodeToTimelineItemsForInsert(
                 type: 'unpinned',
             }
         } else if (t.__typename === 'TransferredEvent') {
-            if (
-                !t.fromRepository ||
-                !t.fromRepository.owner ||
-                !t.fromRepository.owner.login ||
-                !t.fromRepository.name
-            ) {
-                l.error('missing required fields for event type TransferredEvent')
-                continue
-            }
-
             item = {
                 type: 'transferred',
                 fromRepository: {
