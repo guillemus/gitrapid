@@ -91,7 +91,7 @@ export async function downloadIssues(cfg: UpdateCfg): R {
 
         after = page.pageInfo.endCursor
 
-        // wait a bit to not overload the gql api
+        // wait a bit to help with gql backpressure
         await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
