@@ -90,6 +90,9 @@ export async function downloadIssues(cfg: UpdateCfg): R {
         if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) break
 
         after = page.pageInfo.endCursor
+
+        // wait a bit to not overload the gql api
+        await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
     await dbInsertsP
