@@ -3,7 +3,7 @@ import type { Id } from '@convex/_generated/dataModel'
 import { internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger, protectedAction, SECRET } from '@convex/utils'
+import { logger, protectedAction, protectedMutation, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import type { Octokit } from 'octokit'
 import { downloadIssues, finishDownload, updateDownload, type UpdateCfg } from './downloadRepoData'
@@ -160,9 +160,27 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
         return wrap('failed to sync repo', syncRes)
     }
 
+    // In regular sync processes this isn't necessary, but when fixing data / backfilling or
+    // other unknown situations that could and probably will happen this prevents desync of the counts.
+    // Desync of the counts can happen when removing data using the dashboard.
+    await fixCounts(ctx, repoId)
+
     await finishDownload(syncCfg, downloadStart)
 
     return ok()
+}
+
+async function fixCounts(ctx: ActionCtx, repoId: Id<'repos'>) {
+    await ctx.runMutation(api.services.sync.setIssueCounts, {
+        ...SECRET,
+        repoId,
+        state: 'open',
+    })
+    await ctx.runMutation(api.services.sync.setIssueCounts, {
+        ...SECRET,
+        repoId,
+        state: 'closed',
+    })
 }
 
 async function runSync(cfg: SyncCfg): R {
@@ -214,28 +232,27 @@ export const setCurrentTokenRateLimit = protectedAction({
     handler: setCurrentTokenRateLimitHandler,
 })
 
-export const setIssueCounts = internalMutation({
+export const setIssueCounts = protectedMutation({
     args: {
-        repo: v.string(),
-        owner: v.string(),
+        repoId: v.id('repos'),
+        state: v.union(v.literal('open'), v.literal('closed')),
     },
     async handler(ctx, args) {
-        let repo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-        if (!repo) {
-            return err('repo not found')
-        }
-
         let issues = await ctx.db
             .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repo._id))
+            .withIndex('by_repo_state_comments', (q) =>
+                q.eq('repoId', args.repoId).eq('state', args.state),
+            )
             .collect()
 
-        let openIssues = issues.filter((issue) => issue.state === 'open').length
-        let closedIssues = issues.filter((issue) => issue.state === 'closed').length
-
-        await ctx.db.patch(repo._id, {
-            openIssues: openIssues,
-            closedIssues: closedIssues,
-        })
+        if (args.state === 'open') {
+            await ctx.db.patch(args.repoId, {
+                openIssues: issues.length,
+            })
+        } else {
+            await ctx.db.patch(args.repoId, {
+                closedIssues: issues.length,
+            })
+        }
     },
 })
