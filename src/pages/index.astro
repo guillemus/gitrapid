@@ -1,8 +1,10 @@
 ---
 import { LandingPage } from '@/client/pages/landingPage'
+import { RedirectIfLoggedIn } from '@/components/redirectIfLoggedIn'
 import Layout from '@/layout.astro'
 ---
 
 <Layout>
     <LandingPage />
+    <RedirectIfLoggedIn client:only="react" redirectTo="/dash" />
 </Layout>

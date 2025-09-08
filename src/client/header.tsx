@@ -1,8 +1,17 @@
 import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useLogout } from '@/client/convex'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 export type HeaderProps = {
     tab: 'issues' | 'none'
@@ -10,6 +19,8 @@ export type HeaderProps = {
 
 export function Header({ tab }: HeaderProps) {
     let { owner, repo } = useParams()
+    let navigate = useNavigate()
+    let logout = useLogout()
 
     return (
         <div className="bg-background border-b">
@@ -35,13 +46,33 @@ export function Header({ tab }: HeaderProps) {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        <Link
-                            to="/settings"
-                            className="text-muted-foreground hover:text-foreground flex items-center space-x-2"
-                        >
-                            <Settings className="h-5 w-5" />
-                            <span>Settings</span>
-                        </Link>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" aria-label="Open menu">
+                                    <Settings className="h-5 w-5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault()
+                                        navigate('/settings')
+                                    }}
+                                >
+                                    Settings
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={(e) => {
+                                        e.preventDefault()
+                                        void logout()
+                                    }}
+                                >
+                                    Log out
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
                 <div className="flex items-center justify-between space-x-6 overflow-x-auto overflow-y-hidden pb-0">
@@ -59,9 +90,7 @@ export function Header({ tab }: HeaderProps) {
                         )}
                     </div>
 
-                    <div>
-                        <SeeOnGitHubTab />
-                    </div>
+                    <div>{owner && repo && <SeeOnGitHubTab />}</div>
                 </div>
             </div>
         </div>
