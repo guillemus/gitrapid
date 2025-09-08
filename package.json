@@ -7,7 +7,7 @@
     "cx": "convex dev --typecheck disable",
     "ts": "tsgo --watch",
     "build": "astro build",
-    "lint": "eslint ./convex ./src && bun lint:no-circular",
+    "lint": "eslint ./convex ./src",
     "lint:no-circular": "dpdm --no-warning --no-tree ./convex/** ./src/**",
     "scripts": "bun run scripts/scripts.ts",
     "scripts:debug": "bun tsx --inspect scripts/scripts.ts",

@@ -119,7 +119,7 @@ export const create = action({
             },
         )
         if (issueDoc.isErr) {
-            logger.error({ error: issueDoc.err.error() }, 'octo error: failed to create issue')
+            logger.error(`octo error: failed to create issue: ${issueDoc.err}`)
             throw new Error('octo error: failed to create issue')
         }
 
