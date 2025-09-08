@@ -398,7 +398,7 @@ export async function fetchIssuesPageGraphQL(
         octo.graphql(query, {
             owner: args.owner,
             repo: args.repo,
-            first: 100,
+            first: 20,
             after: args.after,
             since: args.since,
         }),

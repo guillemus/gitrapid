@@ -3,14 +3,9 @@ import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId, getUserId } from '@convex/services/auth'
-import {
-    newOctokit,
-    parseGithubUrl,
-    validatePublicLicense,
-    type LicenseError,
-} from '@convex/services/github'
+import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok } from '@convex/shared'
-import { logger, octoCatch, SECRET } from '@convex/utils'
+import { logger, SECRET } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const get = query({
@@ -54,43 +49,38 @@ export type FoundRepo = {
     description: string
 }
 
-type AddRepoError = LicenseError | { type: 'error'; err: string }
-
 export const addRepo = action({
     args: {
         githubUrl: v.string(),
     },
 
-    async handler(ctx, args): R<null, AddRepoError> {
+    async handler(ctx, args): R {
         let userId = await getUserId(ctx)
 
         console.log('calling add repo')
 
         let token = await getTokenFromUserId(ctx, userId)
-        if (token.isErr) return err({ type: 'error', err: token.err })
+        if (token.isErr) {
+            logger.error(`failed to get token for user ${userId}: ${token.err}`)
+            return err('failed to get token')
+        }
 
         let octo = newOctokit(token.val)
 
         let parsed = parseGithubUrl(args.githubUrl)
-        if (parsed.isErr) return err({ type: 'error', err: parsed.err })
+        if (parsed.isErr) {
+            logger.error(`failed to parse github url for user ${userId}: ${parsed.err}`)
+            return err('failed to parse github url')
+        }
 
         let { owner, repo } = parsed.val
 
         let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
         if (repoData.isErr) {
-            return err({ type: 'octo-error', err: repoData.err.error() })
+            let errmsg = octoCatch.unwrapErr(repoData)
+            logger.error(`failed to get repo data for user ${userId}: ${errmsg}`)
+            return err('failed to get repo data')
         }
-
-        // if the repository is private and we could fetch its data with the
-        // given token, that means that the user has access to the repository,
-        // which means that we should have his permission to access the private
-        // data.
-        if (!repoData.val.private) {
-            let license = await validatePublicLicense({ octo }, { owner, repo })
-            if (license.isErr) return license
-        }
-
-        logger.info('license is valid')
 
         let savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
             ...SECRET,

@@ -1,7 +1,6 @@
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalMutation, type ActionCtx } from '@convex/_generated/server'
-import { Repos } from '@convex/models/repos'
+import { type ActionCtx } from '@convex/_generated/server'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger, protectedAction, protectedMutation, SECRET } from '@convex/utils'
 import { v, type Infer } from 'convex/values'

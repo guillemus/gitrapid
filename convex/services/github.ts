@@ -1,13 +1,12 @@
 import type { Id } from '@convex/_generated/dataModel'
 import type { UpsertDoc } from '@convex/models/models'
-import { octoCatch, octoCatchFull, octoWrap, parseDate, type OctoError } from '@convex/utils'
-import { Octokit } from 'octokit'
-import { err, ok, tryCatch, wrap, type Result } from '../shared'
+import { parseDate } from '@convex/utils'
+import { Octokit, RequestError } from 'octokit'
+import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
 
 export const Github = {
     getAllRefs,
     getTokenExpiration,
-    validatePublicLicense,
     parseGithubUrl,
     getRateLimit,
     getRepoIssuePrCounts,
@@ -21,7 +20,10 @@ export const Github = {
  * bitten by this many times, so use this wrapper whenever creating newOctokits.
  */
 export function newOctokit(token: string) {
-    let octo = new Octokit({ auth: token })
+    let octo = new Octokit({
+        auth: token,
+        throttle: { enabled: false },
+    })
     return octo
 }
 
@@ -38,10 +40,10 @@ export type GitRefInfo = {
 
 async function getAllRefs(cfg: OctoCfg, args: { owner: string; repo: string }) {
     let heads = await octoCatch(cfg.octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
-    if (heads.isErr) return err(`Failed to list heads refs: ${heads.err.error()}`)
+    if (heads.isErr) return octoWrap(`Failed to list heads refs`, heads)
 
     let tags = await octoCatch(cfg.octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
-    if (tags.isErr) return err(`Failed to list tags refs: ${tags.err.error()}`)
+    if (tags.isErr) return octoWrap(`Failed to list tags refs`, tags)
 
     let data: GitRefInfo[] = [
         ...heads.val.map((ref) => ({
@@ -77,33 +79,6 @@ async function getTokenExpiration(token: string): R<Date> {
     }
 
     return err('invalid expiration header')
-}
-
-export type LicenseError =
-    | { type: 'license-not-found' }
-    | { type: 'license-not-supported'; spdxId: string }
-    | { type: 'octo-error'; err: string }
-
-export async function validatePublicLicense(
-    cfg: OctoCfg,
-    args: { owner: string; repo: string },
-): R<null, LicenseError> {
-    let license = await octoCatch(cfg.octo.rest.licenses.getForRepo(args))
-    if (license.isErr) {
-        if (license.err.status === 404) {
-            return err({ type: 'license-not-found' })
-        } else {
-            return err({ type: 'octo-error', err: license.err.error() })
-        }
-    }
-
-    let spdxId = license.val.license?.spdx_id
-    if (!spdxId) return err({ type: 'license-not-found' })
-    if (!['MIT', 'Apache-2.0', 'BSD-3-Clause'].includes(spdxId)) {
-        return err({ type: 'license-not-supported', spdxId })
-    }
-
-    return ok()
 }
 
 export function parseGithubUrl(raw: string): Result<{ owner: string; repo: string }> {
@@ -203,7 +178,7 @@ async function getRepoIssuePrCounts(
 async function createIssue(
     cfg: OctoCfg,
     args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
-): R<UpsertDoc<'issues'>, OctoError> {
+): R<UpsertDoc<'issues'>> {
     let created = await octoCatch(
         cfg.octo.rest.issues.create({
             owner: args.owner,
@@ -212,7 +187,9 @@ async function createIssue(
             body: args.body,
         }),
     )
-    if (created.isErr) return created
+    if (created.isErr) {
+        return octoWrap(`Failed to create issue`, created)
+    }
 
     let gh = created.val
 
@@ -268,7 +245,7 @@ async function addComment(
         repoId: Id<'repos'>
         issueId: Id<'issues'>
     },
-): R<UpsertDoc<'issueComments'>, OctoError> {
+): R<UpsertDoc<'issueComments'>> {
     let added = await octoCatch(
         cfg.octo.rest.issues.createComment({
             owner: args.owner,
@@ -277,7 +254,9 @@ async function addComment(
             body: args.comment,
         }),
     )
-    if (added.isErr) return added
+    if (added.isErr) {
+        return octoWrap(`Failed to add comment`, added)
+    }
 
     let doc: UpsertDoc<'issueComments'> = {
         issueId: args.issueId,
@@ -310,4 +289,157 @@ async function getAuthenticatedUser(cfg: OctoCfg): Promise<Result<AuthenticatedU
         name: user.name,
         avatarUrl: user.avatar_url,
     })
+}
+
+export class OctoError extends RequestError {
+    constructor(err: RequestError) {
+        super(err.message, err.status, err)
+    }
+
+    error(): string {
+        return `octo request error: (status: ${this.status}) ${this.message}`
+    }
+}
+
+type OctoCatchErrors = { type: 'octo-error'; err: OctoError } | { type: 'error'; err: string }
+
+// best effort really
+function tryErrToString(error: unknown): string {
+    // @ts-expect-error: if it has a `message` property it is quite probable
+    // that it is an error
+    let msg: unknown = error?.message
+
+    if (msg) {
+        return String(msg)
+    }
+
+    return String(error)
+}
+
+octoCatch.unwrapErr = function (error: Err<OctoCatchErrors>): string {
+    if (error.err.type === 'octo-error') {
+        return error.err.err.error()
+    }
+
+    return error.err.err
+}
+
+export async function octoCatch<T>(
+    promise: Promise<{ data: T }>,
+): Promise<Result<T, OctoCatchErrors>> {
+    try {
+        let res = await promise
+        return ok(res.data)
+    } catch (error) {
+        if (error instanceof RequestError) {
+            return err({ type: 'octo-error', err: new OctoError(error) })
+        }
+
+        let msg = tryErrToString(error)
+
+        return err({ type: 'error', err: msg })
+    }
+}
+
+export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, OctoCatchErrors>> {
+    try {
+        let res = await promise
+        return ok(res)
+    } catch (error) {
+        if (error instanceof RequestError) {
+            return err({ type: 'octo-error', err: new OctoError(error) })
+        }
+
+        let msg = tryErrToString(error)
+
+        return err({ type: 'error', err: msg })
+    }
+}
+
+import { GraphqlResponseError } from '@octokit/graphql'
+
+type OctoCatchGqlErrors =
+    | { type: 'gql-error'; err: GraphqlResponseError<unknown> }
+    | { type: 'error'; err: string }
+
+export async function octoCatchGql<T>(promise: Promise<T>): Promise<Result<T, OctoCatchGqlErrors>> {
+    try {
+        let res = await promise
+        return ok(res)
+    } catch (error) {
+        if (error instanceof GraphqlResponseError) {
+            return err({ type: 'gql-error', err: error })
+        }
+
+        let msg = tryErrToString(error)
+        return err({ type: 'error', err: msg })
+    }
+}
+
+export function octoWrap(context: string, octoError: Err<OctoCatchErrors>): Err<string> {
+    if (octoError.err.type === 'octo-error') {
+        return err(`${context}: ${octoError.err.err.error()}`)
+    }
+
+    let msg: string = octoError.err.err
+    return err(`${context}: ${msg}`)
+}
+
+type GraphqlRateLimitError = {
+    retryAfterSecs: number
+}
+
+// default comes from recommended:
+// https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
+let rateLimitErr: GraphqlRateLimitError = { retryAfterSecs: 60 }
+
+export function isGraphqlRateLimitError(
+    err: GraphqlResponseError<unknown>,
+): false | GraphqlRateLimitError {
+    const retryAfter = err.headers['retry-after']
+    const status = err.headers.status
+
+    if (status === '403' || status === '429') {
+        if (retryAfter) {
+            if (typeof retryAfter === 'string') {
+                let retryAfterSecs = parseInt(retryAfter)
+                if (Number.isNaN(retryAfterSecs)) {
+                    return rateLimitErr
+                }
+
+                return { retryAfterSecs }
+            }
+
+            if (typeof retryAfter === 'number') {
+                return { retryAfterSecs: retryAfter }
+            }
+        }
+
+        return rateLimitErr
+    }
+
+    if (err.errors) {
+        for (let error of err.errors) {
+            if (error.type === 'RATE_LIMITED') {
+                return rateLimitErr
+            }
+            if (includesRateLimitMessage(error.message)) {
+                return rateLimitErr
+            }
+        }
+    }
+
+    return false
+}
+
+function includesRateLimitMessage(message: string): boolean {
+    if (!message) return false
+    const lower = message.toLowerCase()
+    return (
+        lower.includes('rate limit exceeded') ||
+        lower.includes('secondary rate limit') ||
+        lower.includes('abuse detection') ||
+        lower.includes('retry later') ||
+        lower.includes('retry-after')
+    )
 }

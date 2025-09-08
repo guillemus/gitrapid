@@ -38,6 +38,7 @@ export default defineConfig([
             },
         },
         rules: {
+            '@typescript-eslint/restrict-template-expressions': 'error',
             'react/react-in-jsx-scope': 'off',
             'prefer-const': 'off',
             // Prevent discarding promise return values

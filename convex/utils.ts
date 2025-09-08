@@ -4,53 +4,12 @@ import { customAction, customMutation, customQuery } from 'convex-helpers/server
 import { ConvexHttpClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { v } from 'convex/values'
-import { RequestError } from 'octokit'
 import pino from 'pino'
 import { z } from 'zod'
 import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
 import { env } from './env'
-import { err, ok, type Err, type Result } from './shared'
-
-export class OctoError extends RequestError {
-    constructor(err: RequestError) {
-        super(err.message, err.status, err)
-    }
-
-    error(): string {
-        return `octo request error: (status: ${this.status}) ${this.message}`
-    }
-}
-
-export async function octoCatch<T>(promise: Promise<{ data: T }>): Promise<Result<T, OctoError>> {
-    try {
-        let res = await promise
-        return ok(res.data)
-    } catch (error) {
-        if (error instanceof RequestError) {
-            return err(new OctoError(error))
-        }
-
-        throw error
-    }
-}
-
-export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, OctoError>> {
-    try {
-        let res = await promise
-        return ok(res)
-    } catch (error) {
-        if (error instanceof RequestError) {
-            return err(new OctoError(error))
-        }
-
-        throw error
-    }
-}
-
-export function octoWrap(context: string, octoError: Err<OctoError>): Err<string> {
-    return err(`${context}: ${octoError.err.error()}`)
-}
+import { err, ok, type Result } from './shared'
 
 export function createActionCtx(publicContextUrl: string): ActionCtx {
     const client = new ConvexHttpClient(publicContextUrl)

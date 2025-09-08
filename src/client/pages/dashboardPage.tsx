@@ -67,27 +67,10 @@ class AddRepoState {
 
         if (!res.isErr) return
 
-        if (res.err.type === 'error') {
-            this.addRepoError = {
-                title: 'Something went wrong',
-                description: res.err.err,
-            }
-        } else if (res.err.type === 'license-not-found') {
-            this.addRepoError = {
-                title: 'License not found',
-                description: 'The repository does not have a license, so we cannot add it.',
-            }
-        } else if (res.err.type === 'license-not-supported') {
-            this.addRepoError = {
-                title: 'License not supported',
-                description: `The repository uses the ${res.err.spdxId} license, which is not supported.`,
-            }
-        } else if (res.err.type === 'octo-error') {
-            this.addRepoError = {
-                title: 'Something went wrong',
-                description: res.err.err,
-            }
-        } else res.err satisfies never
+        this.addRepoError = {
+            title: 'Something went wrong',
+            description: res.err,
+        }
 
         setTimeout(() => {
             this.addRepoError = undefined
