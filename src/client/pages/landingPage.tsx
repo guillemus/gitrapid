@@ -1,19 +1,8 @@
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
-import { ArrowRight, Search, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, Zap } from 'lucide-react'
 
 export function LandingPage() {
-    let [ownerRepo, setOwnerRepo] = useState<string>('')
-
-    function handleOpen(): void {
-        let trimmed = ownerRepo.trim()
-        window.location.href = `/${trimmed}`
-    }
-
     return (
         <div className="bg-background flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-3xl text-center">
@@ -44,50 +33,6 @@ export function LandingPage() {
                         </a>
                     </Button>
                 </div>
-
-                <Separator className="my-8" />
-
-                <Card className="bg-card mx-auto border">
-                    <CardContent className="py-6">
-                        <div className="grid gap-4">
-                            <div className="text-muted-foreground text-sm">
-                                Open any public repo by owner/repo
-                            </div>
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                                    <Input
-                                        placeholder="owner/repo"
-                                        className="pl-9"
-                                        value={ownerRepo}
-                                        onChange={(e) => setOwnerRepo(e.target.value)}
-                                    />
-                                </div>
-                                <Button size="lg" onClick={handleOpen}>
-                                    Open
-                                </Button>
-                            </div>
-
-                            <div className="text-muted-foreground mt-2 text-sm">Or try one:</div>
-                            <div className="flex flex-wrap items-center justify-center gap-2">
-                                <Button asChild variant="secondary">
-                                    <a href="/facebook/react">facebook/react</a>
-                                </Button>
-                                <Button asChild variant="secondary">
-                                    <a href="/vercel/next.js">vercel/next.js</a>
-                                </Button>
-                                <Button asChild variant="secondary">
-                                    <a href="/microsoft/typescript">microsoft/typescript</a>
-                                </Button>
-                            </div>
-
-                            <div className="text-muted-foreground mt-4 text-xs">
-                                Public demos are read-only. Private repos stay private when you
-                                connect.
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         </div>
     )
