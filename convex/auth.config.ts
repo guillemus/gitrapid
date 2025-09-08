@@ -1,7 +1,9 @@
+import { appEnv } from './env'
+
 export default {
     providers: [
         {
-            domain: process.env.CONVEX_SITE_URL,
+            domain: appEnv.CONVEX_SITE_URL,
             applicationID: 'convex',
         },
     ],

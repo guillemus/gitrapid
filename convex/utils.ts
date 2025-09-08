@@ -8,7 +8,7 @@ import pino from 'pino'
 import { z } from 'zod'
 import type { ActionCtx } from './_generated/server'
 import { action, mutation, query } from './_generated/server'
-import { env } from './env'
+import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
 
 export function createActionCtx(publicContextUrl: string): ActionCtx {
@@ -58,10 +58,10 @@ export function createActionCtx(publicContextUrl: string): ActionCtx {
     }
 }
 
-export const SECRET = { secret: env.AUTH_GITHUB_WEBHOOK_SECRET! }
+export const SECRET = { secret: appEnv.AUTH_GITHUB_WEBHOOK_SECRET! }
 
 export function protectFn(args: { secret: string }) {
-    if (args.secret !== env.AUTH_GITHUB_WEBHOOK_SECRET) {
+    if (args.secret !== appEnv.AUTH_GITHUB_WEBHOOK_SECRET) {
         throw new Error('>:(') // security by obscurity
     }
 }
@@ -90,7 +90,7 @@ export const protectedAction = customAction(action, {
     },
 })
 
-export const logger = env.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
+export const logger = appEnv.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
 
 function debugLogger() {
     return pino({
@@ -105,14 +105,16 @@ function debugLogger() {
     })
 }
 
-function preventInProd() {
-    if (process.env.DEV !== 'true') throw new Error('>:(')
+function doThrowInProd() {
+    if (!appEnv.DEV) {
+        throw new Error('>:(')
+    }
 }
 
 export const devQuery = customQuery(query, {
     args: {},
     async input(_ctx) {
-        preventInProd()
+        doThrowInProd()
 
         return { ctx: {}, args: {} }
     },
@@ -121,7 +123,7 @@ export const devQuery = customQuery(query, {
 export const devMutation = customMutation(mutation, {
     args: {},
     async input(_ctx) {
-        preventInProd()
+        doThrowInProd()
 
         return { ctx: {}, args: {} }
     },
@@ -130,7 +132,7 @@ export const devMutation = customMutation(mutation, {
 export const devAction = customAction(action, {
     args: {},
     async input(_ctx) {
-        preventInProd()
+        doThrowInProd()
 
         return { ctx: {}, args: {} }
     },
