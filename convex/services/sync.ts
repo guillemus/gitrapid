@@ -151,12 +151,12 @@ async function setupAndRunSync(cfg: SetupSyncCfg): R {
 
     let downloadStart = new Date()
 
-    let syncRes = await runSync(syncCfg)
-    if (syncRes.isErr) {
-        res = await updateDownload(syncCfg, 'error', syncRes.err)
+    let downloadRes = await downloadIssues(syncCfg)
+    if (downloadRes.isErr) {
+        res = await updateDownload(syncCfg, 'error', downloadRes.err)
         if (res.isErr) return res
 
-        return wrap('failed to sync repo', syncRes)
+        return wrap('failed to sync repo', downloadRes)
     }
 
     // In regular sync processes this isn't necessary, but when fixing data / backfilling or
@@ -180,15 +180,6 @@ async function fixCounts(ctx: ActionCtx, repoId: Id<'repos'>) {
         repoId,
         state: 'closed',
     })
-}
-
-async function runSync(cfg: SyncCfg): R {
-    let updateIssuesRes = await downloadIssues(cfg)
-    if (updateIssuesRes.isErr) {
-        return wrap('failed to sync issues', updateIssuesRes)
-    }
-
-    return ok()
 }
 
 async function updateTokenRateLimit(cfg: { octo: Octokit; ctx: ActionCtx; patId: Id<'pats'> }): R {

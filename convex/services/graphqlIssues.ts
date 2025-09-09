@@ -238,7 +238,7 @@ export async function fetchIssuesPageGraphQL(
                 author { login ... on User { databaseId } }
                 labels(first: 10) { nodes { name color } }
                 assignees(first: 10) { nodes { login } }
-                comments(first: 100) {
+                comments(first: 10) {
                   pageInfo { hasNextPage endCursor }
                   nodes {
                     databaseId
@@ -249,7 +249,7 @@ export async function fetchIssuesPageGraphQL(
                   }
                 }
                 timelineItems(
-                  first: 100,
+                  first: 10,
                   itemTypes: [
                     ASSIGNED_EVENT,
                     UNASSIGNED_EVENT,
