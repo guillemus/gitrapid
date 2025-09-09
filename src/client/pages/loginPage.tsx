@@ -48,7 +48,6 @@ export function LoginPage() {
 
                 <Card className="border-0 bg-white/80 shadow-lg backdrop-blur-sm">
                     <CardHeader className="pb-4 text-center">
-                        <CardTitle className="text-xl text-slate-900">Welcome back</CardTitle>
                         <CardDescription className="text-slate-600">
                             Sign in to your account to continue
                         </CardDescription>
@@ -82,7 +81,8 @@ export function LoginPage() {
 
                         <div className="pt-4 text-center">
                             <p className="text-xs text-slate-500">
-                                By signing in, you agree to our terms of service and privacy policy
+                                By signing in, you agree to our terms of service and privacy policy.
+                                They aren't written yet, but I'll have them soon. I promise.
                             </p>
                         </div>
                     </CardContent>
