@@ -2,6 +2,7 @@
 import '@/styles/global.css'
 import '@/styles/github-markdown.css'
 import '@fontsource/geist-sans'
+import Posthog from './posthog.astro'
 ---
 
 <html lang="en" data-theme="light">
@@ -14,8 +15,10 @@ import '@fontsource/geist-sans'
 
         <meta
             name="description"
-            content="The fastest github client. Instantly navigate to any file, issue, or pull request from your repositories."
+            content="The fastest github ui. Instantly navigate to any issue or pull request from your repositories."
         />
+
+        {import.meta.env.PROD && <Posthog />}
 
         <!-- <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script> -->
     </head>
