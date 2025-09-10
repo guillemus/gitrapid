@@ -1,11 +1,11 @@
 import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
-import { api, internal } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger, protectedAction, protectedMutation, SECRET } from '@convex/utils'
+import { logger } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { v } from 'convex/values'
 import { newOctokit } from './github'
@@ -16,7 +16,7 @@ import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlI
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-export const run = protectedAction({
+export const run = internalAction({
     args: {},
     async handler(ctx) {
         logger.info('running sync')
@@ -31,11 +31,10 @@ export const run = protectedAction({
 
         // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
         // Still this way sucks and there's probably a smarter way of doing this
-        let users = await ctx.runQuery(api.models.users.list, SECRET)
+        let users = await ctx.runQuery(internal.models.users.list)
         let repoUserIds: Map<Id<'repos'>, Id<'users'>> = new Map()
         for (let user of users) {
-            let repoIds = await ctx.runQuery(api.models.userRepos.listByUserId, {
-                ...SECRET,
+            let repoIds = await ctx.runQuery(internal.models.userRepos.listByUserId, {
                 userId: user._id,
             })
 
@@ -46,7 +45,6 @@ export const run = protectedAction({
 
         for (let [repoId, userId] of repoUserIds.entries()) {
             await ctx.runMutation(internal.services.sync.startWorkflow, {
-                ...SECRET,
                 userId: userId,
                 repoId: repoId,
                 backfill: false,
@@ -55,7 +53,7 @@ export const run = protectedAction({
     },
 })
 
-export const setIssueCounts = protectedMutation({
+export const setIssueCounts = internalMutation({
     args: {
         repoId: v.id('repos'),
         state: v.union(v.literal('open'), v.literal('closed')),
@@ -177,7 +175,7 @@ export const downloadRepoPage = internalAction({
         let octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
 
-        let savedRepo = await ctx.runQuery(api.models.repos.get, { ...SECRET, repoId: args.repoId })
+        let savedRepo = await ctx.runQuery(internal.models.repos.get, { repoId: args.repoId })
         if (!savedRepo) return err('repo not found')
 
         let { owner, repo } = savedRepo
@@ -214,8 +212,7 @@ export const downloadRepoPage = internalAction({
                 let items = buildIssuesWithCommentsBatch(savedRepo._id, page.val.nodes)
 
                 if (items.length > 0) {
-                    await ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
-                        ...SECRET,
+                    await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
                         items,
                     })
                 }
@@ -234,8 +231,7 @@ export const downloadRepoPage = internalAction({
 })
 
 async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
-    let userToken = await ctx.runQuery(api.models.pats.getByUserId, {
-        ...SECRET,
+    let userToken = await ctx.runQuery(internal.models.pats.getByUserId, {
         userId,
     })
     if (!userToken) return err('user token not found')
@@ -254,8 +250,7 @@ async function updateDownload(
     status: Doc<'repos'>['download']['status'],
     message?: string,
 ) {
-    let updated = await cfg.ctx.runMutation(api.models.repos.updateDownload, {
-        ...SECRET,
+    let updated = await cfg.ctx.runMutation(internal.models.repos.updateDownload, {
         repoId: cfg.savedRepo._id,
         download: { status, message, lastSyncedAt: cfg.savedRepo.download.lastSyncedAt },
     })

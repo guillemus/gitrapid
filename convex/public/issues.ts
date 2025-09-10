@@ -1,4 +1,4 @@
-import { api } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import { action, query } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
@@ -8,7 +8,7 @@ import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
 import { unwrap } from '@convex/shared'
-import { SECRET, logger } from '@convex/utils'
+import { logger } from '@convex/utils'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -95,8 +95,7 @@ export const create = action({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await ctx.runQuery(api.services.auth.hasUserAccessToRepo, {
-            ...SECRET,
+        let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
             userId,
             owner: args.owner,
             repo: args.repo,
@@ -123,8 +122,7 @@ export const create = action({
             throw new Error('octo error: failed to create issue')
         }
 
-        await ctx.runMutation(api.models.models.insertIssuesWithCommentsBatch, {
-            ...SECRET,
+        await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
             items: [
                 {
                     issue: issueDoc.val,
@@ -148,8 +146,7 @@ export const addComment = action({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await ctx.runQuery(api.services.auth.hasUserAccessToRepo, {
-            ...SECRET,
+        let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
             userId,
             owner: args.owner,
             repo: args.repo,
@@ -161,8 +158,7 @@ export const addComment = action({
 
         let octo = newOctokit(token.val)
 
-        let issue = await ctx.runQuery(api.models.issues.getByRepoAndNumber, {
-            ...SECRET,
+        let issue = await ctx.runQuery(internal.models.issues.getByRepoAndNumber, {
             repoId: savedRepo._id,
             number: args.number,
         })
@@ -181,8 +177,7 @@ export const addComment = action({
         )
         if (issueComment.isErr) throw new Error('octo error: failed to add comment')
 
-        await ctx.runMutation(api.models.issueComments.insertMany, {
-            ...SECRET,
+        await ctx.runMutation(internal.models.issueComments.insertMany, {
             comments: [issueComment.val],
         })
     },

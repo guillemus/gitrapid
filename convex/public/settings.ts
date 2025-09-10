@@ -1,10 +1,9 @@
-import { api } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { scopesSchema } from '@convex/schema'
 import { getUserId } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
-import { SECRET } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const get = query({
@@ -39,8 +38,7 @@ export const savePAT = action({
         }
 
         // Save to database
-        await ctx.runMutation(api.models.pats.upsertForUser, {
-            ...SECRET,
+        await ctx.runMutation(internal.models.pats.upsertForUser, {
             userId,
             token,
             scopes,

@@ -58,38 +58,6 @@ export function createActionCtx(publicContextUrl: string): ActionCtx {
     }
 }
 
-export const SECRET = { secret: appEnv.AUTH_GITHUB_WEBHOOK_SECRET! }
-
-export function protectFn(args: { secret: string }) {
-    if (args.secret !== appEnv.AUTH_GITHUB_WEBHOOK_SECRET) {
-        throw new Error('>:(') // security by obscurity
-    }
-}
-
-export const protectedQuery = customQuery(query, {
-    args: { secret: v.string() },
-    async input(_ctx, args) {
-        protectFn(args)
-        return { ctx: {}, args: {} }
-    },
-})
-
-export const protectedMutation = customMutation(mutation, {
-    args: { secret: v.string() },
-    async input(_ctx, args) {
-        protectFn(args)
-        return { ctx: {}, args: {} }
-    },
-})
-
-export const protectedAction = customAction(action, {
-    args: { secret: v.string() },
-    async input(_ctx, args) {
-        protectFn(args)
-        return { ctx: {}, args: {} }
-    },
-})
-
 export const logger = appEnv.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
 
 function debugLogger() {
@@ -145,39 +113,6 @@ export function parseDate(date: string): Result<Date> {
     }
 
     return ok(d)
-}
-
-export const Protected = {
-    runQuery: runProtectedQuery,
-    runMutation: runProtectedMutation,
-    runAction: runProtectedAction,
-}
-
-function runProtectedQuery<Query extends FunctionReference<'query', 'public' | 'internal'>>(
-    ctx: ActionCtx,
-    query: Query,
-    args: Omit<FunctionArgs<Query>, 'secret'>,
-): Promise<FunctionReturnType<Query>> {
-    // @ts-expect-error: hard to make ts happy
-    return ctx.runQuery(query, { secret: SECRET.secret, ...args })
-}
-
-function runProtectedMutation<Query extends FunctionReference<'mutation', 'public' | 'internal'>>(
-    ctx: ActionCtx,
-    query: Query,
-    args: Omit<FunctionArgs<Query>, 'secret'>,
-): Promise<FunctionReturnType<Query>> {
-    // @ts-expect-error: hard to make ts happy
-    return ctx.runMutation(query, { secret: SECRET.secret, ...args })
-}
-
-function runProtectedAction<Query extends FunctionReference<'action', 'public' | 'internal'>>(
-    ctx: ActionCtx,
-    query: Query,
-    args: Omit<FunctionArgs<Query>, 'secret'>,
-): Promise<FunctionReturnType<Query>> {
-    // @ts-expect-error: hard to make ts happy
-    return ctx.runAction(query, { secret: SECRET.secret, ...args })
 }
 
 export function zodParse<T extends z.ZodTypeAny>(schema: T, value: unknown): Result<z.infer<T>> {

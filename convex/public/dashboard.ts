@@ -1,11 +1,11 @@
-import { api, internal } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
-import { logger, SECRET } from '@convex/utils'
+import { logger } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const get = query({
@@ -83,15 +83,13 @@ export const addRepo = action({
         }
 
         let repoId
-        let savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
-            ...SECRET,
+        let savedRepo = await ctx.runQuery(internal.models.repos.getByOwnerAndRepo, {
             owner,
             repo,
         })
         if (savedRepo) {
             // insert user repo
-            await ctx.runMutation(api.models.userRepos.insertIfNotExists, {
-                ...SECRET,
+            await ctx.runMutation(internal.models.userRepos.insertIfNotExists, {
                 repoId: savedRepo._id,
                 userId,
             })
@@ -104,8 +102,7 @@ export const addRepo = action({
 
             repoId = savedRepo._id
         } else {
-            repoId = await ctx.runMutation(api.models.repos.insertNewRepoForUser, {
-                ...SECRET,
+            repoId = await ctx.runMutation(internal.models.repos.insertNewRepoForUser, {
                 userId,
                 owner,
                 repo,

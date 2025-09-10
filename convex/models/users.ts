@@ -1,7 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { query, type QueryCtx } from '@convex/_generated/server'
+import { internalMutation, internalQuery, query, type QueryCtx } from '@convex/_generated/server'
 import { getUserId } from '@convex/services/auth'
-import { protectedMutation, protectedQuery } from '@convex/utils'
 import { v } from 'convex/values'
 
 export const Users = {
@@ -13,12 +12,12 @@ export const Users = {
     },
 }
 
-export const list = protectedQuery({
+export const list = internalQuery({
     args: {},
     handler: (ctx) => Users.list(ctx),
 })
 
-export const insert = protectedMutation({
+export const insert = internalMutation({
     args: {
         name: v.string(),
     },
