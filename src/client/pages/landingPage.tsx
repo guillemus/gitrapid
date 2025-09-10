@@ -1,7 +1,7 @@
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
-import { ArrowRight, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 
 export function LandingPage() {
     return (

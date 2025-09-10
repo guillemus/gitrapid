@@ -1,3 +1,4 @@
+import { useLogout } from '@/client/convex'
 import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useLogout } from '@/client/convex'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router'
@@ -54,9 +54,9 @@ export function Header({ tab }: HeaderProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                    onSelect={(e) => {
+                                    onSelect={async (e) => {
                                         e.preventDefault()
-                                        navigate('/settings')
+                                        await navigate('/settings')
                                     }}
                                 >
                                     Settings

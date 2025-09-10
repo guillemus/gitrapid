@@ -1,10 +1,10 @@
-import { api } from '@convex/_generated/api'
+import { api, internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
-import { err, ok } from '@convex/shared'
+import { err, ok, wrap } from '@convex/shared'
 import { logger, SECRET } from '@convex/utils'
 import { v } from 'convex/values'
 
@@ -70,7 +70,7 @@ export const addRepo = action({
         let parsed = parseGithubUrl(args.githubUrl)
         if (parsed.isErr) {
             logger.error(`failed to parse github url for user ${userId}: ${parsed.err}`)
-            return err('failed to parse github url')
+            return wrap('failed to parse github url', parsed)
         }
 
         let { owner, repo } = parsed.val
@@ -82,6 +82,7 @@ export const addRepo = action({
             return err('failed to get repo data')
         }
 
+        let repoId
         let savedRepo = await ctx.runQuery(api.models.repos.getByOwnerAndRepo, {
             ...SECRET,
             owner,
@@ -100,36 +101,21 @@ export const addRepo = action({
             if (!doesRepoNeedSyncing(savedRepo)) {
                 return ok()
             }
+
+            repoId = savedRepo._id
         } else {
-            let repoId = await ctx.runMutation(api.models.repos.insert, {
+            repoId = await ctx.runMutation(api.models.repos.insertNewRepoForUser, {
                 ...SECRET,
+                userId,
                 owner,
                 repo,
                 private: repoData.val.private,
-                openIssues: 0,
-                closedIssues: 0,
-                openPullRequests: 0,
-                closedPullRequests: 0,
-                download: {
-                    status: 'initial',
-                },
-            })
-
-            await ctx.runMutation(api.models.userRepos.insertIfNotExists, {
-                ...SECRET,
-                repoId,
-                userId,
             })
         }
 
-        await ctx.scheduler.runAfter(0, api.services.sync.runSingle, {
-            ...SECRET,
-            fetchRepoBy: {
-                type: 'by-owner-repo',
-                owner,
-                repo,
-            },
+        await ctx.scheduler.runAfter(0, internal.services.sync.startWorkflow, {
             userId,
+            repoId,
             backfill: true,
         })
 

@@ -22,7 +22,7 @@ const envSchema = z.object({
     DEBUG_LOGGER: boolFromString,
     AUTH_GITHUB_ID: z.string(),
     AUTH_GITHUB_WEBHOOK_SECRET: z.string(),
-    CONVEX_SITE_URL: z.string(),
+    CONVEX_SITE_URL: z.string().optional().default(''),
 })
 
 export const appEnv = envSchema.parse(process.env)

@@ -1,6 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { useConvexAuth } from 'convex/react'
@@ -81,8 +81,10 @@ export function LoginPage() {
 
                         <div className="pt-4 text-center">
                             <p className="text-xs text-slate-500">
+                                {`
                                 By signing in, you agree to our terms of service and privacy policy.
                                 They aren't written yet, but I'll have them soon. I promise.
+                                `}
                             </p>
                         </div>
                     </CardContent>

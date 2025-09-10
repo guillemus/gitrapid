@@ -180,7 +180,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
                         >
                             {download.status}
                         </Badge>
-                        {download.message && (
+                        {download.message && download.status === 'error' && (
                             <div className="mt-1 text-xs text-gray-500">{download.message}</div>
                         )}
                     </div>

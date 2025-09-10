@@ -170,10 +170,14 @@ const PageInfoSchema = z.object({
     endCursor: z.string().nullish(),
 })
 
+// bc of how we do fetch data, there might be some object formats that we haven't defined correctly.
+// if we parse each node individually we don't loose the others on a buggy fetch.
+const toBeLaterParsed = z.unknown()
+
 const FetchIssuesResSchema = z.object({
     repository: z.object({
         issues: z.object({
-            nodes: z.array(z.unknown()),
+            nodes: z.array(toBeLaterParsed),
             pageInfo: PageInfoSchema,
         }),
     }),
@@ -202,17 +206,23 @@ const IssueNodeSchema = z.object({
     }),
     comments: z.object({
         pageInfo: PageInfoSchema,
-        nodes: z.array(z.unknown()),
+        nodes: z.array(toBeLaterParsed),
     }),
     timelineItems: z.object({
         pageInfo: PageInfoSchema,
-        nodes: z.array(z.unknown()),
+        nodes: z.array(toBeLaterParsed),
     }),
 })
 
 export async function fetchIssuesPageGraphQL(
     octo: Octokit,
-    args: { owner: string; repo: string; after?: string; since?: string },
+    args: {
+        owner: string
+        repo: string
+        first: number
+        after?: string
+        since?: string
+    },
 ): R<FetchIssuesRes['repository']['issues']> {
     let query = `
         query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
@@ -398,7 +408,7 @@ export async function fetchIssuesPageGraphQL(
         octo.graphql(query, {
             owner: args.owner,
             repo: args.repo,
-            first: 20,
+            first: args.first,
             after: args.after,
             since: args.since,
         }),

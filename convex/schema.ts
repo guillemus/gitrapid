@@ -9,20 +9,17 @@ export const reposSchema = {
 
     download: v.object({
         status: v.union(
-            // There's no initial state really. We assume that if the repoDownload row isn't there
-            // the download hasn't started.
-
             // When inserting a new row to repos, initial is the default state.
             v.literal('initial'),
             // Represents when the repository is being downloaded for the first time.
             v.literal('backfilling'),
-            // Represents when the repository is being synced. It has already been downloaded
+            // Represents when the repository is being synced incrementally.
             v.literal('syncing'),
             // Repository is ready to be used fully
             v.literal('success'),
             // Error happened to download. We should explain at message what happened exactly.
             v.literal('error'),
-            // Download was cancelled, either internally or externally
+            // Represents when the repository download workflow was cancelled.
             v.literal('cancelled'),
         ),
         message: v.optional(v.string()),

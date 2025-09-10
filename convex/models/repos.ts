@@ -1,7 +1,7 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import type { MutationCtx, QueryCtx } from '@convex/_generated/server'
+import { internalQuery, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { err, ok } from '@convex/shared'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 import { protectedMutation, protectedQuery } from '../utils'
 
@@ -43,7 +43,7 @@ export const Repos = {
         await ctx.db.patch(repoId, { closedIssues: repo.closedIssues + count })
     },
 
-    async updateDownloadIfNotCancelled(
+    async updateDownload(
         ctx: MutationCtx,
         repoId: Id<'repos'>,
         download: Doc<'repos'>['download'],
@@ -53,13 +53,49 @@ export const Repos = {
             return err('repo not found')
         }
 
-        if (repo.download.status === 'cancelled') {
-            return err('download is cancelled')
-        }
-
         await ctx.db.patch(repoId, { download })
         return ok()
     },
+
+    finishDownload,
+}
+
+import { vResultValidator } from '@convex-dev/workpool'
+
+type WorkflowResult = Infer<typeof vResultValidator>
+
+async function finishDownload(
+    ctx: MutationCtx,
+    args: {
+        repoId: Id<'repos'>
+        lastSyncedAt: string
+        workflowRes: WorkflowResult
+    },
+) {
+    let res = args.workflowRes
+    if (res.kind === 'canceled') {
+        await ctx.db.patch(args.repoId, {
+            download: {
+                status: 'cancelled',
+                lastSyncedAt: args.lastSyncedAt,
+            },
+        })
+    } else if (res.kind === 'failed') {
+        await ctx.db.patch(args.repoId, {
+            download: {
+                status: 'error',
+                message: res.error,
+                lastSyncedAt: args.lastSyncedAt,
+            },
+        })
+    } else if (res.kind === 'success') {
+        await ctx.db.patch(args.repoId, {
+            download: {
+                status: 'success',
+                lastSyncedAt: args.lastSyncedAt,
+            },
+        })
+    } else res satisfies never
 }
 
 export const get = protectedQuery({
@@ -67,9 +103,37 @@ export const get = protectedQuery({
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
-export const insert = protectedMutation({
-    args: schemas.reposSchema,
-    handler: (ctx, args) => ctx.db.insert('repos', args),
+export const insertNewRepoForUser = protectedMutation({
+    args: {
+        userId: v.id('users'),
+        owner: v.string(),
+        repo: v.string(),
+        private: v.boolean(),
+    },
+    async handler(ctx, args) {
+        let repoId = await ctx.db.insert('repos', {
+            owner: args.owner,
+            repo: args.repo,
+            private: args.private,
+            openIssues: 0,
+            closedIssues: 0,
+            openPullRequests: 0,
+            closedPullRequests: 0,
+            download: {
+                status: 'initial',
+            },
+        })
+        await ctx.db.insert('userRepos', {
+            userId: args.userId,
+            repoId,
+        })
+        return repoId
+    },
+})
+
+export const getByOwnerAndRepoInternal = internalQuery({
+    args: { owner: v.string(), repo: v.string() },
+    handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
 })
 
 export const getByOwnerAndRepo = protectedQuery({
@@ -86,14 +150,14 @@ export function canRepoBeSynced(repo: Doc<'repos'>) {
     return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
 }
 
-export function doesRepoNeedSyncing(repo: Doc<'repos'>) {
-    return repo.download.status === 'cancelled' || repo.download.status === 'error'
-}
-
-export const updateDownloadIfNotCancelled = protectedMutation({
+export const updateDownload = protectedMutation({
     args: {
         repoId: v.id('repos'),
         download: schemas.reposSchema.download,
     },
-    handler: (ctx, args) => Repos.updateDownloadIfNotCancelled(ctx, args.repoId, args.download),
+    handler: (ctx, args) => Repos.updateDownload(ctx, args.repoId, args.download),
 })
+
+export function doesRepoNeedSyncing(repo: Doc<'repos'>) {
+    return repo.download.status === 'cancelled' || repo.download.status === 'error'
+}
