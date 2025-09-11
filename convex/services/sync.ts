@@ -110,13 +110,12 @@ export const startWorkflow = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
+        startSync: v.string(),
         backfill: v.boolean(),
     },
     async handler(ctx, args) {
         let savedRepo = await ctx.db.get(args.repoId)
         if (!savedRepo) return err('repo not found')
-
-        let startSync = new Date().toISOString()
 
         let lastSyncedAt = savedRepo.download.lastSyncedAt
         if (args.backfill) {
@@ -135,7 +134,7 @@ export const startWorkflow = internalMutation({
                 onComplete: internal.services.sync.finishDownload,
                 context: {
                     repoId: savedRepo._id,
-                    downloadStartedAt: startSync,
+                    downloadStartedAt: args.startSync,
                 },
             },
         )

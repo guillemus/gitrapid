@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
@@ -12,9 +13,6 @@ export default defineConfig({
         },
     },
     test: {
-        env: {
-            AUTH_GITHUB_WEBHOOK_SECRET: '123',
-        },
         environment: 'edge-runtime',
         server: { deps: { inline: ['convex-test'] } },
     },

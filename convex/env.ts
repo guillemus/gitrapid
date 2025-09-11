@@ -6,14 +6,8 @@ const boolFromString = z
         const v = s.trim().toLowerCase()
         if (v === 'true') return true
         if (v === 'false') return false
-        throw new z.ZodError([
-            {
-                code: 'invalid_value',
-                message: 'Expected "true" or "false"',
-                path: [],
-                values: ['true', 'false'],
-            },
-        ])
+
+        return false
     })
     .default(false)
 
