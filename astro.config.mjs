@@ -12,5 +12,7 @@ export default defineConfig({
     devToolbar: { enabled: false },
     adapter: vercel(),
 
-    vite: { plugins: [tailwindcss()] },
+    vite: {
+        plugins: [tailwindcss()],
+    },
 })

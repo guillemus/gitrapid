@@ -21,7 +21,6 @@ const envSchema = z.object({
     DEV: boolFromString,
     DEBUG_LOGGER: boolFromString,
     AUTH_GITHUB_ID: z.string(),
-    AUTH_GITHUB_WEBHOOK_SECRET: z.string(),
     CONVEX_SITE_URL: z.string().optional().default(''),
 })
 
