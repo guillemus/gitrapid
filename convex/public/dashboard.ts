@@ -77,7 +77,7 @@ export const addRepo = action({
 
         let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
         if (repoData.isErr) {
-            let errmsg = octoCatch.unwrapErr(repoData)
+            let errmsg = octoCatch.errToString(repoData)
             logger.error(`failed to get repo data for user ${userId}: ${errmsg}`)
             return err('failed to get repo data')
         }

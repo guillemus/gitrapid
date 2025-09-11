@@ -224,6 +224,14 @@ export const patsSchema = {
 
 const pats = defineTable(patsSchema).index('by_user_id', ['userId'])
 
+export const patsEtagsSchema = {
+    patId: v.id('pats'),
+    repoId: v.id('repos'),
+    etag: v.string(),
+}
+
+const patsEtags = defineTable(patsEtagsSchema).index('by_pat_id', ['patId'])
+
 export default defineSchema({
     ...authTables,
 
@@ -236,4 +244,5 @@ export default defineSchema({
     issueTimelineItems,
 
     pats,
+    // patsEtags,
 })

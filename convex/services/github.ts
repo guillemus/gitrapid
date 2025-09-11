@@ -13,6 +13,7 @@ export const Github = {
     createIssue,
     addComment,
     getAuthenticatedUser,
+    checkForIssueUpdates,
 }
 
 /**
@@ -291,6 +292,46 @@ async function getAuthenticatedUser(cfg: OctoCfg): Promise<Result<AuthenticatedU
     })
 }
 
+export type IssueUpdateCheck = {
+    hasUpdates: boolean
+    newEtag: string
+}
+
+async function checkForIssueUpdates(
+    cfg: OctoCfg,
+    args: {
+        owner: string
+        repo: string
+        etag?: string
+    },
+): R<IssueUpdateCheck> {
+    let headers: Record<string, string> = {}
+    if (args.etag) {
+        headers['If-None-Match'] = args.etag
+    }
+
+    let res = await octoCatchFull(
+        cfg.octo.rest.issues.listForRepo({
+            owner: args.owner,
+            repo: args.repo,
+            state: 'all',
+            sort: 'updated',
+            direction: 'desc',
+            per_page: 1,
+            headers,
+        }),
+    )
+    if (res.isErr) return err(octoCatch.errToString(res))
+
+    let newEtag = res.val.headers.etag
+    if (!newEtag) return err('no etag found in response')
+
+    return ok({
+        hasUpdates: true,
+        newEtag,
+    })
+}
+
 export class OctoError extends RequestError {
     constructor(err: RequestError) {
         super(err.message, err.status, err)
@@ -316,7 +357,7 @@ function tryErrToString(error: unknown): string {
     return String(error)
 }
 
-octoCatch.unwrapErr = function (error: Err<OctoCatchErrors>): string {
+octoCatch.errToString = function (error: Err<OctoCatchErrors>): string {
     if (error.err.type === 'octo-error') {
         return error.err.err.error()
     }

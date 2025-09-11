@@ -73,39 +73,6 @@ function debugLogger() {
     })
 }
 
-function doThrowInProd() {
-    if (!appEnv.DEV) {
-        throw new Error('>:(')
-    }
-}
-
-export const devQuery = customQuery(query, {
-    args: {},
-    async input(_ctx) {
-        doThrowInProd()
-
-        return { ctx: {}, args: {} }
-    },
-})
-
-export const devMutation = customMutation(mutation, {
-    args: {},
-    async input(_ctx) {
-        doThrowInProd()
-
-        return { ctx: {}, args: {} }
-    },
-})
-
-export const devAction = customAction(action, {
-    args: {},
-    async input(_ctx) {
-        doThrowInProd()
-
-        return { ctx: {}, args: {} }
-    },
-})
-
 export function parseDate(date: string): Result<Date> {
     let d = new Date(date)
     if (Number.isNaN(d.getTime())) {
