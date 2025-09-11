@@ -10,6 +10,7 @@ import { workflow } from '@convex/workflow'
 import { v } from 'convex/values'
 import { newOctokit } from './github'
 import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlIssues'
+import type { FunctionArgs } from 'convex/server'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -47,7 +48,6 @@ export const run = internalAction({
             await ctx.runMutation(internal.services.sync.startWorkflow, {
                 userId: userId,
                 repoId: repoId,
-                backfill: false,
             })
         }
     },
@@ -78,11 +78,10 @@ export const setIssueCounts = internalMutation({
     },
 })
 
-export const syncWorkflow = workflow.define({
+export const backfillRepoWorkflow = workflow.define({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
-        lastSyncedAt: v.optional(v.string()),
     },
     async handler(step, args): Promise<void> {
         let fetchedPages = 0
@@ -95,7 +94,6 @@ export const syncWorkflow = workflow.define({
                 repoId: args.repoId,
                 fetchedPages,
                 after: cursor,
-                lastSyncedAt: args.lastSyncedAt,
             })
             next = unwrap(next).nextCursor
 
@@ -110,49 +108,45 @@ export const startWorkflow = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
-        startSync: v.string(),
-        backfill: v.boolean(),
     },
     async handler(ctx, args) {
         let savedRepo = await ctx.db.get(args.repoId)
         if (!savedRepo) return err('repo not found')
 
-        let lastSyncedAt = savedRepo.download.lastSyncedAt
-        if (args.backfill) {
-            lastSyncedAt = undefined
-        }
+        let startSync = new Date().toISOString()
 
         await workflow.start(
             ctx,
-            internal.services.sync.syncWorkflow,
+            internal.services.sync.backfillRepoWorkflow,
             {
                 userId: args.userId,
                 repoId: savedRepo._id,
-                lastSyncedAt,
             },
             {
-                onComplete: internal.services.sync.finishDownload,
+                onComplete: internal.services.sync.finishBackfill,
                 context: {
                     repoId: savedRepo._id,
-                    downloadStartedAt: args.startSync,
-                },
+                    backfillStartedAt: startSync,
+                } satisfies FinishBackfillArgs['context'],
             },
         )
     },
 })
 
-export const finishDownload = internalMutation({
+type FinishBackfillArgs = FunctionArgs<typeof internal.services.sync.finishBackfill>
+
+export const finishBackfill = internalMutation({
     args: {
         workflowId: vWorkflowId,
         result: vResultValidator,
         context: v.object({
             repoId: v.id('repos'),
-            downloadStartedAt: v.string(),
+            backfillStartedAt: v.string(),
         }),
     },
     async handler(ctx, args) {
         await Repos.finishDownload(ctx, {
-            lastSyncedAt: args.context.downloadStartedAt,
+            lastSyncedAt: args.context.backfillStartedAt,
             repoId: args.context.repoId,
             workflowRes: args.result,
         })
