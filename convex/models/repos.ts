@@ -51,14 +51,8 @@ export const Repos = {
         ctx: MutationCtx,
         repoId: Id<'repos'>,
         download: Doc<'repos'>['download'],
-    ): R {
-        let repo = await ctx.db.get(repoId)
-        if (!repo) {
-            return err('repo not found')
-        }
-
+    ) {
         await ctx.db.patch(repoId, { download })
-        return ok()
     },
 
     finishDownload,
@@ -154,7 +148,7 @@ export function canRepoBeSynced(repo: Doc<'repos'>) {
     return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
 }
 
-export const updateDownload = internalMutation({
+export const updateDownloadStatus = internalMutation({
     args: {
         repoId: v.id('repos'),
         download: schemas.reposSchema.download,

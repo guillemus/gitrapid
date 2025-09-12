@@ -113,7 +113,6 @@ export const addRepo = action({
         await ctx.scheduler.runAfter(0, internal.services.sync.startWorkflow, {
             userId,
             repoId,
-            backfill: true,
         })
 
         return ok()

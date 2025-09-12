@@ -1,4 +1,4 @@
-import { vWorkflowId } from '@convex-dev/workflow'
+import { vWorkflowId, type WorkflowStep } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
@@ -7,10 +7,10 @@ import { Repos } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger } from '@convex/utils'
 import { workflow } from '@convex/workflow'
+import type { FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { newOctokit } from './github'
 import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlIssues'
-import type { FunctionArgs } from 'convex/server'
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -22,16 +22,6 @@ export const run = internalAction({
     async handler(ctx) {
         logger.info('running sync')
 
-        // TODO: things missing
-        // - better distribution of user token -> repo to download.
-        // - parallelize syncs
-        // - add a way to retry failed syncs
-        // - probably each repo should have it's /events endpoint polled, so
-        //   that we can be more selective on what to sync. The current way tries
-        //   to sync everything, while we could be more selective
-
-        // I know this is bad, but idk there's like convex limits on how many docs can be read per query so I don't wanna risk it.
-        // Still this way sucks and there's probably a smarter way of doing this
         let users = await ctx.runQuery(internal.models.users.list)
         let repoUserIds: Map<Id<'repos'>, Id<'users'>> = new Map()
         for (let user of users) {
@@ -83,15 +73,20 @@ export const backfillRepoWorkflow = workflow.define({
         userId: v.id('users'),
         repoId: v.id('repos'),
     },
-    async handler(step, args): Promise<void> {
+    async handler(step, { repoId, userId }): Promise<void> {
         let fetchedPages = 0
         let cursor: string | undefined
+
+        let savedRepo = await step.runQuery(internal.models.repos.get, { repoId })
+        if (!savedRepo) throw new Error('repo not found')
+
+        await updateDownloadStatus(step, repoId, 'backfilling')
 
         while (true) {
             let next
             next = await step.runAction(internal.services.sync.downloadRepoPage, {
-                userId: args.userId,
-                repoId: args.repoId,
+                userId,
+                repoId,
                 fetchedPages,
                 after: cursor,
             })
@@ -101,6 +96,9 @@ export const backfillRepoWorkflow = workflow.define({
 
             cursor = next
         }
+
+        await step.runMutation(internal.services.sync.setIssueCounts, { repoId, state: 'open' })
+        await step.runMutation(internal.services.sync.setIssueCounts, { repoId, state: 'closed' })
     },
 })
 
@@ -118,10 +116,7 @@ export const startWorkflow = internalMutation({
         await workflow.start(
             ctx,
             internal.services.sync.backfillRepoWorkflow,
-            {
-                userId: args.userId,
-                repoId: savedRepo._id,
-            },
+            { userId: args.userId, repoId: savedRepo._id },
             {
                 onComplete: internal.services.sync.finishBackfill,
                 context: {
@@ -172,21 +167,10 @@ export const downloadRepoPage = internalAction({
         if (!savedRepo) return err('repo not found')
 
         let { owner, repo } = savedRepo
-
-        let updateRes
-        if (args.lastSyncedAt) {
-            updateRes = await updateDownload({ ctx, savedRepo }, 'syncing')
-        } else {
-            updateRes = await updateDownload({ ctx, savedRepo }, 'backfilling')
-        }
-        if (updateRes.isErr) return updateRes
-
         let cursor = args.after
-
-        let dbInsertsP = Promise.resolve()
-
         let start = args.fetchedPages
 
+        let dbInsertsP = Promise.resolve()
         for (let i = start; i < start + TOTAL_FETCHES_PER_CALL; i++) {
             logger.info(`${owner}/${repo}: fetching ${TOTAL_ISSUES_PER_PAGE} issues page ${i}`)
 
@@ -233,21 +217,13 @@ async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
     return ok(octo)
 }
 
-type UpdateDownloadCfg = {
-    ctx: ActionCtx
-    savedRepo: Doc<'repos'>
-}
-
-async function updateDownload(
-    cfg: UpdateDownloadCfg,
+async function updateDownloadStatus(
+    ctx: WorkflowStep,
+    repoId: Id<'repos'>,
     status: Doc<'repos'>['download']['status'],
-    message?: string,
 ) {
-    let updated = await cfg.ctx.runMutation(internal.models.repos.updateDownload, {
-        repoId: cfg.savedRepo._id,
-        download: { status, message, lastSyncedAt: cfg.savedRepo.download.lastSyncedAt },
+    await ctx.runMutation(internal.models.repos.updateDownloadStatus, {
+        repoId,
+        download: { status },
     })
-    if (updated.isErr) return wrap('failed to update download', updated)
-
-    return ok()
 }
