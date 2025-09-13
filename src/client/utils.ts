@@ -118,14 +118,12 @@ export function useDebounce<T>(value: T, delay: number): T {
 
     useEffect(() => {
         const handler = setTimeout(() => {
-            state.debouncedValue = value
+            state.debouncedValue = value // oxlint-disable-line
         }, delay)
 
         return () => {
             clearTimeout(handler)
         }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value, delay])
 
     return state.debouncedValue
@@ -136,7 +134,7 @@ export function useClickOutside(onclickOutside: () => void) {
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                onclickOutside()
+                onclickOutside() // oxlint-disable-line
             }
         }
 
@@ -145,8 +143,6 @@ export function useClickOutside(onclickOutside: () => void) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     return containerRef

@@ -39,7 +39,9 @@ export const userReposSchema = {
     repoId: v.id('repos'),
 }
 
-const userRepos = defineTable(userReposSchema).index('by_userId_repoId', ['userId', 'repoId'])
+const userRepos = defineTable(userReposSchema)
+    .index('by_repoId', ['repoId'])
+    .index('by_userId_repoId', ['userId', 'repoId'])
 
 const githubUser = v.union(
     // Null means that the user no longer exists or for some reason the actor could not be fetched from github.
@@ -224,13 +226,13 @@ export const patsSchema = {
 
 const pats = defineTable(patsSchema).index('by_user_id', ['userId'])
 
-export const patsEtagsSchema = {
+export const patsReposSchema = {
     patId: v.id('pats'),
     repoId: v.id('repos'),
     etag: v.string(),
 }
 
-const patsEtags = defineTable(patsEtagsSchema).index('by_pat_id', ['patId'])
+const patsRepos = defineTable(patsReposSchema).index('by_pat_id', ['patId'])
 
 export default defineSchema({
     ...authTables,
@@ -244,5 +246,5 @@ export default defineSchema({
     issueTimelineItems,
 
     pats,
-    // patsEtags,
+    patsRepos,
 })

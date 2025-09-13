@@ -6,7 +6,6 @@ import { z } from 'zod'
 import type { ActionCtx } from './_generated/server'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
-import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server'
 
 export function createActionCtx(publicContextUrl: string): ActionCtx {
     const client = new ConvexHttpClient(publicContextUrl)

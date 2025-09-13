@@ -350,11 +350,14 @@ function tryErrToString(error: unknown): string {
     // that it is an error
     let msg: unknown = error?.message
 
-    if (msg) {
-        return String(msg)
+    if (msg && typeof msg === 'string') {
+        return msg
     }
-
-    return String(error)
+    try {
+        return JSON.stringify(error)
+    } catch {
+        return String(error)
+    }
 }
 
 octoCatch.errToString = function (error: Err<OctoCatchErrors>): string {

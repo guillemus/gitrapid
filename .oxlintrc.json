@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "promise", "react"],
+  "ignorePatterns": [
+    "convex/utils.ts",
+    "src/**.astro"
+  ],
+  "rules": {
+    "import/no-cycle": "error"
+  }
+}

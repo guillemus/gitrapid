@@ -5,7 +5,6 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import { err, ok } from '@convex/shared'
 import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 
