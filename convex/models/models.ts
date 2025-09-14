@@ -1,5 +1,6 @@
 import type { Doc, TableNames } from '@convex/_generated/dataModel'
-import { internalMutation, type MutationCtx } from '@convex/_generated/server'
+import { type MutationCtx } from '@convex/_generated/server'
+import { protectedMutation } from '@convex/localcx'
 import type { WithoutSystemFields } from 'convex/server'
 import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
@@ -76,7 +77,7 @@ const commentVal = v.object(schemas.issuesCommentsWithoutIssueIdSchema)
 export type TimelineItemForInsert = Infer<typeof timelineItemVal>
 export type CommentForInsert = Infer<typeof commentVal>
 
-export const insertIssuesWithCommentsBatch = internalMutation({
+export const insertIssuesWithCommentsBatch = protectedMutation({
     args: {
         items: v.array(
             v.object({

@@ -1,10 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { protectedMutation, protectedQuery } from '@convex/localcx'
 import * as schemas from '@convex/schema'
 import { v } from 'convex/values'
 
@@ -47,22 +43,22 @@ export const UserRepos = {
     },
 }
 
-export const getByUserId = internalQuery({
+export const getByUserId = protectedQuery({
     args: { userId: v.id('users') },
     handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })
 
-export const insertIfNotExists = internalMutation({
+export const insertIfNotExists = protectedMutation({
     args: schemas.userReposSchema,
     handler: (ctx, { userId, repoId }) => UserRepos.insertIfNotExists(ctx, userId, repoId),
 })
 
-export const deleteByRepoId = internalMutation({
+export const deleteByRepoId = protectedMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => UserRepos.deleteByRepoId(ctx, repoId),
 })
 
-export const listByUserId = internalQuery({
+export const listByUserId = protectedQuery({
     args: { userId: v.id('users') },
     handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })

@@ -1,5 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { internalQuery, type QueryCtx } from '@convex/_generated/server'
+import { type QueryCtx } from '@convex/_generated/server'
+import { protectedQuery } from '@convex/localcx'
 import { v } from 'convex/values'
 
 export const Issues = {
@@ -120,12 +121,12 @@ export const Issues = {
     },
 }
 
-export const getByRepoAndNumber = internalQuery({
+export const getByRepoAndNumber = protectedQuery({
     args: { repoId: v.id('repos'), number: v.number() },
     handler: (ctx, { repoId, number }) => Issues.getByRepoAndNumber(ctx, { repoId, number }),
 })
 
-export const listByRepo = internalQuery({
+export const listByRepo = protectedQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Issues.listByRepo(ctx, repoId),
 })

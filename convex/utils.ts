@@ -1,58 +1,11 @@
-/* eslint-disable */
-
-import { ConvexHttpClient } from 'convex/browser'
 import pino from 'pino'
 import { z } from 'zod'
-import type { ActionCtx } from './_generated/server'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
-
-export function createActionCtx(publicContextUrl: string): ActionCtx {
-    const client = new ConvexHttpClient(publicContextUrl)
-
-    return {
-        runQuery: async (query, ...args) => {
-            // @ts-expect-error: hard to make ts happy
-            return await client.query(query, ...args)
-        },
-        runMutation: async (mutation, ...args) => {
-            // @ts-expect-error: hard to make ts happy
-            return await client.mutation(mutation, ...args)
-        },
-        runAction: async (action, ...args) => {
-            // @ts-expect-error: hard to make ts happy
-            return await client.action(action, ...args)
-        },
-
-        get auth(): any {
-            throw new Error('not implemented')
-        },
-
-        scheduler: {
-            runAfter: async (delay, action, ...args) => {
-                let cancelId = setTimeout(() => {
-                    // @ts-expect-error: hard to make ts happy
-                    client.action(action, ...args)
-                }, delay)
-
-                // We should not use this
-                return cancelId as any
-            },
-            runAt: async (_date, _action, ..._args) => {
-                throw new Error('not implemented')
-            },
-            cancel: async (_id) => {
-                throw new Error('not implemented')
-            },
-        },
-        get storage(): any {
-            throw new Error('not implemented')
-        },
-        get vectorSearch(): any {
-            throw new Error('not implemented')
-        },
-    }
-}
+import type { DefaultArgsForOptionalValidator } from 'convex/server'
+import type { GenericValidator, PropertyValidators } from 'convex/values'
+import type { ActionCtx } from './_generated/server'
+import { ConvexHttpClient } from 'convex/browser'
 
 export const logger = appEnv.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
 
@@ -85,4 +38,21 @@ export function zodParse<T extends z.ZodTypeAny>(schema: T, value: unknown): Res
     }
 
     return err(z.prettifyError(result.error))
+}
+
+type FnArgs<T extends PropertyValidators> = DefaultArgsForOptionalValidator<T>[0]
+
+/**
+ * This might initially be unnecessary complexity, but it's actually useful.
+ *
+ * - If I have an action that makes sense by itself, but I also want to be callable
+ *   from another action without the overhead of a .runAction call, this wrapper makes sense.
+ *
+ * - If I want to an action logic locally this exposes the handler function so that I can freely call it
+ */
+export function actionFn<Res, Args extends PropertyValidators>(fn: {
+    args: Args
+    handler: (ctx: ActionCtx, args: FnArgs<Args>) => Promise<Res>
+}) {
+    return fn
 }

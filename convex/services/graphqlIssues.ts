@@ -506,10 +506,13 @@ const StrictIssueCommentSchema = z.object({
 
 function issueNodeToCommentsForInsert(issue: IssueNode, repoId: Id<'repos'>): CommentForInsert[] {
     let comments: CommentForInsert[] = []
-    for (let cUnknown of issue.comments.nodes) {
-        let parsed = zodParse(StrictIssueCommentSchema, cUnknown)
+    for (let unparsedComment of issue.comments.nodes) {
+        let parsed = zodParse(StrictIssueCommentSchema, unparsedComment)
         if (parsed.isErr) {
-            logger.error({ c: cUnknown, error: parsed.err }, 'invalid issue comment, skipping')
+            logger.error(
+                { comment: unparsedComment, error: parsed.err },
+                'invalid issue comment, skipping',
+            )
             continue
         }
         let c = parsed.val

@@ -1,5 +1,6 @@
-import { internal } from '@convex/_generated/api'
+import { api } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
+import { runMutation } from '@convex/localcx'
 import { scopesSchema } from '@convex/schema'
 import { getUserId } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
@@ -37,8 +38,7 @@ export const savePAT = action({
             return wrap('Failed to validate token', expiresAt)
         }
 
-        // Save to database
-        await ctx.runMutation(internal.models.pats.upsertForUser, {
+        await runMutation(ctx, api.models.pats.upsertForUser, {
             userId,
             token,
             scopes,

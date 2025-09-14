@@ -1,8 +1,9 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
 import type { UpsertDoc } from './models'
+import { protectedMutation } from '@convex/localcx'
 
 export const IssueComments = {
     async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
@@ -59,7 +60,7 @@ export const IssueComments = {
     },
 }
 
-export const insertMany = internalMutation({
+export const insertMany = protectedMutation({
     args: { comments: v.array(v.object(schemas.issueCommentsSchema)) },
     handler: (ctx, args) => IssueComments.insertMany(ctx, args.comments),
 })

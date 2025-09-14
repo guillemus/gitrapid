@@ -1,7 +1,8 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { internal } from '@convex/_generated/api'
+import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated/server'
+import { type ActionCtx, type QueryCtx } from '@convex/_generated/server'
+import { protectedQuery, runQuery } from '@convex/localcx'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/shared'
@@ -20,7 +21,7 @@ export const Auth = {
     },
 }
 
-export const hasUserAccessToRepo = internalQuery({
+export const hasUserAccessToRepo = protectedQuery({
     args: {
         userId: v.id('users'),
         owner: v.string(),
@@ -39,7 +40,7 @@ export async function getUserId(ctx: { auth: ConvexAuth }) {
 }
 
 export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
-    let token = await ctx.runQuery(internal.models.pats.getByUserId, {
+    let token = await runQuery(ctx, api.models.pats.getByUserId, {
         userId,
     })
     if (!token) return err('No PAT found')

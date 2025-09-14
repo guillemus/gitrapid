@@ -229,10 +229,14 @@ const pats = defineTable(patsSchema).index('by_user_id', ['userId'])
 export const patsReposSchema = {
     patId: v.id('pats'),
     repoId: v.id('repos'),
-    etag: v.string(),
+
+    /**
+     * Optional because (unlikely but who knows) github might not add an etag on the response.
+     */
+    issuesEtag: v.optional(v.string()),
 }
 
-const patsRepos = defineTable(patsReposSchema).index('by_pat_id', ['patId'])
+const patsRepos = defineTable(patsReposSchema).index('by_pat_repo_id', ['patId', 'repoId'])
 
 export default defineSchema({
     ...authTables,

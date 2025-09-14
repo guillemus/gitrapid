@@ -1,10 +1,7 @@
+import { vResultValidator } from '@convex-dev/workpool'
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { protectedMutation, protectedQuery } from '@convex/localcx'
 import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 
@@ -53,20 +50,27 @@ export const Repos = {
     ) {
         await ctx.db.patch(repoId, { download })
     },
-
-    finishDownload,
 }
 
-import { vResultValidator } from '@convex-dev/workpool'
+export const SaveWorkflowResult = {
+    args: v.object({
+        repoId: v.id('repos'),
+        lastSyncedAt: v.string(),
+        workflowRes: vResultValidator,
+    }),
+    async handler(ctx: MutationCtx, args: Infer<typeof this.args>) {
+        await saveWorkflowRes(ctx, args)
+    },
+}
 
-type WorkflowResult = Infer<typeof vResultValidator>
+export const saveWorkflowResult = protectedMutation(SaveWorkflowResult)
 
-async function finishDownload(
+async function saveWorkflowRes(
     ctx: MutationCtx,
     args: {
         repoId: Id<'repos'>
         lastSyncedAt: string
-        workflowRes: WorkflowResult
+        workflowRes: Infer<typeof vResultValidator>
     },
 ) {
     let res = args.workflowRes
@@ -95,12 +99,12 @@ async function finishDownload(
     } else res satisfies never
 }
 
-export const get = internalQuery({
+export const get = protectedQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
-export const insertNewRepoForUser = internalMutation({
+export const insertNewRepoForUser = protectedMutation({
     args: {
         userId: v.id('users'),
         owner: v.string(),
@@ -128,17 +132,12 @@ export const insertNewRepoForUser = internalMutation({
     },
 })
 
-export const getByOwnerAndRepoInternal = internalQuery({
+export const getByOwnerAndRepo = protectedQuery({
     args: { owner: v.string(), repo: v.string() },
     handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
 })
 
-export const getByOwnerAndRepo = internalQuery({
-    args: { owner: v.string(), repo: v.string() },
-    handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
-})
-
-export const deleteById = internalMutation({
+export const deleteById = protectedMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Repos.deleteById(ctx, repoId),
 })
@@ -147,7 +146,7 @@ export function canRepoBeSynced(repo: Doc<'repos'>) {
     return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
 }
 
-export const updateDownloadStatus = internalMutation({
+export const updateDownloadStatus = protectedMutation({
     args: {
         repoId: v.id('repos'),
         download: schemas.reposSchema.download,

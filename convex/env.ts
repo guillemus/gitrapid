@@ -16,6 +16,8 @@ const envSchema = z.object({
     DEBUG_LOGGER: boolFromString,
     AUTH_GITHUB_ID: z.string(),
     CONVEX_SITE_URL: z.string().optional().default(''),
+    GITHUB_TOKEN: z.string().optional(),
+    SECRET: z.string(),
 })
 
 export const appEnv = envSchema.parse(process.env)

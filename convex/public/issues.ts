@@ -1,5 +1,6 @@
-import { internal } from '@convex/_generated/api'
+import { api, internal } from '@convex/_generated/api'
 import { action, query } from '@convex/_generated/server'
+import { runMutation, runQuery } from '@convex/localcx'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
@@ -95,7 +96,7 @@ export const create = action({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
+        let hasAccess = await runQuery(ctx, api.services.auth.hasUserAccessToRepo, {
             userId,
             owner: args.owner,
             repo: args.repo,
@@ -107,22 +108,19 @@ export const create = action({
 
         let octo = newOctokit(token.val)
 
-        let issueDoc = await Github.createIssue(
-            { octo },
-            {
-                owner: args.owner,
-                repo: args.repo,
-                title: args.title,
-                body: args.body,
-                repoId: savedRepo._id,
-            },
-        )
+        let issueDoc = await Github.createIssue(octo, {
+            owner: args.owner,
+            repo: args.repo,
+            title: args.title,
+            body: args.body,
+            repoId: savedRepo._id,
+        })
         if (issueDoc.isErr) {
             logger.error(`octo error: failed to create issue: ${issueDoc.err}`)
             throw new Error('octo error: failed to create issue')
         }
 
-        await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
+        await runMutation(ctx, api.models.models.insertIssuesWithCommentsBatch, {
             items: [
                 {
                     issue: issueDoc.val,
@@ -146,7 +144,7 @@ export const addComment = action({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
+        let hasAccess = await runQuery(ctx, api.services.auth.hasUserAccessToRepo, {
             userId,
             owner: args.owner,
             repo: args.repo,
@@ -158,26 +156,23 @@ export const addComment = action({
 
         let octo = newOctokit(token.val)
 
-        let issue = await ctx.runQuery(internal.models.issues.getByRepoAndNumber, {
+        let issue = await runQuery(ctx, api.models.issues.getByRepoAndNumber, {
             repoId: savedRepo._id,
             number: args.number,
         })
         if (!issue) throw new Error('issue not found')
 
-        let issueComment = await Github.addComment(
-            { octo },
-            {
-                owner: args.owner,
-                repo: args.repo,
-                number: args.number,
-                comment: args.comment,
-                repoId: savedRepo._id,
-                issueId: issue._id,
-            },
-        )
+        let issueComment = await Github.addComment(octo, {
+            owner: args.owner,
+            repo: args.repo,
+            number: args.number,
+            comment: args.comment,
+            repoId: savedRepo._id,
+            issueId: issue._id,
+        })
         if (issueComment.isErr) throw new Error('octo error: failed to add comment')
 
-        await ctx.runMutation(internal.models.issueComments.insertMany, {
+        await runMutation(ctx, api.models.issueComments.insertMany, {
             comments: [issueComment.val],
         })
     },

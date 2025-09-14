@@ -1,5 +1,8 @@
-import { internal } from '@convex/_generated/api'
+import { api } from '@convex/_generated/api'
+import type { Id } from '@convex/_generated/dataModel'
 import { action, mutation, query } from '@convex/_generated/server'
+import { appEnv } from '@convex/env'
+import { runMutation, runQuery } from '@convex/localcx'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId, getUserId } from '@convex/services/auth'
@@ -57,6 +60,9 @@ export const addRepo = action({
     async handler(ctx, args): R {
         let userId = await getUserId(ctx)
 
+        api.public.dashboard.getDownload
+        api.models.authAccounts.getByProviderAndAccountId
+
         console.log('calling add repo')
 
         let token = await getTokenFromUserId(ctx, userId)
@@ -83,13 +89,13 @@ export const addRepo = action({
         }
 
         let repoId
-        let savedRepo = await ctx.runQuery(internal.models.repos.getByOwnerAndRepo, {
+        let savedRepo = await runQuery(ctx, api.models.repos.getByOwnerAndRepo, {
             owner,
             repo,
         })
         if (savedRepo) {
             // insert user repo
-            await ctx.runMutation(internal.models.userRepos.insertIfNotExists, {
+            await runMutation(ctx, api.models.userRepos.insertIfNotExists, {
                 repoId: savedRepo._id,
                 userId,
             })
@@ -102,7 +108,7 @@ export const addRepo = action({
 
             repoId = savedRepo._id
         } else {
-            repoId = await ctx.runMutation(internal.models.repos.insertNewRepoForUser, {
+            repoId = await runMutation(ctx, api.models.repos.insertNewRepoForUser, {
                 userId,
                 owner,
                 repo,
@@ -110,7 +116,8 @@ export const addRepo = action({
             })
         }
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startWorkflow, {
+        await ctx.scheduler.runAfter(0, api.services.sync.startWorkflow, {
+            secret: appEnv.SECRET,
             userId,
             repoId,
         })

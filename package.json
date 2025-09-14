@@ -11,10 +11,11 @@
     "scripts": "bun run scripts/scripts.ts",
     "scripts:debug": "bun tsx --inspect scripts/scripts.ts",
     "truncate": "bun run scripts/cmd/truncate.ts",
+    "data": "bun run scripts/cmd/data.ts",
     "astro:dev": "astro dev --port 3000",
     "format": "prettier ./src ./convex --write --config .prettierrc-org-imports",
     "astro": "astro",
-    "vitest": "vitest run",
+    "vitest": "vitest run --test-timeout=0 --no-file-parallelism",
     "vitest:debug": "vitest run --test-timeout=0 --inspect --inspect-brk --no-file-parallelism",
     "migrations:runIt": "convex run convex/migrations.ts:runIt",
     "migrations:watch": "convex run --component migrations --watch lib:getStatus"
