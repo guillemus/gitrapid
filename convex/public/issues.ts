@@ -1,4 +1,4 @@
-import { api, internal } from '@convex/_generated/api'
+import { api } from '@convex/_generated/api'
 import { action, query } from '@convex/_generated/server'
 import { runMutation, runQuery } from '@convex/localcx'
 import { IssueBodies } from '@convex/models/issueBodies'

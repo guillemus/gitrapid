@@ -1,7 +1,7 @@
 // utilities to make it possible to run convex functions locally
 
 import { ConvexHttpClient } from 'convex/browser'
-import { action, internalQuery, mutation, query, type ActionCtx } from './_generated/server'
+import { action, mutation, query, type ActionCtx } from './_generated/server'
 import { appEnv } from './env'
 
 export function createActionCtx(): ActionCtx {
@@ -21,16 +21,10 @@ export function createActionCtx(): ActionCtx {
     }
 }
 
-import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
-import type {
-    FunctionArgs,
-    FunctionReference,
-    FunctionReturnType,
-    OptionalRestArgs,
-} from 'convex/server'
-import { v } from 'convex/values'
 import type { WorkflowStep } from '@convex-dev/workflow'
-import { api, internal } from './_generated/api'
+import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import { v } from 'convex/values'
 
 export const protectedQuery = customQuery(query, {
     args: { secret: v.string() },

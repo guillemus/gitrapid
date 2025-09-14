@@ -1,5 +1,4 @@
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import { action, mutation, query } from '@convex/_generated/server'
 import { appEnv } from '@convex/env'
 import { runMutation, runQuery } from '@convex/localcx'

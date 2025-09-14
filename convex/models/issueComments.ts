@@ -1,9 +1,9 @@
 import type { Id } from '@convex/_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { protectedMutation } from '@convex/localcx'
 import { v } from 'convex/values'
 import * as schemas from '../schema'
 import type { UpsertDoc } from './models'
-import { protectedMutation } from '@convex/localcx'
 
 export const IssueComments = {
     async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {

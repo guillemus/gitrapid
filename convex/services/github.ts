@@ -329,20 +329,10 @@ async function checkForIssueUpdates(
     let newEtag = res.val.headers.etag
     if (!newEtag) return ok({ hasUpdates: true })
 
-    // newEtag = removeSurroundingQuotationMarks(newEtag)
-
     return ok({
         hasUpdates: true,
         newEtag,
     })
-}
-
-function removeSurroundingQuotationMarks(etag: string) {
-    if (etag.startsWith('"') && etag.endsWith('"')) {
-        return etag.slice(1, -1)
-    }
-
-    return etag
 }
 
 export class OctoError extends RequestError {
