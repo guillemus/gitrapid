@@ -1,6 +1,5 @@
-import { api, internal } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
-import { runMutation, runQuery } from '@convex/localcx'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId, getUserId } from '@convex/services/auth'
@@ -58,9 +57,6 @@ export const addRepo = action({
     async handler(ctx, args): R {
         let userId = await getUserId(ctx)
 
-        api.public.dashboard.getDownload
-        api.models.authAccounts.getByProviderAndAccountId
-
         console.log('calling add repo')
 
         let token = await getTokenFromUserId(ctx, userId)
@@ -87,13 +83,13 @@ export const addRepo = action({
         }
 
         let repoId
-        let savedRepo = await runQuery(ctx, api.models.repos.getByOwnerAndRepo, {
+        let savedRepo = await ctx.runQuery(internal.models.repos.getByOwnerAndRepo, {
             owner,
             repo,
         })
         if (savedRepo) {
             // insert user repo
-            await runMutation(ctx, api.models.userRepos.insertIfNotExists, {
+            await ctx.runMutation(internal.models.userRepos.insertIfNotExists, {
                 repoId: savedRepo._id,
                 userId,
             })
@@ -106,7 +102,7 @@ export const addRepo = action({
 
             repoId = savedRepo._id
         } else {
-            repoId = await runMutation(ctx, api.models.repos.insertNewRepoForUser, {
+            repoId = await ctx.runMutation(internal.models.repos.insertNewRepoForUser, {
                 userId,
                 owner,
                 repo,

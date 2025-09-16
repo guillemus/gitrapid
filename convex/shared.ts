@@ -23,7 +23,7 @@ export function ok<T>(val?: T): Ok<T | null> {
 /**
  * Convenient utility to create an Err.
  */
-export function err<E extends string = string>(msg: E): Err<E> {
+export function err<E = string>(msg: E): Err<E> {
     return { isErr: true, err: msg }
 }
 

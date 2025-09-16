@@ -1,6 +1,10 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { protectedMutation, protectedQuery } from '@convex/localcx'
+import {
+    internalMutation,
+    internalQuery,
+    type MutationCtx,
+    type QueryCtx,
+} from '@convex/_generated/server'
 import { assert } from 'convex-helpers'
 import { partial } from 'convex-helpers/validators'
 import { v } from 'convex/values'
@@ -37,22 +41,22 @@ export const PATs = {
     },
 }
 
-export const getByUserId = protectedQuery({
+export const getByUserId = internalQuery({
     args: { userId: v.id('users') },
     handler: (ctx, { userId }) => PATs.getByUserId(ctx, userId),
 })
 
-export const upsertForUser = protectedMutation({
+export const upsertForUser = internalMutation({
     args: schemas.patsSchema,
     handler: (ctx, args) => PATs.upsertForUser(ctx, args),
 })
 
-export const deleteByUserId = protectedMutation({
+export const deleteByUserId = internalMutation({
     args: { userId: v.id('users') },
     handler: (ctx, { userId }) => PATs.deleteByUserId(ctx, userId),
 })
 
-export const patch = protectedMutation({
+export const patch = internalMutation({
     args: {
         id: v.id('pats'),
         pat: partial(schema.tables.pats.validator),
@@ -60,7 +64,7 @@ export const patch = protectedMutation({
     handler: (ctx, args) => ctx.db.patch(args.id, args.pat),
 })
 
-export const getEtagsForUser = protectedQuery({
+export const getEtagsForUser = internalQuery({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -82,7 +86,7 @@ export const getEtagsForUser = protectedQuery({
     },
 })
 
-export const upsertEtagsForUser = protectedMutation({
+export const upsertEtagsForUser = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),

@@ -1,6 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { type QueryCtx } from '@convex/_generated/server'
-import { protectedQuery } from '@convex/localcx'
+import { internalQuery, type QueryCtx } from '@convex/_generated/server'
 
 export const Users = {
     async get(ctx: QueryCtx, userId: Id<'users'>) {
@@ -11,7 +10,7 @@ export const Users = {
     },
 }
 
-export const list = protectedQuery({
+export const list = internalQuery({
     args: {},
     handler: (ctx) => Users.list(ctx),
 })

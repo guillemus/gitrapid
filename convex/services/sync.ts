@@ -1,16 +1,8 @@
 import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
-import { api, internal } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalMutation, type ActionCtx } from '@convex/_generated/server'
-import { appEnv } from '@convex/env'
-import {
-    protectedAction,
-    protectedMutation,
-    runAction,
-    runMutation,
-    runQuery,
-} from '@convex/localcx'
+import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { SaveWorkflowResult } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
 import { actionFn, logger } from '@convex/utils'
@@ -21,14 +13,14 @@ import { v } from 'convex/values'
 import { Github, newOctokit } from './github'
 import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlIssues'
 
-let fns = api.services.sync
+let fns = internal.services.sync
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-export const checkRepos = protectedMutation({
+export const checkRepos = internalMutation({
     args: {
         paginationOpts: paginationOptsValidator,
     },
@@ -46,7 +38,6 @@ export const checkRepos = protectedMutation({
             let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]!
 
             await ctx.scheduler.runAfter(0, fns.incrementalSync, {
-                secret: appEnv.SECRET,
                 repoId: repo._id,
                 userId: randomUserId,
             })
@@ -54,7 +45,6 @@ export const checkRepos = protectedMutation({
 
         if (!repoPagination.isDone) {
             await ctx.runMutation(fns.checkRepos, {
-                secret: appEnv.SECRET,
                 paginationOpts: {
                     ...args.paginationOpts,
                     cursor: repoPagination.continueCursor,
@@ -74,14 +64,14 @@ export const IncrementalSync = actionFn({
         userId: v.id('users'),
     },
     async handler(ctx, args) {
-        let savedRepo = await runQuery(ctx, api.models.repos.get, { repoId: args.repoId })
+        let savedRepo = await ctx.runQuery(internal.models.repos.get, { repoId: args.repoId })
         assert(savedRepo, 'repo not found')
 
         let octo
         octo = await octoFromUserId(ctx, args.userId)
         octo = unwrap(octo)
 
-        let etags = await runQuery(ctx, api.models.pats.getEtagsForUser, {
+        let etags = await ctx.runQuery(internal.models.pats.getEtagsForUser, {
             userId: args.userId,
             repoId: args.repoId,
         })
@@ -98,7 +88,7 @@ export const IncrementalSync = actionFn({
         if (updates.newEtag) {
             logger.debug(`${savedRepo.owner}/${savedRepo.repo}: new etag found`)
 
-            await runMutation(ctx, api.models.pats.upsertEtagsForUser, {
+            await ctx.runMutation(internal.models.pats.upsertEtagsForUser, {
                 userId: args.userId,
                 repoId: args.repoId,
                 issuesEtag: updates.newEtag,
@@ -131,7 +121,7 @@ export const IncrementalSync = actionFn({
 
         logger.info(`${slug}: workflow result: ${workflowRes.kind}`)
 
-        await runMutation(ctx, api.models.repos.saveWorkflowResult, {
+        await ctx.runMutation(internal.models.repos.saveWorkflowResult, {
             repoId: args.repoId,
             lastSyncedAt: startSync,
             workflowRes,
@@ -139,9 +129,9 @@ export const IncrementalSync = actionFn({
     },
 })
 
-export const incrementalSync = protectedAction(IncrementalSync)
+export const incrementalSync = internalAction(IncrementalSync)
 
-export const setIssueCounts = protectedMutation({
+export const setIssueCounts = internalMutation({
     args: {
         repoId: v.id('repos'),
         state: v.union(v.literal('open'), v.literal('closed')),
@@ -174,12 +164,12 @@ export const backfillRepoWorkflow = workflow.define({
     async handler(step, { repoId, userId }): Promise<void> {
         let cursor: string | undefined
 
-        let savedRepo = await runQuery(step, api.models.repos.get, {
+        let savedRepo = await step.runQuery(internal.models.repos.get, {
             repoId,
         })
-        if (!savedRepo) throw new Error('repo not found')
+        assert(savedRepo, 'repo not found')
 
-        await runMutation(step, api.models.repos.updateDownloadStatus, {
+        await step.runMutation(internal.models.repos.updateDownloadStatus, {
             repoId,
             download: { status: 'backfilling' },
         })
@@ -187,7 +177,8 @@ export const backfillRepoWorkflow = workflow.define({
         let fetches = 0
         while (true) {
             let next
-            next = await runAction(step, fns.downloadRepoPage, {
+
+            next = await step.runAction(fns.downloadRepoPage, {
                 userId,
                 repoId,
                 maxFetches: TOTAL_FETCHES_PER_CALL,
@@ -201,8 +192,8 @@ export const backfillRepoWorkflow = workflow.define({
             cursor = next.nextCursor
         }
 
-        await runMutation(step, fns.setIssueCounts, { repoId, state: 'open' })
-        await runMutation(step, fns.setIssueCounts, { repoId, state: 'closed' })
+        await step.runMutation(fns.setIssueCounts, { repoId, state: 'open' })
+        await step.runMutation(fns.setIssueCounts, { repoId, state: 'closed' })
     },
 })
 
@@ -257,7 +248,8 @@ export const finishBackfill = internalMutation({
     },
 })
 
-const TOTAL_ISSUES_PER_PAGE = 20
+// const TOTAL_ISSUES_PER_PAGE = 20
+const TOTAL_ISSUES_PER_PAGE = 100
 const TOTAL_FETCHES_PER_CALL = 10
 
 const DownloadRepoPage = actionFn({
@@ -272,7 +264,7 @@ const DownloadRepoPage = actionFn({
         let octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
 
-        let savedRepo = await runQuery(ctx, api.models.repos.get, { repoId: args.repoId })
+        let savedRepo = await ctx.runQuery(internal.models.repos.get, { repoId: args.repoId })
         if (!savedRepo) return err('repo not found')
 
         let { owner, repo } = savedRepo
@@ -297,7 +289,7 @@ const DownloadRepoPage = actionFn({
                 let items = buildIssuesWithCommentsBatch(savedRepo._id, page.val.nodes)
 
                 if (items.length > 0) {
-                    await runMutation(ctx, api.models.models.insertIssuesWithCommentsBatch, {
+                    await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
                         items,
                     })
                 }
@@ -318,10 +310,10 @@ const DownloadRepoPage = actionFn({
     },
 })
 
-export const downloadRepoPage = protectedAction(DownloadRepoPage)
+export const downloadRepoPage = internalAction(DownloadRepoPage)
 
 async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
-    let userToken = await runQuery(ctx, api.models.pats.getByUserId, {
+    let userToken = await ctx.runQuery(internal.models.pats.getByUserId, {
         userId,
     })
     if (!userToken) return err('user token not found')

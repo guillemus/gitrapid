@@ -1,7 +1,11 @@
 import { vResultValidator } from '@convex-dev/workpool'
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { protectedMutation, protectedQuery } from '@convex/localcx'
+import {
+    internalMutation,
+    internalQuery,
+    type MutationCtx,
+    type QueryCtx,
+} from '@convex/_generated/server'
 import { v, type Infer } from 'convex/values'
 import * as schemas from '../schema'
 
@@ -86,14 +90,14 @@ export const SaveWorkflowResult = {
     },
 }
 
-export const saveWorkflowResult = protectedMutation(SaveWorkflowResult)
+export const saveWorkflowResult = internalMutation(SaveWorkflowResult)
 
-export const get = protectedQuery({
+export const get = internalQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
-export const insertNewRepoForUser = protectedMutation({
+export const insertNewRepoForUser = internalMutation({
     args: {
         userId: v.id('users'),
         owner: v.string(),
@@ -121,12 +125,12 @@ export const insertNewRepoForUser = protectedMutation({
     },
 })
 
-export const getByOwnerAndRepo = protectedQuery({
+export const getByOwnerAndRepo = internalQuery({
     args: { owner: v.string(), repo: v.string() },
     handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
 })
 
-export const deleteById = protectedMutation({
+export const deleteById = internalMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Repos.deleteById(ctx, repoId),
 })
@@ -135,7 +139,7 @@ export function canRepoBeSynced(repo: Doc<'repos'>) {
     return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
 }
 
-export const updateDownloadStatus = protectedMutation({
+export const updateDownloadStatus = internalMutation({
     args: {
         repoId: v.id('repos'),
         download: schemas.reposSchema.download,

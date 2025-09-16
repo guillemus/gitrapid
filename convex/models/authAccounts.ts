@@ -1,5 +1,4 @@
-import { type QueryCtx } from '@convex/_generated/server'
-import { protectedQuery } from '@convex/localcx'
+import { internalQuery, type QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
 
 export const AuthAccounts = {
@@ -13,7 +12,7 @@ export const AuthAccounts = {
     },
 }
 
-export const getByProviderAndAccountId = protectedQuery({
+export const getByProviderAndAccountId = internalQuery({
     args: { githubUserId: v.number() },
     handler: (ctx, { githubUserId }) =>
         AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString()),

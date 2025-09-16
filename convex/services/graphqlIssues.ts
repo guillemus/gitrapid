@@ -224,6 +224,13 @@ export async function fetchIssuesPageGraphQL(
         since?: string
     },
 ): R<FetchIssuesRes['repository']['issues']> {
+    const totals = {
+        labels: 100,
+        assignees: 100,
+        comments: 100,
+        timelineItems: 100,
+    }
+
     let query = `
         query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
           repository(owner: $owner, name: $repo) {
@@ -246,9 +253,9 @@ export async function fetchIssuesPageGraphQL(
                 updatedAt
                 closedAt
                 author { login ... on User { databaseId } }
-                labels(first: 10) { nodes { name color } }
-                assignees(first: 10) { nodes { login } }
-                comments(first: 10) {
+                labels(first: ${totals.labels}) { nodes { name color } }
+                assignees(first: ${totals.assignees}) { nodes { login } }
+                comments(first: ${totals.comments}) {
                   pageInfo { hasNextPage endCursor }
                   nodes {
                     databaseId
@@ -259,7 +266,7 @@ export async function fetchIssuesPageGraphQL(
                   }
                 }
                 timelineItems(
-                  first: 10,
+                  first: ${totals.timelineItems},
                   itemTypes: [
                     ASSIGNED_EVENT,
                     UNASSIGNED_EVENT,
