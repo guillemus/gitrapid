@@ -3,6 +3,14 @@ export type Err<E = string> = { isErr: true; err: E }
 export type Result<T, E = string> = Ok<T> | Err<E>
 export type ResultAsync<T = null, E = string> = Promise<Result<T, E>>
 
+declare global {
+    /**
+     * Result type for actions and mutations. This is a convenience type to shorten
+     * as much as possible return types
+     */
+    export type R<T = null, E = string> = Promise<Result<T, E>>
+}
+
 /**
  * Convenient utility to create an Ok.
  */
@@ -15,7 +23,7 @@ export function ok<T>(val?: T): Ok<T | null> {
 /**
  * Convenient utility to create an Err.
  */
-export function err<E>(msg: E): Err<E> {
+export function err<E extends string = string>(msg: E): Err<E> {
     return { isErr: true, err: msg }
 }
 
