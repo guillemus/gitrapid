@@ -1,7 +1,7 @@
 // utilities to make it possible to run convex functions locally
 
+import { action, mutation, query, type ActionCtx } from '@convex/_generated/server'
 import { ConvexHttpClient } from 'convex/browser'
-import { action, mutation, query, type ActionCtx } from './_generated/server'
 import { appEnv } from './env'
 
 export function createActionCtx(): ActionCtx {

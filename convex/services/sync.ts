@@ -1,7 +1,7 @@
-import { vWorkflowId, type WorkflowStep } from '@convex-dev/workflow'
+import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
 import { api, internal } from '@convex/_generated/api'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import { internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { appEnv } from '@convex/env'
 import {
@@ -20,6 +20,8 @@ import { paginationOptsValidator, type FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { Github, newOctokit } from './github'
 import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlIssues'
+
+let fns = api.services.sync
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -43,7 +45,7 @@ export const checkRepos = protectedMutation({
             // for a moreless fair distribution of token usage
             let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]!
 
-            await ctx.scheduler.runAfter(0, api.services.sync.incrementalSync, {
+            await ctx.scheduler.runAfter(0, fns.incrementalSync, {
                 secret: appEnv.SECRET,
                 repoId: repo._id,
                 userId: randomUserId,
@@ -51,7 +53,7 @@ export const checkRepos = protectedMutation({
         }
 
         if (!repoPagination.isDone) {
-            await ctx.runMutation(api.services.sync.checkRepos, {
+            await ctx.runMutation(fns.checkRepos, {
                 secret: appEnv.SECRET,
                 paginationOpts: {
                     ...args.paginationOpts,
@@ -105,7 +107,6 @@ export const IncrementalSync = actionFn({
 
         if (!updates.hasUpdates) {
             logger.debug(`${savedRepo.owner}/${savedRepo.repo}: no updates found, skipping sync`)
-            logger.info(`${savedRepo.owner}/${savedRepo.repo}: no updates found, skipping sync`)
             return
         }
 
@@ -118,7 +119,7 @@ export const IncrementalSync = actionFn({
         let res = await DownloadRepoPage.handler(ctx, {
             userId: args.userId,
             repoId: args.repoId,
-            fetchedPages: 0,
+            maxFetches: TOTAL_FETCHES_PER_CALL,
             lastSyncedAt: savedRepo.download.lastSyncedAt,
         })
         let workflowRes
@@ -171,7 +172,6 @@ export const backfillRepoWorkflow = workflow.define({
         repoId: v.id('repos'),
     },
     async handler(step, { repoId, userId }): Promise<void> {
-        let fetchedPages = 0
         let cursor: string | undefined
 
         let savedRepo = await runQuery(step, api.models.repos.get, {
@@ -179,42 +179,41 @@ export const backfillRepoWorkflow = workflow.define({
         })
         if (!savedRepo) throw new Error('repo not found')
 
-        await updateDownloadStatus(step, repoId, 'backfilling')
+        await runMutation(step, api.models.repos.updateDownloadStatus, {
+            repoId,
+            download: { status: 'backfilling' },
+        })
 
+        let fetches = 0
         while (true) {
             let next
-            next = await runAction(step, api.services.sync.downloadRepoPage, {
+            next = await runAction(step, fns.downloadRepoPage, {
                 userId,
                 repoId,
-                fetchedPages,
+                maxFetches: TOTAL_FETCHES_PER_CALL,
                 after: cursor,
             })
-            next = unwrap(next).nextCursor
+            next = unwrap(next)
 
-            if (!next) break
+            if (!next.nextCursor) break
 
-            cursor = next
+            fetches += TOTAL_FETCHES_PER_CALL
+            cursor = next.nextCursor
         }
 
-        await runMutation(step, api.services.sync.setIssueCounts, {
-            repoId,
-            state: 'open',
-        })
-        await runMutation(step, api.services.sync.setIssueCounts, {
-            repoId,
-            state: 'closed',
-        })
+        await runMutation(step, fns.setIssueCounts, { repoId, state: 'open' })
+        await runMutation(step, fns.setIssueCounts, { repoId, state: 'closed' })
     },
 })
 
-export const startWorkflow = protectedMutation({
+export const startWorkflow = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
     },
     async handler(ctx, args) {
         let savedRepo = await ctx.db.get(args.repoId)
-        if (!savedRepo) return err('repo not found')
+        assert(savedRepo, 'repo not found')
 
         let startSync = new Date().toISOString()
 
@@ -245,6 +244,11 @@ export const finishBackfill = internalMutation({
         }),
     },
     async handler(ctx, args) {
+        let savedRepo = await ctx.db.get(args.context.repoId)
+        assert(savedRepo, 'repo not found')
+
+        logger.info(`${savedRepo.owner}/${savedRepo.repo}: finishBackfill`)
+
         await SaveWorkflowResult.handler(ctx, {
             lastSyncedAt: args.context.backfillStartedAt,
             repoId: args.context.repoId,
@@ -260,7 +264,7 @@ const DownloadRepoPage = actionFn({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
-        fetchedPages: v.number(),
+        maxFetches: v.number(),
         after: v.optional(v.string()),
         lastSyncedAt: v.optional(v.string()),
     },
@@ -273,11 +277,10 @@ const DownloadRepoPage = actionFn({
 
         let { owner, repo } = savedRepo
         let cursor = args.after
-        let start = args.fetchedPages
 
         let dbInsertsP = Promise.resolve()
-        for (let i = start; i < start + TOTAL_FETCHES_PER_CALL; i++) {
-            logger.info(`${owner}/${repo}: fetching ${TOTAL_ISSUES_PER_PAGE} issues page ${i}`)
+        for (let i = 0; i < args.maxFetches; i++) {
+            logger.info(`${owner}/${repo}: cursor ${cursor}`)
 
             let page = await fetchIssuesPageGraphQL(octo.val, {
                 owner,
@@ -300,7 +303,10 @@ const DownloadRepoPage = actionFn({
                 }
             })
 
-            if (!page.val.pageInfo.hasNextPage) break
+            if (!page.val.pageInfo.hasNextPage) {
+                cursor = undefined
+                break
+            }
 
             // help with backpressure a bit
             await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -322,15 +328,4 @@ async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
 
     let octo = newOctokit(userToken.token)
     return ok(octo)
-}
-
-async function updateDownloadStatus(
-    step: WorkflowStep,
-    repoId: Id<'repos'>,
-    status: Doc<'repos'>['download']['status'],
-) {
-    await runMutation(step, api.models.repos.updateDownloadStatus, {
-        repoId,
-        download: { status },
-    })
 }

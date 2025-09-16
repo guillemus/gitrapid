@@ -1,6 +1,5 @@
-import { api } from '@convex/_generated/api'
+import { api, internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
-import { appEnv } from '@convex/env'
 import { runMutation, runQuery } from '@convex/localcx'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
@@ -115,11 +114,7 @@ export const addRepo = action({
             })
         }
 
-        await ctx.scheduler.runAfter(0, api.services.sync.startWorkflow, {
-            secret: appEnv.SECRET,
-            userId,
-            repoId,
-        })
+        await ctx.scheduler.runAfter(0, internal.services.sync.startWorkflow, { userId, repoId })
 
         return ok()
     },

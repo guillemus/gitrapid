@@ -59,45 +59,34 @@ export const SaveWorkflowResult = {
         workflowRes: vResultValidator,
     }),
     async handler(ctx: MutationCtx, args: Infer<typeof this.args>) {
-        await saveWorkflowRes(ctx, args)
+        let res = args.workflowRes
+        if (res.kind === 'canceled') {
+            await ctx.db.patch(args.repoId, {
+                download: {
+                    status: 'cancelled',
+                    lastSyncedAt: args.lastSyncedAt,
+                },
+            })
+        } else if (res.kind === 'failed') {
+            await ctx.db.patch(args.repoId, {
+                download: {
+                    status: 'error',
+                    message: res.error,
+                    lastSyncedAt: args.lastSyncedAt,
+                },
+            })
+        } else if (res.kind === 'success') {
+            await ctx.db.patch(args.repoId, {
+                download: {
+                    status: 'success',
+                    lastSyncedAt: args.lastSyncedAt,
+                },
+            })
+        } else res satisfies never
     },
 }
 
 export const saveWorkflowResult = protectedMutation(SaveWorkflowResult)
-
-async function saveWorkflowRes(
-    ctx: MutationCtx,
-    args: {
-        repoId: Id<'repos'>
-        lastSyncedAt: string
-        workflowRes: Infer<typeof vResultValidator>
-    },
-) {
-    let res = args.workflowRes
-    if (res.kind === 'canceled') {
-        await ctx.db.patch(args.repoId, {
-            download: {
-                status: 'cancelled',
-                lastSyncedAt: args.lastSyncedAt,
-            },
-        })
-    } else if (res.kind === 'failed') {
-        await ctx.db.patch(args.repoId, {
-            download: {
-                status: 'error',
-                message: res.error,
-                lastSyncedAt: args.lastSyncedAt,
-            },
-        })
-    } else if (res.kind === 'success') {
-        await ctx.db.patch(args.repoId, {
-            download: {
-                status: 'success',
-                lastSyncedAt: args.lastSyncedAt,
-            },
-        })
-    } else res satisfies never
-}
 
 export const get = protectedQuery({
     args: { repoId: v.id('repos') },
