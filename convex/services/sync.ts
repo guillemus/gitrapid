@@ -5,7 +5,7 @@ import type { Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { SaveWorkflowResult } from '@convex/models/repos'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { actionFn, logger } from '@convex/utils'
+import { logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator, type FunctionArgs } from 'convex/server'
@@ -58,12 +58,12 @@ export const checkRepos = internalMutation({
  * Check whether repo needs to sync data using a `since` date parameter.
  * Saves and uses etags to not waste user rate limits.
  */
-export const IncrementalSync = actionFn({
+export const IncrementalSync = {
     args: {
         repoId: v.id('repos'),
         userId: v.id('users'),
     },
-    async handler(ctx, args) {
+    async handler(ctx: ActionCtx, args: FnArgs<typeof this.args>) {
         let savedRepo = await ctx.runQuery(internal.models.repos.get, { repoId: args.repoId })
         assert(savedRepo, 'repo not found')
 
@@ -127,7 +127,7 @@ export const IncrementalSync = actionFn({
             workflowRes,
         })
     },
-})
+}
 
 export const incrementalSync = internalAction(IncrementalSync)
 
@@ -252,7 +252,7 @@ export const finishBackfill = internalMutation({
 const TOTAL_ISSUES_PER_PAGE = 100
 const TOTAL_FETCHES_PER_CALL = 10
 
-const DownloadRepoPage = actionFn({
+const DownloadRepoPage = {
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -260,7 +260,7 @@ const DownloadRepoPage = actionFn({
         after: v.optional(v.string()),
         lastSyncedAt: v.optional(v.string()),
     },
-    async handler(ctx, args) {
+    async handler(ctx: ActionCtx, args: FnArgs<typeof this.args>) {
         let octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
 
@@ -308,7 +308,7 @@ const DownloadRepoPage = actionFn({
 
         return ok({ nextCursor: cursor })
     },
-})
+}
 
 export const downloadRepoPage = internalAction(DownloadRepoPage)
 
