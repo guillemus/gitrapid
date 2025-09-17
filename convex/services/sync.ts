@@ -4,14 +4,14 @@ import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { SaveWorkflowResult } from '@convex/models/repos'
-import { err, ok, unwrap, wrap } from '@convex/shared'
+import { err, ok, unwrap } from '@convex/shared'
 import { logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator, type FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { Github, newOctokit } from './github'
-import { buildIssuesWithCommentsBatch, fetchIssuesPageGraphQL } from './graphqlIssues'
+import { Graphql, getNextCursor } from './graphql'
 
 let fns = internal.services.sync
 
@@ -174,21 +174,29 @@ export const backfillRepoWorkflow = workflow.define({
             download: { status: 'backfilling' },
         })
 
-        let fetches = 0
         while (true) {
             let next
 
-            next = await step.runAction(fns.downloadRepoPage, {
-                userId,
-                repoId,
-                maxFetches: TOTAL_FETCHES_PER_CALL,
-                after: cursor,
-            })
+            next = await step.runAction(
+                fns.downloadRepoPage,
+                {
+                    userId,
+                    repoId,
+                    maxFetches: TOTAL_FETCHES_PER_CALL,
+                    after: cursor,
+                },
+                {
+                    retry: {
+                        initialBackoffMs: 4000,
+                        base: 2,
+                        maxAttempts: 5,
+                    },
+                },
+            )
             next = unwrap(next)
 
             if (!next.nextCursor) break
 
-            fetches += TOTAL_FETCHES_PER_CALL
             cursor = next.nextCursor
         }
 
@@ -248,8 +256,6 @@ export const finishBackfill = internalMutation({
     },
 })
 
-// const TOTAL_ISSUES_PER_PAGE = 20
-const TOTAL_ISSUES_PER_PAGE = 100
 const TOTAL_FETCHES_PER_CALL = 10
 
 const DownloadRepoPage = {
@@ -260,9 +266,11 @@ const DownloadRepoPage = {
         after: v.optional(v.string()),
         lastSyncedAt: v.optional(v.string()),
     },
-    async handler(ctx: ActionCtx, args: FnArgs<typeof this.args>) {
-        let octo = await octoFromUserId(ctx, args.userId)
+    async handler(ctx: ActionCtx, args: FnArgs<typeof this.args>): R<{ nextCursor?: string }> {
+        let octo
+        octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
+        octo = octo.val
 
         let savedRepo = await ctx.runQuery(internal.models.repos.get, { repoId: args.repoId })
         if (!savedRepo) return err('repo not found')
@@ -274,20 +282,23 @@ const DownloadRepoPage = {
         for (let i = 0; i < args.maxFetches; i++) {
             logger.info(`${owner}/${repo}: cursor ${cursor}`)
 
-            let page = await fetchIssuesPageGraphQL(octo.val, {
+            let page = await Graphql.fetchIssues(octo, {
                 owner,
                 repo,
-                first: TOTAL_ISSUES_PER_PAGE,
                 after: cursor,
                 since: args.lastSyncedAt,
             })
-            if (page.isErr) return wrap('failed to fetch issues page', page)
+            if (page.isErr) {
+                if (page.err.type === 'RATE_LIMIT_ERROR') {
+                    throw new Error(page.err.type)
+                }
 
-            cursor = page.val.pageInfo.endCursor ?? undefined
+                return err(page.err.err)
+            }
+
+            let items = Graphql.buildIssuesWithCommentsBatch(savedRepo._id, page.val.nodes)
 
             dbInsertsP = dbInsertsP.then(async () => {
-                let items = buildIssuesWithCommentsBatch(savedRepo._id, page.val.nodes)
-
                 if (items.length > 0) {
                     await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
                         items,
@@ -295,10 +306,11 @@ const DownloadRepoPage = {
                 }
             })
 
-            if (!page.val.pageInfo.hasNextPage) {
-                cursor = undefined
+            let nextCursor = getNextCursor(page.val.pageInfo)
+            if (nextCursor.isNone) {
                 break
             }
+            cursor = nextCursor.val.cursor
 
             // help with backpressure a bit
             await new Promise((resolve) => setTimeout(resolve, 1000))

@@ -3,12 +3,28 @@ export type Err<E = string> = { isErr: true; err: E }
 export type Result<T, E = string> = Ok<T> | Err<E>
 export type ResultAsync<T = null, E = string> = Promise<Result<T, E>>
 
+type Some<T> = { isSome: true; isNone: false; val: T }
+type None = { isSome: false; isNone: true }
+type Option<T> = Some<T> | None
+
+function some<T>(val: T): Option<T> {
+    return { isSome: true, isNone: false, val }
+}
+
+function none<T>(): Option<T> {
+    return { isSome: false, isNone: true }
+}
+
+export const O = { some, none }
+
 declare global {
     /**
      * Result type for actions and mutations. This is a convenience type to shorten
      * as much as possible return types
      */
     export type R<T = null, E = string> = Promise<Result<T, E>>
+
+    export type O<T> = Option<T>
 }
 
 /**

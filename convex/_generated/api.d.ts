@@ -30,7 +30,7 @@ import type * as public_issues from "../public/issues.js";
 import type * as public_settings from "../public/settings.js";
 import type * as services_auth from "../services/auth.js";
 import type * as services_github from "../services/github.js";
-import type * as services_graphqlIssues from "../services/graphqlIssues.js";
+import type * as services_graphql from "../services/graphql.js";
 import type * as services_issueSearch from "../services/issueSearch.js";
 import type * as services_sync from "../services/sync.js";
 import type * as shared from "../shared.js";
@@ -74,7 +74,7 @@ declare const fullApi: ApiFromModules<{
   "public/settings": typeof public_settings;
   "services/auth": typeof services_auth;
   "services/github": typeof services_github;
-  "services/graphqlIssues": typeof services_graphqlIssues;
+  "services/graphql": typeof services_graphql;
   "services/issueSearch": typeof services_issueSearch;
   "services/sync": typeof services_sync;
   shared: typeof shared;

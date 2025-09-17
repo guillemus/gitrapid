@@ -56,6 +56,11 @@ const githubUser = v.union(
 
 export type GithubUser = Infer<typeof githubUser>
 
+export const label = v.object({
+    name: v.string(),
+    color: v.string(),
+})
+
 export const issuesSchema = {
     repoId: v.id('repos'),
     githubId: v.number(),
@@ -64,8 +69,8 @@ export const issuesSchema = {
     state: v.union(v.literal('open'), v.literal('closed')),
 
     author: githubUser,
-    labels: v.optional(v.array(v.string())),
-    assignees: v.optional(v.array(v.string())), // logins or ids
+    labels: v.optional(v.array(label)),
+    assignees: v.optional(v.array(githubUser)),
     createdAt: v.string(),
     updatedAt: v.string(),
     closedAt: v.optional(v.string()),

@@ -2,7 +2,6 @@ import type { DefaultArgsForOptionalValidator } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
 import pino from 'pino'
 import { z } from 'zod'
-import type { ActionCtx, MutationCtx, QueryCtx } from './_generated/server'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
 

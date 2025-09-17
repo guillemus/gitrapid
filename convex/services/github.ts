@@ -371,6 +371,18 @@ octoCatch.errToString = function (error: Err<OctoCatchErrors>): string {
     return error.err.err
 }
 
+octoCatch.gqlErrToString = function (error: Err<OctoCatchGqlErrors>): string {
+    if (error.err.type === 'gql-error') {
+        return error.err.err.message
+    }
+
+    if (error.err.type === 'rate-limit-error') {
+        return `Rate limit exceeded: ${error.err.err.retryAfterSecs} seconds`
+    }
+
+    return error.err.err
+}
+
 export async function octoCatch<T>(
     promise: Promise<{ data: T }>,
 ): Promise<Result<T, OctoCatchErrors>> {
@@ -388,7 +400,7 @@ export async function octoCatch<T>(
     }
 }
 
-export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, OctoCatchErrors>> {
+export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchErrors> {
     try {
         let res = await promise
         return ok(res)
@@ -405,16 +417,22 @@ export async function octoCatchFull<T>(promise: Promise<T>): Promise<Result<T, O
 
 import { GraphqlResponseError } from '@octokit/graphql'
 
-type OctoCatchGqlErrors =
+export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }
+    | { type: 'rate-limit-error'; err: GraphqlRateLimitError }
     | { type: 'error'; err: string }
 
-export async function octoCatchGql<T>(promise: Promise<T>): Promise<Result<T, OctoCatchGqlErrors>> {
+export async function octoCatchGql<T>(promise: Promise<T>): R<T, OctoCatchGqlErrors> {
     try {
         let res = await promise
         return ok(res)
     } catch (error) {
         if (error instanceof GraphqlResponseError) {
+            let rateLimitErr = isGraphqlRateLimitError(error)
+            if (rateLimitErr) {
+                return err({ type: 'rate-limit-error', err: rateLimitErr })
+            }
+
             return err({ type: 'gql-error', err: error })
         }
 
@@ -432,7 +450,7 @@ export function octoWrap(context: string, octoError: Err<OctoCatchErrors>): Err<
     return err(`${context}: ${msg}`)
 }
 
-type GraphqlRateLimitError = {
+export type GraphqlRateLimitError = {
     retryAfterSecs: number
 }
 
