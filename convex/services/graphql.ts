@@ -1,48 +1,62 @@
-import type { Id } from '@convex/_generated/dataModel'
-import type { CommentForInsert, TimelineItemForInsert, UpsertDoc } from '@convex/models/models'
-import type { GithubUser } from '@convex/schema'
+import type { CommentData, IssueData, TimelineItemData, UpsertDoc } from '@convex/models/models'
 import { logger, zodParse } from '@convex/utils'
 import type { Octokit } from 'octokit'
 import { z } from 'zod'
-import { err, O, ok, type Result } from '../shared'
+import { err, O, ok, wrap, type Result } from '../shared'
 import { octoCatch, octoCatchGql, type GraphqlRateLimitError } from './github'
 
 export const Graphql = {
-    fetchIssues: fetchIssuesPageGraphQL,
-    fetchIssueLabels: fetchIssueLabelsGraphQL,
-    fetchIssueAssignees: fetchIssueAssigneesGraphQL,
-    fetchIssueComments: fetchIssueCommentsGraphQL,
-    fetchIssueTimelineItems: fetchIssueTimelineItemsGraphQL,
-
-    buildIssuesWithCommentsBatch,
+    fetchIssuesPage,
+    getNextCursor,
 }
 
-async function fetchIssues(
+type Issue = {
+    issue: IssueData
+    body: string
+    labels: Label[]
+    assignees: UpsertDoc<'githubUsers'>[]
+    comments: CommentData[]
+    timelineItems: TimelineItemData[]
+}
+
+type Label = {
+    githubId: string
+    name: string
+    color: string
+}
+
+type Assignee = {
+    login: string
+    avatarUrl: string
+    githubId: number
+}
+
+async function fetchIssuesPage(
     octo: Octokit,
     args: {
-        repoId: Id<'repos'>
         owner: string
         repo: string
-        after?: string
+        cursor?: string
         since?: string
     },
-): R<IssuesPageItem[], FetchIssuesErrors> {
+): R<{ issues: Issue[]; pageInfo: PageInfo }, FetchIssuesErrors> {
     let issuesPage = await fetchIssuesPageGraphQL(octo, {
         owner: args.owner,
         repo: args.repo,
-        after: args.after,
+        cursor: args.cursor,
         since: args.since,
     })
     if (issuesPage.isErr) return issuesPage
 
-    let itemsWithPendingDownloads = buildIssuesWithCommentsBatch(args.repoId, issuesPage.val.nodes)
+    let itemsWithPendingDownloads = buildIssuesWithCommentsBatch(issuesPage.val.nodes)
 
+    let issues: Issue[] = []
     for (let item of itemsWithPendingDownloads) {
+        let issueLabels = item.pageItem.labels
         if (item.downloadLabels.isSome) {
             let cursor: string | undefined
             while (true) {
-                let labels
-                labels = await fetchIssueLabelsGraphQL(octo, {
+                let labels = await fetchIssueLabelsGraphQL(octo, {
                     owner: args.owner,
                     first: totals.labels,
                     repo: args.repo,
@@ -51,15 +65,15 @@ async function fetchIssues(
                 })
                 if (labels.isErr) return labels
 
-                labels = labels.val
-                let newLabels = labels.nodes
-                if (item.pageItem.issue.labels) {
-                    item.pageItem.issue.labels.push(...newLabels)
-                } else {
-                    item.pageItem.issue.labels = newLabels
+                for (let label of labels.val.nodes) {
+                    issueLabels.push({
+                        githubId: label.id,
+                        name: label.name,
+                        color: label.color,
+                    })
                 }
 
-                let nextCursor = getNextCursor(labels.pageInfo)
+                let nextCursor = getNextCursor(labels.val.pageInfo)
                 if (nextCursor.isNone) {
                     break
                 }
@@ -68,11 +82,11 @@ async function fetchIssues(
             }
         }
 
+        let issueAssignees = item.pageItem.assignees
         if (item.downloadAssignees.isSome) {
             let cursor: string | undefined
             while (true) {
-                let assignees
-                assignees = await fetchIssueAssigneesGraphQL(octo, {
+                let assignees = await fetchIssueAssigneesGraphQL(octo, {
                     owner: args.owner,
                     first: totals.assignees,
                     repo: args.repo,
@@ -81,15 +95,16 @@ async function fetchIssues(
                 })
                 if (assignees.isErr) return assignees
 
-                assignees = assignees.val
-                let newAssignees = assignees.nodes
-                if (item.pageItem.issue.assignees) {
-                    item.pageItem.issue.assignees.push(...newAssignees)
-                } else {
-                    item.pageItem.issue.assignees = newAssignees
+                let newAssignees = assignees.val.nodes
+                for (let assignee of newAssignees) {
+                    issueAssignees.push({
+                        githubId: assignee.databaseId,
+                        login: assignee.login,
+                        avatarUrl: assignee.avatarUrl,
+                    })
                 }
 
-                let nextCursor = getNextCursor(assignees.pageInfo)
+                let nextCursor = getNextCursor(assignees.val.pageInfo)
                 if (nextCursor.isNone) {
                     break
                 }
@@ -98,11 +113,11 @@ async function fetchIssues(
             }
         }
 
+        let issueComments = item.pageItem.comments
         if (item.downloadComments.isSome) {
             let cursor: string | undefined
             while (true) {
-                let comments
-                comments = await fetchIssueCommentsGraphQL(octo, {
+                let comments = await fetchIssueCommentsGraphQL(octo, {
                     owner: args.owner,
                     first: totals.comments,
                     repo: args.repo,
@@ -111,21 +126,28 @@ async function fetchIssues(
                 })
                 if (comments.isErr) return comments
 
-                comments = comments.val
-                let newComments = comments.nodes
+                for (let comment of comments.val.nodes) {
+                    issueComments.push({
+                        githubId: comment.databaseId,
+                        author: gqlGithubUserToDbGithubUser(comment.author),
+                        body: comment.body,
+                        createdAt: comment.createdAt,
+                        updatedAt: comment.updatedAt,
+                    })
+                }
 
-                let nextCursor = getNextCursor(comments.pageInfo)
+                let nextCursor = getNextCursor(comments.val.pageInfo)
                 if (nextCursor.isNone) {
                     break
                 }
             }
         }
 
+        let issueTimelineItems = item.pageItem.timelineItems
         if (!item.downloadTimelineItems.isNone) {
             let cursor: string | undefined
             while (true) {
-                let timelineItems
-                timelineItems = await fetchIssueTimelineItemsGraphQL(octo, {
+                let timelineItems = await fetchIssueTimelineItemsGraphQL(octo, {
                     owner: args.owner,
                     first: totals.timelineItems,
                     repo: args.repo,
@@ -134,10 +156,23 @@ async function fetchIssues(
                 })
                 if (timelineItems.isErr) return timelineItems
 
-                timelineItems = timelineItems.val
-                let newTimelineItems = timelineItems.nodes
+                for (let timelineItem of timelineItems.val.nodes) {
+                    let t = parseTimelineItem(timelineItem)
+                    if (t.isErr) {
+                        logger.error(
+                            {
+                                issueNumber: item.pageItem.issue.number,
+                                timelineItem,
+                                error: t.err,
+                            },
+                            'invalid timeline item, skipping',
+                        )
+                        continue
+                    }
+                    issueTimelineItems.push(t.val)
+                }
 
-                let nextCursor = getNextCursor(timelineItems.pageInfo)
+                let nextCursor = getNextCursor(timelineItems.val.pageInfo)
                 if (nextCursor.isNone) {
                     break
                 }
@@ -145,33 +180,54 @@ async function fetchIssues(
                 cursor = nextCursor.val.cursor
             }
         }
+
+        issues.push({
+            issue: item.pageItem.issue,
+            body: item.pageItem.body,
+            comments: item.pageItem.comments,
+            labels: item.pageItem.labels,
+            timelineItems: issueTimelineItems,
+            assignees: issueAssignees,
+        })
     }
 
-    return ok(items)
+    return ok({ issues, pageInfo: issuesPage.val.pageInfo })
 }
 
-const GqlGithubUserSchema = z
-    .object({
-        login: z.string(),
-        databaseId: z.number().nullish(),
-    })
+// if strict it must exist. for example, assignees cannot be null.
+const GqlGithubUserSchemaStrict = z.object({
+    login: z.string(),
+    databaseId: z.number().nullish(),
+    avatarUrl: z.string(),
+})
+
+const GqlGithubUserSchema = GqlGithubUserSchemaStrict
     // If null means user doesn't exist no more (deleted, ghost), or other reasons.
     .nullable()
 
-function gqlGithubUserToDbGithubUser(gqlUser: z.infer<typeof GqlGithubUserSchema>): GithubUser {
+type PossibleGithubUser = UpsertDoc<'githubUsers'> | null | 'github-actions'
+
+function gqlGithubUserToDbGithubUser(
+    gqlUser: z.infer<typeof GqlGithubUserSchema>,
+): PossibleGithubUser {
     let dbuser
     if (!gqlUser) {
         dbuser = null
     } else if (!gqlUser.databaseId) {
         dbuser = 'github-actions' as const
     } else {
-        dbuser = { login: gqlUser.login, id: gqlUser.databaseId }
+        dbuser = {
+            login: gqlUser.login,
+            githubId: gqlUser.databaseId,
+            avatarUrl: gqlUser.avatarUrl,
+        }
     }
 
     return dbuser
 }
 
 const GqlLabelSchema = z.object({
+    id: z.string(),
     name: z.string(),
     color: z.string(),
 })
@@ -314,6 +370,8 @@ const PageInfoSchema = z.object({
     endCursor: z.string().nullish(),
 })
 
+type PageInfo = z.infer<typeof PageInfoSchema>
+
 // bc of how we do fetch data, there might be some object formats that we haven't defined correctly.
 // if we parse each node individually we don't loose the others on a buggy fetch.
 const toBeLaterParsed = z.unknown()
@@ -349,7 +407,7 @@ const IssueNodeSchema = z.object({
     }),
     assignees: z.object({
         pageInfo: PageInfoSchema,
-        nodes: z.array(z.object({ login: z.string() })),
+        nodes: z.array(GqlGithubUserSchemaStrict),
     }),
     comments: z.object({
         pageInfo: PageInfoSchema,
@@ -362,11 +420,11 @@ const IssueNodeSchema = z.object({
 })
 
 const totals = {
-    issues: 100,
-    labels: 100,
-    assignees: 100,
-    comments: 100,
-    timelineItems: 100,
+    issues: 10,
+    labels: 10,
+    assignees: 10,
+    comments: 10,
+    timelineItems: 10,
 }
 
 let getIssuesWithCommentsQuery = `
@@ -390,14 +448,14 @@ let getIssuesWithCommentsQuery = `
                     createdAt
                     updatedAt
                     closedAt
-                    author { login ... on User { databaseId } }
+                    author { login ... on User { databaseId avatarUrl } }
                     labels(first: ${totals.labels}) { nodes { name color } }
-                    assignees(first: ${totals.assignees}) { nodes { login } }
+                    assignees(first: ${totals.assignees}) { nodes { databaseId login avatarUrl } }
                     comments(first: ${totals.comments}) {
                         pageInfo { hasNextPage endCursor }
                         nodes {
                             databaseId
-                            author { login ... on User { databaseId } }
+                            author { login ... on User { databaseId avatarUrl } }
                             body
                             createdAt
                             updatedAt
@@ -429,70 +487,70 @@ let getIssuesWithCommentsQuery = `
                             ... on AssignedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 assignee {
-                                    ... on User { login databaseId }
-                                    ... on Mannequin { login databaseId }
-                                    ... on Organization { login: name databaseId: databaseId }
-                                    ... on Bot { login databaseId }
+                                    ... on User { login databaseId avatarUrl }
+                                    ... on Mannequin { login databaseId avatarUrl }
+                                    ... on Organization { login: name databaseId: databaseId avatarUrl }
+                                    ... on Bot { login databaseId avatarUrl }
                                 }
                             }
                             ... on UnassignedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 assignee {
-                                    ... on User { login databaseId }
-                                    ... on Mannequin { login databaseId }
-                                    ... on Organization { login: name databaseId: databaseId }
-                                    ... on Bot { login databaseId }
+                                    ... on User { login databaseId avatarUrl }
+                                    ... on Mannequin { login databaseId avatarUrl }
+                                    ... on Organization { login: name databaseId: databaseId avatarUrl }
+                                    ... on Bot { login databaseId avatarUrl }
                                 }
                             }
                             ... on LabeledEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 label { name color }
                             }
                             ... on UnlabeledEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 label { name color }
                             }
                             ... on MilestonedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 milestoneTitle
                             }
                             ... on DemilestonedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 milestoneTitle
                             }
                             ... on ClosedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on ReopenedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on RenamedTitleEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 previousTitle
                                 currentTitle
                             }
                             ... on ReferencedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 commit {
                                     oid
                                     url
@@ -501,7 +559,7 @@ let getIssuesWithCommentsQuery = `
                             ... on CrossReferencedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 source {
                                 __typename
                                 ... on Issue {
@@ -517,27 +575,27 @@ let getIssuesWithCommentsQuery = `
                             ... on LockedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on UnlockedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on PinnedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on UnpinnedEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                             }
                             ... on TransferredEvent {
                                 id
                                 createdAt
-                                actor { login ... on User { databaseId } }
+                                actor { login ... on User { databaseId avatarUrl } }
                                 fromRepository { name owner { login } }
                             }
                         }
@@ -557,8 +615,7 @@ async function fetchIssuesPageGraphQL(
     args: {
         owner: string
         repo: string
-        first?: number
-        after?: string
+        cursor?: string
         since?: string
     },
 ): R<FetchIssuesRes['repository']['issues'], FetchIssuesErrors> {
@@ -567,8 +624,8 @@ async function fetchIssuesPageGraphQL(
         octo.graphql(getIssuesWithCommentsQuery, {
             owner: args.owner,
             repo: args.repo,
-            first: args.first ?? totals.issues,
-            after: args.after,
+            first: totals.issues,
+            after: args.cursor,
             since: args.since,
         }),
     )
@@ -589,10 +646,6 @@ async function fetchIssuesPageGraphQL(
     return ok(parsed.val.repository.issues)
 }
 
-// -----------------------------
-// Single issue paginated fetches
-// -----------------------------
-
 const FetchIssueLabelsResSchema = z.object({
     repository: z.object({
         issue: z.object({
@@ -610,20 +663,19 @@ let getIssueLabelsQuery = `
             issue(number: $number) {
                 labels(first: $first, after: $after) {
                     pageInfo { hasNextPage endCursor }
-                    nodes { name color }
+                    nodes { id name color }
                 }
             }
         }
     }
 `
 
+type IssueLabelsRes = z.infer<typeof FetchIssueLabelsResSchema>['repository']['issue']['labels']
+
 async function fetchIssueLabelsGraphQL(
     octo: Octokit,
     args: { owner: string; repo: string; number: number; first: number; after?: string },
-): R<
-    z.infer<typeof FetchIssueLabelsResSchema>['repository']['issue']['labels'],
-    FetchIssuesErrors
-> {
+): R<IssueLabelsRes, FetchIssuesErrors> {
     let res = await octoCatchGql(
         octo.graphql(getIssueLabelsQuery, {
             owner: args.owner,
@@ -654,7 +706,13 @@ const FetchIssueAssigneesResSchema = z.object({
         issue: z.object({
             assignees: z.object({
                 pageInfo: PageInfoSchema,
-                nodes: z.array(z.object({ login: z.string() })),
+                nodes: z.array(
+                    z.object({
+                        databaseId: z.number(),
+                        login: z.string(),
+                        avatarUrl: z.string(),
+                    }),
+                ),
             }),
         }),
     }),
@@ -666,20 +724,21 @@ let getIssueAssigneesQuery = `
             issue(number: $number) {
                 assignees(first: $first, after: $after) {
                     pageInfo { hasNextPage endCursor }
-                    nodes { login }
+                    nodes { databaseId login avatarUrl }
                 }
             }
         }
     }
 `
 
+type IssueAssigneesRes = z.infer<
+    typeof FetchIssueAssigneesResSchema
+>['repository']['issue']['assignees']
+
 async function fetchIssueAssigneesGraphQL(
     octo: Octokit,
     args: { owner: string; repo: string; number: number; first: number; after?: string },
-): R<
-    z.infer<typeof FetchIssueAssigneesResSchema>['repository']['issue']['assignees'],
-    FetchIssuesErrors
-> {
+): R<IssueAssigneesRes, FetchIssuesErrors> {
     let res = await octoCatchGql(
         octo.graphql(getIssueAssigneesQuery, {
             owner: args.owner,
@@ -705,8 +764,6 @@ async function fetchIssueAssigneesGraphQL(
     return ok(parsed.val.repository.issue.assignees)
 }
 
-// Note: also used earlier for comment connection schema
-// (kept here to preserve original ordering for issueNodeToCommentsForInsert)
 const StrictIssueCommentSchema = z.object({
     databaseId: z.number(),
     author: GqlGithubUserSchema,
@@ -737,7 +794,7 @@ let getIssueCommentsQuery = `
                     pageInfo { hasNextPage endCursor }
                     nodes {
                         databaseId
-                        author { login ... on User { databaseId } }
+                        author { login avatarUrl ... on User { databaseId } }
                         body
                         createdAt
                         updatedAt
@@ -748,13 +805,14 @@ let getIssueCommentsQuery = `
     }
 `
 
+type IssueCommentsRes = z.infer<
+    typeof FetchIssueCommentsResSchema
+>['repository']['issue']['comments']
+
 async function fetchIssueCommentsGraphQL(
     octo: Octokit,
     args: { owner: string; repo: string; number: number; first: number; after?: string },
-): R<
-    z.infer<typeof FetchIssueCommentsResSchema>['repository']['issue']['comments'],
-    FetchIssuesErrors
-> {
+): R<IssueCommentsRes, FetchIssuesErrors> {
     let res = await octoCatchGql(
         octo.graphql(getIssueCommentsQuery, {
             owner: args.owner,
@@ -823,87 +881,87 @@ let getIssueTimelineItemsQuery = `
                         ... on AssignedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             assignee {
-                                ... on User { login databaseId }
-                                ... on Mannequin { login databaseId }
-                                ... on Organization { login: name databaseId: databaseId }
-                                ... on Bot { login databaseId }
+                                ... on User { login databaseId avatarUrl }
+                                ... on Mannequin { login databaseId avatarUrl }
+                                ... on Organization { login: name databaseId: databaseId avatarUrl }
+                                ... on Bot { login databaseId avatarUrl }
                             }
                         }
                         ... on UnassignedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             assignee {
-                                ... on User { login databaseId }
-                                ... on Mannequin { login databaseId }
-                                ... on Organization { login: name databaseId: databaseId }
-                                ... on Bot { login databaseId }
+                                ... on User { login databaseId avatarUrl }
+                                ... on Mannequin { login databaseId avatarUrl }
+                                ... on Organization { login: name databaseId: databaseId avatarUrl }
+                                ... on Bot { login databaseId avatarUrl }
                             }
                         }
                         ... on LabeledEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             label { name color }
                         }
                         ... on UnlabeledEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             label { name color }
                         }
                         ... on MilestonedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             milestoneTitle
                         }
                         ... on DemilestonedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             milestoneTitle
                         }
                         ... on ClosedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                         }
                         ... on ReopenedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                         }
                         ... on RenamedTitleEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             previousTitle
                             currentTitle
                         }
                         ... on ReferencedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             commit { oid url }
                         }
                         ... on CrossReferencedEvent {
                             id
                             createdAt
-                            actor { login ... on User { databaseId } }
+                            actor { login avatarUrl ... on User { databaseId } }
                             source {
                                 __typename
                                 ... on Issue { number repository { name owner { login } } }
                                 ... on PullRequest { number repository { name owner { login } } }
                             }
                         }
-                        ... on LockedEvent { id createdAt actor { login ... on User { databaseId } } }
-                        ... on UnlockedEvent { id createdAt actor { login ... on User { databaseId } } }
-                        ... on PinnedEvent { id createdAt actor { login ... on User { databaseId } } }
-                        ... on UnpinnedEvent { id createdAt actor { login ... on User { databaseId } } }
-                        ... on TransferredEvent { id createdAt actor { login ... on User { databaseId } } fromRepository { name owner { login } } }
+                        ... on LockedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on UnlockedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on PinnedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on UnpinnedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on TransferredEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } fromRepository { name owner { login } } }
                     }
                 }
             }
@@ -911,13 +969,14 @@ let getIssueTimelineItemsQuery = `
     }
 `
 
+type IssueTimelineItemsRes = z.infer<
+    typeof FetchIssueTimelineItemsResSchema
+>['repository']['issue']['timelineItems']
+
 async function fetchIssueTimelineItemsGraphQL(
     octo: Octokit,
     args: { owner: string; repo: string; number: number; first: number; after?: string },
-): R<
-    z.infer<typeof FetchIssueTimelineItemsResSchema>['repository']['issue']['timelineItems'],
-    FetchIssuesErrors
-> {
+): R<IssueTimelineItemsRes, FetchIssuesErrors> {
     let res = await octoCatchGql(
         octo.graphql(getIssueTimelineItemsQuery, {
             owner: args.owner,
@@ -944,13 +1003,16 @@ async function fetchIssueTimelineItemsGraphQL(
 }
 
 type IssuesPageItem = {
-    issue: UpsertDoc<'issues'>
+    issue: IssueData
     body: string
-    timelineItems: TimelineItemForInsert[]
-    comments: CommentForInsert[]
+    author: PossibleGithubUser
+    labels: Label[]
+    assignees: UpsertDoc<'githubUsers'>[]
+    comments: CommentData[]
+    timelineItems: TimelineItemData[]
 }
 
-function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, fetchedIssues: FetchIssueNode[]) {
+function buildIssuesWithCommentsBatch(fetchedIssues: FetchIssueNode[]) {
     type IssueId = { issueId: number }
     let items: {
         pageItem: IssuesPageItem
@@ -963,7 +1025,7 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, fetchedIssues: FetchI
     for (let nodeUnknown of fetchedIssues) {
         let parsed = zodParse(IssueNodeSchema, nodeUnknown)
         if (parsed.isErr) {
-            logger.error({ repoId, error: parsed.err }, 'invalid issue node, skipping')
+            logger.error({ error: parsed.err }, 'invalid issue node, skipping')
             continue
         }
         let issue = parsed.val
@@ -987,22 +1049,57 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, fetchedIssues: FetchI
             downloadTimelineItems = O.some({ issueId: issue.databaseId })
         }
 
-        let issueDoc = issueNodeToIssueDoc(issue, repoId)
+        let issueDoc = issueNodeToIssueDoc(issue)
         if (issueDoc.isErr) {
             logger.error(
-                { repoId, issueNumber: issue.number, error: issueDoc.err },
+                { issueNumber: issue.number, error: issueDoc.err },
                 'failed to convert issue node to issue doc',
             )
             continue
         }
 
+        let assignees: Assignee[] = []
+        for (let a of issue.assignees.nodes) {
+            if (a.databaseId) {
+                assignees.push({
+                    avatarUrl: a.avatarUrl,
+                    githubId: a.databaseId,
+                    login: a.login,
+                })
+            }
+        }
+
+        let labels: Label[] = issue.labels.nodes.map((l) => ({
+            githubId: l.id,
+            name: l.name,
+            color: l.color,
+        }))
+
+        let timelineItems: TimelineItemData[] = []
+        for (let node of issue.timelineItems.nodes) {
+            let t = parseTimelineItem(node)
+            if (t.isErr) {
+                logger.error(
+                    { issueNumber: issue.number, error: t.err },
+                    'invalid timeline item, skipping',
+                )
+                continue
+            }
+            timelineItems.push(t.val)
+        }
+
+        let pageItem: IssuesPageItem = {
+            issue: issueDoc.val,
+            body: issue.body,
+            author: gqlGithubUserToDbGithubUser(issue.author),
+            assignees,
+            labels,
+            timelineItems,
+            comments: issueNodeToCommentsForInsert(issue),
+        }
+
         items.push({
-            pageItem: {
-                issue: issueDoc.val,
-                body: issue.body,
-                timelineItems: issueNodeToTimelineItemsForInsert(issue, repoId),
-                comments: issueNodeToCommentsForInsert(issue, repoId),
-            },
+            pageItem,
             downloadLabels,
             downloadAssignees,
             downloadComments,
@@ -1015,22 +1112,17 @@ function buildIssuesWithCommentsBatch(repoId: Id<'repos'>, fetchedIssues: FetchI
 
 type IssueNode = z.infer<typeof IssueNodeSchema>
 
-function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<UpsertDoc<'issues'>> {
+function issueNodeToIssueDoc(node: IssueNode): Result<IssueData> {
     let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
-    let labels = node.labels.nodes.map((l) => l.name)
-    let assignees = node.assignees.nodes.map((a) => a.login)
 
     let author = gqlGithubUserToDbGithubUser(node.author)
 
-    let doc: UpsertDoc<'issues'> = {
-        repoId,
+    let doc: IssueData = {
         githubId: node.databaseId,
         number: node.number,
         title: node.title,
-        state,
         author,
-        labels,
-        assignees,
+        state,
         createdAt: node.createdAt,
         updatedAt: node.updatedAt,
         closedAt: node.closedAt ?? undefined,
@@ -1040,180 +1132,155 @@ function issueNodeToIssueDoc(node: IssueNode, repoId: Id<'repos'>): Result<Upser
     return ok(doc)
 }
 
-function issueNodeToCommentsForInsert(issue: IssueNode, repoId: Id<'repos'>): CommentForInsert[] {
-    let comments: CommentForInsert[] = []
+function issueNodeToCommentsForInsert(issue: IssueNode): CommentData[] {
+    let comments: CommentData[] = []
     for (let unparsedComment of issue.comments.nodes) {
-        let parsed = zodParse(StrictIssueCommentSchema, unparsedComment)
-        if (parsed.isErr) {
+        let comment = zodParse(StrictIssueCommentSchema, unparsedComment)
+        if (comment.isErr) {
             logger.error(
-                { comment: unparsedComment, error: parsed.err },
+                { comment: unparsedComment, error: comment.err },
                 'invalid issue comment, skipping',
             )
             continue
         }
-        let c = parsed.val
-
-        let author = gqlGithubUserToDbGithubUser(c.author)
+        let author = gqlGithubUserToDbGithubUser(comment.val.author)
 
         comments.push({
-            githubId: c.databaseId,
+            githubId: comment.val.databaseId,
             author,
-            body: c.body,
-            createdAt: c.createdAt,
-            updatedAt: c.updatedAt,
-            repoId,
+            body: comment.val.body,
+            createdAt: comment.val.createdAt,
+            updatedAt: comment.val.updatedAt,
         })
     }
 
     return comments
 }
 
-function issueNodeToTimelineItemsForInsert(
-    node: IssueNode,
-    repoId: Id<'repos'>,
-): TimelineItemForInsert[] {
-    let timelineItems: TimelineItemForInsert[] = []
-
-    for (let tUnknown of node.timelineItems.nodes) {
-        let l = logger.child({ timelineItem: tUnknown, repoId, issueId: node.number })
-
-        let parsed = zodParse(IssueTimelineItemNodeSchema, tUnknown)
-        if (parsed.isErr) {
-            l.error({ t: tUnknown, error: parsed.err }, 'invalid timeline item, skipping')
-            continue
-        }
-        let t = parsed.val
-        let item: TimelineItemForInsert['item']
-
-        if (t.__typename === 'AssignedEvent') {
-            item = {
-                type: 'assigned',
-                assignee: gqlGithubUserToDbGithubUser(t.actor),
-            }
-        } else if (t.__typename === 'UnassignedEvent') {
-            item = {
-                type: 'unassigned',
-                assignee: gqlGithubUserToDbGithubUser(t.actor),
-            }
-        } else if (t.__typename === 'LabeledEvent') {
-            item = {
-                type: 'labeled',
-                label: {
-                    name: t.label.name,
-                    color: t.label.color,
-                },
-            }
-        } else if (t.__typename === 'UnlabeledEvent') {
-            item = {
-                type: 'unlabeled',
-                label: {
-                    name: t.label.name,
-                    color: t.label.color,
-                },
-            }
-        } else if (t.__typename === 'MilestonedEvent') {
-            item = {
-                type: 'milestoned',
-                milestoneTitle: t.milestoneTitle,
-            }
-        } else if (t.__typename === 'DemilestonedEvent') {
-            item = {
-                type: 'demilestoned',
-                milestoneTitle: t.milestoneTitle,
-            }
-        } else if (t.__typename === 'ClosedEvent') {
-            item = {
-                type: 'closed',
-            }
-        } else if (t.__typename === 'ReopenedEvent') {
-            item = {
-                type: 'reopened',
-            }
-        } else if (t.__typename === 'RenamedTitleEvent') {
-            item = {
-                type: 'renamed',
-                previousTitle: t.previousTitle,
-                currentTitle: t.currentTitle,
-            }
-        } else if (t.__typename === 'ReferencedEvent') {
-            item = {
-                type: 'referenced',
-                commit: {
-                    oid: t.commit.oid,
-                    url: t.commit.url,
-                },
-            }
-        } else if (t.__typename === 'CrossReferencedEvent') {
-            item = {
-                type: 'cross_referenced',
-                source: {
-                    type: t.source.__typename,
-                    owner: t.source.repository.owner.login,
-                    name: t.source.repository.name,
-                    number: t.source.number,
-                },
-            }
-        } else if (t.__typename === 'LockedEvent') {
-            item = {
-                type: 'locked',
-            }
-        } else if (t.__typename === 'UnlockedEvent') {
-            item = {
-                type: 'unlocked',
-            }
-        } else if (t.__typename === 'PinnedEvent') {
-            item = {
-                type: 'pinned',
-            }
-        } else if (t.__typename === 'UnpinnedEvent') {
-            item = {
-                type: 'unpinned',
-            }
-        } else if (t.__typename === 'TransferredEvent') {
-            item = {
-                type: 'transferred',
-                fromRepository: {
-                    owner: t.fromRepository.owner.login,
-                    name: t.fromRepository.name,
-                },
-            }
-        } else {
-            t satisfies never
-            l.error('unknown timeline item type')
-            continue
-        }
-
-        if (!t.id) {
-            l.error('missing id field for timeline item')
-            continue
-        }
-        if (!t.createdAt) {
-            l.error('missing createdAt field for timeline item')
-            continue
-        }
-
-        let actor
-        if (!t.actor || !t.actor.login) {
-            actor = null
-        } else if (!t.actor.databaseId) {
-            actor = 'github-actions' as const
-        } else {
-            actor = { login: t.actor.login, id: t.actor.databaseId }
-        }
-
-        timelineItems.push({
-            repoId,
-            githubNodeId: t.id,
-            createdAt: t.createdAt,
-            actor,
-            item,
-        })
+function parseTimelineItem(data: unknown): Result<TimelineItemData> {
+    let t = zodParse(IssueTimelineItemNodeSchema, data)
+    if (t.isErr) {
+        return wrap(`invalid timeline item, skipping`, t)
     }
 
-    return timelineItems
+    let item: TimelineItemData['item']
+
+    if (t.val.__typename === 'AssignedEvent') {
+        item = {
+            type: 'assigned',
+            assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+        }
+    } else if (t.val.__typename === 'UnassignedEvent') {
+        item = {
+            type: 'unassigned',
+            assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+        }
+    } else if (t.val.__typename === 'LabeledEvent') {
+        item = {
+            type: 'labeled',
+            label: {
+                githubId: t.val.label.id,
+                name: t.val.label.name,
+                color: t.val.label.color,
+            },
+        }
+    } else if (t.val.__typename === 'UnlabeledEvent') {
+        item = {
+            type: 'unlabeled',
+            label: {
+                githubId: t.val.label.id,
+                name: t.val.label.name,
+                color: t.val.label.color,
+            },
+        }
+    } else if (t.val.__typename === 'MilestonedEvent') {
+        item = {
+            type: 'milestoned',
+            milestoneTitle: t.val.milestoneTitle,
+        }
+    } else if (t.val.__typename === 'DemilestonedEvent') {
+        item = {
+            type: 'demilestoned',
+            milestoneTitle: t.val.milestoneTitle,
+        }
+    } else if (t.val.__typename === 'ClosedEvent') {
+        item = {
+            type: 'closed',
+        }
+    } else if (t.val.__typename === 'ReopenedEvent') {
+        item = {
+            type: 'reopened',
+        }
+    } else if (t.val.__typename === 'RenamedTitleEvent') {
+        item = {
+            type: 'renamed',
+            previousTitle: t.val.previousTitle,
+            currentTitle: t.val.currentTitle,
+        }
+    } else if (t.val.__typename === 'ReferencedEvent') {
+        item = {
+            type: 'referenced',
+            commit: {
+                oid: t.val.commit.oid,
+                url: t.val.commit.url,
+            },
+        }
+    } else if (t.val.__typename === 'CrossReferencedEvent') {
+        item = {
+            type: 'cross_referenced',
+            source: {
+                type: t.val.source.__typename,
+                owner: t.val.source.repository.owner.login,
+                name: t.val.source.repository.name,
+                number: t.val.source.number,
+            },
+        }
+    } else if (t.val.__typename === 'LockedEvent') {
+        item = {
+            type: 'locked',
+        }
+    } else if (t.val.__typename === 'UnlockedEvent') {
+        item = {
+            type: 'unlocked',
+        }
+    } else if (t.val.__typename === 'PinnedEvent') {
+        item = {
+            type: 'pinned',
+        }
+    } else if (t.val.__typename === 'UnpinnedEvent') {
+        item = {
+            type: 'unpinned',
+        }
+    } else if (t.val.__typename === 'TransferredEvent') {
+        item = {
+            type: 'transferred',
+            fromRepository: {
+                owner: t.val.fromRepository.owner.login,
+                name: t.val.fromRepository.name,
+            },
+        }
+    } else {
+        t.val satisfies never
+        return err(`unknown timeline item type`)
+    }
+
+    if (!t.val.id) {
+        return err(`missing id field for timeline item`)
+    }
+    if (!t.val.createdAt) {
+        return err(`missing createdAt field for timeline item`)
+    }
+
+    let actor = gqlGithubUserToDbGithubUser(t.val.actor)
+
+    return ok({
+        createdAt: t.val.createdAt,
+        actor,
+        item,
+    })
 }
 
-export function getNextCursor(pageInfo: z.Infer<typeof PageInfoSchema>): O<{ cursor: string }> {
+function getNextCursor(pageInfo: PageInfo): O<{ cursor: string }> {
     if (pageInfo.hasNextPage) {
         if (pageInfo.endCursor) {
             return O.some({ cursor: pageInfo.endCursor })

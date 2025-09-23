@@ -7,7 +7,7 @@ import {
     type QueryCtx,
 } from '@convex/_generated/server'
 import { v, type Infer } from 'convex/values'
-import * as schemas from '../schema'
+import schema from '../schema'
 
 export const Repos = {
     async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -142,7 +142,7 @@ export function canRepoBeSynced(repo: Doc<'repos'>) {
 export const updateDownloadStatus = internalMutation({
     args: {
         repoId: v.id('repos'),
-        download: schemas.reposSchema.download,
+        download: schema.tables.repos.validator.fields.download,
     },
     handler: (ctx, args) => Repos.updateDownload(ctx, args.repoId, args.download),
 })

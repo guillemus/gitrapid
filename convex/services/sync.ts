@@ -282,31 +282,31 @@ const DownloadRepoPage = {
         for (let i = 0; i < args.maxFetches; i++) {
             logger.info(`${owner}/${repo}: cursor ${cursor}`)
 
-            let page = await Graphql.fetchIssues(octo, {
+            let issuesPage = await Graphql.fetchIssuesPage(octo, {
+                repoId: savedRepo._id,
                 owner,
                 repo,
-                after: cursor,
+                cursor,
                 since: args.lastSyncedAt,
             })
-            if (page.isErr) {
-                if (page.err.type === 'RATE_LIMIT_ERROR') {
-                    throw new Error(page.err.type)
+            if (issuesPage.isErr) {
+                if (issuesPage.err.type === 'RATE_LIMIT_ERROR') {
+                    throw new Error(issuesPage.err.type)
                 }
 
-                return err(page.err.err)
+                return err(issuesPage.err.err)
             }
 
-            let items = Graphql.buildIssuesWithCommentsBatch(savedRepo._id, page.val.nodes)
-
             dbInsertsP = dbInsertsP.then(async () => {
-                if (items.length > 0) {
+                if (issuesPage.val.issues.length > 0) {
                     await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
-                        items,
+                        repoId: savedRepo._id,
+                        items: issuesPage.val.issues,
                     })
                 }
             })
 
-            let nextCursor = getNextCursor(page.val.pageInfo)
+            let nextCursor = getNextCursor(issuesPage.val.pageInfo)
             if (nextCursor.isNone) {
                 break
             }

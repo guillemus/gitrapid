@@ -1,12 +1,14 @@
-import type { Doc, TableNames } from '@convex/_generated/dataModel'
+import type { Doc, Id, TableNames } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx } from '@convex/_generated/server'
 import type { WithoutSystemFields } from 'convex/server'
 import { v, type Infer } from 'convex/values'
-import schema, * as schemas from '../schema'
+import schema, { type PossibleGithubUser } from '../schema'
 import { IssueComments } from './issueComments'
 import { Issues } from './issues'
 import { IssueTimelineItems } from './issueTimelineItems'
 import { Repos } from './repos'
+import { assert } from 'convex-helpers'
+import { logger, type FnArgs } from '@convex/utils'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -70,28 +72,177 @@ export const IssuesUtils = {
     },
 }
 
-const timelineItemVal = v.object(schemas.issueTimelineItemsSchemaWithoutIssueId)
-const commentVal = v.object(schemas.issuesCommentsWithoutIssueIdSchema)
+const possibleGithubUserData = v.union(
+    v.null(),
+    v.literal('github-actions'),
+    v.object({
+        githubId: v.number(),
+        login: v.string(),
+        avatarUrl: v.string(),
+    }),
+)
 
-export type TimelineItemForInsert = Infer<typeof timelineItemVal>
-export type CommentForInsert = Infer<typeof commentVal>
+const issueData = v.object({
+    githubId: v.number(),
+    number: v.number(),
+    title: v.string(),
+    state: v.union(v.literal('open'), v.literal('closed')),
+    author: possibleGithubUserData,
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    closedAt: v.optional(v.string()),
+    comments: v.optional(v.number()),
+})
+
+type PossibleGithubUserData = Infer<typeof possibleGithubUserData>
+
+async function upsertPossibleGithubUser(
+    ctx: MutationCtx,
+    args: PossibleGithubUserData,
+): Promise<PossibleGithubUser> {
+    if (args !== null && args !== 'github-actions') {
+        let githubUserId = await UpsertGithubUser.handler(ctx, args)
+        return githubUserId
+    }
+
+    return args
+}
+
+const label = v.object({
+    githubId: v.string(),
+    name: v.string(),
+    color: v.string(),
+})
+
+export type TimelineItemData = Infer<typeof timelineItem>
+
+const timelineItem = v.object({
+    actor: possibleGithubUserData,
+    createdAt: v.string(),
+    item: v.union(
+        v.object({ type: v.literal('assigned'), assignee: possibleGithubUserData }),
+        v.object({ type: v.literal('unassigned'), assignee: possibleGithubUserData }),
+        v.object({ type: v.literal('labeled'), label }),
+        v.object({ type: v.literal('unlabeled'), label }),
+        v.object({ type: v.literal('milestoned'), milestoneTitle: v.string() }),
+        v.object({ type: v.literal('demilestoned'), milestoneTitle: v.string() }),
+        v.object({ type: v.literal('locked') }),
+        v.object({ type: v.literal('unlocked') }),
+        v.object({ type: v.literal('pinned') }),
+        v.object({ type: v.literal('unpinned') }),
+        v.object({ type: v.literal('closed') }),
+        v.object({ type: v.literal('reopened') }),
+        v.object({
+            type: v.literal('renamed'),
+            previousTitle: v.string(),
+            currentTitle: v.string(),
+        }),
+        v.object({
+            type: v.literal('referenced'),
+            commit: v.object({ oid: v.string(), url: v.string() }),
+        }),
+        v.object({
+            type: v.literal('cross_referenced'),
+            source: v.object({
+                type: v.union(v.literal('Issue'), v.literal('PullRequest')),
+                owner: v.string(),
+                name: v.string(),
+                number: v.number(),
+            }),
+        }),
+        v.object({
+            type: v.literal('transferred'),
+            fromRepository: v.object({ owner: v.string(), name: v.string() }),
+        }),
+    ),
+})
+
+export type CommentData = Infer<typeof comment>
+
+const comment = v.object({
+    author: possibleGithubUserData,
+    githubId: v.number(),
+    body: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    reactions: v.optional(
+        v.array(
+            v.object({
+                user: possibleGithubUserData,
+                content: v.string(),
+            }),
+        ),
+    ),
+    isDeleted: v.optional(v.boolean()),
+})
+
+const UpsertGithubUser = {
+    args: {
+        githubId: v.number(),
+        login: v.string(),
+        avatarUrl: v.string(),
+    },
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        let githubUser = await ctx.db
+            .query('githubUsers')
+            .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))
+            .unique()
+        if (githubUser) {
+            await ctx.db.patch(githubUser._id, args)
+            return githubUser._id
+        } else {
+            let id = await ctx.db.insert('githubUsers', args)
+            return id
+        }
+    },
+}
+
+const UpsertLabel = {
+    args: schema.tables.labels.validator.fields,
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        let githubUser = await ctx.db
+            .query('labels')
+            .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))
+            .unique()
+        if (githubUser) {
+            await ctx.db.patch(githubUser._id, args)
+            return githubUser._id
+        } else {
+            let id = await ctx.db.insert('labels', args)
+            return id
+        }
+    },
+}
+
+const issueDataForInsert = v.object({
+    issue: issueData,
+    body: v.string(),
+    timelineItems: v.array(timelineItem),
+    comments: v.array(comment),
+})
+
+export type IssueData = Infer<typeof issueData>
 
 export const insertIssuesWithCommentsBatch = internalMutation({
     args: {
-        items: v.array(
-            v.object({
-                issue: v.object(schemas.issuesSchema),
-                body: v.string(),
-                timelineItems: v.array(timelineItemVal),
-                comments: v.array(commentVal),
-            }),
-        ),
+        repoId: v.id('repos'),
+        items: v.array(issueDataForInsert),
     },
-    handler: async (ctx, { items }) => {
+    handler: async (ctx, { repoId, items }) => {
         for (let item of items) {
-            let issueDoc = await IssuesUtils.upsertIssue(ctx, item.issue)
+            let author = await upsertPossibleGithubUser(ctx, item.issue.author)
 
-            if (!issueDoc) continue
+            let issueDoc = await IssuesUtils.upsertIssue(ctx, {
+                repoId,
+                author,
+                githubId: item.issue.githubId,
+                number: item.issue.number,
+                title: item.issue.title,
+                state: item.issue.state,
+                createdAt: item.issue.createdAt,
+                updatedAt: item.issue.updatedAt,
+            })
+            assert(issueDoc, 'issue doc not found')
 
             if (item.body) {
                 await IssuesUtils.upsertIssueBody(ctx, {
@@ -104,15 +255,95 @@ export const insertIssuesWithCommentsBatch = internalMutation({
             if (item.timelineItems.length > 0) {
                 let docs: UpsertDoc<'issueTimelineItems'>[] = []
                 for (let t of item.timelineItems) {
+                    let actor = await upsertPossibleGithubUser(ctx, t.actor)
+
+                    let item: UpsertDoc<'issueTimelineItems'>['item']
+                    if (t.item.type === 'assigned') {
+                        let assignee = await upsertPossibleGithubUser(ctx, t.item.assignee)
+
+                        item = { type: 'assigned', assignee }
+                    } else if (t.item.type === 'unassigned') {
+                        let assignee = await upsertPossibleGithubUser(ctx, t.item.assignee)
+
+                        item = { type: 'unassigned', assignee }
+                    } else if (t.item.type === 'labeled') {
+                        let labelId = await UpsertLabel.handler(ctx, {
+                            repoId: issueDoc.repoId,
+                            githubId: t.item.label.githubId,
+                            name: t.item.label.name,
+                            color: t.item.label.color,
+                        })
+
+                        item = { type: 'labeled', label: labelId }
+                    } else if (t.item.type === 'unlabeled') {
+                        let labelId = await UpsertLabel.handler(ctx, {
+                            repoId: issueDoc.repoId,
+                            githubId: t.item.label.githubId,
+                            name: t.item.label.name,
+                            color: t.item.label.color,
+                        })
+
+                        item = { type: 'unlabeled', label: labelId }
+                    } else if (t.item.type === 'milestoned') {
+                        item = { type: 'milestoned', milestoneTitle: t.item.milestoneTitle }
+                    } else if (t.item.type === 'demilestoned') {
+                        item = { type: 'demilestoned', milestoneTitle: t.item.milestoneTitle }
+                    } else if (t.item.type === 'locked') {
+                        item = { type: 'locked' }
+                    } else if (t.item.type === 'unlocked') {
+                        item = { type: 'unlocked' }
+                    } else if (t.item.type === 'pinned') {
+                        item = { type: 'pinned' }
+                    } else if (t.item.type === 'unpinned') {
+                        item = { type: 'unpinned' }
+                    } else if (t.item.type === 'closed') {
+                        item = { type: 'closed' }
+                    } else if (t.item.type === 'reopened') {
+                        item = { type: 'reopened' }
+                    } else if (t.item.type === 'renamed') {
+                        item = {
+                            type: 'renamed',
+                            previousTitle: t.item.previousTitle,
+                            currentTitle: t.item.currentTitle,
+                        }
+                    } else if (t.item.type === 'referenced') {
+                        item = {
+                            type: 'referenced',
+                            commit: { oid: t.item.commit.oid, url: t.item.commit.url },
+                        }
+                    } else if (t.item.type === 'cross_referenced') {
+                        item = {
+                            type: 'cross_referenced',
+                            source: {
+                                type: t.item.source.type,
+                                owner: t.item.source.owner,
+                                name: t.item.source.name,
+                                number: t.item.source.number,
+                            },
+                        }
+                    } else if (t.item.type === 'transferred') {
+                        item = {
+                            type: 'transferred',
+                            fromRepository: {
+                                owner: t.item.fromRepository.owner,
+                                name: t.item.fromRepository.name,
+                            },
+                        }
+                    } else {
+                        t.item satisfies never
+                        logger.error({ item: t.item }, `unknown timeline item`)
+                        continue
+                    }
+
                     docs.push({
-                        actor: t.actor,
+                        actor,
                         createdAt: t.createdAt,
-                        githubNodeId: t.githubNodeId,
-                        item: t.item,
                         issueId: issueDoc._id,
                         repoId: issueDoc.repoId,
+                        item,
                     })
                 }
+
                 await IssueTimelineItems.deleteByIssueId(ctx, issueDoc._id)
                 await IssueTimelineItems.insertMany(ctx, docs)
             }
@@ -120,11 +351,13 @@ export const insertIssuesWithCommentsBatch = internalMutation({
             if (item.comments.length > 0) {
                 let docs: UpsertDoc<'issueComments'>[] = []
                 for (let c of item.comments) {
+                    let author = await upsertPossibleGithubUser(ctx, c.author)
+
                     docs.push({
                         issueId: issueDoc._id,
                         repoId: issueDoc.repoId,
                         githubId: c.githubId,
-                        author: c.author,
+                        author,
                         body: c.body,
                         createdAt: c.createdAt,
                         updatedAt: c.updatedAt,

@@ -1,6 +1,6 @@
 import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
-import { scopesSchema } from '@convex/schema'
+import schema from '@convex/schema'
 import { getUserId } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
@@ -27,7 +27,7 @@ export const get = query({
 export const savePAT = action({
     args: {
         token: v.string(),
-        scopes: scopesSchema,
+        scopes: schema.tables.pats.validator.fields.scopes,
     },
     async handler(ctx, { token, scopes }): R {
         let userId = await getUserId(ctx)

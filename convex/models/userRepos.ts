@@ -5,7 +5,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import * as schemas from '@convex/schema'
+import schema from '@convex/schema'
 import { v } from 'convex/values'
 
 export const UserRepos = {
@@ -53,7 +53,7 @@ export const getByUserId = internalQuery({
 })
 
 export const insertIfNotExists = internalMutation({
-    args: schemas.userReposSchema,
+    args: schema.tables.userRepos.validator.fields,
     handler: (ctx, { userId, repoId }) => UserRepos.insertIfNotExists(ctx, userId, repoId),
 })
 

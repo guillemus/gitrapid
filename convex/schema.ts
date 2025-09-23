@@ -2,7 +2,17 @@ import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
 import { v, type Infer } from 'convex/values'
 
-export const reposSchema = {
+const possibleGithubUser = v.union(
+    // Null means that the user no longer exists or for some reason the actor could not be fetched from github.
+    // This could be the equivalent of the "ghost" user.
+    v.null(),
+    v.literal('github-actions'),
+    v.id('githubUsers'),
+)
+
+export type PossibleGithubUser = Infer<typeof possibleGithubUser>
+
+const repos = defineTable({
     owner: v.string(),
     repo: v.string(),
     private: v.boolean(),
@@ -19,7 +29,6 @@ export const reposSchema = {
             v.literal('success'),
             // Error happened to download. We should explain at message what happened exactly.
             v.literal('error'),
-            // Represents when the repository download workflow was cancelled.
             v.literal('cancelled'),
         ),
         message: v.optional(v.string()),
@@ -30,54 +39,34 @@ export const reposSchema = {
     closedIssues: v.number(),
     openPullRequests: v.number(),
     closedPullRequests: v.number(),
-}
+}).index('by_owner_and_repo', ['owner', 'repo'])
 
-const repos = defineTable(reposSchema).index('by_owner_and_repo', ['owner', 'repo'])
-
-export const userReposSchema = {
+const userRepos = defineTable({
     userId: v.id('users'),
     repoId: v.id('repos'),
-}
-
-const userRepos = defineTable(userReposSchema)
+})
     .index('by_repoId', ['repoId'])
     .index('by_userId_repoId', ['userId', 'repoId'])
 
-const githubUser = v.union(
-    // Null means that the user no longer exists or for some reason the actor could not be fetched from github.
-    // This could be the equivalent of the "ghost" user.
-    v.null(),
-    v.literal('github-actions'),
-    v.object({
-        id: v.number(),
-        login: v.string(),
-    }),
-)
+const githubUsers = defineTable({
+    githubId: v.number(),
+    login: v.string(),
+    avatarUrl: v.string(),
+}).index('by_githubId', ['githubId'])
 
-export type GithubUser = Infer<typeof githubUser>
-
-export const label = v.object({
-    name: v.string(),
-    color: v.string(),
-})
-
-export const issuesSchema = {
+const issues = defineTable({
     repoId: v.id('repos'),
     githubId: v.number(),
     number: v.number(), // Issue number in the repo
     title: v.string(),
     state: v.union(v.literal('open'), v.literal('closed')),
 
-    author: githubUser,
-    labels: v.optional(v.array(label)),
-    assignees: v.optional(v.array(githubUser)),
+    author: possibleGithubUser,
     createdAt: v.string(),
     updatedAt: v.string(),
     closedAt: v.optional(v.string()),
     comments: v.optional(v.number()),
-}
-
-const issues = defineTable(issuesSchema)
+})
     .searchIndex('search_issues', {
         searchField: 'title',
         filterFields: ['repoId', 'state'],
@@ -92,39 +81,81 @@ const issues = defineTable(issuesSchema)
     .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
     .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
 
-const timelineLabel = v.object({ name: v.string(), color: v.string() })
+const issueLabels = defineTable({
+    issueId: v.id('issues'),
+    labelId: v.id('labels'),
+})
+    .index('by_issue_id', ['issueId'])
+    .index('by_label_id', ['labelId'])
 
-export const issueTimelineItemsSchemaWithoutIssueId = {
+const labels = defineTable({
     repoId: v.id('repos'),
-    actor: githubUser,
+    githubId: v.string(), // GitHub's unique label ID (base64 string)
+    name: v.string(),
+    color: v.string(),
+})
+    .index('by_githubId', ['githubId'])
+    .index('by_repoId', ['repoId'])
+
+const issueAssignees = defineTable({
+    issueId: v.id('issues'),
+    assigneeId: v.id('githubUsers'),
+})
+    .index('by_issue_id', ['issueId'])
+    .index('by_assignee_id', ['assigneeId'])
+
+const issueBodies = defineTable({
+    repoId: v.id('repos'),
+    issueId: v.id('issues'),
+    body: v.string(),
+})
+    .index('by_issue_id', ['issueId'])
+    .searchIndex('search_issue_bodies', {
+        searchField: 'body',
+        filterFields: ['repoId'],
+    })
+
+const issueComments = defineTable({
+    issueId: v.id('issues'),
+    repoId: v.id('repos'),
+    githubId: v.number(),
+    author: possibleGithubUser,
+    body: v.string(),
     createdAt: v.string(),
-    githubNodeId: v.optional(v.string()),
+    updatedAt: v.string(),
+    reactions: v.optional(
+        v.array(
+            v.object({
+                user: possibleGithubUser,
+                content: v.string(),
+            }),
+        ),
+    ),
+    isDeleted: v.optional(v.boolean()),
+})
+    .index('by_issue', ['issueId'])
+    .searchIndex('search_issue_comments', {
+        searchField: 'body',
+        filterFields: ['repoId'],
+    })
+
+const issueTimelineItems = defineTable({
+    issueId: v.id('issues'),
+    repoId: v.id('repos'),
+    actor: possibleGithubUser,
+    createdAt: v.string(),
 
     item: v.union(
-        v.object({
-            type: v.literal('assigned'),
-            assignee: githubUser,
-        }),
-        v.object({
-            type: v.literal('unassigned'),
-            assignee: githubUser,
-        }),
-        v.object({
-            type: v.literal('labeled'),
-            label: timelineLabel,
-        }),
-        v.object({
-            type: v.literal('unlabeled'),
-            label: timelineLabel,
-        }),
-        v.object({
-            type: v.literal('milestoned'),
-            milestoneTitle: v.string(),
-        }),
-        v.object({
-            type: v.literal('demilestoned'),
-            milestoneTitle: v.string(),
-        }),
+        v.object({ type: v.literal('assigned'), assignee: possibleGithubUser }),
+        v.object({ type: v.literal('unassigned'), assignee: possibleGithubUser }),
+        v.object({ type: v.literal('labeled'), label: v.id('labels') }),
+        v.object({ type: v.literal('unlabeled'), label: v.id('labels') }),
+        v.object({ type: v.literal('milestoned'), milestoneTitle: v.string() }),
+        v.object({ type: v.literal('demilestoned'), milestoneTitle: v.string() }),
+        v.object({ type: v.literal('locked') }),
+        v.object({ type: v.literal('unlocked') }),
+        v.object({ type: v.literal('pinned') }),
+        v.object({ type: v.literal('unpinned') }),
         v.object({ type: v.literal('closed') }),
         v.object({ type: v.literal('reopened') }),
         v.object({
@@ -145,79 +176,22 @@ export const issueTimelineItemsSchemaWithoutIssueId = {
                 number: v.number(),
             }),
         }),
-        v.object({ type: v.literal('locked') }),
-        v.object({ type: v.literal('unlocked') }),
-        v.object({ type: v.literal('pinned') }),
-        v.object({ type: v.literal('unpinned') }),
         v.object({
             type: v.literal('transferred'),
             fromRepository: v.object({ owner: v.string(), name: v.string() }),
         }),
     ),
-}
-
-export const issueTimelineItemsSchema = {
-    ...issueTimelineItemsSchemaWithoutIssueId,
-    issueId: v.id('issues'),
-}
-
-const issueTimelineItems = defineTable(issueTimelineItemsSchema)
+})
     .index('by_issueId', ['issueId'])
     .index('by_repoId', ['repoId'])
     .index('by_issueId_and_createdAt', ['issueId', 'createdAt'])
-    .index('by_githubNodeId', ['githubNodeId'])
 
-export const issueBodiesSchema = {
-    repoId: v.id('repos'),
-    issueId: v.id('issues'),
-    body: v.string(),
-}
-
-const issueBodies = defineTable(issueBodiesSchema)
-    .index('by_issue_id', ['issueId'])
-    .searchIndex('search_issue_bodies', {
-        searchField: 'body',
-        filterFields: ['repoId'],
-    })
-
-export const issuesCommentsWithoutIssueIdSchema = {
-    repoId: v.id('repos'),
-    githubId: v.number(),
-    author: githubUser,
-    body: v.string(),
-    createdAt: v.string(),
-    updatedAt: v.string(),
-    reactions: v.optional(
-        v.array(
-            v.object({
-                user: githubUser,
-                content: v.string(),
-            }),
-        ),
-    ),
-    isDeleted: v.optional(v.boolean()),
-}
-
-export const issueCommentsSchema = {
-    issueId: v.id('issues'),
-    ...issuesCommentsWithoutIssueIdSchema,
-}
-
-const issueComments = defineTable(issueCommentsSchema)
-    .index('by_issue', ['issueId'])
-    .searchIndex('search_issue_comments', {
-        searchField: 'body',
-        filterFields: ['repoId'],
-    })
-
-export const scopesSchema = v.array(
-    v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
-)
-
-export const patsSchema = {
+const pats = defineTable({
     userId: v.id('users'),
     token: v.string(),
-    scopes: scopesSchema,
+    scopes: v.array(
+        v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
+    ),
     expiresAt: v.string(),
 
     rateLimit: v.optional(
@@ -227,11 +201,9 @@ export const patsSchema = {
             reset: v.optional(v.string()),
         }),
     ),
-}
+}).index('by_user_id', ['userId'])
 
-const pats = defineTable(patsSchema).index('by_user_id', ['userId'])
-
-export const patsReposSchema = {
+const patsRepos = defineTable({
     patId: v.id('pats'),
     repoId: v.id('repos'),
 
@@ -239,21 +211,27 @@ export const patsReposSchema = {
      * Optional because (unlikely but who knows) github might not add an etag on the response.
      */
     issuesEtag: v.optional(v.string()),
-}
-
-const patsRepos = defineTable(patsReposSchema).index('by_pat_repo_id', ['patId', 'repoId'])
+}).index('by_pat_repo_id', ['patId', 'repoId'])
 
 export default defineSchema({
     ...authTables,
 
-    repos,
-    userRepos,
+    // names aren't shortened so that 'go to definition' is direct. Take this object kind of like an index.
 
-    issues,
-    issueBodies,
-    issueComments,
-    issueTimelineItems,
+    repos: repos,
+    userRepos: userRepos,
 
-    pats,
-    patsRepos,
+    githubUsers: githubUsers,
+
+    issues: issues,
+    issueLabels: issueLabels,
+    issueAssignees: issueAssignees,
+    issueBodies: issueBodies,
+    issueComments: issueComments,
+    issueTimelineItems: issueTimelineItems,
+
+    labels: labels,
+
+    pats: pats,
+    patsRepos: patsRepos,
 })

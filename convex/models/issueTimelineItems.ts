@@ -1,7 +1,7 @@
 import type { Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { v } from 'convex/values'
-import * as schemas from '../schema'
+import schema from '../schema'
 import type { UpsertDoc } from './models'
 
 export const IssueTimelineItems = {
@@ -38,7 +38,7 @@ export const IssueTimelineItems = {
 export const insertMany = internalMutation({
     args: {
         issueId: v.id('issues'),
-        timelineItems: v.array(v.object(schemas.issueTimelineItemsSchema)),
+        timelineItems: v.array(v.object(schema.tables.issueTimelineItems.validator.fields)),
     },
     handler: (ctx, args) => IssueTimelineItems.insertMany(ctx, args.timelineItems),
 })

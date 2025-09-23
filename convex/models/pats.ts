@@ -8,7 +8,7 @@ import {
 import { assert } from 'convex-helpers'
 import { partial } from 'convex-helpers/validators'
 import { v } from 'convex/values'
-import schema, * as schemas from '../schema'
+import schema from '../schema'
 import type { UpsertDoc } from './models'
 
 /**
@@ -47,7 +47,7 @@ export const getByUserId = internalQuery({
 })
 
 export const upsertForUser = internalMutation({
-    args: schemas.patsSchema,
+    args: schema.tables.pats.validator.fields,
     handler: (ctx, args) => PATs.upsertForUser(ctx, args),
 })
 
