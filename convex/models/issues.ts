@@ -1,5 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { internalQuery, type QueryCtx } from '@convex/_generated/server'
+import { internalMutation, internalQuery, type QueryCtx } from '@convex/_generated/server'
+import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 
 export const Issues = {
@@ -128,4 +129,47 @@ export const getByRepoAndNumber = internalQuery({
 export const listByRepo = internalQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Issues.listByRepo(ctx, repoId),
+})
+
+export const insertOpenUserIssueWithBody = internalMutation({
+    args: {
+        repoId: v.id('repos'),
+        githubId: v.number(),
+        number: v.number(),
+        title: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+        closedAt: v.optional(v.string()),
+        comments: v.optional(v.number()),
+        body: v.string(),
+    },
+    async handler(ctx, args) {
+        let useridentity = await ctx.auth.getUserIdentity()
+        let githubUserId = useridentity?.subject
+        assert(githubUserId, 'not authenticated')
+
+        let githubUserIdNum = parseInt(githubUserId)
+
+        let ghUser = await ctx.db
+            .query('githubUsers')
+            .withIndex('by_githubId', (u) => u.eq('githubId', githubUserIdNum))
+            .unique()
+        assert(ghUser, 'github user not found')
+
+        let issueId = await ctx.db.insert('issues', {
+            author: ghUser._id,
+            createdAt: args.createdAt,
+            githubId: args.githubId,
+            number: args.number,
+            repoId: args.repoId,
+            title: args.title,
+            state: 'open',
+            updatedAt: args.updatedAt,
+        })
+        await ctx.db.insert('issueBodies', {
+            repoId: args.repoId,
+            issueId: issueId,
+            body: args.body,
+        })
+    },
 })

@@ -11,7 +11,7 @@ import { assert } from 'convex-helpers'
 import { paginationOptsValidator, type FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { Github, newOctokit } from './github'
-import { Graphql, getNextCursor } from './graphql'
+import { Graphql } from './graphql'
 
 let fns = internal.services.sync
 
@@ -283,7 +283,6 @@ const DownloadRepoPage = {
             logger.info(`${owner}/${repo}: cursor ${cursor}`)
 
             let issuesPage = await Graphql.fetchIssuesPage(octo, {
-                repoId: savedRepo._id,
                 owner,
                 repo,
                 cursor,
@@ -306,7 +305,7 @@ const DownloadRepoPage = {
                 }
             })
 
-            let nextCursor = getNextCursor(issuesPage.val.pageInfo)
+            let nextCursor = Graphql.getNextCursor(issuesPage.val.pageInfo)
             if (nextCursor.isNone) {
                 break
             }

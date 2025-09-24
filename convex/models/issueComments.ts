@@ -1,5 +1,7 @@
 import type { Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { getGithubUserId } from '@convex/services/auth'
+import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 import schema from '../schema'
 import type { UpsertDoc } from './models'
@@ -62,4 +64,33 @@ export const IssueComments = {
 export const insertMany = internalMutation({
     args: { comments: v.array(v.object(schema.tables.issueComments.validator.fields)) },
     handler: (ctx, args) => IssueComments.insertMany(ctx, args.comments),
+})
+
+export const insertUserComment = internalMutation({
+    args: {
+        issueId: v.id('issues'),
+        repoId: v.id('repos'),
+        githubId: v.number(),
+        body: v.string(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+    },
+    async handler(ctx, args) {
+        let githubUserId = await getGithubUserId(ctx)
+        let githubUser = await ctx.db
+            .query('githubUsers')
+            .withIndex('by_githubId', (q) => q.eq('githubId', githubUserId))
+            .unique()
+        assert(githubUser, 'github user not found')
+
+        return ctx.db.insert('issueComments', {
+            author: githubUser._id,
+            repoId: args.repoId,
+            githubId: args.githubId,
+            issueId: args.issueId,
+            body: args.body,
+            createdAt: args.createdAt,
+            updatedAt: args.updatedAt,
+        })
+    },
 })

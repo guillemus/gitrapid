@@ -1,5 +1,4 @@
 import type { Id } from '@convex/_generated/dataModel'
-import type { UpsertDoc } from '@convex/models/models'
 import { parseDate } from '@convex/utils'
 import { Octokit, RequestError } from 'octokit'
 import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
@@ -10,8 +9,8 @@ export const Github = {
     parseGithubUrl,
     getRateLimit,
     getRepoIssuePrCounts,
-    createIssue,
-    addComment,
+    createIssue: createIssue,
+    addComment: addComment,
     getAuthenticatedUser,
     checkForIssueUpdates,
 }
@@ -174,7 +173,7 @@ async function getRepoIssuePrCounts(
 async function createIssue(
     octo: Octokit,
     args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
-): R<UpsertDoc<'issues'>> {
+) {
     let created = await octoCatch(
         octo.rest.issues.create({
             owner: args.owner,
@@ -187,48 +186,7 @@ async function createIssue(
         return octoWrap(`Failed to create issue`, created)
     }
 
-    let gh = created.val
-
-    let labels: string[] = []
-    if (Array.isArray(gh.labels)) {
-        for (let l of gh.labels) {
-            if (typeof l === 'string') {
-                labels.push(l)
-            } else if (l.name) {
-                labels.push(l.name)
-            }
-        }
-    }
-
-    let assignees: string[] = []
-    if (Array.isArray(gh.assignees)) {
-        for (let a of gh.assignees) {
-            if (typeof a === 'string') {
-                assignees.push(a)
-            } else if (a.login) {
-                assignees.push(a.login)
-            }
-        }
-    }
-
-    let state: 'open' | 'closed' = gh.state === 'closed' ? 'closed' : 'open'
-
-    let issueDoc: UpsertDoc<'issues'> = {
-        repoId: args.repoId,
-        githubId: gh.id ?? 0,
-        number: gh.number,
-        title: gh.title ?? args.title,
-        state,
-        author: { login: gh.user?.login ?? '', id: gh.user?.id ?? 0 },
-        labels: labels.length ? labels : undefined,
-        assignees: assignees.length ? assignees : undefined,
-        createdAt: gh.created_at ?? new Date().toISOString(),
-        updatedAt: gh.updated_at ?? new Date().toISOString(),
-        closedAt: gh.closed_at ?? undefined,
-        comments: typeof gh.comments === 'number' ? gh.comments : undefined,
-    }
-
-    return ok(issueDoc)
+    return created
 }
 
 async function addComment(
@@ -238,10 +196,8 @@ async function addComment(
         repo: string
         number: number
         comment: string
-        repoId: Id<'repos'>
-        issueId: Id<'issues'>
     },
-): R<UpsertDoc<'issueComments'>> {
+) {
     let added = await octoCatch(
         octo.rest.issues.createComment({
             owner: args.owner,
@@ -254,17 +210,7 @@ async function addComment(
         return octoWrap(`Failed to add comment`, added)
     }
 
-    let doc: UpsertDoc<'issueComments'> = {
-        issueId: args.issueId,
-        repoId: args.repoId,
-        githubId: added.val.id,
-        author: { login: added.val.user?.login ?? '', id: added.val.user?.id ?? 0 },
-        body: added.val.body ?? '',
-        createdAt: added.val.created_at ?? new Date().toISOString(),
-        updatedAt: added.val.updated_at ?? new Date().toISOString(),
-    }
-
-    return ok(doc)
+    return added
 }
 
 export type AuthenticatedUser = {

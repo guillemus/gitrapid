@@ -107,30 +107,29 @@ export const create = action({
 
         let octo = newOctokit(token.val)
 
-        let issueDoc = await Github.createIssue(octo, {
+        let createdIssue = await Github.createIssue(octo, {
             owner: args.owner,
             repo: args.repo,
             title: args.title,
             body: args.body,
             repoId: savedRepo._id,
         })
-        if (issueDoc.isErr) {
-            logger.error(`octo error: failed to create issue: ${issueDoc.err}`)
+        if (createdIssue.isErr) {
+            logger.error(`octo error: failed to create issue: ${createdIssue.err}`)
             throw new Error('octo error: failed to create issue')
         }
 
-        await ctx.runMutation(internal.models.models.insertIssuesWithCommentsBatch, {
-            items: [
-                {
-                    issue: issueDoc.val,
-                    body: args.body,
-                    timelineItems: [],
-                    comments: [],
-                },
-            ],
+        await ctx.runMutation(internal.models.issues.insertOpenUserIssueWithBody, {
+            repoId: savedRepo._id,
+            title: createdIssue.val.title,
+            createdAt: createdIssue.val.created_at,
+            updatedAt: createdIssue.val.updated_at,
+            githubId: createdIssue.val.id,
+            number: createdIssue.val.number,
+            body: args.body,
         })
 
-        return { githubIssueNumber: issueDoc.val.number }
+        return { githubIssueNumber: createdIssue.val.number }
     },
 })
 
@@ -166,13 +165,16 @@ export const addComment = action({
             repo: args.repo,
             number: args.number,
             comment: args.comment,
-            repoId: savedRepo._id,
-            issueId: issue._id,
         })
         if (issueComment.isErr) throw new Error('octo error: failed to add comment')
 
-        await ctx.runMutation(internal.models.issueComments.insertMany, {
-            comments: [issueComment.val],
+        await ctx.runMutation(internal.models.issueComments.insertUserComment, {
+            repoId: savedRepo._id,
+            issueId: issue._id,
+            githubId: issueComment.val.id,
+            body: args.comment,
+            createdAt: issueComment.val.created_at,
+            updatedAt: issueComment.val.updated_at,
         })
     },
 })

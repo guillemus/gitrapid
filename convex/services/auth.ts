@@ -5,6 +5,7 @@ import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/shared'
+import { assert } from 'convex-helpers'
 import type { Auth as ConvexAuth } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -31,11 +32,20 @@ export const hasUserAccessToRepo = internalQuery({
 
 export async function getUserId(ctx: { auth: ConvexAuth }) {
     const userId = await getAuthUserId(ctx)
-    if (!userId) {
-        throw new Error('User not authenticated')
-    }
+    assert(userId, 'not authenticated')
 
     return userId
+}
+
+export async function getGithubUserId(ctx: { auth: ConvexAuth }) {
+    let userIdentity = await ctx.auth.getUserIdentity()
+    let githubUserId = userIdentity?.subject
+    assert(githubUserId, 'not authenticated')
+
+    let res = Number(githubUserId)
+    assert(!Number.isNaN(res), 'not authenticated')
+
+    return res
 }
 
 export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
