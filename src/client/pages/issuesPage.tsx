@@ -94,15 +94,12 @@ export function IssuesPage() {
         },
     })
 
+    let queryArgs = activeSearch
+        ? { owner: params.owner, repo: params.repo, search: activeSearch }
+        : ('skip' as const)
+
     // When searching, fetch unified search set (up to 200) and paginate client-side
-    let searchQuery = useTanstackQuery(
-        convexQuery(
-            api.public.issues.search,
-            activeSearch
-                ? { owner: params.owner, repo: params.repo, search: activeSearch }
-                : 'skip',
-        ),
-    )
+    let searchQuery = useTanstackQuery(convexQuery(api.public.issues.search, queryArgs))
 
     let repo = issueList?.repo
     let issues: Doc<'issues'>[] = []

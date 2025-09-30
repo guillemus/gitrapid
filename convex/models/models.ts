@@ -4,11 +4,12 @@ import { logger, type FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import type { WithoutSystemFields } from 'convex/server'
 import { v, type Infer } from 'convex/values'
-import schema, { type PossibleGithubUser } from '../schema'
+import schema from '../schema'
 import { IssueComments } from './issueComments'
-import { Issues } from './issues'
+import { AssignLabelToIssue, AssignUserToIssue, Issues } from './issues'
 import { IssueTimelineItems } from './issueTimelineItems'
 import { Repos } from './repos'
+import { possibleGithubUserData, upsertPossibleGithubUser } from './users'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -72,16 +73,6 @@ export const IssuesUtils = {
     },
 }
 
-const possibleGithubUserData = v.union(
-    v.null(),
-    v.literal('github-actions'),
-    v.object({
-        githubId: v.number(),
-        login: v.string(),
-        avatarUrl: v.string(),
-    }),
-)
-
 const issueData = v.object({
     githubId: v.number(),
     number: v.number(),
@@ -93,20 +84,6 @@ const issueData = v.object({
     closedAt: v.optional(v.string()),
     comments: v.optional(v.number()),
 })
-
-type PossibleGithubUserData = Infer<typeof possibleGithubUserData>
-
-async function upsertPossibleGithubUser(
-    ctx: MutationCtx,
-    args: PossibleGithubUserData,
-): Promise<PossibleGithubUser> {
-    if (args !== null && args !== 'github-actions') {
-        let githubUserId = await UpsertGithubUser.handler(ctx, args)
-        return githubUserId
-    }
-
-    return args
-}
 
 const label = v.object({
     githubId: v.string(),
@@ -176,27 +153,6 @@ const comment = v.object({
     isDeleted: v.optional(v.boolean()),
 })
 
-const UpsertGithubUser = {
-    args: {
-        githubId: v.number(),
-        login: v.string(),
-        avatarUrl: v.string(),
-    },
-    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
-        let githubUser = await ctx.db
-            .query('githubUsers')
-            .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))
-            .unique()
-        if (githubUser) {
-            await ctx.db.patch(githubUser._id, args)
-            return githubUser._id
-        } else {
-            let id = await ctx.db.insert('githubUsers', args)
-            return id
-        }
-    },
-}
-
 const UpsertLabel = {
     args: schema.tables.labels.validator.fields,
     async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
@@ -217,6 +173,14 @@ const UpsertLabel = {
 const issueDataForInsert = v.object({
     issue: issueData,
     body: v.string(),
+    labels: v.array(
+        v.object({
+            githubId: v.string(),
+            name: v.string(),
+            color: v.string(),
+        }),
+    ),
+    assignees: v.array(v.object(schema.tables.githubUsers.validator.fields)),
     timelineItems: v.array(timelineItem),
     comments: v.array(comment),
 })
@@ -250,6 +214,29 @@ export const insertIssuesWithCommentsBatch = internalMutation({
                     issueId: issueDoc._id,
                     body: item.body,
                 })
+            }
+
+            if (item.labels.length > 0) {
+                for (let l of item.labels) {
+                    await AssignLabelToIssue.handler(ctx, {
+                        repoId: issueDoc.repoId,
+                        issueId: issueDoc._id,
+                        githubId: l.githubId,
+                        name: l.name,
+                        color: l.color,
+                    })
+                }
+            }
+
+            if (item.assignees.length) {
+                for (let a of item.assignees) {
+                    await AssignUserToIssue.handler(ctx, {
+                        issueId: issueDoc._id,
+                        githubId: a.githubId,
+                        login: a.login,
+                        avatarUrl: a.avatarUrl,
+                    })
+                }
             }
 
             if (item.timelineItems.length > 0) {

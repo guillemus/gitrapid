@@ -307,6 +307,7 @@ const DownloadRepoPage = {
 
             let nextCursor = Graphql.getNextCursor(issuesPage.val.pageInfo)
             if (nextCursor.isNone) {
+                cursor = undefined
                 break
             }
             cursor = nextCursor.val.cursor

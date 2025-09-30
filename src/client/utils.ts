@@ -1,6 +1,5 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { createAuthClient } from 'better-auth/react'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
@@ -155,8 +154,6 @@ export function useMutable<T extends object>(initial: T): T {
     return c
 }
 
-export const authClient = createAuthClient()
-
 export function useDefined<T>(t?: T) {
     let ref = useRef(t)
     if (t) {
@@ -199,10 +196,6 @@ export function formatRelativeTime(date: string | number | Date): string {
 }
 
 type GithubUser = Doc<'issues'>['author']
-
-export function isGithubUserObject(u: GithubUser): u is { id: number; login: string } {
-    return typeof u === 'object' && u !== null && 'login' in u
-}
 
 export function userLogin(u: GithubUser): string | null {
     if (isGithubUserObject(u)) return u.login

@@ -1,5 +1,11 @@
 import type { Id } from '@convex/_generated/dataModel'
-import { internalMutation, internalQuery, type QueryCtx } from '@convex/_generated/server'
+import {
+    internalMutation,
+    internalQuery,
+    type MutationCtx,
+    type QueryCtx,
+} from '@convex/_generated/server'
+import type { FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 
@@ -173,3 +179,88 @@ export const insertOpenUserIssueWithBody = internalMutation({
         })
     },
 })
+
+export const AssignUserToIssue = {
+    args: {
+        issueId: v.id('issues'),
+        githubId: v.number(),
+        login: v.string(),
+        avatarUrl: v.string(),
+    },
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        let githubUserId: Id<'githubUsers'>
+        let githubUser = await ctx.db
+            .query('githubUsers')
+            .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))
+            .unique()
+        if (githubUser) {
+            await ctx.db.patch(githubUser._id, {
+                login: args.login,
+                avatarUrl: args.avatarUrl,
+            })
+            githubUserId = githubUser._id
+        } else {
+            githubUserId = await ctx.db.insert('githubUsers', {
+                githubId: args.githubId,
+                login: args.login,
+                avatarUrl: args.avatarUrl,
+            })
+        }
+
+        let currAssignees = await ctx.db
+            .query('issueAssignees')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
+            .collect()
+        let isAssigned = currAssignees.some((a) => a.assigneeId === githubUserId)
+        if (!isAssigned) {
+            await ctx.db.insert('issueAssignees', {
+                issueId: args.issueId,
+                assigneeId: githubUserId,
+            })
+        }
+    },
+}
+
+export const AssignLabelToIssue = {
+    args: {
+        repoId: v.id('repos'),
+        issueId: v.id('issues'),
+        githubId: v.string(),
+        name: v.string(),
+        color: v.string(),
+    },
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        let labelId: Id<'labels'>
+        let repoLabels = await ctx.db
+            .query('labels')
+            .withIndex('by_repoId', (l) => l.eq('repoId', args.repoId))
+            .collect()
+        let currLabel = repoLabels.find((l) => l.githubId === args.githubId)
+        if (currLabel) {
+            await ctx.db.patch(currLabel._id, {
+                name: args.name,
+                color: args.color,
+            })
+            labelId = currLabel._id
+        } else {
+            labelId = await ctx.db.insert('labels', {
+                repoId: args.repoId,
+                githubId: args.githubId,
+                name: args.name,
+                color: args.color,
+            })
+        }
+
+        let currLabels = await ctx.db
+            .query('issueLabels')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
+            .collect()
+        let isLabeled = currLabels.some((l) => l.labelId === labelId)
+        if (!isLabeled) {
+            await ctx.db.insert('issueLabels', {
+                issueId: args.issueId,
+                labelId: labelId,
+            })
+        }
+    },
+}
