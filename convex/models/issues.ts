@@ -1,4 +1,4 @@
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import {
     internalMutation,
     internalQuery,
@@ -9,44 +9,20 @@ import type { FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 
-export const Issues = {
-    async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) =>
-                q.eq('repoId', args.repoId).eq('number', args.number),
-            )
-            .unique()
+export const PaginateIssues = {
+    args: {
+        repoId: v.id('repos'),
+        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
+        sortBy: v.optional(
+            v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
+        ),
+        paginationOpts: v.object({
+            numItems: v.number(),
+            cursor: v.union(v.string(), v.null()),
+        }),
     },
 
-    async listByRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
-            .collect()
-    },
-
-    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
-        let matches = await ctx.db
-            .query('issues')
-            .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
-            .take(CAP)
-
-        return matches
-    },
-
-    async paginate(
-        ctx: QueryCtx,
-        args: {
-            repoId: Id<'repos'>
-            state?: 'open' | 'closed'
-            sortBy?: 'createdAt' | 'updatedAt' | 'comments'
-            paginationOpts: {
-                numItems: number
-                cursor: string | null
-            }
-        },
-    ) {
+    async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
         let sortBy = args.sortBy ?? 'createdAt'
 
         // No search term; choose index based on sort and whether state filter is present
@@ -125,6 +101,74 @@ export const Issues = {
             .order('desc')
             .paginate(args.paginationOpts)
     },
+}
+
+export const Issues = {
+    async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
+        return ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) =>
+                q.eq('repoId', args.repoId).eq('number', args.number),
+            )
+            .unique()
+    },
+
+    async listByRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
+        return ctx.db
+            .query('issues')
+            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
+            .collect()
+    },
+
+    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
+        let matches = await ctx.db
+            .query('issues')
+            .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
+            .take(CAP)
+
+        return matches
+    },
+
+    async paginate(ctx: QueryCtx, args: FnArgs<typeof PaginateIssues.args>) {
+        let issuesPagination = await PaginateIssues.handler(ctx, args)
+        let issuesWithLabels = await addLabelsToIssues(ctx, issuesPagination.page, args.repoId)
+
+        return {
+            ...issuesPagination,
+            page: issuesWithLabels,
+        }
+    },
+}
+
+export async function addLabelsToIssues(
+    ctx: QueryCtx,
+    issues: Doc<'issues'>[],
+    repoId: Id<'repos'>,
+) {
+    let repoLabels = await ctx.db
+        .query('labels')
+        .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
+        .collect()
+
+    let issuesWithLabels = []
+    for (let issue of issues) {
+        let issueLabels = await ctx.db
+            .query('issueLabels')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', issue._id))
+            .collect()
+
+        let labels = []
+        for (let issueLabel of issueLabels) {
+            let label = repoLabels.find((l) => l._id === issueLabel.labelId)
+            if (label) {
+                labels.push(label)
+            }
+        }
+
+        issuesWithLabels.push({ ...issue, labels })
+    }
+
+    return issuesWithLabels
 }
 
 export const getByRepoAndNumber = internalQuery({

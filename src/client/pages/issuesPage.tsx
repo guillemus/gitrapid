@@ -76,6 +76,8 @@ const state = proxy<IssuesPageState>({
 type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
 type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 
+type FoundIssue = SearchResult['issues'][number]
+
 export function IssuesPage() {
     let navigate = useNavigate()
     useSnapshot(state)
@@ -102,12 +104,11 @@ export function IssuesPage() {
     let searchQuery = useTanstackQuery(convexQuery(api.public.issues.search, queryArgs))
 
     let repo = issueList?.repo
-    let issues: Doc<'issues'>[] = []
+    let issues: FoundIssue[] = []
     let isSearchLoading = !!activeSearch && (searchQuery.isLoading || searchQuery.isFetching)
     if (activeSearch) {
         if (!isSearchLoading) {
-            let all: Doc<'issues'>[] =
-                (searchQuery.data?.issues as Doc<'issues'>[] | undefined) ?? []
+            let all = (searchQuery.data?.issues as FoundIssue[] | undefined) ?? []
             // Filter by state client-side
             let filtered = all.filter((i) => i.state === state.filters.state)
             // Sort client-side
@@ -273,7 +274,7 @@ function IssueItem({
     issue,
     sortBy,
 }: {
-    issue: Doc<'issues'>
+    issue: FoundIssue
     sortBy: 'createdAt' | 'updatedAt' | 'comments'
 }) {
     let params = useGithubParams()
@@ -311,11 +312,12 @@ function IssueItem({
                                 <>
                                     {issue.labels.map((label) => (
                                         <Badge
-                                            key={label}
+                                            key={label._id}
                                             variant="outline"
-                                            className={`text-xs ${labelColors[label] || 'border-gray-200 bg-gray-100 text-gray-800'}`}
+                                            className={`text-xs`}
+                                            style={{ backgroundColor: `#${label.color}` }}
                                         >
-                                            {label}
+                                            {label.name}
                                         </Badge>
                                     ))}
                                 </>
@@ -348,11 +350,12 @@ function IssueItem({
 
 function PaginationControls() {
     let hasSearch = !!state.filters.search
-    // Render-only decision; move hooks into child components to avoid conditional hooks
+
     if (hasSearch) return <ClientPaginationControls />
     return <ServerPaginationControls />
 }
 
+// Paginates issues by cursor
 function ServerPaginationControls() {
     let params = useGithubParams()
     let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
@@ -365,6 +368,7 @@ function ServerPaginationControls() {
             cursor: state.cursors[state.index] ?? null,
         },
     })
+
     return (
         <div className="flex items-center justify-end gap-2">
             <Button
@@ -404,6 +408,7 @@ function ServerPaginationControls() {
     )
 }
 
+// Paginates already fetched issues
 function ClientPaginationControls() {
     let params = useGithubParams()
     let searchRes = useTanstackQuery(

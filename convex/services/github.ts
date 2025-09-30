@@ -10,7 +10,7 @@ export const Github = {
     getRateLimit,
     getRepoIssuePrCounts,
     createIssue: createIssue,
-    addComment: addComment,
+    addCommentToIssue: addCommentToIssue,
     getAuthenticatedUser,
     checkForIssueUpdates,
 }
@@ -189,12 +189,12 @@ async function createIssue(
     return created
 }
 
-async function addComment(
+async function addCommentToIssue(
     octo: Octokit,
     args: {
         owner: string
         repo: string
-        number: number
+        issueNumber: number
         comment: string
     },
 ) {
@@ -202,7 +202,7 @@ async function addComment(
         octo.rest.issues.createComment({
             owner: args.owner,
             repo: args.repo,
-            issue_number: args.number,
+            issue_number: args.issueNumber,
             body: args.comment,
         }),
     )

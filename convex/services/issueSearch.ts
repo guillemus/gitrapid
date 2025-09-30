@@ -2,7 +2,7 @@ import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
-import { Issues } from '@convex/models/issues'
+import { addLabelsToIssues, Issues } from '@convex/models/issues'
 
 const CAP = 50
 
@@ -59,8 +59,11 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
 
     let reachedCap = results.size >= CAP
 
+    let issues = Array.from(results.values())
+    let issuesWithLabels = await addLabelsToIssues(ctx, issues, repoId)
+
     return {
-        issues: Array.from(results.values()),
+        issues: issuesWithLabels,
         meta: {
             total: results.size,
             totalOpen: openCount,

@@ -52,7 +52,9 @@ export const search = query({
         let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
         let savedRepo = unwrap(hasAccess)
 
-        return IssueSearch.search(ctx, savedRepo, args.search)
+        let issues = await IssueSearch.search(ctx, savedRepo, args.search)
+
+        return issues
     },
 })
 
@@ -160,10 +162,10 @@ export const addComment = action({
         })
         if (!issue) throw new Error('issue not found')
 
-        let issueComment = await Github.addComment(octo, {
+        let issueComment = await Github.addCommentToIssue(octo, {
             owner: args.owner,
             repo: args.repo,
-            number: args.number,
+            issueNumber: args.number,
             comment: args.comment,
         })
         if (issueComment.isErr) throw new Error('octo error: failed to add comment')
