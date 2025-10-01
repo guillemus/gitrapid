@@ -2,11 +2,11 @@ import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
-import { addLabelsToIssues, Issues } from '@convex/models/issues'
-import { fetchGithubUser } from '@convex/models/issueTimelineItems'
-import { logger } from '@convex/utils'
+import { addAuthorsToIssues, addLabelsToIssues, Issues } from '@convex/models/issues'
 
-const CAP = 50
+// @ts-expect-error: remove console.time
+
+const CAP = 100
 
 export const IssueSearch = {
     search: searchIssues,
@@ -63,11 +63,7 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
 
     let issues = Array.from(results.values())
     let issuesWithLabels = await addLabelsToIssues(ctx, issues, repoId)
-    let issuesWithAuthor = []
-    for (let issue of issuesWithLabels) {
-        let author = await fetchGithubUser(ctx, logger, issue.author)
-        issuesWithAuthor.push({ ...issue, author })
-    }
+    let issuesWithAuthor = await addAuthorsToIssues(ctx, issuesWithLabels)
 
     return {
         issues: issuesWithAuthor,

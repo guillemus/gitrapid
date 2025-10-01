@@ -195,7 +195,8 @@ export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx,
     let issuesWithAuthors = []
     for (let issue of issues) {
         let author = await fetchGithubUser(ctx, logger, issue.author)
-        issuesWithAuthors.push({ ...issue, author })
+        let i = issue as Omit<T, 'author'>
+        issuesWithAuthors.push({ ...i, author })
     }
     return issuesWithAuthors
 }

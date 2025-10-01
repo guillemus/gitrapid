@@ -122,6 +122,7 @@ export function IssuesPage() {
                 <div className="flex flex-1 items-center space-x-0">
                     <div className="relative flex-1">
                         <Input
+                            autoFocus
                             placeholder="Search issues"
                             className="rounded-r-none font-normal"
                             value={state.ui.searchInput}
