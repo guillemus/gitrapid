@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
-import type { Doc } from '@convex/_generated/dataModel'
+import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useConvexHttp } from './convex'
 
@@ -195,14 +195,12 @@ export function formatRelativeTime(date: string | number | Date): string {
     }
 }
 
-type GithubUser = Doc<'issues'>['author']
-
-export function userLogin(u: GithubUser): string | null {
-    if (isGithubUserObject(u)) return u.login
-    return null
+export function userLogin(u: GithubUserDoc): string | null {
+    if (u === 'github-actions') return 'GitHub Actions'
+    return u?.login ?? null
 }
 
-export function userLabel(u: GithubUser): string {
+export function userLabel(u: GithubUserDoc): string {
     if (u === 'github-actions') return 'GitHub Actions'
     let login = userLogin(u)
     return login ?? 'ghost'

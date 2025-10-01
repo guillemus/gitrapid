@@ -45,11 +45,7 @@ type TimelineItems = Data['timelineItems']
 export function SingleIssuesPage() {
     let { owner, repo, number } = usePageParams()
 
-    let data = usePageQuery(api.public.issues.get, {
-        owner,
-        repo,
-        number,
-    })
+    let data = usePageQuery(api.public.issues.get, { owner, repo, number })
 
     // Compute markdown HTML before any early return to keep hooks order stable
     let issueBodyMd = data?.body?.body || ''
@@ -131,12 +127,12 @@ export function SingleIssuesPage() {
                         {/* Assignees */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Assignees</div>
-                            {data.issue.assignees && data.issue.assignees.length > 0 ? (
+                            {data.assignees && data.assignees.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
-                                    {data.issue.assignees.map((assignee, index) => (
+                                    {data.assignees.map((assignee, index) => (
                                         <div key={index} className="flex items-center gap-2">
                                             <User className="h-4 w-4" />
-                                            <span>{assignee}</span>
+                                            <span>{assignee.login}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -152,15 +148,15 @@ export function SingleIssuesPage() {
                         {/* Labels */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Labels</div>
-                            {data.issue.labels && data.issue.labels.length > 0 ? (
+                            {data.labels && data.labels.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
-                                    {data.issue.labels.map((label, index) => (
+                                    {data.labels.map((label, index) => (
                                         <Badge
                                             key={index}
                                             variant="outline"
                                             className="border-gray-200 bg-gray-100 text-gray-800"
                                         >
-                                            {label}
+                                            {label.name}
                                         </Badge>
                                     ))}
                                 </div>

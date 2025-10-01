@@ -3,6 +3,8 @@ import type { QueryCtx } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { addLabelsToIssues, Issues } from '@convex/models/issues'
+import { fetchGithubUser } from '@convex/models/issueTimelineItems'
+import { logger } from '@convex/utils'
 
 const CAP = 50
 
@@ -61,9 +63,14 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
 
     let issues = Array.from(results.values())
     let issuesWithLabels = await addLabelsToIssues(ctx, issues, repoId)
+    let issuesWithAuthor = []
+    for (let issue of issuesWithLabels) {
+        let author = await fetchGithubUser(ctx, logger, issue.author)
+        issuesWithAuthor.push({ ...issue, author })
+    }
 
     return {
-        issues: issuesWithLabels,
+        issues: issuesWithAuthor,
         meta: {
             total: results.size,
             totalOpen: openCount,

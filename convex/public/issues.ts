@@ -69,18 +69,22 @@ export const get = query({
         let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
         let savedRepo = unwrap(hasAccess)
 
-        let issue = await Issues.getByRepoAndNumber(ctx, {
+        let issue = await Issues.getByRepoAndNumberWithRelations(ctx, {
             number: args.number,
             repoId: savedRepo._id,
         })
         if (!issue) return null
 
+        let assignees = await Issues.getAssigneesByIssueId(ctx, issue._id)
+        let labels = await Issues.getLabelsByIssueId(ctx, issue._id)
         let body = await IssueBodies.getByIssueId(ctx, issue._id)
         let timelineItems = await IssueTimelineItems.listByIssueId(ctx, issue._id)
-        let comments = await IssueComments.listByIssueId(ctx, issue._id)
+        let comments = await IssueComments.listByIssueIdWithRelations(ctx, issue._id)
 
         return {
             issue,
+            assignees,
+            labels,
             body,
             timelineItems,
             comments,

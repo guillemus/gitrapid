@@ -5,9 +5,10 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import type { FnArgs } from '@convex/utils'
+import { logger, type FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
+import { fetchGithubUser } from './issueTimelineItems'
 
 export const PaginateIssues = {
     args: {
@@ -113,6 +114,21 @@ export const Issues = {
             .unique()
     },
 
+    async getByRepoAndNumberWithRelations(
+        ctx: QueryCtx,
+        args: { repoId: Id<'repos'>; number: number },
+    ) {
+        let issue = await this.getByRepoAndNumber(ctx, args)
+        if (!issue) return null
+
+        let issueAuthor = await fetchGithubUser(ctx, logger, issue.author)
+
+        return {
+            ...issue,
+            author: issueAuthor,
+        }
+    },
+
     async listByRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
         return ctx.db
             .query('issues')
@@ -132,12 +148,56 @@ export const Issues = {
     async paginate(ctx: QueryCtx, args: FnArgs<typeof PaginateIssues.args>) {
         let issuesPagination = await PaginateIssues.handler(ctx, args)
         let issuesWithLabels = await addLabelsToIssues(ctx, issuesPagination.page, args.repoId)
+        let issuesWithAuthors = await addAuthorsToIssues(ctx, issuesWithLabels)
 
         return {
             ...issuesPagination,
-            page: issuesWithLabels,
+            page: issuesWithAuthors,
         }
     },
+
+    async getAssigneesByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
+        let issueAssignees = await ctx.db
+            .query('issueAssignees')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
+            .collect()
+
+        let assignees = []
+        for (let issueAssignee of issueAssignees) {
+            let assignee = await ctx.db.get(issueAssignee.assigneeId)
+            if (assignee) {
+                assignees.push(assignee)
+            }
+        }
+
+        return assignees
+    },
+
+    async getLabelsByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
+        let issueLabels = await ctx.db
+            .query('issueLabels')
+            .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
+            .collect()
+
+        let labels = []
+        for (let issueLabel of issueLabels) {
+            let label = await ctx.db.get(issueLabel.labelId)
+            if (label) {
+                labels.push(label)
+            }
+        }
+
+        return labels
+    },
+}
+
+export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx, issues: T[]) {
+    let issuesWithAuthors = []
+    for (let issue of issues) {
+        let author = await fetchGithubUser(ctx, logger, issue.author)
+        issuesWithAuthors.push({ ...issue, author })
+    }
+    return issuesWithAuthors
 }
 
 export async function addLabelsToIssues(

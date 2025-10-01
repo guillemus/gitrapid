@@ -5,14 +5,11 @@ import { useEffect } from 'react'
 function RedirectInner() {
     let token = useAuthToken()
 
-    useEffect(
-        function onAuthChange() {
-            if (token) {
-                window.location.replace('/dash')
-            }
-        },
-        [token],
-    )
+    useEffect(() => {
+        if (token) {
+            window.location.replace('/dash')
+        }
+    }, [token])
 
     return null
 }

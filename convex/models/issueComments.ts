@@ -1,10 +1,16 @@
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { getGithubUserId } from '@convex/services/auth'
+import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 import schema from '../schema'
+import { fetchGithubUser, type GithubUserDoc } from './issueTimelineItems'
 import type { UpsertDoc } from './models'
+
+export type CommentWithRelations = Omit<Doc<'issueComments'>, 'author'> & {
+    author: GithubUserDoc
+}
 
 export const IssueComments = {
     async listByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
@@ -12,6 +18,21 @@ export const IssueComments = {
             .query('issueComments')
             .withIndex('by_issue', (q) => q.eq('issueId', issueId))
             .collect()
+    },
+
+    async listByIssueIdWithRelations(ctx: QueryCtx, issueId: Id<'issues'>) {
+        let comments = await this.listByIssueId(ctx, issueId)
+        let commentsWithRelations: CommentWithRelations[] = []
+        for (let comment of comments) {
+            let commentAuthor = await fetchGithubUser(ctx, logger, comment.author)
+
+            commentsWithRelations.push({
+                ...comment,
+                author: commentAuthor,
+            })
+        }
+
+        return commentsWithRelations
     },
 
     async insertMany(ctx: MutationCtx, docs: UpsertDoc<'issueComments'>[]) {
