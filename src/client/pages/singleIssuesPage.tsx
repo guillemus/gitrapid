@@ -372,7 +372,7 @@ function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
 
     return allItems.map((item) => {
         if (item.type === 'timeline') {
-            return <TimelineEvent key={`timeline-${item.createdAt}`} event={item.item} />
+            return <TimelineEvent key={`timeline-${item.item._id}`} event={item.item} />
         } else {
             return <CommentItem key={`comment-${item.item._id}`} comment={item.item} />
         }
