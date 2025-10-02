@@ -6,7 +6,7 @@ import {
     type QueryCtx,
 } from '@convex/_generated/server'
 import { logger, type FnArgs } from '@convex/utils'
-import { assert } from 'convex-helpers'
+import { assert, asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 import { fetchGithubUser } from './issueTimelineItems'
 
@@ -136,11 +136,11 @@ export const Issues = {
             .collect()
     },
 
-    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
+    async search(ctx: QueryCtx, repoId: Id<'repos'>, q: string) {
         let matches = await ctx.db
             .query('issues')
             .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
-            .take(CAP)
+            .collect()
 
         return matches
     },
@@ -162,15 +162,11 @@ export const Issues = {
             .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
             .collect()
 
-        let assignees = []
-        for (let issueAssignee of issueAssignees) {
-            let assignee = await ctx.db.get(issueAssignee.assigneeId)
-            if (assignee) {
-                assignees.push(assignee)
-            }
-        }
+        let assignees = await asyncMap(issueAssignees, async (issueAssignee) => {
+            return ctx.db.get(issueAssignee.assigneeId)
+        })
 
-        return assignees
+        return assignees.filter((a) => a !== null)
     },
 
     async getLabelsByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
@@ -179,26 +175,20 @@ export const Issues = {
             .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
             .collect()
 
-        let labels = []
-        for (let issueLabel of issueLabels) {
-            let label = await ctx.db.get(issueLabel.labelId)
-            if (label) {
-                labels.push(label)
-            }
-        }
+        let labels = await asyncMap(issueLabels, async (issueLabel) => {
+            return ctx.db.get(issueLabel.labelId)
+        })
 
-        return labels
+        return labels.filter((l) => l !== null)
     },
 }
 
 export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx, issues: T[]) {
-    let issuesWithAuthors = []
-    for (let issue of issues) {
+    return asyncMap(issues, async (issue) => {
         let author = await fetchGithubUser(ctx, logger, issue.author)
         let i = issue as Omit<T, 'author'>
-        issuesWithAuthors.push({ ...i, author })
-    }
-    return issuesWithAuthors
+        return { ...i, author }
+    })
 }
 
 export async function addLabelsToIssues(
@@ -211,8 +201,7 @@ export async function addLabelsToIssues(
         .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
         .collect()
 
-    let issuesWithLabels = []
-    for (let issue of issues) {
+    return asyncMap(issues, async (issue) => {
         let issueLabels = await ctx.db
             .query('issueLabels')
             .withIndex('by_issue_id', (q) => q.eq('issueId', issue._id))
@@ -226,10 +215,8 @@ export async function addLabelsToIssues(
             }
         }
 
-        issuesWithLabels.push({ ...issue, labels })
-    }
-
-    return issuesWithLabels
+        return { ...issue, labels }
+    })
 }
 
 export const getByRepoAndNumber = internalQuery({

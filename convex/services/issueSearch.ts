@@ -4,10 +4,6 @@ import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { addAuthorsToIssues, addLabelsToIssues, Issues } from '@convex/models/issues'
 
-// @ts-expect-error: remove console.time
-
-const CAP = 100
-
 export const IssueSearch = {
     search: searchIssues,
 }
@@ -19,18 +15,20 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
     if (search.length === 0) {
         return {
             issues: [],
-            meta: { total: 0, totalOpen: 0, totalClosed: 0, reachedCap: false },
+            meta: { total: 0, totalOpen: 0, totalClosed: 0 },
         }
     }
 
     let results: Map<Id<'issues'>, Doc<'issues'>> = new Map()
 
-    let titleMatches = await Issues.search(ctx, repoId, CAP, search)
+    console.time('issues search')
+
+    let titleMatches = await Issues.search(ctx, repoId, search)
     for (let issue of titleMatches) {
         results.set(issue._id, issue)
     }
 
-    let commentMatches = await IssueComments.search(ctx, repoId, CAP, search)
+    let commentMatches = await IssueComments.search(ctx, repoId, search)
     for (let c of commentMatches) {
         let id = c.issueId as Id<'issues'>
         if (!results.has(id)) {
@@ -41,7 +39,7 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
         }
     }
 
-    let bodyMatches = await IssueBodies.search(ctx, repoId, CAP, search)
+    let bodyMatches = await IssueBodies.search(ctx, repoId, search)
     for (let b of bodyMatches) {
         let id = b.issueId as Id<'issues'>
         if (!results.has(id)) {
@@ -71,7 +69,6 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
             total: results.size,
             totalOpen: openCount,
             totalClosed: closedCount,
-            reachedCap,
         },
     }
 }

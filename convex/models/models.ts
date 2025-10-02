@@ -317,7 +317,7 @@ export const insertIssuesWithCommentsBatch = internalMutation({
                             },
                         }
                     } else {
-                        t.item satisfies never
+                        let _ = t.item satisfies never
                         logger.error({ item: t.item }, `unknown timeline item`)
                         continue
                     }

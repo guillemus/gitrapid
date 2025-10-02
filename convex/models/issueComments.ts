@@ -71,13 +71,13 @@ export const IssueComments = {
         return deletedIds
     },
 
-    async search(ctx: QueryCtx, repoId: Id<'repos'>, CAP: number, q: string) {
+    async search(ctx: QueryCtx, repoId: Id<'repos'>, q: string) {
         let matches = await ctx.db
             .query('issueComments')
             .withSearchIndex('search_issue_comments', (s) =>
                 s.search('body', q).eq('repoId', repoId),
             )
-            .take(CAP)
+            .collect()
         return matches
     },
 }

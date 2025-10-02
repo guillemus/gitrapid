@@ -86,7 +86,9 @@ export const SaveWorkflowResult = {
                     lastSyncedAt: args.lastSyncedAt,
                 },
             })
-        } else res satisfies never
+        } else {
+            let _ = res satisfies never
+        }
     },
 }
 

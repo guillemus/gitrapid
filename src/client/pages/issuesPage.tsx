@@ -192,8 +192,7 @@ export function IssuesPage() {
                               ? (() => {
                                     let meta = (searchQuery.data as SearchResult | undefined)?.meta
                                     let count = meta?.totalOpen ?? 0
-                                    let plus = meta?.reachedCap && count >= 200 ? '+' : ''
-                                    return `${count}${plus} Open`
+                                    return `${count} Open`
                                 })()
                               : repo
                                 ? `${repo.openIssues} Open`
@@ -217,8 +216,7 @@ export function IssuesPage() {
                               ? (() => {
                                     let meta = (searchQuery.data as SearchResult | undefined)?.meta
                                     let count = meta?.totalClosed ?? 0
-                                    let plus = meta?.reachedCap && count >= 200 ? '+' : ''
-                                    return `${count}${plus} Closed`
+                                    return `${count} Closed`
                                 })()
                               : repo
                                 ? `${repo.closedIssues} Closed`

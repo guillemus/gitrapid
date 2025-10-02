@@ -1,7 +1,7 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
@@ -115,28 +115,29 @@ export function getLanguageFromExtension(filePath: string): string {
 export function useDebounce<T>(value: T, delay: number): T {
     const state = useMutable({ debouncedValue: value })
 
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            state.debouncedValue = value // oxlint-disable-line
-        }, delay)
+    let setDebouncedValue = useEffectEvent((value: T) => {
+        state.debouncedValue = value
+    })
 
-        return () => {
-            clearTimeout(handler)
-        }
-    }, [value, delay])
+    useEffect(() => {
+        const timeoutId = setTimeout(setDebouncedValue, delay)
+
+        return () => clearTimeout(timeoutId)
+    }, [delay])
 
     return state.debouncedValue
 }
 
 export function useClickOutside(onclickOutside: () => void) {
     const containerRef = useRef<HTMLDivElement>(null)
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                onclickOutside() // oxlint-disable-line
-            }
-        }
 
+    let handleClickOutside = useEffectEvent((event: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            onclickOutside()
+        }
+    })
+
+    useEffect(() => {
         document.addEventListener('mousedown', handleClickOutside)
 
         return () => {

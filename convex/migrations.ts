@@ -4,20 +4,14 @@ import type { DataModel } from './_generated/dataModel'
 
 export const migrations = new Migrations<DataModel>(components.migrations)
 export const run = migrations.runner()
-export const runIt = migrations.runner(internal.migrations.backfillIssueBodiesRepoId)
 
-// Backfill repoId on issueBodies from linked issue
-export const backfillIssueBodiesRepoId = migrations.define({
-    table: 'issueBodies',
-    migrateOne: async (ctx, doc) => {
-        if (doc.repoId) return
+// to run:
+// $ bun convex run convex/migrations.ts:runIt
+// monitoring:
+// $ bun convex run --component migrations --watch lib:getStatus
+export const runIt = migrations.runner(internal.migrations.main)
 
-        let issue = await ctx.db.get(doc.issueId)
-        if (!issue) {
-            await ctx.db.delete(doc._id)
-            return
-        }
-
-        await ctx.db.patch(doc._id, { repoId: issue.repoId })
-    },
+export const main = migrations.define({
+    table: 'issues',
+    migrateOne: async (ctx, doc) => {},
 })

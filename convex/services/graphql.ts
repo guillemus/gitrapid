@@ -1224,7 +1224,7 @@ function parseTimelineItem(data: unknown): Result<TimelineItemData> {
             },
         }
     } else {
-        t.val satisfies never
+        let _ = t.val satisfies never
         return err(`unknown timeline item type`)
     }
 
