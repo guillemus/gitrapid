@@ -33,6 +33,7 @@ import {
     userLabel,
     useTanstackQuery,
 } from '../utils'
+import { GhLabel } from '@/components/ghLabel'
 
 type IssuesPageState = {
     cursors: Array<string | null>
@@ -296,20 +297,9 @@ function IssueItem({
                                     {issue.title}
                                 </h3>
                             </Link>
-                            {issue.labels && issue.labels.length > 0 && (
-                                <>
-                                    {issue.labels.map((label) => (
-                                        <Badge
-                                            key={label._id}
-                                            variant="outline"
-                                            className={`text-xs`}
-                                            style={{ backgroundColor: `#${label.color}` }}
-                                        >
-                                            {label.name}
-                                        </Badge>
-                                    ))}
-                                </>
-                            )}
+                            {issue.labels.map((label) => (
+                                <GhLabel key={label._id} label={label} />
+                            ))}
                         </div>
                         <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
                             <span>#{issue.number}</span>

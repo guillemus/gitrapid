@@ -23,6 +23,7 @@ import {
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
 import { formatRelativeTime, useMutable, usePageQuery, userLabel, userLogin } from '../utils'
+import { GhLabel } from '@/components/ghLabel'
 
 function usePageParams() {
     let { owner, repo, number } = useParams()
@@ -144,20 +145,13 @@ export function SingleIssuesPage() {
                             )}
                         </div>
                         <div className="bg-border my-4 h-px" />
-
                         {/* Labels */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Labels</div>
                             {data.labels && data.labels.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
-                                    {data.labels.map((label, index) => (
-                                        <Badge
-                                            key={index}
-                                            variant="outline"
-                                            className="border-gray-200 bg-gray-100 text-gray-800"
-                                        >
-                                            {label.name}
-                                        </Badge>
+                                    {data.labels.map((label) => (
+                                        <GhLabel key={label._id} label={label} />
                                     ))}
                                 </div>
                             ) : (
