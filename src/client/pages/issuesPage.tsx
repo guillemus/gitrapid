@@ -81,7 +81,7 @@ export function IssuesPage() {
 
     if (activeSearch) {
         if (!isSearchLoading) {
-            let all = (searchQuery.data?.issues as FoundIssue[] | undefined) ?? []
+            let all = searchQuery.data?.issues ?? []
             // Filter by state client-side
             let filtered = all.filter((i) => i.state === state.filters.state)
             // Sort client-side
