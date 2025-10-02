@@ -297,7 +297,7 @@ function IssueItem({
                         <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
                             <span>#{issue.number}</span>
                             <span>•</span>
-                            <GhUser user={issue.author}></GhUser>
+                            <GhUser hideAvatar user={issue.author}></GhUser>
                             <span>opened {formatRelativeTime(issue.createdAt)}</span>
                             {sortBy === 'updatedAt' && (
                                 <>

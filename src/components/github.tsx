@@ -60,6 +60,7 @@ export function GhLabel(props: { label: GhLabel; isDarkMode?: boolean }) {
 
 export function GhUser(props: {
     user: GithubUserDoc
+    hideAvatar?: boolean
     className?: string
     avatarClassName?: string
     hideName?: boolean
@@ -67,9 +68,11 @@ export function GhUser(props: {
     if (props.user === 'github-actions') {
         return (
             <span className={cn('inline-flex items-center gap-2', props.className)}>
-                <Avatar className={cn('size-5', props.avatarClassName)}>
-                    <AvatarFallback>GH</AvatarFallback>
-                </Avatar>
+                {!props.hideAvatar && (
+                    <Avatar className={cn('size-5', props.avatarClassName)}>
+                        <AvatarFallback>GH</AvatarFallback>
+                    </Avatar>
+                )}
                 {!props.hideName && <span>GitHub Actions</span>}
             </span>
         )
@@ -77,9 +80,11 @@ export function GhUser(props: {
     if (!props.user) {
         return (
             <span className={cn('inline-flex items-center gap-2', props.className)}>
-                <Avatar className={cn('size-5', props.avatarClassName)}>
-                    <AvatarFallback>?</AvatarFallback>
-                </Avatar>
+                {!props.hideAvatar && (
+                    <Avatar className={cn('size-5', props.avatarClassName)}>
+                        <AvatarFallback>?</AvatarFallback>
+                    </Avatar>
+                )}
                 {!props.hideName && <span>ghost</span>}
             </span>
         )
@@ -87,10 +92,12 @@ export function GhUser(props: {
 
     return (
         <span className={cn('inline-flex items-center gap-2', props.className)}>
-            <Avatar className={cn('size-5', props.avatarClassName)}>
-                <AvatarImage src={props.user.avatarUrl} alt={props.user.login} />
-                <AvatarFallback>{props.user.login.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            {!props.hideAvatar && (
+                <Avatar className={cn('size-5', props.avatarClassName)}>
+                    <AvatarImage src={props.user.avatarUrl} alt={props.user.login} />
+                    <AvatarFallback>{props.user.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+            )}
             {!props.hideName && <span>{props.user.login}</span>}
         </span>
     )
