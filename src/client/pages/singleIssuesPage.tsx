@@ -65,7 +65,7 @@ export function SingleIssuesPage() {
             {/* Header */}
             <div className="flex items-start justify-between gap-2.5">
                 <div className="min-w-0 flex-1">
-                    <h1 className="text-foreground truncate text-4xl">
+                    <h1 className="text-foreground text-4xl">
                         {data.issue.title}
                         <span className="text-muted-foreground ml-2 font-normal">
                             #{data.issue.number}
@@ -200,7 +200,7 @@ function EmptyIssueBody(props: { author: GithubUserDoc; createdAt: string }) {
                 </div>
             </div>
             <div className="bg-white p-4 text-black">
-                <div className="text-muted-foreground italic">No description provided.</div>
+                <p className="text-muted-foreground italic">No description provided.</p>
             </div>
         </div>
     )
@@ -425,8 +425,6 @@ function TimelineEventDescription(props: { event: TimelineItems[number] }) {
             )
     }
 }
-
-// describeTimelineEvent removed in favor of rich JSX in TimelineEventDescription
 
 function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
     // Combine timeline items and comments, sort by createdAt

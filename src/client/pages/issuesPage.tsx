@@ -199,13 +199,7 @@ export function IssuesPage() {
     )
 }
 
-function IssueItem({
-    issue,
-    sortBy,
-}: {
-    issue: FoundIssue
-    sortBy: 'createdAt' | 'updatedAt' | 'comments'
-}) {
+function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt' | 'comments' }) {
     let params = useGithubParams()
 
     return (
@@ -216,7 +210,7 @@ function IssueItem({
                     convexQuery(api.public.issues.get, {
                         owner: params.owner,
                         repo: params.repo,
-                        number: issue.number,
+                        number: props.issue.number,
                     }),
                 )
             }}
@@ -224,7 +218,7 @@ function IssueItem({
             <div className="flex items-center justify-between">
                 <div className="flex flex-1 items-start space-x-3">
                     <div className="mt-1">
-                        {issue.state === 'open' ? (
+                        {props.issue.state === 'open' ? (
                             <IssueOpenedIcon className="h-4 w-4 text-green-600" />
                         ) : (
                             <CheckCircle className="h-5 w-5 text-purple-600" />
@@ -232,33 +226,35 @@ function IssueItem({
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 leading-[1.4rem]">
-                            <Link to={`/${params.owner}/${params.repo}/issues/${issue.number}`}>
+                            <Link
+                                to={`/${params.owner}/${params.repo}/issues/${props.issue.number}`}
+                            >
                                 <h3 className="text-foreground cursor-pointer font-medium hover:text-blue-600">
-                                    {issue.title}
+                                    {props.issue.title}
                                 </h3>
                             </Link>
-                            {issue.labels.map((label) => (
+                            {props.issue.labels.map((label) => (
                                 <GhLabel key={label._id} label={label} />
                             ))}
                         </div>
                         <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
-                            <span>#{issue.number}</span>
+                            <span>#{props.issue.number}</span>
                             <span>•</span>
-                            <GhUser hideAvatar user={issue.author}></GhUser>
-                            <span>opened {formatRelativeTime(issue.createdAt)}</span>
-                            {sortBy === 'updatedAt' && (
+                            <GhUser hideAvatar user={props.issue.author}></GhUser>
+                            <span>opened {formatRelativeTime(props.issue.createdAt)}</span>
+                            {props.sortBy === 'updatedAt' && (
                                 <>
                                     <span>•</span>
-                                    <span>updated {formatRelativeTime(issue.updatedAt)}</span>
+                                    <span>updated {formatRelativeTime(props.issue.updatedAt)}</span>
                                 </>
                             )}
                         </div>
                     </div>
                 </div>
-                {(issue.comments ?? 0) > 0 && (
+                {(props.issue.comments ?? 0) > 0 && (
                     <div className="text-muted-foreground ml-4 flex w-16 items-center justify-start text-sm">
                         <MessageCircle className="h-4 w-4" />
-                        <span className="ml-1 font-normal">{issue.comments}</span>
+                        <span className="ml-1 font-normal">{props.issue.comments}</span>
                     </div>
                 )}
             </div>

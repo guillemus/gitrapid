@@ -114,6 +114,7 @@
         border-color: var(--color-border);
     }
     body {
+        font-size: 14px;
         background-color: var(--color-background);
         color: var(--color-foreground);
     }
