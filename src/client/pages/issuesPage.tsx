@@ -113,50 +113,7 @@ export function IssuesPage() {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-2.5">
-                <div className="flex flex-1 items-center space-x-0">
-                    <div className="relative flex-1">
-                        <Input
-                            autoFocus
-                            placeholder="Search issues"
-                            className="rounded-r-none font-normal"
-                            value={state.ui.searchInput}
-                            onChange={(e) => {
-                                state.ui.searchInput = e.target.value
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    state.filters.search = state.ui.searchInput.trim()
-                                    state.cursors = [null]
-                                    state.index = 0
-                                }
-                            }}
-                        />
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="-ml-px h-10 rounded-none"
-                        onClick={() => {
-                            state.ui.searchInput = ''
-                        }}
-                        disabled={state.ui.searchInput.length === 0}
-                        aria-label="Clear search"
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="default"
-                        size="sm"
-                        className="-ml-px h-10 gap-2 rounded-l-none"
-                        onClick={() => {
-                            state.filters.search = state.ui.searchInput.trim()
-                            state.cursors = [null]
-                            state.index = 0
-                        }}
-                    >
-                        <Search className="h-4 w-4" />
-                    </Button>
-                </div>
+                <SearchBar />
                 <Button
                     className="gap-2"
                     onClick={() => navigate(`/${params.owner}/${params.repo}/issues/new`)}
@@ -488,5 +445,55 @@ function SortByDropdown() {
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    )
+}
+
+function SearchBar() {
+    return (
+        <div className="flex flex-1 items-center space-x-0">
+            <div className="relative flex-1">
+                <Input
+                    autoFocus
+                    placeholder="Search issues"
+                    className="rounded-r-none pr-10 font-normal"
+                    value={state.ui.searchInput}
+                    onChange={(e) => {
+                        state.ui.searchInput = e.target.value
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            state.filters.search = state.ui.searchInput.trim()
+                            state.cursors = [null]
+                            state.index = 0
+                        }
+                    }}
+                />
+                <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => {
+                        state.ui.searchInput = ''
+                    }}
+                    className={`text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 transition-colors ${
+                        state.ui.searchInput.length === 0 ? 'hidden' : ''
+                    }`}
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+            <Button
+                variant="outline"
+                size="sm"
+                className="-ml-px h-10 gap-2 rounded-l-none bg-transparent"
+                onClick={() => {
+                    state.filters.search = state.ui.searchInput.trim()
+                    state.cursors = [null]
+                    state.index = 0
+                }}
+                aria-label="Search"
+            >
+                <Search className="h-4 w-4" />
+            </Button>
+        </div>
     )
 }
