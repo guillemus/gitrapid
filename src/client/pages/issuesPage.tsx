@@ -26,33 +26,22 @@ import {
 import { Link, useNavigate } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '../convex'
-import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
+import {
+    formatRelativeTime,
+    useGithubParams,
+    useMutable,
+    usePageQuery,
+    useTanstackQuery,
+} from '../utils'
 
-type IssuesPageState = {
-    cursors: Array<string | null>
-    index: number
-    pageSize: number
-    filters: {
-        search: string
-        state: 'open' | 'closed'
-        sortBy: 'createdAt' | 'updatedAt' | 'comments'
-    }
-    ui: {
-        searchInput: string
-    }
-}
-
-const state = proxy<IssuesPageState>({
-    cursors: [null],
+const state = proxy({
+    cursors: [null] as (string | null)[],
     index: 0,
     pageSize: 20,
     filters: {
         search: '',
-        state: 'open',
-        sortBy: 'createdAt',
-    },
-    ui: {
-        searchInput: '',
+        state: 'open' as 'open' | 'closed',
+        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments',
     },
 })
 
@@ -89,6 +78,7 @@ export function IssuesPage() {
     let repo = issueList?.repo
     let issues: FoundIssue[] = []
     let isSearchLoading = !!activeSearch && (searchQuery.isLoading || searchQuery.isFetching)
+
     if (activeSearch) {
         if (!isSearchLoading) {
             let all = (searchQuery.data?.issues as FoundIssue[] | undefined) ?? []
@@ -183,7 +173,7 @@ export function IssuesPage() {
             {/* Issues List */}
             <Card className="py-0">
                 <CardContent className="p-0">
-                    {isSearchLoading ? (
+                    {isSearchLoading || !issueList ? (
                         <LoadingList />
                     ) : issues.length === 0 ? (
                         <div className="text-muted-foreground p-8 text-center">
@@ -449,6 +439,8 @@ function SortByDropdown() {
 }
 
 function SearchBar() {
+    let searchInput = useMutable({ value: '' })
+
     return (
         <div className="flex flex-1 items-center space-x-0">
             <div className="relative flex-1">
@@ -456,13 +448,13 @@ function SearchBar() {
                     autoFocus
                     placeholder="Search issues by title"
                     className="rounded-r-none pr-10 font-normal"
-                    value={state.ui.searchInput}
+                    value={searchInput.value}
                     onChange={(e) => {
-                        state.ui.searchInput = e.target.value
+                        searchInput.value = e.target.value
                     }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                            state.filters.search = state.ui.searchInput.trim()
+                            state.filters.search = searchInput.value.trim()
                             state.cursors = [null]
                             state.index = 0
                         }
@@ -472,10 +464,10 @@ function SearchBar() {
                     type="button"
                     aria-label="Clear search"
                     onClick={() => {
-                        state.ui.searchInput = ''
+                        searchInput.value = ''
                     }}
                     className={`text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 transition-colors ${
-                        state.ui.searchInput.length === 0 ? 'hidden' : ''
+                        searchInput.value.length === 0 ? 'hidden' : ''
                     }`}
                 >
                     <X className="h-4 w-4" />
@@ -486,7 +478,7 @@ function SearchBar() {
                 size="sm"
                 className="-ml-px h-10 gap-2 rounded-l-none bg-transparent"
                 onClick={() => {
-                    state.filters.search = state.ui.searchInput.trim()
+                    state.filters.search = searchInput.value.trim()
                     state.cursors = [null]
                     state.index = 0
                 }}
