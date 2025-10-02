@@ -1,7 +1,7 @@
 import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { SaveWorkflowResult } from '@convex/models/repos'
 import { err, ok, unwrap } from '@convex/shared'
@@ -20,6 +20,26 @@ let fns = internal.services.sync
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
+function shouldBeSynced(repo: Doc<'repos'>) {
+    switch (repo.download.status) {
+        case 'initial':
+            return false
+        case 'backfilling':
+            return false
+        case 'syncing':
+            return false
+        case 'success':
+            return true
+        case 'error':
+            return false
+        case 'cancelled':
+            return false
+    }
+
+    let _ = repo.download.status satisfies never
+    return false
+}
+
 export const checkRepos = internalMutation({
     args: {
         paginationOpts: paginationOptsValidator,
@@ -28,6 +48,10 @@ export const checkRepos = internalMutation({
         let repoPagination = await ctx.db.query('repos').paginate(args.paginationOpts)
 
         for (let repo of repoPagination.page) {
+            if (!shouldBeSynced(repo)) {
+                continue
+            }
+
             let userRepos = await ctx.db
                 .query('userRepos')
                 .withIndex('by_repoId', (r) => r.eq('repoId', repo._id))

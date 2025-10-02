@@ -400,7 +400,7 @@ const IssueNodeSchema = z.object({
     }),
 })
 
-// the max items to fetch on the first fetch. important to keep low so that the graphql query isn't too heavy
+// the max items to fetch on the first fetch.
 const TOTALS_FIRST_FETCH = {
     issues: 10,
     labels: 10,
@@ -409,12 +409,12 @@ const TOTALS_FIRST_FETCH = {
     timelineItems: 10,
 }
 
-// the max items to fetch iteratively. they can be higher bc these items are fetched independently
+// the max items to fetch iteratively.
 const TOTALS_ITER = {
-    labels: 30,
-    assignees: 30,
-    comments: 100,
-    timelineItems: 30,
+    labels: 10,
+    assignees: 10,
+    comments: 10,
+    timelineItems: 10,
 }
 
 type GetIssuesWithCommentsArgs = {
