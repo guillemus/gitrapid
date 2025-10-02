@@ -1,7 +1,8 @@
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
-import { Badge } from '@/components/ui/badge'
+import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { api } from '@convex/_generated/api'
+import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { useAction } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import {
@@ -22,8 +23,7 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useParams } from 'react-router'
-import { formatRelativeTime, useMutable, usePageQuery, userLabel, userLogin } from '../utils'
-import { GhLabel } from '@/components/ghLabel'
+import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
 
 function usePageParams() {
     let { owner, repo, number } = useParams()
@@ -102,13 +102,13 @@ export function SingleIssuesPage() {
                             {/* Issue description - always first */}
                             {issueBodyMd ? (
                                 <IssueBody
-                                    author={userLabel(data.issue.author)}
+                                    author={data.issue.author}
                                     createdAt={data.issue.createdAt}
                                     bodyHtml={issueBodyHtml}
                                 />
                             ) : (
                                 <EmptyIssueBody
-                                    author={userLabel(data.issue.author)}
+                                    author={data.issue.author}
                                     createdAt={data.issue.createdAt}
                                 />
                             )}
@@ -166,43 +166,35 @@ export function SingleIssuesPage() {
     )
 }
 
-function IssueBody({
-    author,
-    createdAt,
-    bodyHtml,
-}: {
-    author: string
-    createdAt: string
-    bodyHtml: string
-}) {
+function IssueBody(props: { author: GithubUserDoc; createdAt: string; bodyHtml: string }) {
     return (
         <div className="overflow-hidden rounded-md border">
             <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{author}</span>
+                        <GhUser user={props.author} />
                         <span className="text-muted-foreground">
-                            commented {formatRelativeTime(createdAt)}
+                            commented {formatRelativeTime(props.createdAt)}
                         </span>
                     </div>
                 </div>
             </div>
             <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
-                <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+                <div dangerouslySetInnerHTML={{ __html: props.bodyHtml }} />
             </div>
         </div>
     )
 }
 
-function EmptyIssueBody({ author, createdAt }: { author: string; createdAt: string }) {
+function EmptyIssueBody(props: { author: GithubUserDoc; createdAt: string }) {
     return (
         <div className="overflow-hidden rounded-md border">
             <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{author}</span>
+                        <GhUser user={props.author} />
                         <span className="text-muted-foreground">
-                            opened {formatRelativeTime(createdAt)}
+                            opened {formatRelativeTime(props.createdAt)}
                         </span>
                     </div>
                 </div>
@@ -214,15 +206,15 @@ function EmptyIssueBody({ author, createdAt }: { author: string; createdAt: stri
     )
 }
 
-function CommentItem({ comment }: { comment: Comments[number] }) {
+function CommentItem(props: { comment: Comments[number] }) {
     return (
         <div className="overflow-hidden rounded-md border">
             <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{userLabel(comment.author)}</span>
+                        <GhUser user={props.comment.author} />
                         <span className="text-muted-foreground">
-                            commented {formatRelativeTime(comment.createdAt)}
+                            commented {formatRelativeTime(props.comment.createdAt)}
                         </span>
                     </div>
                 </div>
@@ -230,7 +222,7 @@ function CommentItem({ comment }: { comment: Comments[number] }) {
             <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
                 <div
                     dangerouslySetInnerHTML={{
-                        __html: renderMarkdownToHtml(comment.body || ''),
+                        __html: renderMarkdownToHtml(props.comment.body || ''),
                     }}
                 />
             </div>
@@ -238,12 +230,14 @@ function CommentItem({ comment }: { comment: Comments[number] }) {
     )
 }
 
-function TimelineEvent({ event }: { event: TimelineItems[number] }) {
+function TimelineEvent(props: { event: TimelineItems[number] }) {
     return (
         <div className="flex items-center gap-3 text-sm">
-            <TimelineEventIcon event={event} />
-            <span>{describeTimelineEvent(event)}</span>
-            <span className="text-muted-foreground">{formatRelativeTime(event.createdAt)}</span>
+            <TimelineEventIcon event={props.event} />
+            <TimelineEventDescription event={props.event} />
+            <span className="text-muted-foreground">
+                {formatRelativeTime(props.event.createdAt)}
+            </span>
         </div>
     )
 }
@@ -284,59 +278,155 @@ function TimelineEventIcon({ event }: { event: TimelineItems[number] }) {
     }
 }
 
-function describeTimelineEvent(event: TimelineItems[number]): string {
-    let actor = userLabel(event.actor)
-    let actorLogin = userLogin(event.actor)
-    let t = event.item
+function sameGithubUser(u1: GithubUserDoc, u2: GithubUserDoc): boolean {
+    if (!u1 || u1 === 'github-actions') return false
+    if (!u2 || u2 === 'github-actions') return false
+
+    return u1.githubId === u2.githubId
+}
+
+function TimelineEventDescription(props: { event: TimelineItems[number] }) {
+    let t = props.event.item
+    let actor = props.event.actor
+
     switch (t.type) {
         case 'assigned': {
-            let assigneeLabel = userLabel(t.assignee)
-            let assigneeLogin = userLogin(t.assignee)
-            if (actorLogin && assigneeLogin && actorLogin === assigneeLogin) {
-                return `${actor} self-assigned this`
-            }
-            return `${actor} assigned ${assigneeLabel}`
+            let self = sameGithubUser(actor, t.assignee)
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>{self ? 'self-assigned this' : 'assigned'}</span>
+                    {!self && <GhUser user={t.assignee} avatarClassName="size-4" />}
+                </span>
+            )
         }
         case 'unassigned': {
-            let assigneeLabel = userLabel(t.assignee)
-            let assigneeLogin = userLogin(t.assignee)
-            if (actorLogin && assigneeLogin && actorLogin === assigneeLogin) {
-                return `${actor} unassigned themselves`
-            }
-            return `${actor} unassigned ${assigneeLabel}`
+            let self = sameGithubUser(actor, t.assignee)
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>{self ? 'unassigned themselves' : 'unassigned'}</span>
+                    {!self && <GhUser user={t.assignee} avatarClassName="size-4" />}
+                </span>
+            )
         }
         case 'labeled':
-            return `${actor} added the label ${t.label.name}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>added the label</span>
+                    <GhLabel label={t.label} />
+                </span>
+            )
         case 'unlabeled':
-            return `${actor} removed the label ${t.label.name}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>removed the label</span>
+                    <GhLabel label={t.label} />
+                </span>
+            )
         case 'milestoned':
-            return `${actor} added this to the milestone ${t.milestoneTitle}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>added this to the milestone "{t.milestoneTitle}"</span>
+                </span>
+            )
         case 'demilestoned':
-            return `${actor} removed this from the milestone ${t.milestoneTitle}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>removed this from the milestone "{t.milestoneTitle}"</span>
+                </span>
+            )
         case 'closed':
-            return `${actor} closed this`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>closed this</span>
+                </span>
+            )
         case 'reopened':
-            return `${actor} reopened this`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>reopened this</span>
+                </span>
+            )
         case 'renamed':
-            return `${actor} renamed this from "${t.previousTitle}" to "${t.currentTitle}"`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>
+                        renamed this from "{t.previousTitle}" to "{t.currentTitle}"
+                    </span>
+                </span>
+            )
         case 'referenced':
-            return `${actor} referenced a commit ${t.commit.oid.slice(0, 7)}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>referenced a commit {t.commit.oid.slice(0, 7)}</span>
+                </span>
+            )
         case 'cross_referenced':
-            return `${actor} cross-referenced from ${t.source.owner}/${t.source.name}#${t.source.number}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>
+                        cross-referenced from {t.source.owner}/{t.source.name}#{t.source.number}
+                    </span>
+                </span>
+            )
         case 'locked':
-            return `${actor} locked as resolved`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>locked as resolved</span>
+                </span>
+            )
         case 'unlocked':
-            return `${actor} unlocked this conversation`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>unlocked this conversation</span>
+                </span>
+            )
         case 'pinned':
-            return `${actor} pinned this issue`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>pinned this issue</span>
+                </span>
+            )
         case 'unpinned':
-            return `${actor} unpinned this issue`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>unpinned this issue</span>
+                </span>
+            )
         case 'transferred':
-            return `${actor} transferred this issue from ${t.fromRepository.owner}/${t.fromRepository.name}`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>
+                        transferred this issue from {t.fromRepository.owner}/{t.fromRepository.name}
+                    </span>
+                </span>
+            )
         default:
-            return `${actor} did something`
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <GhUser user={actor} avatarClassName="size-4" />
+                    <span>did something</span>
+                </span>
+            )
     }
 }
+
+// describeTimelineEvent removed in favor of rich JSX in TimelineEventDescription
 
 function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
     // Combine timeline items and comments, sort by createdAt

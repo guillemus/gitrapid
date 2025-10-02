@@ -57,8 +57,6 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
         else if (it.state === 'closed') closedCount++
     }
 
-    let reachedCap = results.size >= CAP
-
     let issues = Array.from(results.values())
     let issuesWithLabels = await addLabelsToIssues(ctx, issues, repoId)
     let issuesWithAuthor = await addAuthorsToIssues(ctx, issuesWithLabels)

@@ -1,4 +1,7 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
 import type { Doc } from '@convex/_generated/dataModel'
+import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { Badge } from './ui/badge'
 
 export type GhLabel = Doc<'labels'>
@@ -52,5 +55,43 @@ export function GhLabel(props: { label: GhLabel; isDarkMode?: boolean }) {
         >
             {props.label.name}
         </Badge>
+    )
+}
+
+export function GhUser(props: {
+    user: GithubUserDoc
+    className?: string
+    avatarClassName?: string
+    hideName?: boolean
+}) {
+    if (props.user === 'github-actions') {
+        return (
+            <span className={cn('inline-flex items-center gap-2', props.className)}>
+                <Avatar className={cn('size-5', props.avatarClassName)}>
+                    <AvatarFallback>GH</AvatarFallback>
+                </Avatar>
+                {!props.hideName && <span>GitHub Actions</span>}
+            </span>
+        )
+    }
+    if (!props.user) {
+        return (
+            <span className={cn('inline-flex items-center gap-2', props.className)}>
+                <Avatar className={cn('size-5', props.avatarClassName)}>
+                    <AvatarFallback>?</AvatarFallback>
+                </Avatar>
+                {!props.hideName && <span>ghost</span>}
+            </span>
+        )
+    }
+
+    return (
+        <span className={cn('inline-flex items-center gap-2', props.className)}>
+            <Avatar className={cn('size-5', props.avatarClassName)}>
+                <AvatarImage src={props.user.avatarUrl} alt={props.user.login} />
+                <AvatarFallback>{props.user.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            {!props.hideName && <span>{props.user.login}</span>}
+        </span>
     )
 }

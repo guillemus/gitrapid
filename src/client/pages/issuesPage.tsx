@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge'
+import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -26,14 +26,7 @@ import {
 import { Link, useNavigate } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '../convex'
-import {
-    formatRelativeTime,
-    useGithubParams,
-    usePageQuery,
-    userLabel,
-    useTanstackQuery,
-} from '../utils'
-import { GhLabel } from '@/components/ghLabel'
+import { formatRelativeTime, useGithubParams, usePageQuery, useTanstackQuery } from '../utils'
 
 type IssuesPageState = {
     cursors: Array<string | null>
@@ -304,7 +297,7 @@ function IssueItem({
                         <div className="text-muted-foreground mt-0 flex items-center space-x-1 text-xs font-normal">
                             <span>#{issue.number}</span>
                             <span>•</span>
-                            <span>{userLabel(issue.author)}</span>
+                            <GhUser user={issue.author}></GhUser>
                             <span>opened {formatRelativeTime(issue.createdAt)}</span>
                             {sortBy === 'updatedAt' && (
                                 <>

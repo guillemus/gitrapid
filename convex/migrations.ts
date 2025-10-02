@@ -13,5 +13,5 @@ export const runIt = migrations.runner(internal.migrations.main)
 
 export const main = migrations.define({
     table: 'issues',
-    migrateOne: async (ctx, doc) => {},
+    migrateOne: async (_ctx, _doc) => {},
 })

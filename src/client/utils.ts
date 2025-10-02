@@ -5,7 +5,6 @@ import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
-import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
 import { useConvexHttp } from './convex'
 
@@ -194,15 +193,4 @@ export function formatRelativeTime(date: string | number | Date): string {
         // Fallback to locale date string if parsing fails
         return new Date(date).toLocaleDateString()
     }
-}
-
-export function userLogin(u: GithubUserDoc): string | null {
-    if (u === 'github-actions') return 'GitHub Actions'
-    return u?.login ?? null
-}
-
-export function userLabel(u: GithubUserDoc): string {
-    if (u === 'github-actions') return 'GitHub Actions'
-    let login = userLogin(u)
-    return login ?? 'ghost'
 }
