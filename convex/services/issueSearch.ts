@@ -1,7 +1,5 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
-import { IssueBodies } from '@convex/models/issueBodies'
-import { IssueComments } from '@convex/models/issueComments'
 import { addAuthorsToIssues, addLabelsToIssues, Issues } from '@convex/models/issues'
 
 export const IssueSearch = {
@@ -21,34 +19,36 @@ async function searchIssues(ctx: QueryCtx, savedRepo: Doc<'repos'>, search: stri
 
     let results: Map<Id<'issues'>, Doc<'issues'>> = new Map()
 
-    console.time('issues search')
-
     let titleMatches = await Issues.search(ctx, repoId, search)
     for (let issue of titleMatches) {
         results.set(issue._id, issue)
     }
 
-    let commentMatches = await IssueComments.search(ctx, repoId, search)
-    for (let c of commentMatches) {
-        let id = c.issueId as Id<'issues'>
-        if (!results.has(id)) {
-            let issue = await ctx.db.get(id)
-            if (issue) {
-                results.set(id, issue)
-            }
-        }
-    }
+    // These are very slow to search for. I'm not sure how to make this text
+    // search faster and as correct as possible with githug so fuck it let's at
+    // least make it somewhat fast.
 
-    let bodyMatches = await IssueBodies.search(ctx, repoId, search)
-    for (let b of bodyMatches) {
-        let id = b.issueId as Id<'issues'>
-        if (!results.has(id)) {
-            let issue = await ctx.db.get(id)
-            if (issue) {
-                results.set(id, issue)
-            }
-        }
-    }
+    // let commentMatches = await IssueComments.search(ctx, repoId, search)
+    // for (let match of commentMatches) {
+    //     let id = match.issueId
+    //     if (!results.has(id)) {
+    //         let issue = await ctx.db.get(id)
+    //         if (issue) {
+    //             results.set(id, issue)
+    //         }
+    //     }
+    // }
+
+    // let bodyMatches = await IssueBodies.search(ctx, repoId, search)
+    // for (let match of bodyMatches) {
+    //     let id = match.issueId
+    //     if (!results.has(id)) {
+    //         let issue = await ctx.db.get(id)
+    //         if (issue) {
+    //             results.set(id, issue)
+    //         }
+    //     }
+    // }
 
     let openCount = 0
     let closedCount = 0

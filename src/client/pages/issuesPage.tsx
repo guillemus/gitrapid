@@ -454,7 +454,7 @@ function SearchBar() {
             <div className="relative flex-1">
                 <Input
                     autoFocus
-                    placeholder="Search issues"
+                    placeholder="Search issues by title"
                     className="rounded-r-none pr-10 font-normal"
                     value={state.ui.searchInput}
                     onChange={(e) => {
