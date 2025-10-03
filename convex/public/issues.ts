@@ -75,9 +75,12 @@ export const get = query({
         })
         if (!issue) return null
 
-        let assignees = await Issues.getAssigneesByIssueId(ctx, issue._id)
-        let labels = await Issues.getLabelsByIssueId(ctx, issue._id)
-        let body = await IssueBodies.getByIssueId(ctx, issue._id)
+        let [body, assignees, labels] = await Promise.all([
+            IssueBodies.getByIssueId(ctx, issue._id),
+            Issues.getAssigneesByIssueId(ctx, issue._id),
+            Issues.getLabelsByIssueId(ctx, issue._id),
+        ])
+
         let timelineItems = await IssueTimelineItems.listByIssueId(ctx, issue._id)
         let comments = await IssueComments.listByIssueIdWithRelations(ctx, issue._id)
 
