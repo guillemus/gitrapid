@@ -1,6 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
@@ -48,11 +48,11 @@ export async function getGithubUserId(ctx: { auth: ConvexAuth }) {
     return res
 }
 
-export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<string> {
+export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<Doc<'pats'>> {
     let token = await ctx.runQuery(internal.models.pats.getByUserId, {
         userId,
     })
     if (!token) return err('No PAT found')
 
-    return ok(token.token)
+    return ok(token)
 }

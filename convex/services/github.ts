@@ -19,9 +19,9 @@ export const Github = {
  * Octokit for some reason accepts auth as any. This is bad, and I've been
  * bitten by this many times, so use this wrapper whenever creating newOctokits.
  */
-export function newOctokit(token: string) {
+export function newOctokit(tokenRow: { token: string }) {
     let octo = new Octokit({
-        auth: token,
+        auth: tokenRow.token,
         throttle: { enabled: false },
     })
     return octo
@@ -56,7 +56,7 @@ async function getAllRefs(octo: Octokit, args: { owner: string; repo: string }) 
     return ok(data)
 }
 
-async function getTokenExpiration(token: string): R<Date> {
+async function getTokenExpiration(token: { token: string }): R<Date> {
     const octo = newOctokit(token)
 
     let res = await tryCatch(octo.rest.users.getAuthenticated())

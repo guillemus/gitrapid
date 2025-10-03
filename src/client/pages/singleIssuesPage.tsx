@@ -474,17 +474,20 @@ function AddCommentBox() {
         comment: '',
     })
 
-    async function handleAddComment(e: React.FormEvent<HTMLFormElement>) {
+    async function handleAddComment(e: { preventDefault: () => void }) {
         e.preventDefault()
 
         state.addingComment = true
-        await addComment({
-            owner,
-            repo,
-            number,
-            comment: state.comment,
-        })
-        state.addingComment = false
+        try {
+            await addComment({
+                owner,
+                repo,
+                number,
+                comment: state.comment,
+            })
+        } finally {
+            state.addingComment = false
+        }
         state.comment = ''
     }
 
@@ -496,6 +499,11 @@ function AddCommentBox() {
                     <textarea
                         rows={5}
                         onChange={(e) => (state.comment = e.target.value)}
+                        onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                                await handleAddComment(e)
+                            }
+                        }}
                         value={state.comment}
                         className="bg-background placeholder:text-muted-foreground w-full resize-none rounded-md p-3 text-sm outline-none"
                         placeholder="Write a comment..."

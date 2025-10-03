@@ -366,6 +366,6 @@ async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
     })
     if (!userToken) return err('user token not found')
 
-    let octo = newOctokit(userToken.token)
+    let octo = newOctokit(userToken)
     return ok(octo)
 }

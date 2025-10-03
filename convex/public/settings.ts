@@ -32,7 +32,7 @@ export const savePAT = action({
     async handler(ctx, { token, scopes }): R {
         let userId = await getUserId(ctx)
 
-        let expiresAt = await Github.getTokenExpiration(token)
+        let expiresAt = await Github.getTokenExpiration({ token })
         if (expiresAt.isErr) {
             return wrap('Failed to validate token', expiresAt)
         }

@@ -9,6 +9,7 @@ import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
 import { unwrap } from '@convex/shared'
 import { logger } from '@convex/utils'
+import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -158,32 +159,34 @@ export const addComment = action({
         })
         let savedRepo = unwrap(hasAccess)
 
-        let token = await getTokenFromUserId(ctx, userId)
-        if (token.isErr) throw new Error('no PAT found')
+        let token
+        token = await getTokenFromUserId(ctx, userId)
+        token = unwrap(token)
 
-        let octo = newOctokit(token.val)
+        let octo = newOctokit(token)
 
         let issue = await ctx.runQuery(internal.models.issues.getByRepoAndNumber, {
             repoId: savedRepo._id,
             number: args.number,
         })
-        if (!issue) throw new Error('issue not found')
+        assert(issue, 'issue not found')
 
-        let issueComment = await Github.addCommentToIssue(octo, {
+        let issueComment
+        issueComment = await Github.addCommentToIssue(octo, {
             owner: args.owner,
             repo: args.repo,
             issueNumber: args.number,
             comment: args.comment,
         })
-        if (issueComment.isErr) throw new Error('octo error: failed to add comment')
+        issueComment = unwrap(issueComment)
 
         await ctx.runMutation(internal.models.issueComments.insertUserComment, {
             repoId: savedRepo._id,
             issueId: issue._id,
-            githubId: issueComment.val.id,
+            githubId: issueComment.id,
             body: args.comment,
-            createdAt: issueComment.val.created_at,
-            updatedAt: issueComment.val.updated_at,
+            createdAt: issueComment.created_at,
+            updatedAt: issueComment.updated_at,
         })
     },
 })
