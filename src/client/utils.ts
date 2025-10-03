@@ -27,11 +27,19 @@ export function usePageQuery<
         queryKey: ['convexHttpQuery', getFunctionName(query), args],
 
         queryFn: async () => {
-            // @ts-expect-error: disable for simplicity
-            let res = await convexHttp!.query(query, args)
+            try {
+                // @ts-expect-error: disable for simplicity
+                let res = await convexHttp!.query(query, args)
+                return res
+            } catch (err) {
+                throw err
+            } finally {
+                // In the situations where the user has an expired jwt token
+                // clientside, the query will error with an 401. For the moment when
+                // that happens we just shrug and move on to the ws data instead.
 
-            didFirstLoad.value = true
-            return res
+                didFirstLoad.value = true
+            }
         },
         enabled: !!convexHttp && !firstLoad.value,
         staleTime: Infinity,
@@ -39,7 +47,13 @@ export function usePageQuery<
 
     let wsQuery = useTanstackQuery(convexQuery(query, args))
 
-    return wsQuery.data ?? httpQuery.data
+    if (wsQuery.data) {
+        return wsQuery.data
+    } else if (httpQuery.isError) {
+        return wsQuery.data
+    }
+
+    return httpQuery.data
 }
 
 export function getLanguageFromExtension(filePath: string): string {

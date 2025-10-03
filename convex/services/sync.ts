@@ -348,7 +348,7 @@ const DownloadRepoPage = {
             cursor = nextCursor.val.cursor
 
             // tiny jitter to avoid bursts
-            let jitter = Math.floor(Math.random() * 200)
+            let jitter = Math.floor(Math.random() * 200 + 1000)
             await new Promise((resolve) => setTimeout(resolve, jitter))
         }
 
