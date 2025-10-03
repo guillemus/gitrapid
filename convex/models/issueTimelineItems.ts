@@ -30,7 +30,7 @@ export type TimelineItemWithRelations = {
         | { type: 'closed' }
         | { type: 'reopened' }
         | { type: 'renamed'; previousTitle: string; currentTitle: string }
-        | { type: 'referenced'; commit: { oid: string; url: string } }
+        | { type: 'referenced'; commit?: { oid: string; url: string } }
         | {
               type: 'cross_referenced'
               source: { type: 'Issue' | 'PullRequest'; owner: string; name: string; number: number }

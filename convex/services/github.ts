@@ -407,7 +407,11 @@ let rateLimitErr: GraphqlRateLimitError = { retryAfterSecs: 60 }
 export function isGraphqlRateLimitError(
     err: GraphqlResponseError<unknown>,
 ): false | GraphqlRateLimitError {
-    const retryAfter = err.headers['retry-after']
+    let retryAfter = err.headers['retry-after']
+    if (!retryAfter) {
+        retryAfter = err.headers['Retry-After']
+    }
+
     const status = err.headers.status
 
     if (status === '403' || status === '429') {

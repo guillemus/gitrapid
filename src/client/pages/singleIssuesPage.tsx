@@ -367,7 +367,11 @@ function TimelineEventDescription(props: { event: TimelineItems[number] }) {
             return (
                 <span className="inline-flex items-center gap-1">
                     <GhUser user={actor} avatarClassName="size-4" />
-                    <span>referenced a commit {t.commit.oid.slice(0, 7)}</span>
+                    {t.commit ? (
+                        <span>referenced a commit {t.commit.oid.slice(0, 7)}</span>
+                    ) : (
+                        <span>referenced an unknown commit</span>
+                    )}
                 </span>
             )
         case 'cross_referenced':

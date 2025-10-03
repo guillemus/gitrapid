@@ -353,6 +353,27 @@ const PageInfoSchema = z.object({
 
 type PageInfo = z.infer<typeof PageInfoSchema>
 
+let RateLimitSchema = z.object({
+    cost: z.number(),
+    remaining: z.number(),
+    limit: z.number(),
+    used: z.number(),
+    resetAt: z.string(),
+})
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function applyGraphqlBackpressure(rate: z.infer<typeof RateLimitSchema>): Promise<void> {
+    let remaining = rate.remaining
+    let resetMs = Math.max(0, new Date(rate.resetAt).getTime() - Date.now())
+    if (remaining <= 50) {
+        let jitter = Math.floor(Math.random() * 1000)
+        await sleep(resetMs + jitter)
+    }
+}
+
 // bc of how we do fetch data, there might be some object formats that we haven't defined correctly.
 // if we parse each node individually we don't loose the others on a buggy fetch.
 const toBeLaterParsed = z.unknown()
@@ -427,6 +448,7 @@ type GetIssuesWithCommentsArgs = {
 
 let getIssuesWithCommentsQuery = `
     query GetIssuesWithComments($owner: String!, $repo: String!, $first: Int!, $after: String, $since: DateTime) {
+        rateLimit { limit cost used remaining resetAt }
         repository(owner: $owner, name: $repo) {
             issues(
                 first: $first, after: $after,
@@ -614,6 +636,16 @@ type FetchIssuesErrors =
     | { type: 'ERROR'; err: string }
     | { type: 'RATE_LIMIT_ERROR'; err: GraphqlRateLimitError }
 
+let FetchIssuesWithRateLimitResSchema = z.object({
+    rateLimit: RateLimitSchema,
+    repository: z.object({
+        issues: z.object({
+            nodes: z.array(toBeLaterParsed),
+            pageInfo: PageInfoSchema,
+        }),
+    }),
+})
+
 async function fetchIssuesPageGraphQL(
     octo: Octokit,
     args: GetIssuesWithCommentsArgs,
@@ -623,9 +655,21 @@ async function fetchIssuesPageGraphQL(
         fetchIssuesPageGraphQL.name,
         getIssuesWithCommentsQuery,
         args,
-        FetchIssuesResSchema,
+        FetchIssuesWithRateLimitResSchema,
     )
     if (res.isErr) return res
+
+    logger.info(
+        {
+            cost: res.val.rateLimit.cost,
+            used: res.val.rateLimit.used,
+            remaining: res.val.rateLimit.remaining,
+            limit: res.val.rateLimit.limit,
+        },
+        'graphql rateLimit',
+    )
+
+    await applyGraphqlBackpressure(res.val.rateLimit)
 
     return ok(res.val.repository.issues)
 }

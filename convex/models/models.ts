@@ -116,7 +116,7 @@ const timelineItem = v.object({
         }),
         v.object({
             type: v.literal('referenced'),
-            commit: v.object({ oid: v.string(), url: v.string() }),
+            commit: v.optional(v.object({ oid: v.string(), url: v.string() })),
         }),
         v.object({
             type: v.literal('cross_referenced'),
@@ -296,7 +296,9 @@ export const insertIssuesWithCommentsBatch = internalMutation({
                     } else if (t.item.type === 'referenced') {
                         item = {
                             type: 'referenced',
-                            commit: { oid: t.item.commit.oid, url: t.item.commit.url },
+                            commit: t.item.commit
+                                ? { oid: t.item.commit.oid, url: t.item.commit.url }
+                                : undefined,
                         }
                     } else if (t.item.type === 'cross_referenced') {
                         item = {

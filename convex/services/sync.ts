@@ -270,7 +270,14 @@ export const finishBackfill = internalMutation({
         let savedRepo = await ctx.db.get(args.context.repoId)
         assert(savedRepo, 'repo not found')
 
-        logger.info(`${savedRepo.owner}/${savedRepo.repo}: finishBackfill`)
+        let l = logger.child({ slug: `${savedRepo.owner}/${savedRepo.repo}` })
+        if (args.result.kind === 'failed') {
+            l.warn({ error: args.result.error }, 'backfill failed')
+        } else if (args.result.kind === 'canceled') {
+            l.warn('backfill canceled')
+        } else if (args.result.kind === 'success') {
+            l.info('backfill success')
+        }
 
         await SaveWorkflowResult.handler(ctx, {
             lastSyncedAt: args.context.backfillStartedAt,
@@ -314,7 +321,11 @@ const DownloadRepoPage = {
             })
             if (issuesPage.isErr) {
                 if (issuesPage.err.type === 'RATE_LIMIT_ERROR') {
-                    throw new Error(issuesPage.err.type)
+                    let secs = Math.max(issuesPage.err.err.retryAfterSecs, 10)
+                    logger.warn({ secs }, 'rate limited; backing off')
+                    await new Promise((resolve) => setTimeout(resolve, secs * 1000))
+                    i--
+                    continue
                 }
 
                 return err(issuesPage.err.err)
@@ -336,8 +347,9 @@ const DownloadRepoPage = {
             }
             cursor = nextCursor.val.cursor
 
-            // help with backpressure a bit
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            // tiny jitter to avoid bursts
+            let jitter = Math.floor(Math.random() * 200)
+            await new Promise((resolve) => setTimeout(resolve, jitter))
         }
 
         await dbInsertsP

@@ -165,7 +165,7 @@ const issueTimelineItems = defineTable({
         }),
         v.object({
             type: v.literal('referenced'),
-            commit: v.object({ oid: v.string(), url: v.string() }),
+            commit: v.optional(v.object({ oid: v.string(), url: v.string() })),
         }),
         v.object({
             type: v.literal('cross_referenced'),
