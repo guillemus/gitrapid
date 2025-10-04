@@ -1,6 +1,6 @@
 import { Header } from '@/client/header'
 import { useAuthToken } from '@convex-dev/auth/react'
-import { Outlet, Navigate, createFileRoute } from '@tanstack/react-router'
+import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
 
 export const Route = createFileRoute('/_app')({

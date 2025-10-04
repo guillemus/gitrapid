@@ -1,13 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { useMutable } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
+import { createFileRoute, Navigate } from '@tanstack/react-router'
 import { useConvexAuth } from 'convex/react'
 import { Loader2, Zap } from 'lucide-react'
-import { Navigate } from '@tanstack/react-router'
-import { useMutable } from '@/client/utils'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,

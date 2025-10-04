@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { queryClient } from '@/client/convex'
+import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import { IssueOpenedIcon } from '@primer/octicons-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -25,12 +27,10 @@ import {
     X,
 } from 'lucide-react'
 import { proxy, useSnapshot } from 'valtio'
-import { queryClient } from '@/client/convex'
-import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     loader: async (ctx) => {
-        queryClient.prefetchQuery(
+        void queryClient.prefetchQuery(
             convexQuery(api.public.issues.list, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,

@@ -30,7 +30,7 @@ export const queryClient = new QueryClient({
 })
 
 convexQueryClient.connect(queryClient)
-persistQueryClient(queryClient)
+void persistQueryClient(queryClient)
 
 export function useLogout() {
     const authActions = useAuthActions()

@@ -9,17 +9,15 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
-import { Link, useNavigate, useParams, useRouter, useRouterState } from '@tanstack/react-router'
+import { Link, useParams, useRouterState } from '@tanstack/react-router'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 
 export function Header() {
-    let router = useRouter()
     let isIssues = useRouterState({
         select: (state) => state.location.pathname.includes('/issues'),
     })
 
     let { owner, repo } = useParams({ strict: false })
-    let navigate = useNavigate()
     let logout = useLogout()
 
     return (

@@ -1,12 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { queryClient } from '@/client/convex'
+import { usePageQuery } from '@/client/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
+import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation } from 'convex/react'
 import {
     AlertCircle,
@@ -19,17 +22,14 @@ import {
     Trash2,
 } from 'lucide-react'
 import { proxy, useSnapshot } from 'valtio'
-import { usePageQuery } from '@/client/utils'
 import z from 'zod'
-import { queryClient } from '@/client/convex'
-import { convexQuery } from '@convex-dev/react-query'
 
 const searchParamsSchema = z.object({
     scope: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_app/settings')({
-    validateSearch: searchParamsSchema.parse,
+    validateSearch: (s) => searchParamsSchema.parse(s),
     loader: () => queryClient.prefetchQuery(convexQuery(api.public.settings.get, {})),
     component: SettingsPage,
 })

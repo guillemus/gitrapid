@@ -1,10 +1,13 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { queryClient } from '@/client/convex'
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
+import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import {
@@ -25,10 +28,7 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { toast } from 'sonner'
-import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import z from 'zod'
-import { queryClient } from '@/client/convex'
-import { convexQuery } from '@convex-dev/react-query'
 
 const paramsSchema = z.object({
     owner: z.string(),
@@ -38,16 +38,17 @@ const paramsSchema = z.object({
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
     params: {
-        parse: paramsSchema.parse,
+        parse: (s) => paramsSchema.parse(s),
     },
-    loader: (ctx) =>
-        queryClient.prefetchQuery(
+    loader: (ctx) => {
+        void queryClient.prefetchQuery(
             convexQuery(api.public.issues.get, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
                 number: ctx.params.issue,
             }),
-        ),
+        )
+    },
     component: SingleIssuesPage,
 })
 

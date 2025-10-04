@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { queryClient } from '@/client/convex'
+import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,15 +7,16 @@ import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction, useMutation, type ReactAction } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
-import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { useState } from 'react'
-import { queryClient } from '@/client/convex'
 
 export const Route = createFileRoute('/_app/dash')({
     component: DashboardPage,
-    loader: () => queryClient.prefetchQuery(convexQuery(api.public.dashboard.get, {})),
+    loader: () => {
+        void queryClient.prefetchQuery(convexQuery(api.public.dashboard.get, {}))
+    },
 })
 
 function DashboardPage() {
