@@ -14,9 +14,7 @@ const boolFromString = z
 const envSchema = z.object({
     DEV: boolFromString,
     DEBUG_LOGGER: boolFromString,
-    AUTH_GITHUB_ID: z.string(),
     CONVEX_SITE_URL: z.string().optional().default(''),
-    GITHUB_TOKEN: z.string().optional(),
     SECRET: z.string(),
 })
 
