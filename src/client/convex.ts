@@ -4,6 +4,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ConvexHttpClient } from 'convex/browser'
 import { ConvexReactClient } from 'convex/react'
+import { persistQueryClient } from './queryPersister'
 
 export const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL!)
 
@@ -29,6 +30,7 @@ export const queryClient = new QueryClient({
 })
 
 convexQueryClient.connect(queryClient)
+persistQueryClient(queryClient)
 
 export function useLogout() {
     const authActions = useAuthActions()
