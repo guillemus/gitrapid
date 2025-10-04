@@ -8,10 +8,10 @@ import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { useAction, useMutation, type ReactAction } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
-import { useState } from 'react'
 import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
+import { useState } from 'react'
 
-export const Route = createFileRoute('/dash')({
+export const Route = createFileRoute('/_app/dash')({
     component: DashboardPage,
 })
 
@@ -27,13 +27,11 @@ function DashboardPage() {
                 </div>
             )}
             {data && data.length > 0 && (
-                <>
-                    <div className="divide-y">
-                        {data.map((repo) => (
-                            <Repository key={repo._id} repo={repo} />
-                        ))}
-                    </div>
-                </>
+                <div className="divide-y">
+                    {data.map((repo) => (
+                        <Repository key={repo._id} repo={repo} />
+                    ))}
+                </div>
             )}
         </div>
     )

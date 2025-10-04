@@ -34,7 +34,7 @@ const paramsSchema = z.object({
     issue: z.number(),
 })
 
-export const Route = createFileRoute('/$owner/$repo/issues/$issue')({
+export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
     params: {
         parse: paramsSchema.parse,
     },

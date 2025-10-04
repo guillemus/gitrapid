@@ -26,7 +26,7 @@ const searchParamsSchema = z.object({
     scope: z.string().optional(),
 })
 
-export const Route = createFileRoute('/settings')({
+export const Route = createFileRoute('/_app/settings')({
     validateSearch: searchParamsSchema.parse,
     component: SettingsPage,
 })

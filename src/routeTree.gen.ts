@@ -9,127 +9,110 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashRouteImport } from './routes/dash'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as OwnerRepoIssuesIndexRouteImport } from './routes/$owner/$repo/issues/index'
-import { Route as OwnerRepoIssuesNewRouteImport } from './routes/$owner/$repo/issues/new'
-import { Route as OwnerRepoIssuesIssueRouteImport } from './routes/$owner/$repo/issues/$issue'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppDashRouteImport } from './routes/_app/dash'
+import { Route as AppOwnerRepoIssuesIndexRouteImport } from './routes/_app/$owner/$repo/issues/index'
+import { Route as AppOwnerRepoIssuesNewRouteImport } from './routes/_app/$owner/$repo/issues/new'
+import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owner/$repo/issues/$issue'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashRoute = DashRouteImport.update({
+const AppRouteRoute = AppRouteRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppDashRoute = AppDashRouteImport.update({
   id: '/dash',
   path: '/dash',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OwnerRepoIssuesIndexRoute = OwnerRepoIssuesIndexRouteImport.update({
+const AppOwnerRepoIssuesIndexRoute = AppOwnerRepoIssuesIndexRouteImport.update({
   id: '/$owner/$repo/issues/',
   path: '/$owner/$repo/issues/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
-const OwnerRepoIssuesNewRoute = OwnerRepoIssuesNewRouteImport.update({
+const AppOwnerRepoIssuesNewRoute = AppOwnerRepoIssuesNewRouteImport.update({
   id: '/$owner/$repo/issues/new',
   path: '/$owner/$repo/issues/new',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
-const OwnerRepoIssuesIssueRoute = OwnerRepoIssuesIssueRouteImport.update({
+const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
   id: '/$owner/$repo/issues/$issue',
   path: '/$owner/$repo/issues/$issue',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/dash': typeof DashRoute
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
-  '/$owner/$repo/issues/$issue': typeof OwnerRepoIssuesIssueRoute
-  '/$owner/$repo/issues/new': typeof OwnerRepoIssuesNewRoute
-  '/$owner/$repo/issues': typeof OwnerRepoIssuesIndexRoute
+  '/dash': typeof AppDashRoute
+  '/settings': typeof AppSettingsRoute
+  '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
+  '/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
+  '/$owner/$repo/issues': typeof AppOwnerRepoIssuesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/dash': typeof DashRoute
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
-  '/$owner/$repo/issues/$issue': typeof OwnerRepoIssuesIssueRoute
-  '/$owner/$repo/issues/new': typeof OwnerRepoIssuesNewRoute
-  '/$owner/$repo/issues': typeof OwnerRepoIssuesIndexRoute
+  '/dash': typeof AppDashRoute
+  '/settings': typeof AppSettingsRoute
+  '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
+  '/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
+  '/$owner/$repo/issues': typeof AppOwnerRepoIssuesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/dash': typeof DashRoute
+  '/_app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
-  '/$owner/$repo/issues/$issue': typeof OwnerRepoIssuesIssueRoute
-  '/$owner/$repo/issues/new': typeof OwnerRepoIssuesNewRoute
-  '/$owner/$repo/issues/': typeof OwnerRepoIssuesIndexRoute
+  '/_app/dash': typeof AppDashRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
+  '/_app/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
+  '/_app/$owner/$repo/issues/': typeof AppOwnerRepoIssuesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/dash'
     | '/login'
+    | '/dash'
     | '/settings'
     | '/$owner/$repo/issues/$issue'
     | '/$owner/$repo/issues/new'
     | '/$owner/$repo/issues'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/dash'
     | '/login'
+    | '/dash'
     | '/settings'
     | '/$owner/$repo/issues/$issue'
     | '/$owner/$repo/issues/new'
     | '/$owner/$repo/issues'
   id:
     | '__root__'
-    | '/'
-    | '/dash'
+    | '/_app'
     | '/login'
-    | '/settings'
-    | '/$owner/$repo/issues/$issue'
-    | '/$owner/$repo/issues/new'
-    | '/$owner/$repo/issues/'
+    | '/_app/dash'
+    | '/_app/settings'
+    | '/_app/$owner/$repo/issues/$issue'
+    | '/_app/$owner/$repo/issues/new'
+    | '/_app/$owner/$repo/issues/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DashRoute: typeof DashRoute
+  AppRouteRoute: typeof AppRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
-  SettingsRoute: typeof SettingsRoute
-  OwnerRepoIssuesIssueRoute: typeof OwnerRepoIssuesIssueRoute
-  OwnerRepoIssuesNewRoute: typeof OwnerRepoIssuesNewRoute
-  OwnerRepoIssuesIndexRoute: typeof OwnerRepoIssuesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -137,52 +120,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dash': {
-      id: '/dash'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/dash': {
+      id: '/_app/dash'
       path: '/dash'
       fullPath: '/dash'
-      preLoaderRoute: typeof DashRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppDashRouteImport
+      parentRoute: typeof AppRouteRoute
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/$owner/$repo/issues/': {
-      id: '/$owner/$repo/issues/'
+    '/_app/$owner/$repo/issues/': {
+      id: '/_app/$owner/$repo/issues/'
       path: '/$owner/$repo/issues'
       fullPath: '/$owner/$repo/issues'
-      preLoaderRoute: typeof OwnerRepoIssuesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppOwnerRepoIssuesIndexRouteImport
+      parentRoute: typeof AppRouteRoute
     }
-    '/$owner/$repo/issues/new': {
-      id: '/$owner/$repo/issues/new'
+    '/_app/$owner/$repo/issues/new': {
+      id: '/_app/$owner/$repo/issues/new'
       path: '/$owner/$repo/issues/new'
       fullPath: '/$owner/$repo/issues/new'
-      preLoaderRoute: typeof OwnerRepoIssuesNewRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppOwnerRepoIssuesNewRouteImport
+      parentRoute: typeof AppRouteRoute
     }
-    '/$owner/$repo/issues/$issue': {
-      id: '/$owner/$repo/issues/$issue'
+    '/_app/$owner/$repo/issues/$issue': {
+      id: '/_app/$owner/$repo/issues/$issue'
       path: '/$owner/$repo/issues/$issue'
       fullPath: '/$owner/$repo/issues/$issue'
-      preLoaderRoute: typeof OwnerRepoIssuesIssueRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppOwnerRepoIssuesIssueRouteImport
+      parentRoute: typeof AppRouteRoute
     }
   }
 }
 
+interface AppRouteRouteChildren {
+  AppDashRoute: typeof AppDashRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppOwnerRepoIssuesIssueRoute: typeof AppOwnerRepoIssuesIssueRoute
+  AppOwnerRepoIssuesNewRoute: typeof AppOwnerRepoIssuesNewRoute
+  AppOwnerRepoIssuesIndexRoute: typeof AppOwnerRepoIssuesIndexRoute
+}
+
+const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppDashRoute: AppDashRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppOwnerRepoIssuesIssueRoute: AppOwnerRepoIssuesIssueRoute,
+  AppOwnerRepoIssuesNewRoute: AppOwnerRepoIssuesNewRoute,
+  AppOwnerRepoIssuesIndexRoute: AppOwnerRepoIssuesIndexRoute,
+}
+
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DashRoute: DashRoute,
+  AppRouteRoute: AppRouteRouteWithChildren,
   LoginRoute: LoginRoute,
-  SettingsRoute: SettingsRoute,
-  OwnerRepoIssuesIssueRoute: OwnerRepoIssuesIssueRoute,
-  OwnerRepoIssuesNewRoute: OwnerRepoIssuesNewRoute,
-  OwnerRepoIssuesIndexRoute: OwnerRepoIssuesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

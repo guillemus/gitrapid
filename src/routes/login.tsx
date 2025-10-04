@@ -6,8 +6,8 @@ import { useAuthActions } from '@convex-dev/auth/react'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { useConvexAuth } from 'convex/react'
 import { Loader2, Zap } from 'lucide-react'
-import { useState } from 'react'
 import { Navigate } from '@tanstack/react-router'
+import { useMutable } from '@/client/utils'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,
@@ -16,18 +16,17 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
     let auth = useConvexAuth()
     let actions = useAuthActions()
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    let state = useMutable({ isLoading: false, error: null as string | null })
 
     async function handleGitHubLogin() {
-        setIsLoading(true)
-        setError(null)
+        state.isLoading = true
+        state.error = null
 
         try {
             await actions.signIn('github', { redirectTo: '/dash' })
         } catch {
-            setError('Failed to sign in with GitHub. Please try again.')
-            setIsLoading(false)
+            state.error = 'Failed to sign in with GitHub. Please try again.'
+            state.isLoading = false
         }
     }
 
@@ -59,19 +58,19 @@ function LoginPage() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        {error && (
+                        {state.error && (
                             <Alert variant="destructive" className="mb-4">
-                                <AlertDescription>{error}</AlertDescription>
+                                <AlertDescription>{state.error}</AlertDescription>
                             </Alert>
                         )}
 
                         <Button
                             onClick={handleGitHubLogin}
-                            disabled={isLoading}
+                            disabled={state.isLoading}
                             className="h-12 w-full transform bg-slate-900 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 active:scale-[0.98]"
                             size="lg"
                         >
-                            {isLoading ? (
+                            {state.isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                                     Signing in...

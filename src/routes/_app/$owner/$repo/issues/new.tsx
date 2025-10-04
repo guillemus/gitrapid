@@ -6,7 +6,7 @@ import { api } from '@convex/_generated/api'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
 
-export const Route = createFileRoute('/$owner/$repo/issues/new')({
+export const Route = createFileRoute('/_app/$owner/$repo/issues/new')({
     component: CreateNewIssuePage,
 })
 

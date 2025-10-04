@@ -28,7 +28,7 @@ import { proxy, useSnapshot } from 'valtio'
 import { queryClient } from '@/client/convex'
 import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 
-export const Route = createFileRoute('/$owner/$repo/issues/')({
+export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     component: IssuesPage,
 })
 
