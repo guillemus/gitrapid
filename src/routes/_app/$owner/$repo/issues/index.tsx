@@ -29,6 +29,20 @@ import { queryClient } from '@/client/convex'
 import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
+    loader: async (ctx) => {
+        queryClient.prefetchQuery(
+            convexQuery(api.public.issues.list, {
+                owner: ctx.params.owner,
+                repo: ctx.params.repo,
+                state: state.filters.state,
+                sortBy: state.filters.sortBy,
+                paginationOpts: {
+                    numItems: state.pageSize,
+                    cursor: null,
+                },
+            }),
+        )
+    },
     component: IssuesPage,
 })
 
@@ -134,7 +148,7 @@ function IssuesPage() {
                             ? '... Open'
                             : activeSearch
                               ? (() => {
-                                    let meta = (searchQuery.data as SearchResult | undefined)?.meta
+                                    let meta = searchQuery.data?.meta
                                     let count = meta?.totalOpen ?? 0
                                     return `${count} Open`
                                 })()
@@ -158,7 +172,7 @@ function IssuesPage() {
                             ? '... Closed'
                             : activeSearch
                               ? (() => {
-                                    let meta = (searchQuery.data as SearchResult | undefined)?.meta
+                                    let meta = searchQuery.data?.meta
                                     let count = meta?.totalClosed ?? 0
                                     return `${count} Closed`
                                 })()

@@ -27,17 +27,27 @@ import { useMemo } from 'react'
 import { toast } from 'sonner'
 import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import z from 'zod'
+import { queryClient } from '@/client/convex'
+import { convexQuery } from '@convex-dev/react-query'
 
 const paramsSchema = z.object({
     owner: z.string(),
     repo: z.string(),
-    issue: z.number(),
+    issue: z.string().transform((val) => parseInt(val)),
 })
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
     params: {
         parse: paramsSchema.parse,
     },
+    loader: (ctx) =>
+        queryClient.prefetchQuery(
+            convexQuery(api.public.issues.get, {
+                owner: ctx.params.owner,
+                repo: ctx.params.repo,
+                number: ctx.params.issue,
+            }),
+        ),
     component: SingleIssuesPage,
 })
 

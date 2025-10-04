@@ -9,16 +9,14 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
-import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useRouter, useRouterState } from '@tanstack/react-router'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
-
-export type HeaderProps = {
-    tab: 'issues' | 'none'
-}
 
 export function Header() {
     let router = useRouter()
-    let isIssues = router.basepath.includes('issues')
+    let isIssues = useRouterState({
+        select: (state) => state.location.pathname.includes('/issues'),
+    })
 
     let { owner, repo } = useParams({ strict: false })
     let navigate = useNavigate()
@@ -55,13 +53,8 @@ export function Header() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onSelect={async (e) => {
-                                        e.preventDefault()
-                                        await navigate({ to: '/settings' })
-                                    }}
-                                >
-                                    Settings
+                                <DropdownMenuItem asChild>
+                                    <Link to="/settings">Settings</Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

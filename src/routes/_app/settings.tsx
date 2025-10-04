@@ -21,6 +21,8 @@ import {
 import { proxy, useSnapshot } from 'valtio'
 import { usePageQuery } from '@/client/utils'
 import z from 'zod'
+import { queryClient } from '@/client/convex'
+import { convexQuery } from '@convex-dev/react-query'
 
 const searchParamsSchema = z.object({
     scope: z.string().optional(),
@@ -28,6 +30,7 @@ const searchParamsSchema = z.object({
 
 export const Route = createFileRoute('/_app/settings')({
     validateSearch: searchParamsSchema.parse,
+    loader: () => queryClient.prefetchQuery(convexQuery(api.public.settings.get, {})),
     component: SettingsPage,
 })
 

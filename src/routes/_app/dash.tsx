@@ -10,9 +10,11 @@ import { useAction, useMutation, type ReactAction } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
 import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { useState } from 'react'
+import { queryClient } from '@/client/convex'
 
 export const Route = createFileRoute('/_app/dash')({
     component: DashboardPage,
+    loader: () => queryClient.prefetchQuery(convexQuery(api.public.dashboard.get, {})),
 })
 
 function DashboardPage() {
@@ -163,7 +165,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
             <div className="flex-1">
                 <div className="flex items-center gap-2">
                     <Link
-                        to={`/$owner/$repo/issues`}
+                        to="/$owner/$repo/issues"
                         params={{ owner: props.repo.owner, repo: props.repo.repo }}
                         className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
