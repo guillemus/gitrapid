@@ -1,3 +1,4 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,16 +24,13 @@ import {
     Search,
     X,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
-import { queryClient } from '../convex'
-import {
-    formatRelativeTime,
-    useGithubParams,
-    useMutable,
-    usePageQuery,
-    useTanstackQuery,
-} from '../utils'
+import { queryClient } from '@/client/convex'
+import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
+
+export const Route = createFileRoute('/$owner/$repo/issues/')({
+    component: IssuesPage,
+})
 
 const state = proxy({
     cursors: [null] as (string | null)[],
@@ -51,12 +49,12 @@ type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 type FoundIssue = SearchResult['issues'][number]
 
 export function IssuesPage() {
-    let navigate = useNavigate()
+    let navigate = Route.useNavigate()
+    let params = Route.useParams()
     useSnapshot(state)
 
     let activeSearch = state.filters.search
 
-    let params = useGithubParams()
     let issueList = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
@@ -106,7 +104,12 @@ export function IssuesPage() {
                 <SearchBar />
                 <Button
                     className="gap-2"
-                    onClick={() => navigate(`/${params.owner}/${params.repo}/issues/new`)}
+                    onClick={() =>
+                        navigate({
+                            to: `/$owner/$repo/issues/new`,
+                            params: { owner: params.owner, repo: params.repo },
+                        })
+                    }
                 >
                     <Plus className="h-4 w-4" />
                     New issue
@@ -200,7 +203,7 @@ export function IssuesPage() {
 }
 
 function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt' | 'comments' }) {
-    let params = useGithubParams()
+    let params = Route.useParams()
 
     return (
         <div
@@ -227,7 +230,12 @@ function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt'
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 leading-[1.4rem]">
                             <Link
-                                to={`/${params.owner}/${params.repo}/issues/${props.issue.number}`}
+                                to={`/$owner/$repo/issues/$issue`}
+                                params={{
+                                    owner: params.owner,
+                                    repo: params.repo,
+                                    issue: props.issue.number,
+                                }}
                             >
                                 <h3 className="text-foreground cursor-pointer font-medium hover:text-blue-600">
                                     {props.issue.title}
@@ -271,7 +279,7 @@ function PaginationControls() {
 
 // Paginates issues by cursor
 function ServerPaginationControls() {
-    let params = useGithubParams()
+    let params = Route.useParams()
     let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
@@ -324,7 +332,7 @@ function ServerPaginationControls() {
 
 // Paginates already fetched issues
 function ClientPaginationControls() {
-    let params = useGithubParams()
+    let params = Route.useParams()
     let searchRes = useTanstackQuery(
         convexQuery(
             api.public.issues.search,

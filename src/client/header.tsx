@@ -1,5 +1,4 @@
 import { useLogout } from '@/client/convex'
-import { FastLink, FastLink as Link } from '@/components/fastLink'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,15 +9,15 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router'
 
 export type HeaderProps = {
     tab: 'issues' | 'none'
 }
 
 export function Header({ tab }: HeaderProps) {
-    let { owner, repo } = useParams()
+    let { owner, repo } = useParams({ strict: false })
     let navigate = useNavigate()
     let logout = useLogout()
 
@@ -28,9 +27,9 @@ export function Header({ tab }: HeaderProps) {
                 <div className="flex items-center justify-between pt-4 pb-0 font-normal">
                     <div className="flex items-center space-x-2">
                         <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
-                            <FastLink to="/dash">
+                            <Link to="/dash">
                                 <Code className="h-4 w-4" />
-                            </FastLink>
+                            </Link>
                         </div>
                         {owner && repo && (
                             <>
@@ -56,7 +55,7 @@ export function Header({ tab }: HeaderProps) {
                                 <DropdownMenuItem
                                     onSelect={async (e) => {
                                         e.preventDefault()
-                                        await navigate('/settings')
+                                        await navigate({ to: '/settings' })
                                     }}
                                 >
                                     Settings

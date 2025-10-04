@@ -3,17 +3,12 @@ import { useMutable } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@convex/_generated/api'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
-import { useNavigate, useParams } from 'react-router'
 
-function usePageParams() {
-    let { owner, repo } = useParams()
-
-    if (!owner) throw new Error('owner not found')
-    if (!repo) throw new Error('repo not found')
-
-    return { owner, repo }
-}
+export const Route = createFileRoute('/$owner/$repo/issues/new')({
+    component: CreateNewIssuePage,
+})
 
 // fixme: this page should not allow the user to try to write an issue if he
 // doesn't have a PAT with permissions. Otherwise if I error out the github
@@ -22,7 +17,7 @@ function usePageParams() {
 // fixme: issue persistence to localstorage. The contents should NEVER be lost
 
 export function CreateNewIssuePage() {
-    let { owner, repo } = usePageParams()
+    let { owner, repo } = Route.useParams()
     let navigate = useNavigate()
 
     let state = useMutable({
@@ -46,7 +41,10 @@ export function CreateNewIssuePage() {
         })
         state.creatingIssue = false
 
-        await navigate(`/${owner}/${repo}/issues/${res.githubIssueNumber}`)
+        await navigate({
+            to: `/$owner/$repo/issues/$issue`,
+            params: { owner, repo, issue: res.githubIssueNumber },
+        })
     }
 
     return (
@@ -133,7 +131,12 @@ export function CreateNewIssuePage() {
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
-                                onClick={() => navigate(`/${owner}/${repo}/issues`)}
+                                onClick={() =>
+                                    navigate({
+                                        to: `/$owner/$repo/issues`,
+                                        params: { owner, repo },
+                                    })
+                                }
                             >
                                 Cancel
                             </Button>

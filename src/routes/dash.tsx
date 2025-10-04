@@ -1,4 +1,4 @@
-import { FastLink } from '@/components/fastLink'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,11 @@ import type { Doc } from '@convex/_generated/dataModel'
 import { useAction, useMutation, type ReactAction } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
-import { useMutable, usePageQuery, useTanstackQuery } from '../utils'
+import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
+
+export const Route = createFileRoute('/dash')({
+    component: DashboardPage,
+})
 
 export function DashboardPage() {
     let data = usePageQuery(api.public.dashboard.get, {})
@@ -160,12 +164,13 @@ function Repository(props: { repo: Doc<'repos'> }) {
         <div className="flex items-center justify-between p-4">
             <div className="flex-1">
                 <div className="flex items-center gap-2">
-                    <FastLink
-                        to={`/${props.repo.owner}/${props.repo.repo}/issues`}
+                    <Link
+                        to={`/$owner/$repo/issues`}
+                        params={{ owner: props.repo.owner, repo: props.repo.repo }}
                         className="text-lg font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
                         {props.repo.owner}/{props.repo.repo}
-                    </FastLink>
+                    </Link>
                     {props.repo.private && (
                         <Badge variant="secondary" className="text-xs">
                             Private

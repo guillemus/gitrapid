@@ -1,3 +1,4 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { GhLabel, GhUser } from '@/components/github'
 import { Badge } from '@/components/ui/badge'
@@ -23,28 +24,29 @@ import {
     UserPlus,
 } from 'lucide-react'
 import { useMemo } from 'react'
-import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
+import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
+import z from 'zod'
 
-function usePageParams() {
-    let { owner, repo, number } = useParams()
-    if (!owner) throw new Error('owner not found')
-    if (!repo) throw new Error('repo not found')
-    if (!number) throw new Error('number not found')
+const paramsSchema = z.object({
+    owner: z.string(),
+    repo: z.string(),
+    issue: z.number(),
+})
 
-    let numberInt = parseInt(number)
-    if (Number.isNaN(numberInt)) throw new Error('number is not a number')
-
-    return { owner, repo, number: numberInt }
-}
+export const Route = createFileRoute('/$owner/$repo/issues/$issue')({
+    params: {
+        parse: paramsSchema.parse,
+    },
+    component: SingleIssuesPage,
+})
 
 type Data = Exclude<FunctionReturnType<typeof api.public.issues.get>, null>
 type Comments = Data['comments']
 type TimelineItems = Data['timelineItems']
 
 export function SingleIssuesPage() {
-    let { owner, repo, number } = usePageParams()
+    let { owner, repo, issue: number } = Route.useParams()
 
     let data = usePageQuery(api.public.issues.get, { owner, repo, number })
 
@@ -465,7 +467,7 @@ function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
 }
 
 function AddCommentBox() {
-    let { owner, repo, number } = usePageParams()
+    let { owner, repo, issue: number } = Route.useParams()
     let addComment = useAction(api.public.issues.addComment)
 
     let state = useMutable({
@@ -489,7 +491,8 @@ function AddCommentBox() {
                             Go to{' '}
                             <Link
                                 className="underline"
-                                to={`/settings?scope=${res.err.requiredScope}`}
+                                to={`/settings`}
+                                search={{ scope: res.err.requiredScope }}
                             >
                                 settings
                             </Link>{' '}

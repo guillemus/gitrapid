@@ -1,3 +1,4 @@
+import { createFileRoute } from '@tanstack/react-router'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
@@ -6,7 +7,11 @@ import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { useConvexAuth } from 'convex/react'
 import { Loader2, Zap } from 'lucide-react'
 import { useState } from 'react'
-import { Navigate } from 'react-router'
+import { Navigate } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/login')({
+    component: LoginPage,
+})
 
 export function LoginPage() {
     let auth = useConvexAuth()

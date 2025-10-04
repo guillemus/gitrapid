@@ -1,10 +1,10 @@
 ---
-import { LandingPage } from '@/client/pages/landingPage'
+import { Main } from '@/main'
 import { RedirectIfLoggedIn } from '@/components/redirectIfLoggedIn'
 import Layout from '@/layout.astro'
 ---
 
 <Layout>
-    <LandingPage />
+    <Main />
     <RedirectIfLoggedIn client:only="react" />
 </Layout>

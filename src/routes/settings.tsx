@@ -1,3 +1,4 @@
+import { createFileRoute } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +19,17 @@ import {
     Trash2,
 } from 'lucide-react'
 import { proxy, useSnapshot } from 'valtio'
-import { usePageQuery } from '../utils'
+import { usePageQuery } from '@/client/utils'
+import z from 'zod'
+
+const searchParamsSchema = z.object({
+    scope: z.string().optional(),
+})
+
+export const Route = createFileRoute('/settings')({
+    validateSearch: searchParamsSchema.parse,
+    component: SettingsPage,
+})
 
 // We can have a 'none' scope, which in github means that it is just read only
 // access. It isn't really a scope, it's just that the user gives permission to

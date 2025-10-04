@@ -2,7 +2,6 @@ import { convexQuery } from '@convex-dev/react-query'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
-import { useParams } from 'react-router'
 import { proxy, useSnapshot } from 'valtio'
 
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
@@ -179,19 +178,6 @@ export type GithubParams = {
     owner: string
     repo: string
     refAndPath: string
-}
-
-export function useGithubParams(): GithubParams {
-    let params = useParams()
-
-    let owner = params.owner
-    if (!owner) throw new Error(':owner required')
-    let repo = params.repo
-    if (!repo) throw new Error(':repo required')
-
-    let refAndPath = params['*'] ?? ''
-
-    return { owner, repo, refAndPath }
 }
 
 /**
