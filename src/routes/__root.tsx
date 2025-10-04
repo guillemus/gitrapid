@@ -34,4 +34,6 @@ function RootLayout() {
     )
 }
 
+// @ts-expect-error: the layout is applying in places where it shouldn't (landing page mainly)
+
 export const Route = createRootRoute({ component: RootLayout })

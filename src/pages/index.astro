@@ -2,9 +2,11 @@
 import { Main } from '@/main'
 import { RedirectIfLoggedIn } from '@/components/redirectIfLoggedIn'
 import Layout from '@/layout.astro'
+
+// @ts-expect-error: main should not be rendered on client here
 ---
 
 <Layout>
-    <Main />
-    <RedirectIfLoggedIn client:only="react" />
+    <Main client:only="react" />
+    <!-- <RedirectIfLoggedIn client:only="react" /> -->
 </Layout>
