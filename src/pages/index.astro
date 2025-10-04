@@ -1,12 +1,10 @@
 ---
-import { Main } from '@/main'
+import { Landing } from '@/landing'
 import { RedirectIfLoggedIn } from '@/components/redirectIfLoggedIn'
 import Layout from '@/layout.astro'
-
-// @ts-expect-error: main should not be rendered on client here
 ---
 
 <Layout>
-    <Main client:only="react" />
-    <!-- <RedirectIfLoggedIn client:only="react" /> -->
+    <Landing />
+    <RedirectIfLoggedIn client:only="react" />
 </Layout>

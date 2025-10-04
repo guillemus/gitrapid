@@ -13,7 +13,7 @@ export const Route = createFileRoute('/login')({
     component: LoginPage,
 })
 
-export function LoginPage() {
+function LoginPage() {
     let auth = useConvexAuth()
     let actions = useAuthActions()
     const [isLoading, setIsLoading] = useState(false)

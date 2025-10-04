@@ -15,7 +15,7 @@ export const Route = createFileRoute('/dash')({
     component: DashboardPage,
 })
 
-export function DashboardPage() {
+function DashboardPage() {
     let data = usePageQuery(api.public.dashboard.get, {})
 
     return (

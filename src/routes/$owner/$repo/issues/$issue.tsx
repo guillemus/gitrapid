@@ -45,7 +45,7 @@ type Data = Exclude<FunctionReturnType<typeof api.public.issues.get>, null>
 type Comments = Data['comments']
 type TimelineItems = Data['timelineItems']
 
-export function SingleIssuesPage() {
+function SingleIssuesPage() {
     let { owner, repo, issue: number } = Route.useParams()
 
     let data = usePageQuery(api.public.issues.get, { owner, repo, number })

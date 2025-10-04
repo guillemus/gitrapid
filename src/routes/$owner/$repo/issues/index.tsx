@@ -48,7 +48,7 @@ type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 
 type FoundIssue = SearchResult['issues'][number]
 
-export function IssuesPage() {
+function IssuesPage() {
     let navigate = Route.useNavigate()
     let params = Route.useParams()
     useSnapshot(state)

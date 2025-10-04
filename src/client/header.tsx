@@ -9,14 +9,17 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
-import { Link, useNavigate, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
 import { Code, GitPullRequest, Settings } from 'lucide-react'
 
 export type HeaderProps = {
     tab: 'issues' | 'none'
 }
 
-export function Header({ tab }: HeaderProps) {
+export function Header() {
+    let router = useRouter()
+    let isIssues = router.basepath.includes('issues')
+
     let { owner, repo } = useParams({ strict: false })
     let navigate = useNavigate()
     let logout = useLogout()
@@ -76,13 +79,13 @@ export function Header({ tab }: HeaderProps) {
                 </div>
                 <div className="flex items-center justify-between space-x-6 overflow-x-auto overflow-y-hidden pb-0">
                     <div>
-                        {tab === 'none' && <div className="py-2" />}
-                        {tab !== 'none' && (
+                        {!isIssues && <div className="py-2" />}
+                        {isIssues && (
                             <>
                                 <Tab
                                     href={`/${owner}/${repo}/issues`}
                                     label="Issues"
-                                    active={tab === 'issues'}
+                                    active
                                     icon={GitPullRequest}
                                 />
                             </>

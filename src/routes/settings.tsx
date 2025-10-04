@@ -252,7 +252,7 @@ function CreateTokenCard() {
     )
 }
 
-export function SettingsPage() {
+function SettingsPage() {
     useSnapshot(state)
     const page = usePageQuery(api.public.settings.get, {})
     const savePAT = useAction(api.public.settings.savePAT)

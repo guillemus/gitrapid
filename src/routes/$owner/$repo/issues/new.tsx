@@ -16,7 +16,7 @@ export const Route = createFileRoute('/$owner/$repo/issues/new')({
 
 // fixme: issue persistence to localstorage. The contents should NEVER be lost
 
-export function CreateNewIssuePage() {
+function CreateNewIssuePage() {
     let { owner, repo } = Route.useParams()
     let navigate = useNavigate()
 

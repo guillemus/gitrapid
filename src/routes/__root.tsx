@@ -18,12 +18,12 @@ function RootLayout() {
     return (
         <div className="bg-background flex h-screen flex-col">
             <div className="flex-shrink-0">
-                <Header tab={'none'} />
+                <Header />
             </div>
             <AuthenticatedWithToken>
                 <div className="scrollbar-gutter-stable flex-1 overflow-y-auto">
                     <div className="container mx-auto px-4 py-6">
-                        <Outlet></Outlet>
+                        <Outlet />
                     </div>
                 </div>
             </AuthenticatedWithToken>
@@ -33,7 +33,5 @@ function RootLayout() {
         </div>
     )
 }
-
-// @ts-expect-error: the layout is applying in places where it shouldn't (landing page mainly)
 
 export const Route = createRootRoute({ component: RootLayout })
