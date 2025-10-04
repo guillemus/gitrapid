@@ -22,7 +22,6 @@ export function Main() {
         <ConvexAuthProvider client={convex}>
             <QueryClientProvider client={queryClient}>
                 <RouterProvider router={router} />
-                {/* <ReactQueryDevtools client={queryClient}></ReactQueryDevtools> */}
             </QueryClientProvider>
         </ConvexAuthProvider>
     )
