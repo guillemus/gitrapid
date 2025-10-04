@@ -56,3 +56,13 @@ export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R
 
     return ok(token)
 }
+
+export function canUserCommentOnRepo(repo: Doc<'repos'>, token: Doc<'pats'>) {
+    if (token.scopes.includes('repo')) return true
+
+    if (token.scopes.includes('public_repo')) {
+        return !repo.private
+    }
+
+    return false
+}

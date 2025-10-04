@@ -4,10 +4,10 @@ import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
-import { Auth, getTokenFromUserId, getUserId } from '@convex/services/auth'
+import { Auth, canUserCommentOnRepo, getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { IssueSearch } from '@convex/services/issueSearch'
-import { unwrap } from '@convex/shared'
+import { err, ok, unwrap } from '@convex/shared'
 import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -163,6 +163,16 @@ export const addComment = action({
         token = await getTokenFromUserId(ctx, userId)
         token = unwrap(token)
 
+        console.log(savedRepo, token)
+
+        if (!canUserCommentOnRepo(savedRepo, token)) {
+            if (savedRepo.private) {
+                return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'repo' })
+            } else {
+                return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'public_repo' })
+            }
+        }
+
         let octo = newOctokit(token)
 
         let issue = await ctx.runQuery(internal.models.issues.getByRepoAndNumber, {
@@ -188,5 +198,7 @@ export const addComment = action({
             createdAt: issueComment.created_at,
             updatedAt: issueComment.updated_at,
         })
+
+        return ok()
     },
 })

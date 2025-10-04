@@ -31,8 +31,6 @@ export function usePageQuery<
                 // @ts-expect-error: disable for simplicity
                 let res = await convexHttp!.query(query, args)
                 return res
-            } catch (err) {
-                throw err
             } finally {
                 // In the situations where the user has an expired jwt token
                 // clientside, the query will error with an 401. For the moment when

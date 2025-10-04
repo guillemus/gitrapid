@@ -3,18 +3,6 @@ import { parseDate } from '@convex/utils'
 import { Octokit, RequestError } from 'octokit'
 import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
 
-export const Github = {
-    getAllRefs,
-    getTokenExpiration,
-    parseGithubUrl,
-    getRateLimit,
-    getRepoIssuePrCounts,
-    createIssue: createIssue,
-    addCommentToIssue: addCommentToIssue,
-    getAuthenticatedUser,
-    checkForIssueUpdates,
-}
-
 /**
  * Octokit for some reason accepts auth as any. This is bad, and I've been
  * bitten by this many times, so use this wrapper whenever creating newOctokits.
@@ -27,53 +15,233 @@ export function newOctokit(tokenRow: { token: string }) {
     return octo
 }
 
-export type GitRefInfo = {
-    name: string
-    commitSha: string
-    isTag: boolean
-}
-
-async function getAllRefs(octo: Octokit, args: { owner: string; repo: string }) {
-    let heads = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
-    if (heads.isErr) return octoWrap(`Failed to list heads refs`, heads)
-
-    let tags = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
-    if (tags.isErr) return octoWrap(`Failed to list tags refs`, tags)
-
-    let data: GitRefInfo[] = [
-        ...heads.val.map((ref) => ({
-            name: ref.ref.replace('refs/heads/', ''),
-            commitSha: ref.object.sha,
-            isTag: false,
-        })),
-        ...tags.val.map((ref) => ({
-            name: ref.ref.replace('refs/tags/', ''),
-            commitSha: ref.object.sha,
-            isTag: true,
-        })),
-    ]
-
-    return ok(data)
-}
-
-async function getTokenExpiration(token: { token: string }): R<Date> {
-    const octo = newOctokit(token)
-
-    let res = await tryCatch(octo.rest.users.getAuthenticated())
-    if (res.isErr) return wrap('failed to get token expiration', res)
-
-    let expiration = res.val.headers['github-authentication-token-expiration']
-    if (!expiration) {
-        return err('no expiration header found in response')
+export namespace Github {
+    export type GitRefInfo = {
+        name: string
+        commitSha: string
+        isTag: boolean
     }
 
-    if (typeof expiration === 'string') {
-        return parseDate(expiration)
-    } else if (typeof expiration === 'number') {
-        return ok(new Date(expiration))
+    export async function getAllRefs(octo: Octokit, args: { owner: string; repo: string }) {
+        let heads = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'heads' }))
+        if (heads.isErr) return octoWrap(`Failed to list heads refs`, heads)
+
+        let tags = await octoCatch(octo.rest.git.listMatchingRefs({ ...args, ref: 'tags' }))
+        if (tags.isErr) return octoWrap(`Failed to list tags refs`, tags)
+
+        let data: GitRefInfo[] = [
+            ...heads.val.map((ref) => ({
+                name: ref.ref.replace('refs/heads/', ''),
+                commitSha: ref.object.sha,
+                isTag: false,
+            })),
+            ...tags.val.map((ref) => ({
+                name: ref.ref.replace('refs/tags/', ''),
+                commitSha: ref.object.sha,
+                isTag: true,
+            })),
+        ]
+
+        return ok(data)
     }
 
-    return err('invalid expiration header')
+    export async function getTokenExpiration(token: { token: string }): R<Date> {
+        const octo = newOctokit(token)
+
+        let res = await tryCatch(octo.rest.users.getAuthenticated())
+        if (res.isErr) return wrap('failed to get token expiration', res)
+
+        let expiration = res.val.headers['github-authentication-token-expiration']
+        if (!expiration) {
+            return err('no expiration header found in response')
+        }
+
+        if (typeof expiration === 'string') {
+            return parseDate(expiration)
+        } else if (typeof expiration === 'number') {
+            return ok(new Date(expiration))
+        }
+
+        return err('invalid expiration header')
+    }
+
+    export async function getRateLimit(octo: Octokit) {
+        let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
+        if (rateLimit.isErr) {
+            return octoWrap('failed to get rate limit', rateLimit)
+        }
+
+        let limit = rateLimit.val.headers['x-ratelimit-limit']
+        let remaining = rateLimit.val.headers['x-ratelimit-remaining']
+        let reset = rateLimit.val.headers['x-ratelimit-reset']
+
+        return ok({ limit, remaining, reset })
+    }
+
+    export async function getRepoIssuePrCounts(
+        octo: Octokit,
+        args: { owner: string; repo: string },
+    ): R<{
+        openIssues: number
+        closedIssues: number
+        totalIssues: number
+        openPullRequests: number
+        closedPullRequests: number
+        totalPullRequests: number
+    }> {
+        let query = `
+        query RepoCounts($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            issuesOpen: issues(states: OPEN) { totalCount }
+            issuesClosed: issues(states: CLOSED) { totalCount }
+            prsOpen: pullRequests(states: OPEN) { totalCount }
+            prsClosed: pullRequests(states: CLOSED) { totalCount }
+          }
+        }
+    `
+
+        type GraphQLResponse = {
+            repository: {
+                issuesOpen: { totalCount: number }
+                issuesClosed: { totalCount: number }
+                prsOpen: { totalCount: number }
+                prsClosed: { totalCount: number }
+            }
+        }
+
+        let res = await tryCatch(
+            octo.graphql<GraphQLResponse>(query, { owner: args.owner, name: args.repo }),
+        )
+        if (res.isErr) return wrap('failed to fetch repository issue/PR counts', res)
+
+        let repo = res.val.repository
+        let openIssues = repo.issuesOpen.totalCount
+        let closedIssues = repo.issuesClosed.totalCount
+        let totalIssues = openIssues + closedIssues
+        let openPullRequests = repo.prsOpen.totalCount
+        let closedPullRequests = repo.prsClosed.totalCount
+        let totalPullRequests = openPullRequests + closedPullRequests
+
+        return ok({
+            openIssues,
+            closedIssues,
+            totalIssues,
+            openPullRequests,
+            closedPullRequests,
+            totalPullRequests,
+        })
+    }
+
+    export async function createIssue(
+        octo: Octokit,
+        args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
+    ) {
+        let created = await octoCatch(
+            octo.rest.issues.create({
+                owner: args.owner,
+                repo: args.repo,
+                title: args.title,
+                body: args.body,
+            }),
+        )
+        if (created.isErr) {
+            return octoWrap(`Failed to create issue`, created)
+        }
+
+        return created
+    }
+
+    export async function addCommentToIssue(
+        octo: Octokit,
+        args: {
+            owner: string
+            repo: string
+            issueNumber: number
+            comment: string
+        },
+    ) {
+        let added = await octoCatch(
+            octo.rest.issues.createComment({
+                owner: args.owner,
+                repo: args.repo,
+                issue_number: args.issueNumber,
+                body: args.comment,
+            }),
+        )
+        if (added.isErr) {
+            return octoWrap(`Failed to add comment`, added)
+        }
+
+        return added
+    }
+
+    export type AuthenticatedUser = {
+        id: number
+        login: string
+        name: string | null
+        avatarUrl: string
+    }
+
+    export async function getAuthenticatedUser(octo: Octokit): Promise<Result<AuthenticatedUser>> {
+        let res = await tryCatch(octo.rest.users.getAuthenticated())
+        if (res.isErr) return wrap('failed to get authenticated user', res)
+
+        let user = res.val.data
+        return ok({
+            id: user.id,
+            login: user.login,
+            name: user.name,
+            avatarUrl: user.avatar_url,
+        })
+    }
+
+    export async function checkForIssueUpdates(
+        octo: Octokit,
+        args: {
+            owner: string
+            repo: string
+            since?: string
+            etag?: string
+        },
+    ): R<{ hasUpdates: boolean; newEtag?: string }> {
+        let headers: Record<string, string> = {}
+        if (args.etag) {
+            headers['If-None-Match'] = args.etag
+        }
+
+        let res = await octoCatchFull(
+            octo.rest.issues.listForRepo({
+                owner: args.owner,
+                repo: args.repo,
+                since: args.since,
+                state: 'all',
+                sort: 'updated',
+                direction: 'desc',
+                per_page: 1,
+                headers,
+            }),
+        )
+        if (res.isErr) {
+            if (res.err.type === 'octo-error') {
+                if (res.err.err.response?.status === 304) {
+                    return ok({
+                        hasUpdates: false,
+                        newEtag: args.etag,
+                    })
+                }
+            }
+
+            return err(octoCatch.errToString(res))
+        }
+
+        let newEtag = res.val.headers.etag
+        if (!newEtag) return ok({ hasUpdates: true })
+
+        return ok({
+            hasUpdates: true,
+            newEtag,
+        })
+    }
 }
 
 export function parseGithubUrl(raw: string): Result<{ owner: string; repo: string }> {
@@ -101,184 +269,6 @@ export function parseGithubUrl(raw: string): Result<{ owner: string; repo: strin
     if (!owner || !repo) return err('invalid github url')
 
     return ok({ owner, repo })
-}
-
-async function getRateLimit(octo: Octokit) {
-    let rateLimit = await octoCatchFull(octo.rest.rateLimit.get())
-    if (rateLimit.isErr) {
-        return octoWrap('failed to get rate limit', rateLimit)
-    }
-
-    let limit = rateLimit.val.headers['x-ratelimit-limit']
-    let remaining = rateLimit.val.headers['x-ratelimit-remaining']
-    let reset = rateLimit.val.headers['x-ratelimit-reset']
-
-    return ok({ limit, remaining, reset })
-}
-
-async function getRepoIssuePrCounts(
-    octo: Octokit,
-    args: { owner: string; repo: string },
-): R<{
-    openIssues: number
-    closedIssues: number
-    totalIssues: number
-    openPullRequests: number
-    closedPullRequests: number
-    totalPullRequests: number
-}> {
-    let query = `
-        query RepoCounts($owner: String!, $name: String!) {
-          repository(owner: $owner, name: $name) {
-            issuesOpen: issues(states: OPEN) { totalCount }
-            issuesClosed: issues(states: CLOSED) { totalCount }
-            prsOpen: pullRequests(states: OPEN) { totalCount }
-            prsClosed: pullRequests(states: CLOSED) { totalCount }
-          }
-        }
-    `
-
-    type GraphQLResponse = {
-        repository: {
-            issuesOpen: { totalCount: number }
-            issuesClosed: { totalCount: number }
-            prsOpen: { totalCount: number }
-            prsClosed: { totalCount: number }
-        }
-    }
-
-    let res = await tryCatch(
-        octo.graphql<GraphQLResponse>(query, { owner: args.owner, name: args.repo }),
-    )
-    if (res.isErr) return wrap('failed to fetch repository issue/PR counts', res)
-
-    let repo = res.val.repository
-    let openIssues = repo.issuesOpen.totalCount
-    let closedIssues = repo.issuesClosed.totalCount
-    let totalIssues = openIssues + closedIssues
-    let openPullRequests = repo.prsOpen.totalCount
-    let closedPullRequests = repo.prsClosed.totalCount
-    let totalPullRequests = openPullRequests + closedPullRequests
-
-    return ok({
-        openIssues,
-        closedIssues,
-        totalIssues,
-        openPullRequests,
-        closedPullRequests,
-        totalPullRequests,
-    })
-}
-
-async function createIssue(
-    octo: Octokit,
-    args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
-) {
-    let created = await octoCatch(
-        octo.rest.issues.create({
-            owner: args.owner,
-            repo: args.repo,
-            title: args.title,
-            body: args.body,
-        }),
-    )
-    if (created.isErr) {
-        return octoWrap(`Failed to create issue`, created)
-    }
-
-    return created
-}
-
-async function addCommentToIssue(
-    octo: Octokit,
-    args: {
-        owner: string
-        repo: string
-        issueNumber: number
-        comment: string
-    },
-) {
-    let added = await octoCatch(
-        octo.rest.issues.createComment({
-            owner: args.owner,
-            repo: args.repo,
-            issue_number: args.issueNumber,
-            body: args.comment,
-        }),
-    )
-    if (added.isErr) {
-        return octoWrap(`Failed to add comment`, added)
-    }
-
-    return added
-}
-
-export type AuthenticatedUser = {
-    id: number
-    login: string
-    name: string | null
-    avatarUrl: string
-}
-
-async function getAuthenticatedUser(octo: Octokit): Promise<Result<AuthenticatedUser>> {
-    let res = await tryCatch(octo.rest.users.getAuthenticated())
-    if (res.isErr) return wrap('failed to get authenticated user', res)
-
-    let user = res.val.data
-    return ok({
-        id: user.id,
-        login: user.login,
-        name: user.name,
-        avatarUrl: user.avatar_url,
-    })
-}
-
-async function checkForIssueUpdates(
-    octo: Octokit,
-    args: {
-        owner: string
-        repo: string
-        since?: string
-        etag?: string
-    },
-): R<{ hasUpdates: boolean; newEtag?: string }> {
-    let headers: Record<string, string> = {}
-    if (args.etag) {
-        headers['If-None-Match'] = args.etag
-    }
-
-    let res = await octoCatchFull(
-        octo.rest.issues.listForRepo({
-            owner: args.owner,
-            repo: args.repo,
-            since: args.since,
-            state: 'all',
-            sort: 'updated',
-            direction: 'desc',
-            per_page: 1,
-            headers,
-        }),
-    )
-    if (res.isErr) {
-        if (res.err.type === 'octo-error') {
-            if (res.err.err.response?.status === 304) {
-                return ok({
-                    hasUpdates: false,
-                    newEtag: args.etag,
-                })
-            }
-        }
-
-        return err(octoCatch.errToString(res))
-    }
-
-    let newEtag = res.val.headers.etag
-    if (!newEtag) return ok({ hasUpdates: true })
-
-    return ok({
-        hasUpdates: true,
-        newEtag,
-    })
 }
 
 export class OctoError extends RequestError {

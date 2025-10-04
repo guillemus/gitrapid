@@ -6,8 +6,6 @@ import { api } from '@convex/_generated/api'
 import { useAction } from 'convex/react'
 import { useNavigate, useParams } from 'react-router'
 
-CreateNewIssuePage.path = '/:owner/:repo/issues/new'
-
 function usePageParams() {
     let { owner, repo } = useParams()
 

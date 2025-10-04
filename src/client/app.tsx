@@ -10,6 +10,7 @@ import { DashboardPage } from '@/client/pages/dashboardPage'
 import { IssuesPage } from '@/client/pages/issuesPage'
 import { LoginPage } from '@/client/pages/loginPage'
 import { SettingsPage } from '@/client/pages/settingsPage'
+import { Toaster } from '@/components/ui/sonner'
 import { CreateNewIssuePage } from './pages/createNewIssuePage'
 import { SingleIssuesPage } from './pages/singleIssuesPage'
 
@@ -58,13 +59,14 @@ function Router() {
                 <Route element={<AppLayout tab="issues" />}>
                     <Route path="/:owner/:repo" element={<Navigate to="/:owner/:repo/issues" />} />
                     <Route path="/:owner/:repo/issues" element={<IssuesPage />} />
-                    <Route path={SingleIssuesPage.path} element={<SingleIssuesPage />} />
-                    <Route path={CreateNewIssuePage.path} element={<CreateNewIssuePage />} />
+                    <Route path="/:owner/:repo/issues/:number" element={<SingleIssuesPage />} />
                 </Route>
                 <Route element={<AppLayout tab="none" />}>
-                    <Route path={CreateNewIssuePage.path} element={<CreateNewIssuePage />} />
+                    <Route path={'/:owner/:repo/issues/new'} element={<CreateNewIssuePage />} />
                 </Route>
             </Routes>
+
+            <Toaster richColors theme="light" closeButton></Toaster>
         </BrowserRouter>
     )
 }

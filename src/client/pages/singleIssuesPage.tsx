@@ -1,5 +1,6 @@
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { GhLabel, GhUser } from '@/components/github'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
@@ -22,7 +23,8 @@ import {
     UserPlus,
 } from 'lucide-react'
 import { useMemo } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
+import { toast } from 'sonner'
 import { formatRelativeTime, useMutable, usePageQuery } from '../utils'
 
 function usePageParams() {
@@ -36,8 +38,6 @@ function usePageParams() {
 
     return { owner, repo, number: numberInt }
 }
-
-SingleIssuesPage.path = '/:owner/:repo/issues/:number'
 
 type Data = Exclude<FunctionReturnType<typeof api.public.issues.get>, null>
 type Comments = Data['comments']
@@ -118,8 +118,7 @@ export function SingleIssuesPage() {
                         </div>
                     </div>
 
-                    {/* Add comment box */}
-                    <AddCommentBox></AddCommentBox>
+                    <AddCommentBox />
                 </div>
 
                 {/* Sidebar */}
@@ -478,15 +477,32 @@ function AddCommentBox() {
         e.preventDefault()
 
         state.addingComment = true
-        try {
-            await addComment({
-                owner,
-                repo,
-                number,
-                comment: state.comment,
-            })
-        } finally {
-            state.addingComment = false
+        let res = await addComment({ owner, repo, number, comment: state.comment })
+        state.addingComment = false
+
+        if (res.isErr) {
+            if (res.err.type === 'INSUFFICIENT_SCOPES') {
+                toast.error(
+                    <>
+                        <p>The current token doesn't have enough scopes</p>
+                        <p>
+                            Go to{' '}
+                            <Link
+                                className="underline"
+                                to={`/settings?scope=${res.err.requiredScope}`}
+                            >
+                                settings
+                            </Link>{' '}
+                            to add a token with{' '}
+                            <Badge variant="outline">{res.err.requiredScope}</Badge> scope
+                        </p>
+                    </>,
+                    {
+                        position: 'bottom-center',
+                    },
+                )
+                return
+            }
         }
         state.comment = ''
     }

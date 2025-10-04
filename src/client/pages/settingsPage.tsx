@@ -259,7 +259,6 @@ export function SettingsPage() {
             token: state.tokenInput,
             scopes,
         })
-
         if (result.isErr) {
             state.errorMessage = 'Invalid token. Please check that you copied it correctly.'
             setTimeout(() => (state.errorMessage = null), 4000)
