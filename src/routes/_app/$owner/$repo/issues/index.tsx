@@ -1,4 +1,4 @@
-import { queryClient } from '@/client/convex'
+import { qcMem, qcPersistent } from '@/client/convex'
 import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,7 @@ import { proxy, useSnapshot } from 'valtio'
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     loader: async (ctx) => {
-        void queryClient.prefetchQuery(
+        void qcPersistent.prefetchQuery(
             convexQuery(api.public.issues.list, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
@@ -69,16 +69,20 @@ function IssuesPage() {
 
     let activeSearch = state.filters.search
 
-    let issueList = usePageQuery(api.public.issues.list, {
-        owner: params.owner,
-        repo: params.repo,
-        state: state.filters.state,
-        sortBy: state.filters.sortBy,
-        paginationOpts: {
-            numItems: state.pageSize,
-            cursor: state.cursors[state.index] ?? null,
+    let issueList = usePageQuery(
+        api.public.issues.list,
+        {
+            owner: params.owner,
+            repo: params.repo,
+            state: state.filters.state,
+            sortBy: state.filters.sortBy,
+            paginationOpts: {
+                numItems: state.pageSize,
+                cursor: state.cursors[state.index] ?? null,
+            },
         },
-    })
+        qcMem,
+    )
 
     let queryArgs = activeSearch
         ? { owner: params.owner, repo: params.repo, search: activeSearch }
@@ -223,7 +227,7 @@ function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt'
         <div
             className="hover:bg-muted/50 p-4 py-2 transition-colors"
             onMouseDown={() => {
-                return queryClient.prefetchQuery(
+                return qcPersistent.prefetchQuery(
                     convexQuery(api.public.issues.get, {
                         owner: params.owner,
                         repo: params.repo,

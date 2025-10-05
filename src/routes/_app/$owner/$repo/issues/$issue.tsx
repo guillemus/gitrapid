@@ -1,4 +1,4 @@
-import { queryClient } from '@/client/convex'
+import { qcPersistent } from '@/client/convex'
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
@@ -41,7 +41,7 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
         parse: (s) => paramsSchema.parse(s),
     },
     loader: (ctx) => {
-        void queryClient.prefetchQuery(
+        void qcPersistent.prefetchQuery(
             convexQuery(api.public.issues.get, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,

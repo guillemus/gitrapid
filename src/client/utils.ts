@@ -1,5 +1,5 @@
 import { convexQuery } from '@convex-dev/react-query'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { QueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
 import { proxy, useSnapshot } from 'valtio'
@@ -18,31 +18,34 @@ const didFirstLoad = proxy({ value: false })
 export function usePageQuery<
     Query extends FunctionReference<'query'>,
     Args extends FunctionArgs<Query> | 'skip',
->(query: Query, args: Args) {
+>(query: Query, args: Args, queryClient?: QueryClient) {
     let convexHttp = useConvexHttp()
     let firstLoad = useSnapshot(didFirstLoad)
 
-    let httpQuery = useTanstackQuery({
-        queryKey: ['convexHttpQuery', getFunctionName(query), args],
+    let httpQuery = useTanstackQuery(
+        {
+            queryKey: ['convexHttpQuery', getFunctionName(query), args],
 
-        queryFn: async () => {
-            try {
-                // @ts-expect-error: disable for simplicity
-                let res = await convexHttp!.query(query, args)
-                return res
-            } finally {
-                // In the situations where the user has an expired jwt token
-                // clientside, the query will error with an 401. For the moment when
-                // that happens we just shrug and move on to the ws data instead.
+            queryFn: async () => {
+                try {
+                    // @ts-expect-error: disable for simplicity
+                    let res = await convexHttp!.query(query, args)
+                    return res
+                } finally {
+                    // In the situations where the user has an expired jwt token
+                    // clientside, the query will error with an 401. For the moment when
+                    // that happens we just shrug and move on to the ws data instead.
 
-                didFirstLoad.value = true
-            }
+                    didFirstLoad.value = true
+                }
+            },
+            enabled: !!convexHttp && !firstLoad.value,
+            staleTime: Infinity,
         },
-        enabled: !!convexHttp && !firstLoad.value,
-        staleTime: Infinity,
-    })
+        queryClient,
+    )
 
-    let wsQuery = useTanstackQuery(convexQuery(query, args))
+    let wsQuery = useTanstackQuery(convexQuery(query, args), queryClient)
 
     if (wsQuery.data) {
         return wsQuery.data

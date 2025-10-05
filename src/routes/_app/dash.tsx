@@ -1,4 +1,4 @@
-import { queryClient } from '@/client/convex'
+import { qcPersistent } from '@/client/convex'
 import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,7 @@ import { useState } from 'react'
 export const Route = createFileRoute('/_app/dash')({
     component: DashboardPage,
     loader: () => {
-        void queryClient.prefetchQuery(convexQuery(api.public.dashboard.get, {}))
+        void qcPersistent.prefetchQuery(convexQuery(api.public.dashboard.get, {}))
     },
 })
 

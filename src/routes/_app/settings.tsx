@@ -1,4 +1,4 @@
-import { queryClient } from '@/client/convex'
+import { qcPersistent } from '@/client/convex'
 import { usePageQuery } from '@/client/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,7 @@ const searchParamsSchema = z.object({
 
 export const Route = createFileRoute('/_app/settings')({
     validateSearch: (s) => searchParamsSchema.parse(s),
-    loader: () => queryClient.prefetchQuery(convexQuery(api.public.settings.get, {})),
+    loader: () => qcPersistent.prefetchQuery(convexQuery(api.public.settings.get, {})),
     component: SettingsPage,
 })
 
