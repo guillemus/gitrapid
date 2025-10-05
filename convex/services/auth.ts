@@ -5,30 +5,31 @@ import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/shared'
+import type { FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import type { Auth as ConvexAuth } from 'convex/server'
 import { v } from 'convex/values'
 
-export const Auth = {
-    async hasUserAccessToRepo(ctx: QueryCtx, userId: Id<'users'>, owner: string, repo: string) {
-        let savedRepo = await Repos.getByOwnerAndRepo(ctx, owner, repo)
-        if (!savedRepo) return err('repo-not-found' as const)
+export namespace Auth {
+    export const hasUserAccessToRepo = {
+        args: {
+            userId: v.id('users'),
+            owner: v.string(),
+            repo: v.string(),
+        },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+            if (!savedRepo) return err('repo-not-found' as const)
 
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, savedRepo._id)
-        if (!hasRepo) return err('user-repo-not-found' as const)
+            let hasRepo = await UserRepos.userHasRepo(ctx, args.userId, savedRepo._id)
+            if (!hasRepo) return err('user-repo-not-found' as const)
 
-        return ok(savedRepo)
-    },
+            return ok(savedRepo)
+        },
+    }
 }
 
-export const hasUserAccessToRepo = internalQuery({
-    args: {
-        userId: v.id('users'),
-        owner: v.string(),
-        repo: v.string(),
-    },
-    handler: (ctx, { userId, owner, repo }) => Auth.hasUserAccessToRepo(ctx, userId, owner, repo),
-})
+export const hasUserAccessToRepo = internalQuery(Auth.hasUserAccessToRepo)
 
 export async function getUserId(ctx: { auth: ConvexAuth }) {
     const userId = await getAuthUserId(ctx)

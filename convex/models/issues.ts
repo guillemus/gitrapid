@@ -10,7 +10,7 @@ import { assert, asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 import { fetchGithubUser } from './issueTimelineItems'
 
-export const PaginateIssues = {
+const PaginateIssues = {
     args: {
         repoId: v.id('repos'),
         state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
@@ -104,83 +104,120 @@ export const PaginateIssues = {
     },
 }
 
-export const Issues = {
-    async getByRepoAndNumber(ctx: QueryCtx, args: { repoId: Id<'repos'>; number: number }) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) =>
-                q.eq('repoId', args.repoId).eq('number', args.number),
-            )
-            .unique()
-    },
+export namespace Issues {
+    export const getByRepoAndNumber = {
+        args: { repoId: v.id('repos'), number: v.number() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_and_number', (q) =>
+                    q.eq('repoId', args.repoId).eq('number', args.number),
+                )
+                .unique()
+        },
+    }
 
-    async getByRepoAndNumberWithRelations(
-        ctx: QueryCtx,
-        args: { repoId: Id<'repos'>; number: number },
-    ) {
-        let issue = await this.getByRepoAndNumber(ctx, args)
-        if (!issue) return null
+    export const getByRepoAndNumberWithRelations = {
+        args: { repoId: v.id('repos'), number: v.number() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let issue = await getByRepoAndNumber.handler(ctx, args)
+            if (!issue) return null
 
-        let issueAuthor = await fetchGithubUser(ctx, logger, issue.author)
+            let issueAuthor = await fetchGithubUser(ctx, logger, issue.author)
 
-        return {
-            ...issue,
-            author: issueAuthor,
-        }
-    },
+            return {
+                ...issue,
+                author: issueAuthor,
+            }
+        },
+    }
 
-    async listByRepo(ctx: QueryCtx, repoId: Id<'repos'>) {
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', repoId))
-            .collect()
-    },
+    export const listByRepo = {
+        args: { repoId: v.id('repos') },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
+                .collect()
+        },
+    }
 
-    async search(ctx: QueryCtx, repoId: Id<'repos'>, q: string) {
-        let matches = await ctx.db
-            .query('issues')
-            .withSearchIndex('search_issues', (s) => s.search('title', q).eq('repoId', repoId))
-            .collect()
+    export const search = {
+        args: { repoId: v.id('repos'), q: v.string() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let issues = await ctx.db
+                .query('issues')
+                .withSearchIndex('search_issues', (s) =>
+                    s.search('title', args.q).eq('repoId', args.repoId),
+                )
+                .collect()
 
-        return matches
-    },
+            let openCount = 0
+            let closedCount = 0
+            for (let it of issues) {
+                if (it.state === 'open') openCount++
+                else if (it.state === 'closed') closedCount++
+            }
 
-    async paginate(ctx: QueryCtx, args: FnArgs<typeof PaginateIssues.args>) {
-        let issuesPagination = await PaginateIssues.handler(ctx, args)
-        let issuesWithLabels = await addLabelsToIssues(ctx, issuesPagination.page, args.repoId)
-        let issuesWithAuthors = await addAuthorsToIssues(ctx, issuesWithLabels)
+            let issuesWithLabels = await addLabelsToIssues(ctx, issues, args.repoId)
+            let issuesWithAuthor = await addAuthorsToIssues(ctx, issuesWithLabels)
 
-        return {
-            ...issuesPagination,
-            page: issuesWithAuthors,
-        }
-    },
+            return {
+                issues: issuesWithAuthor,
+                meta: {
+                    total: issues.length,
+                    totalOpen: openCount,
+                    totalClosed: closedCount,
+                },
+            }
+        },
+    }
 
-    async getAssigneesByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
-        let issueAssignees = await ctx.db
-            .query('issueAssignees')
-            .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
-            .collect()
+    export const paginate = {
+        args: PaginateIssues.args,
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let issuesPagination = await PaginateIssues.handler(ctx, args)
+            let issuesWithLabels = await addLabelsToIssues(ctx, issuesPagination.page, args.repoId)
+            let issuesWithAuthors = await addAuthorsToIssues(ctx, issuesWithLabels)
 
-        let assignees = await asyncMap(issueAssignees, async (issueAssignee) => {
-            return ctx.db.get(issueAssignee.assigneeId)
-        })
+            return {
+                ...issuesPagination,
+                page: issuesWithAuthors,
+            }
+        },
+    }
 
-        return assignees.filter((a) => a !== null)
-    },
+    export const getAssigneesByIssueId = {
+        args: { issueId: v.id('issues') },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let issueAssignees = await ctx.db
+                .query('issueAssignees')
+                .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
+                .collect()
 
-    async getLabelsByIssueId(ctx: QueryCtx, issueId: Id<'issues'>) {
-        let issueLabels = await ctx.db
-            .query('issueLabels')
-            .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
-            .collect()
+            let assignees = await asyncMap(issueAssignees, async (issueAssignee) => {
+                return ctx.db.get(issueAssignee.assigneeId)
+            })
 
-        let labels = await asyncMap(issueLabels, async (issueLabel) => {
-            return ctx.db.get(issueLabel.labelId)
-        })
+            return assignees.filter((a) => a !== null)
+        },
+    }
 
-        return labels.filter((l) => l !== null)
-    },
+    export const getLabelsByIssueId = {
+        args: { issueId: v.id('issues') },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let issueLabels = await ctx.db
+                .query('issueLabels')
+                .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
+                .collect()
+
+            let labels = await asyncMap(issueLabels, async (issueLabel) => {
+                return ctx.db.get(issueLabel.labelId)
+            })
+
+            return labels.filter((l) => l !== null)
+        },
+    }
 }
 
 export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx, issues: T[]) {
@@ -219,15 +256,8 @@ export async function addLabelsToIssues(
     })
 }
 
-export const getByRepoAndNumber = internalQuery({
-    args: { repoId: v.id('repos'), number: v.number() },
-    handler: (ctx, { repoId, number }) => Issues.getByRepoAndNumber(ctx, { repoId, number }),
-})
-
-export const listByRepo = internalQuery({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => Issues.listByRepo(ctx, repoId),
-})
+export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
+export const listByRepo = internalQuery(Issues.listByRepo)
 
 export const insertOpenUserIssueWithBody = internalMutation({
     args: {

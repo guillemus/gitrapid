@@ -1,12 +1,11 @@
 import { internal } from '@convex/_generated/api'
-import { action, query } from '@convex/_generated/server'
+import { action, mutation, query } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { Auth, canUserCommentOnRepo, getTokenFromUserId, getUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
-import { IssueSearch } from '@convex/services/issueSearch'
 import { err, ok, unwrap } from '@convex/shared'
 import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
@@ -25,10 +24,14 @@ export const list = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
         let savedRepo = unwrap(hasAccess)
 
-        let result = await Issues.paginate(ctx, {
+        let result = await Issues.paginate.handler(ctx, {
             repoId: savedRepo._id,
             state: args.state,
             sortBy: args.sortBy,
@@ -50,10 +53,14 @@ export const search = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
         let savedRepo = unwrap(hasAccess)
 
-        let issues = await IssueSearch.search(ctx, savedRepo, args.search)
+        let issues = await Issues.search.handler(ctx, { repoId: savedRepo._id, q: args.search })
 
         return issues
     },
@@ -67,10 +74,14 @@ export const get = query({
     },
     async handler(ctx, args) {
         let userId = await getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo(ctx, userId, args.owner, args.repo)
+        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
         let savedRepo = unwrap(hasAccess)
 
-        let issue = await Issues.getByRepoAndNumberWithRelations(ctx, {
+        let issue = await Issues.getByRepoAndNumberWithRelations.handler(ctx, {
             number: args.number,
             repoId: savedRepo._id,
         })
@@ -78,8 +89,8 @@ export const get = query({
 
         let [body, assignees, labels] = await Promise.all([
             IssueBodies.getByIssueId(ctx, issue._id),
-            Issues.getAssigneesByIssueId(ctx, issue._id),
-            Issues.getLabelsByIssueId(ctx, issue._id),
+            Issues.getAssigneesByIssueId.handler(ctx, { issueId: issue._id }),
+            Issues.getLabelsByIssueId.handler(ctx, { issueId: issue._id }),
         ])
 
         let timelineItems = await IssueTimelineItems.listByIssueId(ctx, issue._id)
@@ -200,5 +211,29 @@ export const addComment = action({
         })
 
         return ok()
+    },
+})
+
+export const editTitle = mutation({
+    args: {
+        owner: v.string(),
+        repo: v.string(),
+        issueNumber: v.number(),
+        newTitle: v.string(),
+    },
+    async handler(ctx, args) {
+        let userId = await getUserId(ctx)
+        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
+            userId,
+            owner: args.owner,
+            repo: args.repo,
+        })
+        let savedRepo = unwrap(hasAccess)
+
+        let issue = await Issues.getByRepoAndNumber.handler(ctx, {
+            repoId: savedRepo._id,
+            number: args.issueNumber,
+        })
+        assert(issue, 'issue not found')
     },
 })

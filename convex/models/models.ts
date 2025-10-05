@@ -15,7 +15,7 @@ export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
 export const IssuesUtils = {
     async getOrCreateIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
-        let issue = await Issues.getByRepoAndNumber(ctx, args)
+        let issue = await Issues.getByRepoAndNumber.handler(ctx, args)
         if (issue) {
             return issue
         }
@@ -33,7 +33,7 @@ export const IssuesUtils = {
     },
 
     async upsertIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
-        let existing = await Issues.getByRepoAndNumber(ctx, args)
+        let existing = await Issues.getByRepoAndNumber.handler(ctx, args)
         if (existing) {
             // Adjust counts if state changed
             if (existing.state !== args.state) {
