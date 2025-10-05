@@ -16,6 +16,9 @@ export async function persistQueryClient(queryClient: QueryClient) {
         },
     }
 
-    let [, p] = tanstackPersistQueryClient({ queryClient, persister })
+    // fixme: automate this, manually changing this is horrible
+    let buster = 'v0.0.1'
+
+    let [, p] = tanstackPersistQueryClient({ queryClient, persister, buster })
     await p
 }

@@ -10,100 +10,6 @@ import { assert, asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 import { fetchGithubUser } from './issueTimelineItems'
 
-const PaginateIssues = {
-    args: {
-        repoId: v.id('repos'),
-        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
-        sortBy: v.optional(
-            v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
-        ),
-        paginationOpts: v.object({
-            numItems: v.number(),
-            cursor: v.union(v.string(), v.null()),
-        }),
-    },
-
-    async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
-        let sortBy = args.sortBy ?? 'createdAt'
-
-        // No search term; choose index based on sort and whether state filter is present
-        if (args.state) {
-            let issueState = args.state
-
-            if (sortBy === 'createdAt') {
-                return ctx.db
-                    .query('issues')
-                    .withIndex('by_repo_state_createdAt', (q) =>
-                        q.eq('repoId', args.repoId).eq('state', issueState),
-                    )
-                    .order('desc')
-                    .paginate(args.paginationOpts)
-            }
-
-            if (sortBy === 'updatedAt') {
-                return ctx.db
-                    .query('issues')
-                    .withIndex('by_repo_state_updatedAt', (q) =>
-                        q.eq('repoId', args.repoId).eq('state', issueState),
-                    )
-                    .order('desc')
-                    .paginate(args.paginationOpts)
-            }
-
-            if (sortBy === 'comments') {
-                return ctx.db
-                    .query('issues')
-                    .withIndex('by_repo_state_comments', (q) =>
-                        q.eq('repoId', args.repoId).eq('state', issueState),
-                    )
-                    .order('desc')
-                    .paginate(args.paginationOpts)
-            }
-
-            // default to number order when explicitly requested or fallback
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_state_number', (q) =>
-                    q.eq('repoId', args.repoId).eq('state', issueState),
-                )
-                .order('desc')
-                .paginate(args.paginationOpts)
-        }
-
-        // No state filter
-        if (sortBy === 'createdAt') {
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_createdAt', (q) => q.eq('repoId', args.repoId))
-                .order('desc')
-                .paginate(args.paginationOpts)
-        }
-
-        if (sortBy === 'updatedAt') {
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_updatedAt', (q) => q.eq('repoId', args.repoId))
-                .order('desc')
-                .paginate(args.paginationOpts)
-        }
-
-        if (sortBy === 'comments') {
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_comments', (q) => q.eq('repoId', args.repoId))
-                .order('desc')
-                .paginate(args.paginationOpts)
-        }
-
-        // default to number
-        return ctx.db
-            .query('issues')
-            .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
-            .order('desc')
-            .paginate(args.paginationOpts)
-    },
-}
-
 export namespace Issues {
     export const getByRepoAndNumber = {
         args: { repoId: v.id('repos'), number: v.number() },
@@ -174,9 +80,99 @@ export namespace Issues {
     }
 
     export const paginate = {
-        args: PaginateIssues.args,
+        args: {
+            repoId: v.id('repos'),
+            state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
+            sortBy: v.optional(
+                v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
+            ),
+            paginationOpts: v.object({
+                numItems: v.number(),
+                cursor: v.union(v.string(), v.null()),
+            }),
+        },
+        async paginate(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+            let sortBy = args.sortBy ?? 'createdAt'
+
+            // No search term; choose index based on sort and whether state filter is present
+            if (args.state) {
+                let issueState = args.state
+
+                if (sortBy === 'createdAt') {
+                    return ctx.db
+                        .query('issues')
+                        .withIndex('by_repo_state_createdAt', (q) =>
+                            q.eq('repoId', args.repoId).eq('state', issueState),
+                        )
+                        .order('desc')
+                        .paginate(args.paginationOpts)
+                }
+
+                if (sortBy === 'updatedAt') {
+                    return ctx.db
+                        .query('issues')
+                        .withIndex('by_repo_state_updatedAt', (q) =>
+                            q.eq('repoId', args.repoId).eq('state', issueState),
+                        )
+                        .order('desc')
+                        .paginate(args.paginationOpts)
+                }
+
+                if (sortBy === 'comments') {
+                    return ctx.db
+                        .query('issues')
+                        .withIndex('by_repo_state_comments', (q) =>
+                            q.eq('repoId', args.repoId).eq('state', issueState),
+                        )
+                        .order('desc')
+                        .paginate(args.paginationOpts)
+                }
+
+                // default to number order when explicitly requested or fallback
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_state_number', (q) =>
+                        q.eq('repoId', args.repoId).eq('state', issueState),
+                    )
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            // No state filter
+            if (sortBy === 'createdAt') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_createdAt', (q) => q.eq('repoId', args.repoId))
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            if (sortBy === 'updatedAt') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_updatedAt', (q) => q.eq('repoId', args.repoId))
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            if (sortBy === 'comments') {
+                return ctx.db
+                    .query('issues')
+                    .withIndex('by_repo_comments', (q) => q.eq('repoId', args.repoId))
+                    .order('desc')
+                    .paginate(args.paginationOpts)
+            }
+
+            // default to number
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
+                .order('desc')
+                .paginate(args.paginationOpts)
+        },
+
         async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
-            let issuesPagination = await PaginateIssues.handler(ctx, args)
+            let issuesPagination = await this.paginate(ctx, args)
             let issuesWithLabels = await addLabelsToIssues(ctx, issuesPagination.page, args.repoId)
             let issuesWithAuthors = await addAuthorsToIssues(ctx, issuesWithLabels)
 
@@ -218,9 +214,92 @@ export namespace Issues {
             return labels.filter((l) => l !== null)
         },
     }
+
+    export const updateTitle = {
+        args: { issueId: v.id('issues'), title: v.string() },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            await ctx.db.patch(args.issueId, { title: args.title })
+        },
+    }
+
+    export const doDelete = {
+        args: { issueId: v.id('issues') },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            await ctx.db.delete(args.issueId)
+        },
+    }
+
+    export const updateIssue = {
+        args: {
+            issueId: v.id('issues'),
+            createdAt: v.string(),
+            updatedAt: v.string(),
+            githubId: v.number(),
+            number: v.number(),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            await ctx.db.patch(args.issueId, {
+                createdAt: args.createdAt,
+                updatedAt: args.updatedAt,
+                githubId: args.githubId,
+                number: args.number,
+            })
+        },
+    }
+
+    export const insertOpenUserIssueWithBody = {
+        args: {
+            repoId: v.id('repos'),
+            githubId: v.number(),
+            number: v.number(),
+            title: v.string(),
+            createdAt: v.string(),
+            updatedAt: v.string(),
+            closedAt: v.optional(v.string()),
+            comments: v.optional(v.number()),
+            body: v.string(),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            let useridentity = await ctx.auth.getUserIdentity()
+            let githubUserId = useridentity?.subject
+            assert(githubUserId, 'not authenticated')
+
+            let githubUserIdNum = parseInt(githubUserId)
+
+            let ghUser = await ctx.db
+                .query('githubUsers')
+                .withIndex('by_githubId', (u) => u.eq('githubId', githubUserIdNum))
+                .unique()
+            assert(ghUser, 'github user not found')
+
+            let issueId = await ctx.db.insert('issues', {
+                author: ghUser._id,
+                createdAt: args.createdAt,
+                githubId: args.githubId,
+                number: args.number,
+                repoId: args.repoId,
+                title: args.title,
+                state: 'open',
+                updatedAt: args.updatedAt,
+            })
+            await ctx.db.insert('issueBodies', {
+                repoId: args.repoId,
+                issueId: issueId,
+                body: args.body,
+            })
+
+            return issueId
+        },
+    }
 }
 
-export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx, issues: T[]) {
+export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
+export const listByRepo = internalQuery(Issues.listByRepo)
+export const updateTitle = internalMutation(Issues.updateTitle)
+export const update = internalMutation(Issues.updateIssue)
+export const doDelete = internalMutation(Issues.doDelete)
+
+async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx, issues: T[]) {
     return asyncMap(issues, async (issue) => {
         let author = await fetchGithubUser(ctx, logger, issue.author)
         let i = issue as Omit<T, 'author'>
@@ -228,11 +307,7 @@ export async function addAuthorsToIssues<T extends Doc<'issues'>>(ctx: QueryCtx,
     })
 }
 
-export async function addLabelsToIssues(
-    ctx: QueryCtx,
-    issues: Doc<'issues'>[],
-    repoId: Id<'repos'>,
-) {
+async function addLabelsToIssues(ctx: QueryCtx, issues: Doc<'issues'>[], repoId: Id<'repos'>) {
     let repoLabels = await ctx.db
         .query('labels')
         .withIndex('by_repoId', (q) => q.eq('repoId', repoId))
@@ -256,51 +331,7 @@ export async function addLabelsToIssues(
     })
 }
 
-export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
-export const listByRepo = internalQuery(Issues.listByRepo)
-
-export const insertOpenUserIssueWithBody = internalMutation({
-    args: {
-        repoId: v.id('repos'),
-        githubId: v.number(),
-        number: v.number(),
-        title: v.string(),
-        createdAt: v.string(),
-        updatedAt: v.string(),
-        closedAt: v.optional(v.string()),
-        comments: v.optional(v.number()),
-        body: v.string(),
-    },
-    async handler(ctx, args) {
-        let useridentity = await ctx.auth.getUserIdentity()
-        let githubUserId = useridentity?.subject
-        assert(githubUserId, 'not authenticated')
-
-        let githubUserIdNum = parseInt(githubUserId)
-
-        let ghUser = await ctx.db
-            .query('githubUsers')
-            .withIndex('by_githubId', (u) => u.eq('githubId', githubUserIdNum))
-            .unique()
-        assert(ghUser, 'github user not found')
-
-        let issueId = await ctx.db.insert('issues', {
-            author: ghUser._id,
-            createdAt: args.createdAt,
-            githubId: args.githubId,
-            number: args.number,
-            repoId: args.repoId,
-            title: args.title,
-            state: 'open',
-            updatedAt: args.updatedAt,
-        })
-        await ctx.db.insert('issueBodies', {
-            repoId: args.repoId,
-            issueId: issueId,
-            body: args.body,
-        })
-    },
-})
+export const insertOpenUserIssueWithBody = internalMutation(Issues.insertOpenUserIssueWithBody)
 
 export const AssignUserToIssue = {
     args: {

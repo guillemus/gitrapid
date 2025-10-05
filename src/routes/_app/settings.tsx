@@ -1,4 +1,4 @@
-import { qcPersistent } from '@/client/convex'
+import { qcPersistent } from '@/client/queryClient'
 import { usePageQuery } from '@/client/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -5,7 +5,7 @@ import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
 import { proxy, useSnapshot } from 'valtio'
 
 import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
-import { useConvexHttp } from './convex'
+import { useConvexHttp } from './queryClient'
 
 // These exists bc of naming conflict with convex. This way is much easier to autoimport without naming conflicts
 export const useTanstackQuery = useQuery

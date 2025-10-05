@@ -1,4 +1,4 @@
-import { convex, qcPersistent } from '@/client/convex'
+import { convex, qcPersistent } from '@/client/queryClient'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'

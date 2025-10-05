@@ -1,4 +1,4 @@
-import { useLogout } from '@/client/convex'
+import { useLogout } from '@/client/queryClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {

@@ -3,8 +3,10 @@ import { useMutable } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@convex/_generated/api'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction } from 'convex/react'
+import type { Id } from '@convex/_generated/dataModel'
+import { createFileRoute, Navigate, useNavigate } from '@tanstack/react-router'
+import { useAction, useMutation, useQuery } from 'convex/react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/new')({
     component: CreateNewIssuePage,
@@ -21,30 +23,47 @@ function CreateNewIssuePage() {
     let navigate = useNavigate()
 
     let state = useMutable({
+        createdIssueId: null as Id<'issues'> | null,
         creatingIssue: false,
         title: '',
         body: '',
         tab: 'write' as 'write' | 'preview',
     })
 
-    let createIssueAction = useAction(api.public.issues.create)
+    let createIssueMutation = useMutation(api.public.issues.create)
+
+    let createdIssueParams = 'skip' as 'skip' | { issueId: Id<'issues'> }
+    if (state.createdIssueId) {
+        createdIssueParams = { issueId: state.createdIssueId }
+    }
+    let createdIssue = useQuery(api.public.issues.getById, createdIssueParams)
 
     async function createIssue(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
 
         state.creatingIssue = true
-        let res = await createIssueAction({
-            owner,
-            repo,
-            title: state.title,
-            body: state.body,
-        })
-        state.creatingIssue = false
+        try {
+            let issueId = await createIssueMutation({
+                owner,
+                repo,
+                title: state.title,
+                body: state.body,
+            })
+            state.creatingIssue = false
+            state.createdIssueId = issueId
+        } catch (error) {
+            state.creatingIssue = false
+            toast.error('Failed to create issue')
+        }
+    }
 
-        await navigate({
-            to: `/$owner/$repo/issues/$issue`,
-            params: { owner, repo, issue: res.githubIssueNumber },
-        })
+    if (createdIssue?.githubId) {
+        return (
+            <Navigate
+                to={`/$owner/$repo/issues/$issue`}
+                params={{ owner, repo, issue: createdIssue.githubId }}
+            />
+        )
     }
 
     return (
@@ -150,7 +169,7 @@ function CreateNewIssuePage() {
                 {/* Sidebar */}
                 <div className="space-y-6">
                     {[
-                        { label: 'Assignees', value: 'No one – Assign yourself' },
+                        { label: 'Assignees', value: 'No one - Assign yourself' },
                         { label: 'Labels', value: 'No labels' },
                         { label: 'Type', value: 'No type' },
                         { label: 'Projects', value: 'No projects' },

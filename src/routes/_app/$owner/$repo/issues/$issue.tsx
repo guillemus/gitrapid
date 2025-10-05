@@ -1,14 +1,15 @@
-import { qcPersistent } from '@/client/convex'
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
+import { qcPersistent } from '@/client/queryClient'
 import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useAction } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -75,34 +76,7 @@ function SingleIssuesPage() {
 
     return (
         <div className="space-y-4">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-2.5">
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-foreground text-4xl">
-                        {data.issue.title}
-                        <span className="text-muted-foreground ml-2 font-normal">
-                            #{data.issue.number}
-                        </span>
-                    </h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal">
-                        <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
-                                data.issue.state === 'open'
-                                    ? 'border-green-200 bg-green-100 text-green-800'
-                                    : 'border-red-200 bg-red-100 text-red-800'
-                            }`}
-                        >
-                            <AlertCircle className="h-3.5 w-3.5" />
-                            {data.issue.state === 'open' ? 'Open' : 'Closed'}
-                        </span>
-                    </div>
-                </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
-                    <Button size="sm" className="gap-2">
-                        New issue
-                    </Button>
-                </div>
-            </div>
+            <IssueHeader issue={data.issue} />
 
             <div className="bg-border h-px" />
 
@@ -173,6 +147,126 @@ function SingleIssuesPage() {
                         <div className="bg-border my-4 h-px" />
                     </div>
                 </div>
+            </div>
+        </div>
+    )
+}
+
+function IssueHeader(props: { issue: Data['issue'] }) {
+    let { owner, repo } = Route.useParams()
+    let editTitle = useMutation(api.public.issues.editTitle)
+    let state = useMutable({
+        editing: false,
+        saving: false,
+        titleDraft: props.issue.title,
+    })
+
+    if (!state.editing && state.titleDraft !== props.issue.title) {
+        state.titleDraft = props.issue.title
+    }
+
+    function startEditing() {
+        state.titleDraft = props.issue.title
+        state.editing = true
+    }
+
+    function cancelEditing() {
+        state.editing = false
+        state.titleDraft = props.issue.title
+    }
+
+    async function saveTitle() {
+        let nextTitle = state.titleDraft.trim()
+        if (!nextTitle) {
+            toast.error('Issue title cannot be empty')
+            return
+        }
+        if (nextTitle === props.issue.title) {
+            state.editing = false
+            return
+        }
+
+        state.saving = true
+
+        try {
+            await editTitle({
+                owner,
+                repo,
+                issueNumber: props.issue.number,
+                newTitle: nextTitle,
+            })
+            state.editing = false
+        } catch (error) {
+            let message = error instanceof Error ? error.message : 'Failed to update title'
+            toast.error(message)
+        }
+
+        state.saving = false
+    }
+
+    return (
+        <div className="flex items-start justify-between gap-2.5">
+            <div className="min-w-0 flex-1">
+                {state.editing ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                            value={state.titleDraft}
+                            onChange={(event) => (state.titleDraft = event.target.value)}
+                            onEnter={saveTitle}
+                            autoFocus
+                            disabled={state.saving}
+                            className="text-foreground text-3xl font-semibold"
+                        />
+                        <span className="text-muted-foreground text-3xl font-normal">
+                            #{props.issue.number}
+                        </span>
+                    </div>
+                ) : (
+                    <h1 className="text-foreground text-4xl">
+                        {props.issue.title}
+                        <span className="text-muted-foreground ml-2 font-normal">
+                            #{props.issue.number}
+                        </span>
+                    </h1>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal">
+                    <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+                            props.issue.state === 'open'
+                                ? 'border-green-200 bg-green-100 text-green-800'
+                                : 'border-red-200 bg-red-100 text-red-800'
+                        }`}
+                    >
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {props.issue.state === 'open' ? 'Open' : 'Closed'}
+                    </span>
+                </div>
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+                {state.editing ? (
+                    <>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditing}
+                            disabled={state.saving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={saveTitle} disabled={state.saving}>
+                            {state.saving ? 'Saving...' : 'Save title'}
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Button size="sm" variant="outline" onClick={startEditing}>
+                            Edit
+                        </Button>
+                        <Button size="sm" className="gap-2">
+                            New issue
+                        </Button>
+                    </>
+                )}
             </div>
         </div>
     )

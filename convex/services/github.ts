@@ -134,7 +134,7 @@ export namespace Github {
 
     export async function createIssue(
         octo: Octokit,
-        args: { owner: string; repo: string; title: string; body: string; repoId: Id<'repos'> },
+        args: { owner: string; repo: string; title: string; body: string },
     ) {
         let created = await octoCatch(
             octo.rest.issues.create({
@@ -241,6 +241,30 @@ export namespace Github {
             hasUpdates: true,
             newEtag,
         })
+    }
+
+    export async function editIssueTitle(
+        octo: Octokit,
+        args: {
+            owner: string
+            repo: string
+            issueNumber: number
+            title: string
+        },
+    ): R {
+        let edited = await octoCatch(
+            octo.rest.issues.update({
+                owner: args.owner,
+                repo: args.repo,
+                issue_number: args.issueNumber,
+                title: args.title,
+            }),
+        )
+        if (edited.isErr) {
+            return octoWrap(`Failed to edit issue title`, edited)
+        }
+
+        return ok()
     }
 }
 

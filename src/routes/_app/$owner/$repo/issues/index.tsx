@@ -1,4 +1,4 @@
-import { qcMem, qcPersistent } from '@/client/convex'
+import { qcMem, qcPersistent } from '@/client/queryClient'
 import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'

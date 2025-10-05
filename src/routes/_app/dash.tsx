@@ -1,4 +1,4 @@
-import { qcPersistent } from '@/client/convex'
+import { qcPersistent } from '@/client/queryClient'
 import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'

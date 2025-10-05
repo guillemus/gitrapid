@@ -360,7 +360,7 @@ const DownloadRepoPage = {
 
 export const downloadRepoPage = internalAction(DownloadRepoPage)
 
-async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
+export async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
     let userToken = await ctx.runQuery(internal.models.pats.getByUserId, {
         userId,
     })

@@ -1,4 +1,4 @@
-import { convex } from '@/client/convex'
+import { convex } from '@/client/queryClient'
 import { ConvexAuthProvider, useAuthToken } from '@convex-dev/auth/react'
 import { useEffect } from 'react'
 
