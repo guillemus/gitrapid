@@ -77,3 +77,5 @@ export function unwrap<T, E>(result: Result<T, E>): T {
 
     return result.val
 }
+
+// @ts-expect-error: what if ok and err types were a single result type instead? like neverthrow, result type thingy. explore maybe

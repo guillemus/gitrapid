@@ -250,6 +250,7 @@ export namespace Issues {
     export const insertOpenUserIssueWithBody = {
         args: {
             repoId: v.id('repos'),
+            userGithubId: v.number(),
             githubId: v.number(),
             number: v.number(),
             title: v.string(),
@@ -260,15 +261,9 @@ export namespace Issues {
             body: v.string(),
         },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
-            let useridentity = await ctx.auth.getUserIdentity()
-            let githubUserId = useridentity?.subject
-            assert(githubUserId, 'not authenticated')
-
-            let githubUserIdNum = parseInt(githubUserId)
-
             let ghUser = await ctx.db
                 .query('githubUsers')
-                .withIndex('by_githubId', (u) => u.eq('githubId', githubUserIdNum))
+                .withIndex('by_githubId', (u) => u.eq('githubId', args.userGithubId))
                 .unique()
             assert(ghUser, 'github user not found')
 

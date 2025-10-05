@@ -34,6 +34,10 @@ export const Route = createFileRoute('/_app/settings')({
     component: SettingsPage,
 })
 
+// @ts-expect-error: I fucking need to fix this page. bit overengineered, it
+// should better explain why we need the token, add the `read:org` permission
+// (check with codex why we need that thing, it's in a conversation).
+
 // We can have a 'none' scope, which in github means that it is just read only
 // access. It isn't really a scope, it's just that the user gives permission to
 // gitrapid to read stuff for him. Best for trying out the app.

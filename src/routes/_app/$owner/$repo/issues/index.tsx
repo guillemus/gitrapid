@@ -46,6 +46,9 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     component: IssuesPage,
 })
 
+// @ts-expect-error: this whole state should be in the url instead
+// @ts-expect-error: simplify state management into state machine or like just some fucking methods or something
+
 const state = proxy({
     cursors: [null] as (string | null)[],
     index: 0,

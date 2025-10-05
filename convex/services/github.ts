@@ -1,4 +1,3 @@
-import type { Id } from '@convex/_generated/dataModel'
 import { parseDate } from '@convex/utils'
 import { Octokit, RequestError } from 'octokit'
 import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
@@ -45,24 +44,37 @@ export namespace Github {
         return ok(data)
     }
 
-    export async function getTokenExpiration(token: { token: string }): R<Date> {
+    export async function getUserAndTokenExpiration(token: { token: string }) {
         const octo = newOctokit(token)
 
         let res = await tryCatch(octo.rest.users.getAuthenticated())
         if (res.isErr) return wrap('failed to get token expiration', res)
 
-        let expiration = res.val.headers['github-authentication-token-expiration']
-        if (!expiration) {
+        let expirationHeader = res.val.headers['github-authentication-token-expiration']
+        if (!expirationHeader) {
             return err('no expiration header found in response')
         }
 
-        if (typeof expiration === 'string') {
-            return parseDate(expiration)
-        } else if (typeof expiration === 'number') {
-            return ok(new Date(expiration))
+        let expiration
+        if (typeof expirationHeader === 'string') {
+            let parsed = parseDate(expirationHeader)
+            if (parsed.isErr) return err('invalid expiration header')
+
+            expiration = parsed.val
+        } else if (typeof expirationHeader === 'number') {
+            expiration = new Date(expirationHeader)
+        } else {
+            return err('invalid expiration header')
         }
 
-        return err('invalid expiration header')
+        return ok({
+            githubUser: {
+                githubId: res.val.data.id,
+                login: res.val.data.login,
+                avatarUrl: res.val.data.avatar_url,
+            },
+            expiration,
+        })
     }
 
     export async function getRateLimit(octo: Octokit) {

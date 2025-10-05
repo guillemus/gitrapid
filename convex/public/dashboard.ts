@@ -56,9 +56,6 @@ export const addRepo = action({
 
     async handler(ctx, args): R {
         let userId = await getUserId(ctx)
-
-        console.log('calling add repo')
-
         let token = await getTokenFromUserId(ctx, userId)
         if (token.isErr) {
             logger.error(`failed to get token for user ${userId}: ${token.err}`)

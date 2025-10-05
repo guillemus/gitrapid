@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { createFileRoute, Navigate, useNavigate } from '@tanstack/react-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/new')({
@@ -51,7 +51,7 @@ function CreateNewIssuePage() {
             })
             state.creatingIssue = false
             state.createdIssueId = issueId
-        } catch (error) {
+        } catch {
             state.creatingIssue = false
             toast.error('Failed to create issue')
         }

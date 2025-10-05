@@ -187,6 +187,7 @@ const issueTimelineItems = defineTable({
     .index('by_issueId_and_createdAt', ['issueId', 'createdAt'])
 
 const pats = defineTable({
+    githubUser: v.id('githubUsers'),
     userId: v.id('users'),
     token: v.string(),
     scopes: v.array(

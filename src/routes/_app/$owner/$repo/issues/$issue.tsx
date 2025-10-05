@@ -31,6 +31,10 @@ import { useMemo } from 'react'
 import { toast } from 'sonner'
 import z from 'zod'
 
+// @ts-expect-error: missing: add issue comment
+// @ts-expect-error: missing: edit issue comment
+// @ts-expect-error: delete issue comment maybe?
+
 const paramsSchema = z.object({
     owner: z.string(),
     repo: z.string(),

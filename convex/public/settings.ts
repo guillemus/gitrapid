@@ -32,16 +32,22 @@ export const savePAT = action({
     async handler(ctx, { token, scopes }): R {
         let userId = await getUserId(ctx)
 
-        let expiresAt = await Github.getTokenExpiration({ token })
-        if (expiresAt.isErr) {
-            return wrap('Failed to validate token', expiresAt)
+        let res = await Github.getUserAndTokenExpiration({ token })
+        if (res.isErr) {
+            return wrap('Failed to validate token', res)
         }
 
+        let githubUserId = await ctx.runMutation(internal.models.users.upsertGithubUser, {
+            githubId: res.val.githubUser.githubId,
+            login: res.val.githubUser.login,
+            avatarUrl: res.val.githubUser.avatarUrl,
+        })
         await ctx.runMutation(internal.models.pats.upsertForUser, {
+            githubUser: githubUserId,
             userId,
             token,
             scopes,
-            expiresAt: expiresAt.val.toISOString(),
+            expiresAt: res.val.expiration.toISOString(),
         })
 
         return ok()
