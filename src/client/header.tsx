@@ -93,11 +93,12 @@ export function Header() {
 function SeeOnGitHubTab() {
     let path = window.location.pathname
 
-    return <Tab href={`https://github.com${path}`} label="See on GitHub" icon={Github} />
+    return <Tab openNewTab href={`https://github.com${path}`} label="See on GitHub" icon={Github} />
 }
 
 function Tab(props: {
     href: string
+    openNewTab?: boolean
     active?: boolean
     label: string
     count?: number
@@ -106,6 +107,7 @@ function Tab(props: {
     return (
         <Link
             to={props.href}
+            {...(props.openNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
             className={`relative flex h-10 items-center space-x-2 px-1 text-sm font-medium whitespace-nowrap after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[0px] after:h-[2px] after:rounded after:content-[''] ${
                 props.active
                     ? 'text-foreground after:bg-orange-500'
