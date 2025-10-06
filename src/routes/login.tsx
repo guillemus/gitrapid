@@ -41,7 +41,7 @@ function LoginPage() {
                         <div className="rounded-lg bg-black p-2">
                             <Zap className="h-6 w-6 text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold text-slate-900">gitrapid</h1>
+                        <h1 className="text-3xl font-bold text-slate-900">GitRapid</h1>
                     </div>
                     <p className="text-lg text-slate-600">The fastest GitHub client</p>
                     <p className="mt-1 text-sm text-slate-500">

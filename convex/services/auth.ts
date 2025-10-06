@@ -19,10 +19,10 @@ export namespace Auth {
         },
         async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
             let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
-            if (!savedRepo) return err('repo-not-found' as const)
+            if (!savedRepo) return err('repo-not-found')
 
             let hasRepo = await UserRepos.userHasRepo(ctx, args.userId, savedRepo._id)
-            if (!hasRepo) return err('user-repo-not-found' as const)
+            if (!hasRepo) return err('user-repo-not-found')
 
             return ok(savedRepo)
         },

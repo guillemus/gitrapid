@@ -27,17 +27,42 @@ import {
     X,
 } from 'lucide-react'
 import { proxy, useSnapshot } from 'valtio'
+import { z } from 'zod'
+
+const search = z.object({
+    index: z.number().optional(),
+    filter: z
+        .object({
+            search: z.string().optional(),
+            state: z.enum(['open', 'closed']).optional(),
+            sortBy: z.enum(['createdAt', 'updatedAt', 'comments']).optional(),
+        })
+        .optional(),
+})
+
+const state = proxy({
+    cursors: [null] as (string | null)[],
+})
+
+const PAGE_SIZE = 20
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
+    validateSearch: search,
+    loaderDeps: (s) => {
+        return {
+            filters: s.search.filter,
+            pageSize: s.search.index,
+        }
+    },
     loader: async (ctx) => {
-        void qcPersistent.prefetchQuery(
+        void qcMem.prefetchQuery(
             convexQuery(api.public.issues.list, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
-                state: state.filters.state,
-                sortBy: state.filters.sortBy,
+                state: ctx.deps.filters?.state,
+                sortBy: ctx.deps.filters?.sortBy,
                 paginationOpts: {
-                    numItems: state.pageSize,
+                    numItems: PAGE_SIZE,
                     cursor: null,
                 },
             }),
@@ -46,19 +71,17 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     component: IssuesPage,
 })
 
-// @ts-expect-error: this whole state should be in the url instead
-// @ts-expect-error: simplify state management into state machine or like just some fucking methods or something
-
-const state = proxy({
-    cursors: [null] as (string | null)[],
-    index: 0,
-    pageSize: 20,
-    filters: {
-        search: '',
-        state: 'open' as 'open' | 'closed',
-        sortBy: 'createdAt' as 'createdAt' | 'updatedAt' | 'comments',
-    },
-})
+function useSearch() {
+    let search = Route.useSearch()
+    return {
+        index: search.index ?? 0,
+        filter: {
+            search: search.filter?.search,
+            state: search.filter?.state ?? 'open',
+            sortBy: search.filter?.sortBy ?? 'createdAt',
+        },
+    }
+}
 
 type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
 type SearchResult = FunctionReturnType<typeof api.public.issues.search>
@@ -66,22 +89,24 @@ type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 type FoundIssue = SearchResult['issues'][number]
 
 function IssuesPage() {
-    let navigate = Route.useNavigate()
-    let params = Route.useParams()
     useSnapshot(state)
 
-    let activeSearch = state.filters.search
+    let navigate = Route.useNavigate()
+    let params = Route.useParams()
+    let search = useSearch()
+
+    let activeSearch = search.filter.search
 
     let issueList = usePageQuery(
         api.public.issues.list,
         {
             owner: params.owner,
             repo: params.repo,
-            state: state.filters.state,
-            sortBy: state.filters.sortBy,
+            state: search.filter.state,
+            sortBy: search.filter.sortBy,
             paginationOpts: {
-                numItems: state.pageSize,
-                cursor: state.cursors[state.index] ?? null,
+                numItems: PAGE_SIZE,
+                cursor: state.cursors[search.index] ?? null,
             },
         },
         qcMem,
@@ -102,18 +127,18 @@ function IssuesPage() {
         if (!isSearchLoading) {
             let all = searchQuery.data?.issues ?? []
             // Filter by state client-side
-            let filtered = all.filter((i) => i.state === state.filters.state)
+            let filtered = all.filter((i) => i.state === search.filter?.state)
             // Sort client-side
-            if (state.filters.sortBy === 'createdAt') {
+            if (search.filter?.sortBy === 'createdAt') {
                 filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-            } else if (state.filters.sortBy === 'updatedAt') {
+            } else if (search.filter?.sortBy === 'updatedAt') {
                 filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
             } else {
                 filtered.sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0))
             }
             // Client-side pagination
-            let start = state.index * state.pageSize
-            issues = filtered.slice(start, start + state.pageSize)
+            let start = search.index ?? 0 * PAGE_SIZE
+            issues = filtered.slice(start, start + PAGE_SIZE)
         }
     } else {
         issues = issueList?.page ?? []
@@ -143,11 +168,16 @@ function IssuesPage() {
                     <Button
                         size="sm"
                         className="gap-2"
-                        variant={state.filters.state === 'open' ? 'default' : 'outline'}
-                        onClick={() => {
-                            state.filters.state = state.filters.state === 'open' ? 'closed' : 'open'
+                        variant={search.filter?.state === 'open' ? 'default' : 'outline'}
+                        onClick={async () => {
                             state.cursors = [null]
-                            state.index = 0
+                            await navigate({
+                                to: `/$owner/$repo/issues`,
+                                search: {
+                                    filter: { state: search.filter.state },
+                                    index: 0,
+                                },
+                            })
                         }}
                     >
                         <AlertCircle className="h-4 w-4" />
@@ -166,12 +196,16 @@ function IssuesPage() {
                     <Button
                         size="sm"
                         className="gap-2"
-                        variant={state.filters.state === 'closed' ? 'default' : 'outline'}
-                        onClick={() => {
-                            state.filters.state =
-                                state.filters.state === 'closed' ? 'open' : 'closed'
+                        variant={search.filter?.state === 'closed' ? 'default' : 'outline'}
+                        onClick={async () => {
                             state.cursors = [null]
-                            state.index = 0
+                            await navigate({
+                                to: `/$owner/$repo/issues`,
+                                search: {
+                                    filter: { state: search.filter.state },
+                                    index: 0,
+                                },
+                            })
                         }}
                     >
                         <CheckCircle className="h-4 w-4" />
@@ -210,7 +244,7 @@ function IssuesPage() {
                                 <IssueItem
                                     key={issue._id}
                                     issue={issue}
-                                    sortBy={state.filters.sortBy}
+                                    sortBy={search.filter.sortBy}
                                 />
                             ))}
                         </div>
@@ -292,7 +326,8 @@ function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt'
 }
 
 function PaginationControls() {
-    let hasSearch = !!state.filters.search
+    let search = Route.useSearch()
+    let hasSearch = !!search.filter?.search
 
     if (hasSearch) return <ClientPaginationControls />
     return <ServerPaginationControls />
@@ -300,15 +335,17 @@ function PaginationControls() {
 
 // Paginates issues by cursor
 function ServerPaginationControls() {
+    let navigate = Route.useNavigate()
+    let search = useSearch()
     let params = Route.useParams()
     let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
-        state: state.filters.state,
-        sortBy: state.filters.sortBy,
+        state: search.filter.state,
+        sortBy: search.filter.sortBy,
         paginationOpts: {
-            numItems: state.pageSize,
-            cursor: state.cursors[state.index] ?? null,
+            numItems: PAGE_SIZE,
+            cursor: state.cursors[search.index] ?? null,
         },
     })
 
@@ -318,12 +355,18 @@ function ServerPaginationControls() {
                 variant="outline"
                 size="sm"
                 className="gap-1 bg-transparent"
-                onClick={() => {
-                    if (state.index > 0) {
-                        state.index = state.index - 1
+                onClick={async () => {
+                    if (search.index > 0) {
+                        await navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: search.index - 1,
+                            },
+                        })
                     }
                 }}
-                disabled={state.index === 0}
+                disabled={search.index === 0}
             >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -336,10 +379,16 @@ function ServerPaginationControls() {
                     let canPage = res?.isDone === false
                     let next = res?.continueCursor
                     if (canPage && next) {
-                        let nextStack = state.cursors.slice(0, state.index + 1)
+                        let nextStack = state.cursors.slice(0, (search.index ?? 0) + 1)
                         nextStack.push(next)
                         state.cursors = nextStack
-                        state.index = state.index + 1
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: search.index + 1,
+                            },
+                        })
                     }
                 }}
                 disabled={res?.isDone ?? true}
@@ -354,19 +403,21 @@ function ServerPaginationControls() {
 // Paginates already fetched issues
 function ClientPaginationControls() {
     let params = Route.useParams()
+    let search = useSearch()
+    let navigate = Route.useNavigate()
     let searchRes = useTanstackQuery(
         convexQuery(
             api.public.issues.search,
-            state.filters.search
-                ? { owner: params.owner, repo: params.repo, search: state.filters.search }
+            search.filter.search
+                ? { owner: params.owner, repo: params.repo, search: search.filter.search }
                 : 'skip',
         ),
     )
     let loading = searchRes.isLoading || searchRes.isFetching
     let total = loading ? 0 : ((searchRes.data?.issues?.length as number | undefined) ?? 0)
-    let pageCount = Math.ceil(total / state.pageSize)
-    let atStart = state.index === 0
-    let atEnd = pageCount === 0 || state.index >= pageCount - 1
+    let pageCount = Math.ceil(total / PAGE_SIZE)
+    let atStart = search.index === 0
+    let atEnd = pageCount === 0 || search.index >= pageCount - 1
 
     return (
         <div className="flex items-center justify-end gap-2">
@@ -375,7 +426,14 @@ function ClientPaginationControls() {
                 size="sm"
                 className="gap-1 bg-transparent"
                 onClick={() => {
-                    if (!atStart) state.index = state.index - 1
+                    if (!atStart)
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: search.index - 1,
+                            },
+                        })
                 }}
                 disabled={atStart || loading}
             >
@@ -387,7 +445,15 @@ function ClientPaginationControls() {
                 size="sm"
                 className="gap-1 bg-transparent"
                 onClick={() => {
-                    if (!atEnd) state.index = state.index + 1
+                    if (!atEnd) {
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: search.index + 1,
+                            },
+                        })
+                    }
                 }}
                 disabled={atEnd || loading}
             >
@@ -414,15 +480,18 @@ function LoadingList() {
 }
 
 function SortByDropdown() {
+    let navigate = Route.useNavigate()
+    let search = useSearch()
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2 bg-transparent">
                     {(() => {
-                        if (state.filters.sortBy === 'createdAt') {
+                        if (search.filter.sortBy === 'createdAt') {
                             return 'Newest'
                         }
-                        if (state.filters.sortBy === 'updatedAt') {
+                        if (search.filter.sortBy === 'updatedAt') {
                             return 'Last updated'
                         }
                         return 'Total comments'
@@ -433,27 +502,44 @@ function SortByDropdown() {
             <DropdownMenuContent>
                 <DropdownMenuItem
                     onClick={() => {
-                        state.filters.sortBy = 'createdAt'
                         state.cursors = [null]
-                        state.index = 0
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: 0,
+                            },
+                        })
                     }}
                 >
                     Newest
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onClick={() => {
-                        state.filters.sortBy = 'updatedAt'
                         state.cursors = [null]
-                        state.index = 0
+
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: 0,
+                            },
+                        })
                     }}
                 >
                     Last updated
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onClick={() => {
-                        state.filters.sortBy = 'comments'
                         state.cursors = [null]
-                        state.index = 0
+
+                        navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: {
+                                filter: search.filter,
+                                index: 0,
+                            },
+                        })
                     }}
                 >
                     Total comments
@@ -465,6 +551,8 @@ function SortByDropdown() {
 
 function SearchBar() {
     let searchInput = useMutable({ value: '' })
+    let search = useSearch()
+    let navigate = Route.useNavigate()
 
     return (
         <div className="flex flex-1 items-center space-x-0">
@@ -479,9 +567,15 @@ function SearchBar() {
                     }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                            state.filters.search = searchInput.value.trim()
                             state.cursors = [null]
-                            state.index = 0
+
+                            navigate({
+                                to: `/$owner/$repo/issues`,
+                                search: {
+                                    filter: search.filter,
+                                    index: 0,
+                                },
+                            })
                         }
                     }}
                 />
@@ -503,9 +597,15 @@ function SearchBar() {
                 size="sm"
                 className="-ml-px h-10 gap-2 rounded-l-none bg-transparent"
                 onClick={() => {
-                    state.filters.search = searchInput.value.trim()
                     state.cursors = [null]
-                    state.index = 0
+
+                    navigate({
+                        to: `/$owner/$repo/issues`,
+                        search: {
+                            filter: search.filter,
+                            index: 0,
+                        },
+                    })
                 }}
                 aria-label="Search"
             >

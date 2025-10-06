@@ -39,8 +39,11 @@ export function ok<T>(val?: T): Ok<T | null> {
 /**
  * Convenient utility to create an Err.
  */
-export function err<E = string>(msg: E): Err<E> {
-    return { isErr: true, err: msg }
+export function err<E extends string = string>(err: E): Err<E>
+export function err<E = unknown>(err: E): Err<E>
+export function err<E extends void = void>(err: void): Err<void>
+export function err<E = unknown>(err: E): Err<E> {
+    return { isErr: true, err }
 }
 
 export function wrap(context: string, err: Err<string>): Err<string> {
@@ -77,5 +80,3 @@ export function unwrap<T, E>(result: Result<T, E>): T {
 
     return result.val
 }
-
-// @ts-expect-error: what if ok and err types were a single result type instead? like neverthrow, result type thingy. explore maybe

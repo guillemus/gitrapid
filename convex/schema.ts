@@ -191,7 +191,12 @@ const pats = defineTable({
     userId: v.id('users'),
     token: v.string(),
     scopes: v.array(
-        v.union(v.literal('public_repo'), v.literal('repo'), v.literal('notifications')),
+        v.union(
+            v.literal('public_repo'),
+            v.literal('repo'),
+            v.literal('notifications'),
+            v.literal('read:org'),
+        ),
     ),
     expiresAt: v.string(),
 

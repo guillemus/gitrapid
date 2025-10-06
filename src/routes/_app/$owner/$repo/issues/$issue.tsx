@@ -42,9 +42,7 @@ const paramsSchema = z.object({
 })
 
 export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
-    params: {
-        parse: (s) => paramsSchema.parse(s),
-    },
+    params: paramsSchema,
     loader: (ctx) => {
         void qcPersistent.prefetchQuery(
             convexQuery(api.public.issues.get, {

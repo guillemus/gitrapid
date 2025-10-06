@@ -1,11 +1,13 @@
 import { qcPersistent } from '@/client/queryClient'
 import { usePageQuery } from '@/client/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
@@ -20,28 +22,27 @@ import {
     Info,
     RefreshCw,
     Trash2,
+    AlertCircleIcon,
 } from 'lucide-react'
 import { proxy, useSnapshot } from 'valtio'
 import z from 'zod'
 
-const searchParamsSchema = z.object({
+const search = z.object({
     scope: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_app/settings')({
-    validateSearch: (s) => searchParamsSchema.parse(s),
-    loader: () => qcPersistent.prefetchQuery(convexQuery(api.public.settings.get, {})),
+    validateSearch: (s) => search.parse(s),
+    loader: () => {
+        void qcPersistent.prefetchQuery(convexQuery(api.public.settings.get, {}))
+    },
     component: SettingsPage,
 })
 
-// @ts-expect-error: I fucking need to fix this page. bit overengineered, it
-// should better explain why we need the token, add the `read:org` permission
-// (check with codex why we need that thing, it's in a conversation).
-
 // We can have a 'none' scope, which in github means that it is just read only
 // access. It isn't really a scope, it's just that the user gives permission to
-// gitrapid to read stuff for him. Best for trying out the app.
-type ScopeWithNone = Doc<'pats'>['scopes'][0] | 'none'
+// GitRapid to read stuff for him. Best for trying out the app.
+type ScopeWithNone = Doc<'pats'>['scopes'][0]
 
 type ScopeOption = {
     scope: ScopeWithNone
@@ -50,12 +51,6 @@ type ScopeOption = {
 }
 
 const SCOPE_OPTIONS: ScopeOption[] = [
-    {
-        scope: 'none',
-        label: 'No Scope (Read-Only)',
-        description:
-            'Read-only access to public information (including user profile info, repository info, and gists)',
-    },
     {
         scope: 'public_repo',
         label: 'Public Repository Access',
@@ -72,6 +67,12 @@ const SCOPE_OPTIONS: ScopeOption[] = [
         label: 'GitHub Notifications',
         description:
             'Notification access — read & mark as read, watch/unwatch, manage subscriptions',
+    },
+    {
+        scope: 'read:org',
+        label: 'Organization Access (Required)',
+        description:
+            'Read-only access to organization membership and teams. Required for GitRapid to function properly.',
     },
 ]
 
@@ -104,7 +105,7 @@ function getExpirationInfo(expiresAt: string) {
 
 const state = proxy({
     tokenInput: '',
-    selectedScopes: ['public_repo', 'notifications'] as ScopeWithNone[],
+    selectedScopes: ['repo', 'notifications', 'read:org'] as ScopeWithNone[],
     shouldUpdateToken: false,
     copyFeedback: false,
     errorMessage: null as string | null,
@@ -112,30 +113,19 @@ const state = proxy({
 })
 
 function handleScopeChange(scope: ScopeWithNone, checked: boolean) {
-    if (checked) {
-        if (scope === 'none') {
-            // When selecting 'none', remove repository scopes
+    // Prevent changing read:org scope
+    if (scope === 'read:org') return
 
-            state.selectedScopes = state.selectedScopes.filter(
-                (id) => id !== 'public_repo' && id !== 'repo',
-            )
-            state.selectedScopes.push(scope)
-        } else if (scope === 'public_repo' || scope === 'repo') {
-            // When selecting repository scopes, remove 'none'
-            state.selectedScopes = state.selectedScopes.filter((id) => id !== 'none')
-            state.selectedScopes.push(scope)
-        } else {
-            // For other scopes, just add them
-            state.selectedScopes.push(scope)
-        }
+    if (checked) {
+        state.selectedScopes.push(scope)
     } else {
         state.selectedScopes = state.selectedScopes.filter((id) => id !== scope)
     }
 }
 
 function generateGitHubUrl() {
-    const scopes = state.selectedScopes.filter((scope) => scope !== 'none').join(',')
-    const description = scopes ? `gitrapid (${scopes})` : 'gitrapid'
+    const scopes = state.selectedScopes.join(',')
+    const description = scopes ? `GitRapid (${scopes})` : 'GitRapid'
 
     const baseUrl = 'https://github.com/settings/tokens/new'
     const params = new URLSearchParams()
@@ -160,7 +150,23 @@ function CreateTokenCard() {
             <CardHeader>
                 <CardTitle className="text-lg">Create a New Token</CardTitle>
                 <CardDescription>
-                    Select the scopes you need and create a token on GitHub
+                    <div className="space-y-1">
+                        <p>
+                            For GitRapid to be able to properly read and write data to GitHub, it
+                            needs a personal access token.
+                        </p>
+                        <p>Choose the scopes that you feel comfortable giving to GitRapid.</p>
+
+                        <div className="mt-4"></div>
+
+                        <Alert>
+                            <AlertCircleIcon />
+                            <AlertDescription>
+                                If you are just checking this app out, feel free to disable all
+                                scopes. GitRapid will be able to read public data only.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -183,44 +189,82 @@ function CreateTokenCard() {
                             </a>
                         </Button>
                     </div>
-                    {SCOPE_OPTIONS.map((option) => (
-                        <div
-                            key={option.scope}
-                            className="flex items-start space-x-3 rounded-lg border p-3"
-                        >
-                            <Checkbox
-                                id={option.scope}
-                                checked={state.selectedScopes.includes(option.scope)}
-                                onCheckedChange={(checked) =>
-                                    handleScopeChange(option.scope, checked as boolean)
-                                }
-                                className="mt-1"
-                            />
-                            <div className="flex-1 space-y-1">
-                                <div className="flex items-center justify-between">
-                                    <label
-                                        htmlFor={option.scope}
-                                        className="cursor-pointer text-sm font-medium"
+                    <TooltipProvider>
+                        <div className="grid grid-cols-2 gap-2">
+                            {SCOPE_OPTIONS.map((option) => {
+                                const isRequired = option.scope === 'read:org'
+                                return (
+                                    <div
+                                        key={option.scope}
+                                        className={`flex items-center gap-3 rounded-lg p-3 transition-colors ${
+                                            isRequired
+                                                ? 'cursor-not-allowed bg-gray-100'
+                                                : 'cursor-pointer hover:bg-gray-100'
+                                        }`}
+                                        onClick={() => {
+                                            if (!isRequired) {
+                                                handleScopeChange(
+                                                    option.scope,
+                                                    !state.selectedScopes.includes(option.scope),
+                                                )
+                                            }
+                                        }}
                                     >
-                                        {option.label}
-                                    </label>
-                                    <Badge variant="outline" className="font-mono text-xs">
-                                        {option.scope}
-                                    </Badge>
-                                </div>
-                                <p className="text-xs leading-relaxed text-gray-600">
-                                    {option.description}
-                                </p>
-                            </div>
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox
+                                                id={option.scope}
+                                                checked={state.selectedScopes.includes(
+                                                    option.scope,
+                                                )}
+                                                disabled={isRequired}
+                                                onCheckedChange={(checked) =>
+                                                    handleScopeChange(
+                                                        option.scope,
+                                                        checked as boolean,
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex flex-1 flex-col gap-1">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="text-sm font-medium select-none">
+                                                    {option.label}
+                                                </div>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            className="rounded-full text-gray-400 hover:text-gray-600"
+                                                        >
+                                                            <Info className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="max-w-xs">
+                                                        <p className="text-xs">
+                                                            {option.description}
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                            <Badge
+                                                variant="outline"
+                                                className="w-fit font-mono text-xs"
+                                            >
+                                                {option.scope}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
-                    ))}
+                    </TooltipProvider>
                 </div>
 
                 <Separator />
 
                 <div className="space-y-3">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">GitHub URL Preview</label>
+                        <label className="text-sm font-medium">URL Preview</label>
                         <div className="rounded-lg border bg-gray-50 p-3">
                             <div className="flex items-center space-x-2 font-mono text-sm break-all text-gray-700">
                                 <span>{generateGitHubUrl()}</span>
@@ -243,12 +287,12 @@ function CreateTokenCard() {
                     <Button asChild disabled={state.selectedScopes.length === 0} className="w-full">
                         <a href={generateGitHubUrl()} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-2 h-4 w-4" />
-                            Generate Token on GitHub
+                            Generate Token
                         </a>
                     </Button>
                 </div>
 
-                <div className="border-t pt-2 text-xs text-gray-500">
+                <div className="border-t pt-2 text-gray-500">
                     <p>
                         After creating your token on GitHub, copy it and paste it in the field
                         above.
@@ -271,7 +315,7 @@ function SettingsPage() {
         state.isSaving = true
         state.errorMessage = null
 
-        let scopes = state.selectedScopes.filter((s) => s !== 'none')
+        let scopes = state.selectedScopes
 
         const result = await savePAT({
             token: state.tokenInput,
@@ -303,7 +347,7 @@ function SettingsPage() {
                         <h1 className="text-2xl font-semibold text-gray-900">Add GitHub Token</h1>
                     </div>
                     <p className="text-gray-600">
-                        Create a personal access token to get started with gitrapid
+                        Create a personal access token to get started with GitRapid.
                     </p>
                 </div>
 

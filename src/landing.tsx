@@ -12,7 +12,7 @@ export function Landing() {
                         <Zap className="text-background h-6 w-6" />
                     </div>
                     <h1 className="relative text-3xl font-bold">
-                        gitrapid
+                        GitRapid
                         <Badge
                             variant="secondary"
                             className="absolute top-[-15px] right-[-27px] rotate-[10deg] bg-red-400 text-white"
