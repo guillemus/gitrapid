@@ -9,7 +9,7 @@ import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useAction, useMutation } from 'convex/react'
+import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -31,7 +31,6 @@ import { useMemo } from 'react'
 import { toast } from 'sonner'
 import z from 'zod'
 
-// @ts-expect-error: missing: add issue comment
 // @ts-expect-error: missing: edit issue comment
 // @ts-expect-error: delete issue comment maybe?
 
@@ -575,7 +574,7 @@ function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
 
 function AddCommentBox() {
     let { owner, repo, issue: number } = Route.useParams()
-    let addComment = useAction(api.public.issues.addComment)
+    let addComment = useMutation(api.public.issues.addComment)
 
     let state = useMutable({
         addingComment: false,
@@ -587,15 +586,14 @@ function AddCommentBox() {
 
         state.addingComment = true
         let res = await addComment({ owner, repo, number, comment: state.comment })
-        console.log(res)
-
         state.addingComment = false
+        state.comment = ''
 
         if (res.isErr) {
             if (res.err.type === 'INSUFFICIENT_SCOPES') {
-                toast.error(
-                    <>
-                        <p>The current token doesn't have enough scopes</p>
+                toast.error(`The current token doesn't have enough scopes`, {
+                    position: 'bottom-center',
+                    description: (
                         <p>
                             Go to{' '}
                             <Link
@@ -608,15 +606,10 @@ function AddCommentBox() {
                             to add a token with{' '}
                             <Badge variant="outline">{res.err.requiredScope}</Badge> scope
                         </p>
-                    </>,
-                    {
-                        position: 'bottom-center',
-                    },
-                )
-                return
+                    ),
+                })
             }
         }
-        state.comment = ''
     }
 
     return (

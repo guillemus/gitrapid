@@ -1,12 +1,11 @@
 import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
-import { action, internalAction, mutation, query } from '@convex/_generated/server'
+import { internalAction, mutation, query } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { PATs } from '@convex/models/pats'
-import { Auth, canUserCommentOnRepo, getTokenFromUserId } from '@convex/services/auth'
+import { Auth, canUserCommentOnRepo } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { octoFromUserId } from '@convex/services/sync'
 import { err, ok, unwrap } from '@convex/shared'
@@ -105,7 +104,7 @@ export const create = mutation({
         title: v.string(),
         body: v.string(),
     },
-    async handler(ctx, args): Promise<Id<'issues'>> {
+    async handler(ctx, args) {
         let userId = await Auth.getUserId(ctx)
         let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
@@ -115,7 +114,7 @@ export const create = mutation({
         let savedRepo = unwrap(hasAccess)
 
         let pat = await PATs.getByUserId.handler(ctx, { userId })
-        assert(pat, 'PAT not found')
+        if (!pat) return err('PAT_NOT_FOUND')
 
         let githubUser = await ctx.db.get(pat.githubUser)
         assert(githubUser, 'github user not found')
@@ -126,8 +125,11 @@ export const create = mutation({
             title: args.title,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            githubId: -1,
-            number: -1,
+            // we don't have yet neither of these, so -2123 is enough of a strange id
+            // to be greppable against this codebase. If disaster happens we can traceback
+            // the error to here.
+            githubId: -2123,
+            number: -2123,
             body: args.body,
         })
 
@@ -140,7 +142,7 @@ export const create = mutation({
             issueId,
         })
 
-        return issueId
+        return ok(issueId)
     },
 })
 
@@ -153,44 +155,36 @@ export const createAction = internalAction({
         userId: v.id('users'),
         issueId: v.id('issues'),
     },
-    async handler(ctx, args) {
+    async handler(ctx, args): Promise<void> {
         let octo = await octoFromUserId(ctx, args.userId)
 
-        creatingIssue: {
-            if (octo.isErr) {
-                logger.error(`octo error: failed to get octo: ${octo.err}`)
-                break creatingIssue
-            }
+        let rollback = () =>
+            ctx.runMutation(internal.models.issues.doDelete, { issueId: args.issueId })
 
-            let created = await Github.createIssue(octo.val, {
-                owner: args.owner,
-                repo: args.repo,
-                title: args.title,
-                body: args.body,
-            })
-            if (created.isErr) {
-                logger.error(`octo error: failed to create issue: ${created.err}`)
-                break creatingIssue
-            }
-
-            await ctx.runMutation(internal.models.issues.update, {
-                issueId: args.issueId,
-                createdAt: created.val.created_at,
-                updatedAt: created.val.updated_at,
-                githubId: created.val.id,
-                number: created.val.number,
-            })
-
+        if (octo.isErr) {
+            logger.error(`octo error: failed to get octo: ${octo.err}`)
+            await rollback()
             return
         }
 
-        await ctx.runMutation(internal.models.issues.doDelete, {
+        let created = await Github.createIssue(octo.val, args)
+        if (created.isErr) {
+            logger.error(`octo error: failed to create issue: ${created.err}`)
+            await rollback()
+            return
+        }
+
+        await ctx.runMutation(internal.models.issues.update, {
             issueId: args.issueId,
+            createdAt: created.val.created_at,
+            updatedAt: created.val.updated_at,
+            githubId: created.val.id,
+            number: created.val.number,
         })
     },
 })
 
-export const addComment = action({
+export const addComment = mutation({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -199,7 +193,7 @@ export const addComment = action({
     },
     async handler(ctx, args) {
         let userId = await Auth.getUserId(ctx)
-        let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
+        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
             owner: args.owner,
             repo: args.repo,
@@ -207,8 +201,11 @@ export const addComment = action({
         let savedRepo = unwrap(hasAccess)
 
         let token
-        token = await getTokenFromUserId(ctx, userId)
-        token = unwrap(token)
+        token = await PATs.getByUserId.handler(ctx, { userId })
+        if (!token) return err({ type: 'PAT_NOT_FOUND' })
+
+        let githubUser = await ctx.db.get(token.githubUser)
+        assert(githubUser, 'github user not found')
 
         if (!canUserCommentOnRepo(savedRepo, token)) {
             if (savedRepo.private) {
@@ -216,34 +213,70 @@ export const addComment = action({
             }
         }
 
-        let octo = newOctokit(token)
-
-        let issue = await ctx.runQuery(internal.models.issues.getByRepoAndNumber, {
+        let issue = await Issues.getByRepoAndNumber.handler(ctx, {
             repoId: savedRepo._id,
             number: args.number,
         })
         assert(issue, 'issue not found')
 
-        let issueComment
-        issueComment = await Github.addCommentToIssue(octo, {
+        let commentId = await ctx.runMutation(internal.models.issueComments.insertUserComment, {
+            repoId: savedRepo._id,
+            githubUserId: githubUser.githubId,
+            issueId: issue._id,
+            githubId: -2134,
+            body: args.comment,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        })
+
+        // schedule here the comment creation
+
+        await ctx.scheduler.runAfter(0, internal.public.issues.addCommentAction, {
             owner: args.owner,
             repo: args.repo,
-            issueNumber: args.number,
+            token: token.token,
             comment: args.comment,
-        })
-        issueComment = unwrap(issueComment)
-
-        await ctx.runMutation(internal.models.issueComments.insertUserComment, {
-            repoId: savedRepo._id,
-            githubUserId: issueComment.user?.id ?? 0,
-            issueId: issue._id,
-            githubId: issueComment.id,
-            body: args.comment,
-            createdAt: issueComment.created_at,
-            updatedAt: issueComment.updated_at,
+            issueNumber: args.number,
+            commentId,
         })
 
         return ok()
+    },
+})
+
+export const addCommentAction = internalAction({
+    args: {
+        token: v.string(),
+        owner: v.string(),
+        repo: v.string(),
+        issueNumber: v.number(),
+        comment: v.string(),
+        commentId: v.id('issueComments'),
+    },
+    async handler(ctx, args) {
+        let octo = newOctokit(args)
+
+        let rollback = () =>
+            ctx.runMutation(internal.models.issues.deleteComment, { commentId: args.commentId })
+
+        let issueComment = await Github.addCommentToIssue(octo, {
+            owner: args.owner,
+            repo: args.repo,
+            issueNumber: args.issueNumber,
+            comment: args.comment,
+        })
+        if (issueComment.isErr) {
+            logger.error(`octo error: failed to add comment: ${issueComment.err}`)
+            await rollback()
+            return
+        }
+
+        await ctx.runMutation(internal.models.issueComments.updateCommentFromGithubData, {
+            commentId: args.commentId,
+            githubId: issueComment.val.id,
+            createdAt: issueComment.val.created_at,
+            updatedAt: issueComment.val.updated_at,
+        })
     },
 })
 
@@ -317,11 +350,12 @@ export const editTitleAction = internalAction({
         })
         if (issue.isErr) {
             logger.error(`octo error: failed to edit issue title: ${issue.err}`)
-            await ctx.runMutation(internal.models.issues.updateTitle, {
-                issueId: args.issueId,
-                title: args.prevTitle,
-            })
             return
         }
+
+        await ctx.runMutation(internal.models.issues.updateTitle, {
+            issueId: args.issueId,
+            title: args.prevTitle,
+        })
     },
 })

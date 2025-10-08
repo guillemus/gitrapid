@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { createFileRoute, Navigate, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
 
@@ -49,11 +49,30 @@ function CreateNewIssuePage() {
                 title: state.title,
                 body: state.body,
             })
-            state.creatingIssue = false
-            state.createdIssueId = issueId
+            if (issueId.isErr) {
+                if (issueId.err === 'PAT_NOT_FOUND') {
+                    toast.error('Token not found', {
+                        position: 'bottom-center',
+                        description: (
+                            <p>
+                                Go to{' '}
+                                <Link className="underline" to="/settings">
+                                    settings
+                                </Link>{' '}
+                                to add a new token
+                            </p>
+                        ),
+                    })
+
+                    return
+                } else throw issueId.err
+            }
+
+            state.createdIssueId = issueId.val
         } catch {
-            state.creatingIssue = false
             toast.error('Failed to create issue')
+        } finally {
+            state.creatingIssue = false
         }
     }
 

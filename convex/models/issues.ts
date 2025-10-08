@@ -247,6 +247,13 @@ export namespace Issues {
             return issueId
         },
     }
+
+    export const deleteComment = {
+        args: { commentId: v.id('issueComments') },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            await ctx.db.delete(args.commentId)
+        },
+    }
 }
 
 export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
@@ -254,6 +261,7 @@ export const listByRepo = internalQuery(Issues.listByRepo)
 export const updateTitle = internalMutation(Issues.updateTitle)
 export const update = internalMutation(Issues.updateIssue)
 export const doDelete = internalMutation(Issues.doDelete)
+export const deleteComment = internalMutation(Issues.deleteComment)
 
 async function getIssueLabels(ctx: QueryCtx, repoLabels: Doc<'labels'>[], issueId: Id<'issues'>) {
     let issueLabels = await ctx.db

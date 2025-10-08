@@ -114,3 +114,19 @@ export const insertUserComment = internalMutation({
         })
     },
 })
+
+export const updateCommentFromGithubData = internalMutation({
+    args: {
+        commentId: v.id('issueComments'),
+        githubId: v.number(),
+        createdAt: v.string(),
+        updatedAt: v.string(),
+    },
+    handler: (ctx, args) => {
+        return ctx.db.patch(args.commentId, {
+            githubId: args.githubId,
+            createdAt: args.createdAt,
+            updatedAt: args.updatedAt,
+        })
+    },
+})
