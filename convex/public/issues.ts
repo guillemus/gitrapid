@@ -19,7 +19,7 @@ export const list = query({
     args: {
         owner: v.string(),
         repo: v.string(),
-        state: v.optional(v.union(v.literal('open'), v.literal('closed'))),
+        state: v.union(v.literal('open'), v.literal('closed')),
         sortBy: v.optional(
             v.union(v.literal('createdAt'), v.literal('updatedAt'), v.literal('comments')),
         ),
@@ -45,27 +45,6 @@ export const list = query({
             ...result,
             repo: savedRepo,
         }
-    },
-})
-
-export const search = query({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        search: v.string(),
-    },
-    async handler(ctx, args) {
-        let userId = await getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
-            userId,
-            owner: args.owner,
-            repo: args.repo,
-        })
-        let savedRepo = unwrap(hasAccess)
-
-        let issues = await Issues.search.handler(ctx, { repoId: savedRepo._id, q: args.search })
-
-        return issues
     },
 })
 

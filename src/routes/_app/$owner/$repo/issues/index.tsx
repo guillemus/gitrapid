@@ -1,5 +1,5 @@
 import { qcMem, qcPersistent } from '@/client/queryClient'
-import { formatRelativeTime, useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
+import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import { IssueOpenedIcon } from '@primer/octicons-react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import type { FunctionReturnType } from 'convex/server'
+import type { FunctionReturnType, PaginationResult } from 'convex/server'
 import {
     AlertCircle,
     CheckCircle,
@@ -26,22 +26,11 @@ import {
     Search,
     X,
 } from 'lucide-react'
-import { proxy, useSnapshot } from 'valtio'
 import { z } from 'zod'
 
 const search = z.object({
-    index: z.number().optional(),
-    filter: z
-        .object({
-            search: z.string().optional(),
-            state: z.enum(['open', 'closed']).optional(),
-            sortBy: z.enum(['createdAt', 'updatedAt', 'comments']).optional(),
-        })
-        .optional(),
-})
-
-const state = proxy({
-    cursors: [null] as (string | null)[],
+    state: z.enum(['open', 'closed']).optional(),
+    sortBy: z.enum(['createdAt', 'updatedAt', 'comments']).optional(),
 })
 
 const PAGE_SIZE = 20
@@ -50,8 +39,8 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     validateSearch: search,
     loaderDeps: (s) => {
         return {
-            filters: s.search.filter,
-            pageSize: s.search.index,
+            filters: s.search,
+            pageSize: PAGE_SIZE,
         }
     },
     loader: async (ctx) => {
@@ -59,8 +48,8 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
             convexQuery(api.public.issues.list, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
-                state: ctx.deps.filters?.state,
-                sortBy: ctx.deps.filters?.sortBy,
+                state: ctx.deps.filters.state ?? 'open',
+                sortBy: ctx.deps.filters.sortBy,
                 paginationOpts: {
                     numItems: PAGE_SIZE,
                     cursor: null,
@@ -71,188 +60,279 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     component: IssuesPage,
 })
 
+class PaginationState {
+    index = 0
+    cursors: (string | null)[] = [null]
+
+    resetCursors() {
+        this.cursors = [null]
+        this.index = 0
+    }
+
+    currCursor() {
+        return this.cursors[this.index] ?? null
+    }
+
+    canGoPrev() {
+        return this.index > 0
+    }
+
+    goToPrev() {
+        if (this.index > 0) {
+            this.index--
+        }
+    }
+
+    canGoNext(pag?: PaginationResult<unknown>) {
+        if (!pag) return false
+
+        return !pag.isDone
+    }
+
+    goToNext(pag: PaginationResult<unknown>) {
+        if (!this.canGoNext(pag)) return
+
+        let nextCursor = pag.continueCursor
+
+        this.index++
+        if (this.currCursor() === null) {
+            this.cursors.push(nextCursor)
+            return
+        }
+    }
+}
+
 function useSearch() {
     let search = Route.useSearch()
     return {
-        index: search.index ?? 0,
-        filter: {
-            search: search.filter?.search,
-            state: search.filter?.state ?? 'open',
-            sortBy: search.filter?.sortBy ?? 'createdAt',
-        },
+        state: search.state ?? 'open',
+        sortBy: search.sortBy ?? 'createdAt',
     }
 }
 
 type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
-type SearchResult = FunctionReturnType<typeof api.public.issues.search>
 
-type FoundIssue = SearchResult['issues'][number]
+type FoundIssue = IssuesListResult['page'][number]
 
 function IssuesPage() {
-    useSnapshot(state)
+    let cursorState = useMutable(new PaginationState())
 
     let navigate = Route.useNavigate()
     let params = Route.useParams()
     let search = useSearch()
 
-    let activeSearch = search.filter.search
-
-    let issueList = usePageQuery(
+    let page = usePageQuery(
         api.public.issues.list,
         {
             owner: params.owner,
             repo: params.repo,
-            state: search.filter.state,
-            sortBy: search.filter.sortBy,
+            state: search.state,
+            sortBy: search.sortBy,
             paginationOpts: {
                 numItems: PAGE_SIZE,
-                cursor: state.cursors[search.index] ?? null,
+                cursor: cursorState.currCursor(),
             },
         },
         qcMem,
     )
 
-    let queryArgs = activeSearch
-        ? { owner: params.owner, repo: params.repo, search: activeSearch }
-        : ('skip' as const)
-
-    // When searching, fetch unified search set (up to 200) and paginate client-side
-    let searchQuery = useTanstackQuery(convexQuery(api.public.issues.search, queryArgs))
-
-    let repo = issueList?.repo
-    let issues: FoundIssue[] = []
-    let isSearchLoading = !!activeSearch && (searchQuery.isLoading || searchQuery.isFetching)
-
-    if (activeSearch) {
-        if (!isSearchLoading) {
-            let all = searchQuery.data?.issues ?? []
-            // Filter by state client-side
-            let filtered = all.filter((i) => i.state === search.filter?.state)
-            // Sort client-side
-            if (search.filter?.sortBy === 'createdAt') {
-                filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-            } else if (search.filter?.sortBy === 'updatedAt') {
-                filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-            } else {
-                filtered.sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0))
-            }
-            // Client-side pagination
-            let start = search.index ?? 0 * PAGE_SIZE
-            issues = filtered.slice(start, start + PAGE_SIZE)
-        }
-    } else {
-        issues = issueList?.page ?? []
-    }
+    let repo = page?.repo
+    let issues = page?.page ?? []
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2.5">
-                <SearchBar />
-                <Button
-                    className="gap-2"
-                    onClick={() =>
-                        navigate({
-                            to: `/$owner/$repo/issues/new`,
-                            params: { owner: params.owner, repo: params.repo },
-                        })
-                    }
-                >
-                    <Plus className="h-4 w-4" />
-                    New issue
-                </Button>
-            </div>
-
-            {/* Filters and Search */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                    <Button
-                        size="sm"
-                        className="gap-2"
-                        variant={search.filter?.state === 'open' ? 'default' : 'outline'}
-                        onClick={async () => {
-                            state.cursors = [null]
-                            await navigate({
-                                to: `/$owner/$repo/issues`,
-                                search: {
-                                    filter: { state: search.filter.state },
-                                    index: 0,
-                                },
-                            })
-                        }}
-                    >
-                        <AlertCircle className="h-4 w-4" />
-                        {isSearchLoading
-                            ? '... Open'
-                            : activeSearch
-                              ? (() => {
-                                    let meta = searchQuery.data?.meta
-                                    let count = meta?.totalOpen ?? 0
-                                    return `${count} Open`
-                                })()
-                              : repo
-                                ? `${repo.openIssues} Open`
-                                : '... Open'}
-                    </Button>
-                    <Button
-                        size="sm"
-                        className="gap-2"
-                        variant={search.filter?.state === 'closed' ? 'default' : 'outline'}
-                        onClick={async () => {
-                            state.cursors = [null]
-                            await navigate({
-                                to: `/$owner/$repo/issues`,
-                                search: {
-                                    filter: { state: search.filter.state },
-                                    index: 0,
-                                },
-                            })
-                        }}
-                    >
-                        <CheckCircle className="h-4 w-4" />
-                        {isSearchLoading
-                            ? '... Closed'
-                            : activeSearch
-                              ? (() => {
-                                    let meta = searchQuery.data?.meta
-                                    let count = meta?.totalClosed ?? 0
-                                    return `${count} Closed`
-                                })()
-                              : repo
-                                ? `${repo.closedIssues} Closed`
-                                : '... Closed'}
-                    </Button>
+                    <OpenIssuesButton cursorState={cursorState} totalIssues={repo?.openIssues} />
+                    <ClosedIssuesButton
+                        cursorState={cursorState}
+                        totalIssues={repo?.closedIssues}
+                    />
                 </div>
 
                 <div className="flex items-center space-x-2">
-                    <SortByDropdown></SortByDropdown>
+                    <SortByDropdown cursorState={cursorState}></SortByDropdown>
+                    <Button
+                        size="sm"
+                        className="gap-2"
+                        onClick={async () =>
+                            await navigate({
+                                to: `/$owner/$repo/issues/new`,
+                                params: { owner: params.owner, repo: params.repo },
+                            })
+                        }
+                    >
+                        <Plus className="h-4 w-4" />
+                        New issue
+                    </Button>
                 </div>
             </div>
 
-            {/* Issues List */}
-            <Card className="py-0">
-                <CardContent className="p-0">
-                    {isSearchLoading || !issueList ? (
-                        <LoadingList />
-                    ) : issues.length === 0 ? (
-                        <div className="text-muted-foreground p-8 text-center">
-                            <AlertCircle className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                            <p>No issues found matching your criteria.</p>
-                        </div>
-                    ) : (
-                        <div className="divide-y">
-                            {issues.map((issue) => (
-                                <IssueItem
-                                    key={issue._id}
-                                    issue={issue}
-                                    sortBy={search.filter.sortBy}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <IssuesList loadingIssues={!page} issues={issues} />
+            <PaginationControls cursorState={cursorState} page={page} />
+        </div>
+    )
+}
 
-            <PaginationControls />
+// Paginates issues by cursor
+function PaginationControls(props: {
+    cursorState: PaginationState
+    page?: PaginationResult<unknown>
+}) {
+    return (
+        <div className="flex items-center justify-end gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => props.cursorState.goToPrev()}
+                disabled={!props.cursorState.canGoPrev()}
+            >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 bg-transparent"
+                onClick={() => props.page && props.cursorState.goToNext(props.page)}
+                disabled={!props.cursorState.canGoNext(props.page)}
+            >
+                Next
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+        </div>
+    )
+}
+
+function LoadingList() {
+    return (
+        <div className="divide-y">
+            {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="p-4 py-2">
+                    <div className="animate-pulse">
+                        <div className="bg-muted mb-2 h-4 w-1/3 rounded" />
+                        <div className="bg-muted h-3 w-2/3 rounded" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function SortByDropdown(props: { cursorState: PaginationState }) {
+    let navigate = Route.useNavigate()
+    let search = useSearch()
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                    {(() => {
+                        if (search.sortBy === 'createdAt') {
+                            return 'Newest'
+                        }
+                        if (search.sortBy === 'updatedAt') {
+                            return 'Last updated'
+                        }
+                        return 'Total comments'
+                    })()}
+                    <ChevronDown className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <DropdownMenuItem
+                    onClick={async () => {
+                        props.cursorState.resetCursors()
+                        await navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: (p) => ({ ...p, sortBy: 'createdAt' }),
+                        })
+                    }}
+                >
+                    Newest
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={async () => {
+                        props.cursorState.resetCursors()
+                        await navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: (p) => ({ ...p, sortBy: 'updatedAt' }),
+                        })
+                    }}
+                >
+                    Last updated
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={async () => {
+                        props.cursorState.resetCursors()
+                        await navigate({
+                            to: `/$owner/$repo/issues`,
+                            search: (p) => ({ ...p, sortBy: 'comments' }),
+                        })
+                    }}
+                >
+                    Total comments
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
+function _SearchBar(props: { cursorState: PaginationState }) {
+    let searchInput = useMutable({ value: '' })
+    let navigate = Route.useNavigate()
+
+    return (
+        <div className="flex flex-1 items-center space-x-0">
+            <div className="relative flex-1">
+                <Input
+                    autoFocus
+                    placeholder="Search issues by title"
+                    className="rounded-r-none pr-10 font-normal"
+                    value={searchInput.value}
+                    onChange={(e) => {
+                        searchInput.value = e.target.value
+                    }}
+                    onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                            props.cursorState.resetCursors()
+
+                            await navigate({
+                                to: `/$owner/$repo/issues`,
+                                search: (p) => ({ ...p, search: searchInput.value }),
+                            })
+                        }
+                    }}
+                />
+                <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => {
+                        searchInput.value = ''
+                    }}
+                    className={`text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 transition-colors ${
+                        searchInput.value.length === 0 ? 'hidden' : ''
+                    }`}
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+            <Button
+                variant="outline"
+                className="-ml-px gap-2 rounded-l-none bg-transparent"
+                onClick={async () => {
+                    props.cursorState.resetCursors()
+
+                    await navigate({
+                        to: `/$owner/$repo/issues`,
+                        search: (p) => ({ ...p, search: searchInput.value }),
+                    })
+                }}
+                aria-label="Search"
+            >
+                <Search className="h-4 w-4" />
+            </Button>
         </div>
     )
 }
@@ -325,292 +405,73 @@ function IssueItem(props: { issue: FoundIssue; sortBy: 'createdAt' | 'updatedAt'
     )
 }
 
-function PaginationControls() {
-    let search = Route.useSearch()
-    let hasSearch = !!search.filter?.search
-
-    if (hasSearch) return <ClientPaginationControls />
-    return <ServerPaginationControls />
-}
-
-// Paginates issues by cursor
-function ServerPaginationControls() {
-    let navigate = Route.useNavigate()
-    let search = useSearch()
-    let params = Route.useParams()
-    let res: IssuesListResult | null | undefined = usePageQuery(api.public.issues.list, {
-        owner: params.owner,
-        repo: params.repo,
-        state: search.filter.state,
-        sortBy: search.filter.sortBy,
-        paginationOpts: {
-            numItems: PAGE_SIZE,
-            cursor: state.cursors[search.index] ?? null,
-        },
-    })
+function IssuesList(props: { loadingIssues: boolean; issues: FoundIssue[] }) {
+    let sortBy = useSearch().sortBy
 
     return (
-        <div className="flex items-center justify-end gap-2">
-            <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 bg-transparent"
-                onClick={async () => {
-                    if (search.index > 0) {
-                        await navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: search.index - 1,
-                            },
-                        })
-                    }
-                }}
-                disabled={search.index === 0}
-            >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-            </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 bg-transparent"
-                onClick={() => {
-                    let canPage = res?.isDone === false
-                    let next = res?.continueCursor
-                    if (canPage && next) {
-                        let nextStack = state.cursors.slice(0, (search.index ?? 0) + 1)
-                        nextStack.push(next)
-                        state.cursors = nextStack
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: search.index + 1,
-                            },
-                        })
-                    }
-                }}
-                disabled={res?.isDone ?? true}
-            >
-                Next
-                <ChevronRight className="h-4 w-4" />
-            </Button>
-        </div>
-    )
-}
-
-// Paginates already fetched issues
-function ClientPaginationControls() {
-    let params = Route.useParams()
-    let search = useSearch()
-    let navigate = Route.useNavigate()
-    let searchRes = useTanstackQuery(
-        convexQuery(
-            api.public.issues.search,
-            search.filter.search
-                ? { owner: params.owner, repo: params.repo, search: search.filter.search }
-                : 'skip',
-        ),
-    )
-    let loading = searchRes.isLoading || searchRes.isFetching
-    let total = loading ? 0 : ((searchRes.data?.issues?.length as number | undefined) ?? 0)
-    let pageCount = Math.ceil(total / PAGE_SIZE)
-    let atStart = search.index === 0
-    let atEnd = pageCount === 0 || search.index >= pageCount - 1
-
-    return (
-        <div className="flex items-center justify-end gap-2">
-            <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 bg-transparent"
-                onClick={() => {
-                    if (!atStart)
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: search.index - 1,
-                            },
-                        })
-                }}
-                disabled={atStart || loading}
-            >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-            </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                className="gap-1 bg-transparent"
-                onClick={() => {
-                    if (!atEnd) {
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: search.index + 1,
-                            },
-                        })
-                    }
-                }}
-                disabled={atEnd || loading}
-            >
-                {loading ? 'Loading…' : 'Next'}
-                <ChevronRight className="h-4 w-4" />
-            </Button>
-        </div>
-    )
-}
-
-function LoadingList() {
-    return (
-        <div className="divide-y">
-            {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="p-4 py-2">
-                    <div className="animate-pulse">
-                        <div className="bg-muted mb-2 h-4 w-1/3 rounded" />
-                        <div className="bg-muted h-3 w-2/3 rounded" />
+        <Card className="py-0">
+            <CardContent className="p-0">
+                {props.loadingIssues ? (
+                    <LoadingList />
+                ) : props.issues.length === 0 ? (
+                    <div className="text-muted-foreground p-8 text-center">
+                        <AlertCircle className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                        <p>No issues found matching your criteria.</p>
                     </div>
-                </div>
-            ))}
-        </div>
+                ) : (
+                    <div className="divide-y">
+                        {props.issues.map((issue) => (
+                            <IssueItem key={issue._id} issue={issue} sortBy={sortBy} />
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 
-function SortByDropdown() {
-    let navigate = Route.useNavigate()
-    let search = useSearch()
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
-                    {(() => {
-                        if (search.filter.sortBy === 'createdAt') {
-                            return 'Newest'
-                        }
-                        if (search.filter.sortBy === 'updatedAt') {
-                            return 'Last updated'
-                        }
-                        return 'Total comments'
-                    })()}
-                    <ChevronDown className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                <DropdownMenuItem
-                    onClick={() => {
-                        state.cursors = [null]
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: 0,
-                            },
-                        })
-                    }}
-                >
-                    Newest
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                    onClick={() => {
-                        state.cursors = [null]
-
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: 0,
-                            },
-                        })
-                    }}
-                >
-                    Last updated
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                    onClick={() => {
-                        state.cursors = [null]
-
-                        navigate({
-                            to: `/$owner/$repo/issues`,
-                            search: {
-                                filter: search.filter,
-                                index: 0,
-                            },
-                        })
-                    }}
-                >
-                    Total comments
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
-function SearchBar() {
-    let searchInput = useMutable({ value: '' })
+function OpenIssuesButton(props: { cursorState: PaginationState; totalIssues?: number }) {
     let search = useSearch()
     let navigate = Route.useNavigate()
 
     return (
-        <div className="flex flex-1 items-center space-x-0">
-            <div className="relative flex-1">
-                <Input
-                    autoFocus
-                    placeholder="Search issues by title"
-                    className="rounded-r-none pr-10 font-normal"
-                    value={searchInput.value}
-                    onChange={(e) => {
-                        searchInput.value = e.target.value
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            state.cursors = [null]
+        <Button
+            size="sm"
+            className="gap-2"
+            variant={search.state === 'open' ? 'default' : 'outline'}
+            onClick={async () => {
+                props.cursorState.resetCursors()
+                await navigate({
+                    to: `/$owner/$repo/issues`,
+                    search: (p) => ({ ...p, state: 'open' }),
+                })
+            }}
+        >
+            <AlertCircle className="h-4 w-4" />
+            {props.totalIssues ? `${props.totalIssues} Open` : '... Open'}
+        </Button>
+    )
+}
 
-                            navigate({
-                                to: `/$owner/$repo/issues`,
-                                search: {
-                                    filter: search.filter,
-                                    index: 0,
-                                },
-                            })
-                        }
-                    }}
-                />
-                <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => {
-                        searchInput.value = ''
-                    }}
-                    className={`text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 transition-colors ${
-                        searchInput.value.length === 0 ? 'hidden' : ''
-                    }`}
-                >
-                    <X className="h-4 w-4" />
-                </button>
-            </div>
-            <Button
-                variant="outline"
-                size="sm"
-                className="-ml-px h-10 gap-2 rounded-l-none bg-transparent"
-                onClick={() => {
-                    state.cursors = [null]
+function ClosedIssuesButton(props: { cursorState: PaginationState; totalIssues?: number }) {
+    let search = useSearch()
+    let navigate = Route.useNavigate()
 
-                    navigate({
-                        to: `/$owner/$repo/issues`,
-                        search: {
-                            filter: search.filter,
-                            index: 0,
-                        },
-                    })
-                }}
-                aria-label="Search"
-            >
-                <Search className="h-4 w-4" />
-            </Button>
-        </div>
+    return (
+        <Button
+            size="sm"
+            className="gap-2"
+            variant={search.state === 'closed' ? 'default' : 'outline'}
+            onClick={async () => {
+                props.cursorState.resetCursors()
+                await navigate({
+                    to: `/$owner/$repo/issues`,
+                    search: (p) => ({ ...p, state: 'closed' }),
+                })
+            }}
+        >
+            <CheckCircle className="h-4 w-4" />
+            {props.totalIssues ? `${props.totalIssues} Closed` : '... Closed'}
+        </Button>
     )
 }

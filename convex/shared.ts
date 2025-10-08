@@ -36,12 +36,14 @@ export function ok<T>(val?: T): Ok<T | null> {
     return { isErr: false, val: (val ?? null) as T | null }
 }
 
+// @ts-expect-error: check this thing, maybe we could do some type narrowing with errors..?
+
 /**
  * Convenient utility to create an Err.
  */
 export function err<E extends string = string>(err: E): Err<E>
 export function err<E = unknown>(err: E): Err<E>
-export function err<E extends void = void>(err: void): Err<void>
+export function err<_E extends void = void>(err: void): Err<void>
 export function err<E = unknown>(err: E): Err<E> {
     return { isErr: true, err }
 }
@@ -80,3 +82,6 @@ export function unwrap<T, E>(result: Result<T, E>): T {
 
     return result.val
 }
+
+// enforces compile time enforcement of never type.
+export function assertNever(_: never) {}
