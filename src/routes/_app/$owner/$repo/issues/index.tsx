@@ -44,7 +44,7 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
         }
     },
     loader: async (ctx) => {
-        void qcMem.prefetchQuery(
+        void qcPersistent.prefetchQuery(
             convexQuery(api.public.issues.list, {
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
@@ -121,20 +121,16 @@ function IssuesPage() {
     let params = Route.useParams()
     let search = useSearch()
 
-    let page = usePageQuery(
-        api.public.issues.list,
-        {
-            owner: params.owner,
-            repo: params.repo,
-            state: search.state,
-            sortBy: search.sortBy,
-            paginationOpts: {
-                numItems: PAGE_SIZE,
-                cursor: cursorState.currCursor(),
-            },
+    let page = usePageQuery(api.public.issues.list, {
+        owner: params.owner,
+        repo: params.repo,
+        state: search.state,
+        sortBy: search.sortBy,
+        paginationOpts: {
+            numItems: PAGE_SIZE,
+            cursor: cursorState.currCursor(),
         },
-        qcMem,
-    )
+    })
 
     let repo = page?.repo
     let issues = page?.page ?? []
@@ -279,6 +275,7 @@ function SortByDropdown(props: { cursorState: PaginationState }) {
     )
 }
 
+// will be soon added back
 function _SearchBar(props: { cursorState: PaginationState }) {
     let searchInput = useMutable({ value: '' })
     let navigate = Route.useNavigate()
