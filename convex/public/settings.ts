@@ -1,7 +1,7 @@
 import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import schema from '@convex/schema'
-import { getUserId } from '@convex/services/auth'
+import { Auth } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
 import { v } from 'convex/values'
@@ -9,7 +9,7 @@ import { v } from 'convex/values'
 export const get = query({
     args: {},
     async handler(ctx) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let pat = await ctx.db
             .query('pats')
             .withIndex('by_user_id', (q) => q.eq('userId', userId))
@@ -30,7 +30,7 @@ export const savePAT = action({
         scopes: schema.tables.pats.validator.fields.scopes,
     },
     async handler(ctx, { token, scopes }): R {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
 
         let res = await Github.getUserAndTokenExpiration({ token })
         if (res.isErr) {
@@ -57,7 +57,7 @@ export const savePAT = action({
 export const deletePAT = mutation({
     args: {},
     async handler(ctx) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
 
         let pat = await ctx.db
             .query('pats')

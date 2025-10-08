@@ -587,6 +587,8 @@ function AddCommentBox() {
 
         state.addingComment = true
         let res = await addComment({ owner, repo, number, comment: state.comment })
+        console.log(res)
+
         state.addingComment = false
 
         if (res.isErr) {

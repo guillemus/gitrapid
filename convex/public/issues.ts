@@ -6,7 +6,7 @@ import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { PATs } from '@convex/models/pats'
-import { Auth, canUserCommentOnRepo, getTokenFromUserId, getUserId } from '@convex/services/auth'
+import { Auth, canUserCommentOnRepo, getTokenFromUserId } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { octoFromUserId } from '@convex/services/sync'
 import { err, ok, unwrap } from '@convex/shared'
@@ -26,7 +26,7 @@ export const list = query({
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
             owner: args.owner,
@@ -64,7 +64,7 @@ export const get = query({
         number: v.number(),
     },
     async handler(ctx, args) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
             owner: args.owner,
@@ -106,7 +106,7 @@ export const create = mutation({
         body: v.string(),
     },
     async handler(ctx, args): Promise<Id<'issues'>> {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
             owner: args.owner,
@@ -198,7 +198,7 @@ export const addComment = action({
         comment: v.string(),
     },
     async handler(ctx, args) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let hasAccess = await ctx.runQuery(internal.services.auth.hasUserAccessToRepo, {
             userId,
             owner: args.owner,
@@ -213,8 +213,6 @@ export const addComment = action({
         if (!canUserCommentOnRepo(savedRepo, token)) {
             if (savedRepo.private) {
                 return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'repo' })
-            } else {
-                return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'public_repo' })
             }
         }
 
@@ -237,6 +235,7 @@ export const addComment = action({
 
         await ctx.runMutation(internal.models.issueComments.insertUserComment, {
             repoId: savedRepo._id,
+            githubUserId: issueComment.user?.id ?? 0,
             issueId: issue._id,
             githubId: issueComment.id,
             body: args.comment,
@@ -256,7 +255,7 @@ export const editTitle = mutation({
         newTitle: v.string(),
     },
     async handler(ctx, args) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
             userId,
             owner: args.owner,

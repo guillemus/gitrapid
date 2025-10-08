@@ -1,6 +1,5 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { getGithubUserId } from '@convex/services/auth'
 import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
@@ -91,16 +90,16 @@ export const insertUserComment = internalMutation({
     args: {
         issueId: v.id('issues'),
         repoId: v.id('repos'),
+        githubUserId: v.number(),
         githubId: v.number(),
         body: v.string(),
         createdAt: v.string(),
         updatedAt: v.string(),
     },
     async handler(ctx, args) {
-        let githubUserId = await getGithubUserId(ctx)
         let githubUser = await ctx.db
             .query('githubUsers')
-            .withIndex('by_githubId', (q) => q.eq('githubId', githubUserId))
+            .withIndex('by_githubId', (q) => q.eq('githubId', args.githubUserId))
             .unique()
         assert(githubUser, 'github user not found')
 

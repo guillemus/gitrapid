@@ -27,27 +27,27 @@ export namespace Auth {
             return ok(savedRepo)
         },
     }
+
+    export async function getUserId(ctx: { auth: ConvexAuth }) {
+        const userId = await getAuthUserId(ctx)
+        assert(userId, 'not authenticated')
+
+        return userId
+    }
+
+    export async function getGithubUserId(ctx: { auth: ConvexAuth }) {
+        let userIdentity = await ctx.auth.getUserIdentity()
+        let githubUserId = userIdentity?.subject
+        assert(githubUserId, 'not authenticated')
+
+        let res = Number(githubUserId)
+        assert(!Number.isNaN(res), 'not authenticated')
+
+        return res
+    }
 }
 
 export const hasUserAccessToRepo = internalQuery(Auth.hasUserAccessToRepo)
-
-export async function getUserId(ctx: { auth: ConvexAuth }) {
-    const userId = await getAuthUserId(ctx)
-    assert(userId, 'not authenticated')
-
-    return userId
-}
-
-export async function getGithubUserId(ctx: { auth: ConvexAuth }) {
-    let userIdentity = await ctx.auth.getUserIdentity()
-    let githubUserId = userIdentity?.subject
-    assert(githubUserId, 'not authenticated')
-
-    let res = Number(githubUserId)
-    assert(!Number.isNaN(res), 'not authenticated')
-
-    return res
-}
 
 export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<Doc<'pats'>> {
     let token = await ctx.runQuery(internal.models.pats.getByUserId, {

@@ -2,7 +2,7 @@ import { internal } from '@convex/_generated/api'
 import { action, mutation, query } from '@convex/_generated/server'
 import { doesRepoNeedSyncing } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
-import { getTokenFromUserId, getUserId } from '@convex/services/auth'
+import { Auth, getTokenFromUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
 import { logger } from '@convex/utils'
@@ -11,7 +11,7 @@ import { v } from 'convex/values'
 export const get = query({
     args: {},
     async handler(ctx) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let userRepos = await UserRepos.getUserRepoIds(ctx, userId)
 
         let repoIds = userRepos.map((ur) => ur.repoId)
@@ -25,7 +25,7 @@ export const getDownload = query({
         repoId: v.id('repos'),
     },
     async handler(ctx, { repoId }) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
 
         let hasRepo = await UserRepos.userHasRepo(ctx, userId, repoId)
         if (!hasRepo) {
@@ -55,7 +55,7 @@ export const addRepo = action({
     },
 
     async handler(ctx, args): R {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
         let token = await getTokenFromUserId(ctx, userId)
         if (token.isErr) {
             logger.error(`failed to get token for user ${userId}: ${token.err}`)
@@ -118,7 +118,7 @@ export const removeRepo = mutation({
         repoId: v.id('repos'),
     },
     async handler(ctx, args) {
-        let userId = await getUserId(ctx)
+        let userId = await Auth.getUserId(ctx)
 
         // Find and delete the userRepo association
         let userRepos = await UserRepos.getUserRepoIds(ctx, userId)

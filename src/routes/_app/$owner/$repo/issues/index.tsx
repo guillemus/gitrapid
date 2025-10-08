@@ -1,4 +1,4 @@
-import { qcMem, qcPersistent } from '@/client/queryClient'
+import { qcPersistent } from '@/client/queryClient'
 import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
