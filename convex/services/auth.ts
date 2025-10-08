@@ -2,6 +2,7 @@ import { getAuthUserId } from '@convex-dev/auth/server'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated/server'
+import { PATs } from '@convex/models/pats'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { err, ok } from '@convex/shared'
@@ -11,7 +12,8 @@ import type { Auth as ConvexAuth } from 'convex/server'
 import { v } from 'convex/values'
 
 export namespace Auth {
-    export const hasUserAccessToRepo = {
+    // get's the user repository if associated with him
+    export const getUserAssociatedRepo = {
         args: {
             userId: v.id('users'),
             owner: v.string(),
@@ -35,19 +37,24 @@ export namespace Auth {
         return userId
     }
 
-    export async function getGithubUserId(ctx: { auth: ConvexAuth }) {
-        let userIdentity = await ctx.auth.getUserIdentity()
-        let githubUserId = userIdentity?.subject
-        assert(githubUserId, 'not authenticated')
+    export async function getUserWithTokenAndAssociatedRepo(
+        ctx: QueryCtx,
+        owner: string,
+        repo: string,
+    ) {
+        let userId = await getUserId(ctx)
+        let pat = await PATs.getByUserId.handler(ctx, { userId })
+        if (!pat) return err('PAT_NOT_FOUND')
+        if (new Date(pat.expiresAt) < new Date()) return err('PAT_EXPIRED')
 
-        let res = Number(githubUserId)
-        assert(!Number.isNaN(res), 'not authenticated')
+        let userRepo = await getUserAssociatedRepo.handler(ctx, { userId, owner, repo })
+        if (userRepo.isErr) return userRepo
 
-        return res
+        return ok({ userId, pat, userRepo: userRepo.val })
     }
 }
 
-export const hasUserAccessToRepo = internalQuery(Auth.hasUserAccessToRepo)
+export const getUserAssociatedRepo = internalQuery(Auth.getUserAssociatedRepo)
 
 export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<Doc<'pats'>> {
     let token = await ctx.runQuery(internal.models.pats.getByUserId, {

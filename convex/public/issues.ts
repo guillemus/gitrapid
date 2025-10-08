@@ -4,11 +4,9 @@ import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
 import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
-import { PATs } from '@convex/models/pats'
 import { Auth, canUserCommentOnRepo } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
-import { octoFromUserId } from '@convex/services/sync'
-import { err, ok, unwrap } from '@convex/shared'
+import { err, ok, unwrap, wrap } from '@convex/shared'
 import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -25,13 +23,12 @@ export const list = query({
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
-            userId,
-            owner: args.owner,
-            repo: args.repo,
-        })
-        let savedRepo = unwrap(hasAccess)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        if (user.isErr) {
+            return wrap('Failed to get user with token', user)
+        }
+
+        let savedRepo = user.val.userRepo
 
         let result = await Issues.paginate.handler(ctx, {
             repoId: savedRepo._id,
@@ -64,12 +61,12 @@ export const get = query({
     },
     async handler(ctx, args) {
         let userId = await Auth.getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
+        let userRepo = await Auth.getUserAssociatedRepo.handler(ctx, {
             userId,
             owner: args.owner,
             repo: args.repo,
         })
-        let savedRepo = unwrap(hasAccess)
+        let savedRepo = unwrap(userRepo)
 
         let issue = await Issues.getByRepoAndNumberWithRelations.handler(ctx, {
             number: args.number,
@@ -97,26 +94,24 @@ export const get = query({
     },
 })
 
+let createArgs = v.object({
+    owner: v.string(),
+    repo: v.string(),
+    title: v.string(),
+    body: v.string(),
+})
+
 export const create = mutation({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        title: v.string(),
-        body: v.string(),
-    },
+    args: createArgs,
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
-            userId,
-            owner: args.owner,
-            repo: args.repo,
-        })
-        let savedRepo = unwrap(hasAccess)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        if (user.isErr) {
+            return wrap('Failed to get user with token', user)
+        }
 
-        let pat = await PATs.getByUserId.handler(ctx, { userId })
-        if (!pat) return err('PAT_NOT_FOUND')
+        let savedRepo = user.val.userRepo
 
-        let githubUser = await ctx.db.get(pat.githubUser)
+        let githubUser = await ctx.db.get(user.val.pat.githubUser)
         assert(githubUser, 'github user not found')
 
         let issueId = await Issues.insertOpenUserIssueWithBody.handler(ctx, {
@@ -134,11 +129,9 @@ export const create = mutation({
         })
 
         await ctx.scheduler.runAfter(0, internal.public.issues.createAction, {
-            owner: args.owner,
-            repo: args.repo,
-            title: args.title,
-            body: args.body,
-            userId,
+            args,
+            token: user.val.pat.token,
+            userId: user.val.userId,
             issueId,
         })
 
@@ -148,26 +141,18 @@ export const create = mutation({
 
 export const createAction = internalAction({
     args: {
-        owner: v.string(),
-        repo: v.string(),
-        title: v.string(),
-        body: v.string(),
+        args: createArgs,
+        token: v.string(),
         userId: v.id('users'),
         issueId: v.id('issues'),
     },
     async handler(ctx, args): Promise<void> {
-        let octo = await octoFromUserId(ctx, args.userId)
+        let octo = newOctokit(args)
 
         let rollback = () =>
             ctx.runMutation(internal.models.issues.doDelete, { issueId: args.issueId })
 
-        if (octo.isErr) {
-            logger.error(`octo error: failed to get octo: ${octo.err}`)
-            await rollback()
-            return
-        }
-
-        let created = await Github.createIssue(octo.val, args)
+        let created = await Github.createIssue(octo, args.args)
         if (created.isErr) {
             logger.error(`octo error: failed to create issue: ${created.err}`)
             await rollback()
@@ -184,30 +169,27 @@ export const createAction = internalAction({
     },
 })
 
+let addCommentArgs = v.object({
+    owner: v.string(),
+    repo: v.string(),
+    issueNumber: v.number(),
+    comment: v.string(),
+})
+
 export const addComment = mutation({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        number: v.number(),
-        comment: v.string(),
-    },
+    args: addCommentArgs,
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
-            userId,
-            owner: args.owner,
-            repo: args.repo,
-        })
-        let savedRepo = unwrap(hasAccess)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        if (user.isErr) {
+            return wrap('Failed to get user with token', user)
+        }
 
-        let token
-        token = await PATs.getByUserId.handler(ctx, { userId })
-        if (!token) return err({ type: 'PAT_NOT_FOUND' })
+        let savedRepo = user.val.userRepo
 
-        let githubUser = await ctx.db.get(token.githubUser)
+        let githubUser = await ctx.db.get(user.val.pat.githubUser)
         assert(githubUser, 'github user not found')
 
-        if (!canUserCommentOnRepo(savedRepo, token)) {
+        if (!canUserCommentOnRepo(savedRepo, user.val.pat)) {
             if (savedRepo.private) {
                 return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'repo' })
             }
@@ -215,28 +197,23 @@ export const addComment = mutation({
 
         let issue = await Issues.getByRepoAndNumber.handler(ctx, {
             repoId: savedRepo._id,
-            number: args.number,
+            number: args.issueNumber,
         })
         assert(issue, 'issue not found')
 
         let commentId = await ctx.runMutation(internal.models.issueComments.insertUserComment, {
             repoId: savedRepo._id,
             githubUserId: githubUser.githubId,
+            body: args.comment,
             issueId: issue._id,
             githubId: -2134,
-            body: args.comment,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         })
 
-        // schedule here the comment creation
-
         await ctx.scheduler.runAfter(0, internal.public.issues.addCommentAction, {
-            owner: args.owner,
-            repo: args.repo,
-            token: token.token,
-            comment: args.comment,
-            issueNumber: args.number,
+            args,
+            token: user.val.pat.token,
             commentId,
         })
 
@@ -246,11 +223,8 @@ export const addComment = mutation({
 
 export const addCommentAction = internalAction({
     args: {
+        args: addCommentArgs,
         token: v.string(),
-        owner: v.string(),
-        repo: v.string(),
-        issueNumber: v.number(),
-        comment: v.string(),
         commentId: v.id('issueComments'),
     },
     async handler(ctx, args) {
@@ -259,12 +233,7 @@ export const addCommentAction = internalAction({
         let rollback = () =>
             ctx.runMutation(internal.models.issues.deleteComment, { commentId: args.commentId })
 
-        let issueComment = await Github.addCommentToIssue(octo, {
-            owner: args.owner,
-            repo: args.repo,
-            issueNumber: args.issueNumber,
-            comment: args.comment,
-        })
+        let issueComment = await Github.addCommentToIssue(octo, args.args)
         if (issueComment.isErr) {
             logger.error(`octo error: failed to add comment: ${issueComment.err}`)
             await rollback()
@@ -280,24 +249,23 @@ export const addCommentAction = internalAction({
     },
 })
 
+let editTitleArgs = v.object({
+    owner: v.string(),
+    repo: v.string(),
+    issueNumber: v.number(),
+    newTitle: v.string(),
+})
+
 export const editTitle = mutation({
-    args: {
-        owner: v.string(),
-        repo: v.string(),
-        issueNumber: v.number(),
-        newTitle: v.string(),
-    },
+    args: editTitleArgs,
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-        let hasAccess = await Auth.hasUserAccessToRepo.handler(ctx, {
-            userId,
-            owner: args.owner,
-            repo: args.repo,
-        })
-        let savedRepo = unwrap(hasAccess)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        if (user.isErr) {
+            return wrap('Failed to get user with token', user)
+        }
 
         let issue = await Issues.getByRepoAndNumber.handler(ctx, {
-            repoId: savedRepo._id,
+            repoId: user.val.userRepo._id,
             number: args.issueNumber,
         })
         assert(issue, 'issue not found')
@@ -310,43 +278,31 @@ export const editTitle = mutation({
         })
 
         await ctx.scheduler.runAfter(0, internal.public.issues.editTitleAction, {
-            owner: args.owner,
-            repo: args.repo,
-            userId,
+            args,
+            token: user.val.pat.token,
+            userId: user.val.userId,
             issueId: issue._id,
-            issueNumber: args.issueNumber,
             prevTitle,
-            newTitle: args.newTitle,
         })
     },
 })
 
 export const editTitleAction = internalAction({
     args: {
-        owner: v.string(),
-        repo: v.string(),
+        args: editTitleArgs,
+        token: v.string(),
         userId: v.id('users'),
         issueId: v.id('issues'),
-        issueNumber: v.number(),
         prevTitle: v.string(),
-        newTitle: v.string(),
     },
     async handler(ctx, args) {
-        let octo = await octoFromUserId(ctx, args.userId)
-        if (octo.isErr) {
-            logger.error(`octo error: failed to get octo: ${octo.err}`)
-            await ctx.runMutation(internal.models.issues.updateTitle, {
-                issueId: args.issueId,
-                title: args.prevTitle,
-            })
-            return
-        }
+        let octo = newOctokit(args)
 
-        let issue = await Github.editIssueTitle(octo.val, {
-            owner: args.owner,
-            repo: args.repo,
-            issueNumber: args.issueNumber,
-            title: args.newTitle,
+        let issue = await Github.editIssueTitle(octo, {
+            owner: args.args.owner,
+            repo: args.args.repo,
+            issueNumber: args.args.issueNumber,
+            title: args.args.newTitle,
         })
         if (issue.isErr) {
             logger.error(`octo error: failed to edit issue title: ${issue.err}`)
