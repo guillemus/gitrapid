@@ -24,9 +24,7 @@ export const list = query({
     },
     async handler(ctx, args) {
         let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
-        if (user.isErr) {
-            return wrap('Failed to get user with token', user)
-        }
+        assert(!user.isErr, 'failed to get user with token')
 
         let savedRepo = user.val.userRepo
 
@@ -180,9 +178,7 @@ export const addComment = mutation({
     args: addCommentArgs,
     async handler(ctx, args) {
         let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
-        if (user.isErr) {
-            return wrap('Failed to get user with token', user)
-        }
+        assert(!user.isErr, 'failed to get user with token')
 
         let savedRepo = user.val.userRepo
 

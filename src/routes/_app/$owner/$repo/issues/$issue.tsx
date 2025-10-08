@@ -31,9 +31,6 @@ import { useMemo } from 'react'
 import { toast } from 'sonner'
 import z from 'zod'
 
-// @ts-expect-error: missing: edit issue comment
-// @ts-expect-error: delete issue comment maybe?
-
 const paramsSchema = z.object({
     owner: z.string(),
     repo: z.string(),
@@ -585,7 +582,7 @@ function AddCommentBox() {
         e.preventDefault()
 
         state.addingComment = true
-        let res = await addComment({ owner, repo, number, comment: state.comment })
+        let res = await addComment({ owner, repo, issueNumber: number, comment: state.comment })
         state.addingComment = false
         state.comment = ''
 
