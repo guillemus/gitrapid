@@ -17,6 +17,8 @@ function LoginPage() {
     let actions = useAuthActions()
     let state = useMutable({ isLoading: false, error: null as string | null })
 
+    let isLoading = state.isLoading || auth.isLoading || auth.isAuthenticated
+
     async function handleGitHubLogin() {
         state.isLoading = true
         state.error = null
@@ -69,7 +71,7 @@ function LoginPage() {
                             className="h-12 w-full transform bg-slate-900 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 active:scale-[0.98]"
                             size="lg"
                         >
-                            {state.isLoading || auth.isLoading || auth.isAuthenticated ? (
+                            {isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                                     Signing in...

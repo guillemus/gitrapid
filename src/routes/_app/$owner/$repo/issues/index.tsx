@@ -49,7 +49,7 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
                 owner: ctx.params.owner,
                 repo: ctx.params.repo,
                 state: ctx.deps.filters.state ?? 'open',
-                sortBy: ctx.deps.filters.sortBy,
+                sortBy: ctx.deps.filters.sortBy ?? 'createdAt',
                 paginationOpts: {
                     numItems: PAGE_SIZE,
                     cursor: null,

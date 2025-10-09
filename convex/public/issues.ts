@@ -181,15 +181,14 @@ export const addComment = mutation({
         assert(!user.isErr, 'failed to get user with token')
 
         let savedRepo = user.val.userRepo
-
-        let githubUser = await ctx.db.get(user.val.pat.githubUser)
-        assert(githubUser, 'github user not found')
-
         if (!canUserCommentOnRepo(savedRepo, user.val.pat)) {
             if (savedRepo.private) {
                 return err({ type: 'INSUFFICIENT_SCOPES', requiredScope: 'repo' })
             }
         }
+
+        let githubUser = await ctx.db.get(user.val.pat.githubUser)
+        assert(githubUser, 'github user not found')
 
         let issue = await Issues.getByRepoAndNumber.handler(ctx, {
             repoId: savedRepo._id,
