@@ -1,4 +1,5 @@
 import { authTables } from '@convex-dev/auth/server'
+import { brandedString } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v, type Infer } from 'convex/values'
 
@@ -209,6 +210,11 @@ const pats = defineTable({
     ),
 }).index('by_user_id', ['userId'])
 
+/**
+ * Optional because (unlikely but who knows) github might not add an etag on the response.
+ */
+const etag = v.optional(brandedString('etag'))
+
 const patsRepos = defineTable({
     patId: v.id('pats'),
     repoId: v.id('repos'),
@@ -216,8 +222,46 @@ const patsRepos = defineTable({
     /**
      * Optional because (unlikely but who knows) github might not add an etag on the response.
      */
-    issuesEtag: v.optional(v.string()),
+    issuesEtag: etag,
 }).index('by_pat_repo_id', ['patId', 'repoId'])
+
+// more info at https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#about-notification-reasons
+const notificationReasons = v.union(
+    v.literal('approval_requested'),
+    v.literal('assign'),
+    v.literal('author'),
+    v.literal('ci_activity'),
+    v.literal('comment'),
+    v.literal('invitation'),
+    v.literal('manual'),
+    v.literal('member_feature_requested'),
+    v.literal('mention'),
+    v.literal('review_requested'),
+    v.literal('security_advisory_credit'),
+    v.literal('security_alert'),
+    v.literal('state_change'),
+    v.literal('subscribed'),
+    v.literal('team_mention'),
+)
+
+const notifications = defineTable({
+    repoId: v.id('repos'),
+    userId: v.id('users'),
+
+    githubId: v.number(),
+    reason: notificationReasons,
+
+    // @ts-expect-error: this is incomplete
+    subject: v.union(
+        v.object({ type: v.literal('Issue'), number: v.number() }),
+        v.object({ type: v.literal('PullRequest'), number: v.number() }),
+    ),
+})
+
+const notificationEtags = defineTable({
+    userId: v.id('users'),
+    etag,
+}).index('by_user_id', ['userId'])
 
 export default defineSchema({
     ...authTables,
@@ -240,4 +284,6 @@ export default defineSchema({
 
     pats: pats,
     patsRepos: patsRepos,
+
+    notifications: notifications,
 })

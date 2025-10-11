@@ -207,6 +207,11 @@ export namespace Github {
         })
     }
 
+    type PollResult = {
+        hasUpdates: boolean
+        newEtag?: string
+    }
+
     export async function checkForIssueUpdates(
         octo: Octokit,
         args: {
@@ -215,7 +220,7 @@ export namespace Github {
             since?: string
             etag?: string
         },
-    ): R<{ hasUpdates: boolean; newEtag?: string }> {
+    ): R<PollResult> {
         let headers: Record<string, string> = {}
         if (args.etag) {
             headers['If-None-Match'] = args.etag
@@ -277,6 +282,47 @@ export namespace Github {
         }
 
         return ok()
+    }
+
+    export async function listAllNotifications(octo: Octokit, since?: string) {
+        let p = octo
+            .paginate(octo.rest.activity.listNotificationsForAuthenticatedUser, {
+                all: true,
+                since,
+            })
+            .then((data) => ({ data }))
+        let allNotifs = await octoCatch(p)
+
+        return allNotifs
+    }
+
+    export async function checkForNotifUpdates(octo: Octokit, prevEtag: string): R<PollResult> {
+        let headers: Record<string, string> = {}
+        if (prevEtag) {
+            headers['If-None-Match'] = prevEtag
+        }
+
+        let res = await octoCatchFull(
+            octo.rest.activity.listNotificationsForAuthenticatedUser({
+                headers,
+            }),
+        )
+        if (res.isErr) {
+            if (res.err.type === 'octo-error') {
+                if (res.err.err.response?.status === 304) {
+                    return ok({
+                        hasUpdates: false,
+                        newEtag: prevEtag,
+                    })
+                }
+            }
+            return err(octoCatch.errToString(res))
+        }
+
+        let newEtag = res.val.headers.etag
+        if (!newEtag) return ok({ hasUpdates: true, newEtag: prevEtag })
+
+        return ok({ hasUpdates: true, newEtag })
     }
 }
 
