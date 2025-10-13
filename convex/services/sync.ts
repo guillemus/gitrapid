@@ -21,22 +21,15 @@ let fns = internal.services.sync
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
 function shouldBeSynced(repo: Doc<'repos'>) {
-    switch (repo.download.status) {
-        case 'initial':
-            return false
-        case 'backfilling':
-            return false
-        case 'syncing':
-            return false
-        case 'success':
-            return true
-        case 'error':
-            return false
-        case 'cancelled':
-            return false
-    }
+    let s = repo.download.status
+    if (s === 'success') return true
+    if (s === 'error') return false
+    if (s === 'cancelled') return false
+    if (s === 'initial') return false
+    if (s === 'backfilling') return false
+    if (s === 'syncing') return false
 
-    assertNever(repo.download.status)
+    assertNever(s)
     return false
 }
 
@@ -95,7 +88,7 @@ export const IncrementalSync = {
         octo = await octoFromUserId(ctx, args.userId)
         octo = unwrap(octo)
 
-        let etags = await ctx.runQuery(internal.models.pats.getEtagsForUser, {
+        let patWithEtag = await ctx.runQuery(internal.models.pats.getRepoIssueEtag, {
             userId: args.userId,
             repoId: args.repoId,
         })
@@ -105,7 +98,7 @@ export const IncrementalSync = {
             owner: savedRepo.owner,
             repo: savedRepo.repo,
             since: savedRepo.download.lastSyncedAt,
-            etag: etags?.issuesEtag,
+            etag: patWithEtag?.issuesEtag,
         })
         updates = unwrap(updates)
 

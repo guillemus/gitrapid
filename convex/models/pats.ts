@@ -62,7 +62,7 @@ export const patch = internalMutation({
     handler: (ctx, args) => ctx.db.patch(args.id, args.pat),
 })
 
-export const getEtagsForUser = internalQuery({
+export const getRepoIssueEtag = internalQuery({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -77,10 +77,15 @@ export const getEtagsForUser = internalQuery({
             .unique()
         assert(pat, 'pat not found')
 
-        return ctx.db
+        let patRepo = await ctx.db
             .query('patsRepos')
             .withIndex('by_pat_repo_id', (q) => q.eq('patId', pat._id).eq('repoId', args.repoId))
             .unique()
+
+        return {
+            ...pat,
+            issuesEtag: patRepo?.issuesEtag,
+        }
     },
 })
 

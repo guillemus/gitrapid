@@ -13,6 +13,9 @@ const possibleGithubUser = v.union(
 
 export type PossibleGithubUser = Infer<typeof possibleGithubUser>
 
+export const etag = brandedString('etag')
+export type Etag = Infer<typeof etag>
+
 const repos = defineTable({
     owner: v.string(),
     repo: v.string(),
@@ -208,10 +211,9 @@ const pats = defineTable({
             reset: v.optional(v.string()),
         }),
     ),
-}).index('by_user_id', ['userId'])
 
-export const etag = brandedString('etag')
-export type Etag = Infer<typeof etag>
+    notificationsEtag: v.optional(etag),
+}).index('by_user_id', ['userId'])
 
 const patsRepos = defineTable({
     patId: v.id('pats'),
@@ -248,11 +250,6 @@ const notifications = defineTable({
     type: v.union(v.literal('Issue'), v.literal('PullRequest')),
     number: v.number(),
 })
-
-const notificationEtags = defineTable({
-    userId: v.id('users'),
-    etag: v.optional(etag),
-}).index('by_user_id', ['userId'])
 
 export default defineSchema({
     ...authTables,
