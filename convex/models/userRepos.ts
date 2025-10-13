@@ -8,34 +8,38 @@ import {
 import schema from '@convex/schema'
 import { v } from 'convex/values'
 
-export const UserRepos = {
-    async getUserRepoIds(ctx: QueryCtx, userId: Id<'users'>) {
+export namespace UserRepos {
+    export async function getUserRepoIds(ctx: QueryCtx, userId: Id<'users'>) {
         return ctx.db
             .query('userRepos')
             .withIndex('by_userId_repoId', (q) => q.eq('userId', userId))
             .collect()
-    },
+    }
 
-    async userHasRepo(ctx: QueryCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
+    export async function userHasRepo(ctx: QueryCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
         let userRepo = await ctx.db
             .query('userRepos')
             .withIndex('by_userId_repoId', (q) => q.eq('userId', userId).eq('repoId', repoId))
             .unique()
 
         return !!userRepo
-    },
+    }
 
-    async insertIfNotExists(ctx: MutationCtx, userId: Id<'users'>, repoId: Id<'repos'>) {
-        let existing = await this.userHasRepo(ctx, userId, repoId)
+    export async function insertIfNotExists(
+        ctx: MutationCtx,
+        userId: Id<'users'>,
+        repoId: Id<'repos'>,
+    ) {
+        let existing = await userHasRepo(ctx, userId, repoId)
         if (existing) {
             return existing
         }
 
         let id = await ctx.db.insert('userRepos', { userId, repoId })
         return await ctx.db.get(id)
-    },
+    }
 
-    async deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
+    export async function deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
         let userRepos = await ctx.db
             .query('userRepos')
             .filter((q) => q.eq(q.field('repoId'), repoId))
@@ -44,7 +48,7 @@ export const UserRepos = {
         for (let userRepo of userRepos) {
             await ctx.db.delete(userRepo._id)
         }
-    },
+    }
 }
 
 export const getByUserId = internalQuery({

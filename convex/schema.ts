@@ -210,19 +210,13 @@ const pats = defineTable({
     ),
 }).index('by_user_id', ['userId'])
 
-/**
- * Optional because (unlikely but who knows) github might not add an etag on the response.
- */
-const etag = v.optional(brandedString('etag'))
+export const etag = brandedString('etag')
+export type Etag = Infer<typeof etag>
 
 const patsRepos = defineTable({
     patId: v.id('pats'),
     repoId: v.id('repos'),
-
-    /**
-     * Optional because (unlikely but who knows) github might not add an etag on the response.
-     */
-    issuesEtag: etag,
+    issuesEtag: v.optional(etag),
 }).index('by_pat_repo_id', ['patId', 'repoId'])
 
 // more info at https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#about-notification-reasons
@@ -251,16 +245,13 @@ const notifications = defineTable({
     githubId: v.number(),
     reason: notificationReasons,
 
-    // @ts-expect-error: this is incomplete
-    subject: v.union(
-        v.object({ type: v.literal('Issue'), number: v.number() }),
-        v.object({ type: v.literal('PullRequest'), number: v.number() }),
-    ),
+    type: v.union(v.literal('Issue'), v.literal('PullRequest')),
+    number: v.number(),
 })
 
 const notificationEtags = defineTable({
     userId: v.id('users'),
-    etag,
+    etag: v.optional(etag),
 }).index('by_user_id', ['userId'])
 
 export default defineSchema({

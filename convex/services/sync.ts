@@ -4,7 +4,7 @@ import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
 import { SaveWorkflowResult } from '@convex/models/repos'
-import { err, ok, unwrap } from '@convex/shared'
+import { assertNever, err, ok, unwrap } from '@convex/shared'
 import { logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
@@ -36,7 +36,7 @@ function shouldBeSynced(repo: Doc<'repos'>) {
             return false
     }
 
-    let _ = repo.download.status satisfies never
+    assertNever(repo.download.status)
     return false
 }
 

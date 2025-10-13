@@ -209,7 +209,7 @@ export namespace Github {
 
     type PollResult = {
         hasUpdates: boolean
-        newEtag?: string
+        newEtag?: Infer<typeof etag>
     }
 
     export async function checkForIssueUpdates(
@@ -218,7 +218,7 @@ export namespace Github {
             owner: string
             repo: string
             since?: string
-            etag?: string
+            etag?: Etag
         },
     ): R<PollResult> {
         let headers: Record<string, string> = {}
@@ -256,7 +256,7 @@ export namespace Github {
 
         return ok({
             hasUpdates: true,
-            newEtag,
+            newEtag: newEtag as Etag,
         })
     }
 
@@ -296,7 +296,7 @@ export namespace Github {
         return allNotifs
     }
 
-    export async function checkForNotifUpdates(octo: Octokit, prevEtag: string): R<PollResult> {
+    export async function checkForNotifUpdates(octo: Octokit, prevEtag: Etag): R<PollResult> {
         let headers: Record<string, string> = {}
         if (prevEtag) {
             headers['If-None-Match'] = prevEtag
@@ -322,7 +322,7 @@ export namespace Github {
         let newEtag = res.val.headers.etag
         if (!newEtag) return ok({ hasUpdates: true, newEtag: prevEtag })
 
-        return ok({ hasUpdates: true, newEtag })
+        return ok({ hasUpdates: true, newEtag: newEtag as Etag })
     }
 }
 
@@ -433,7 +433,9 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
     }
 }
 
+import type { Etag, etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
+import type { Infer } from 'convex/values'
 
 export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }

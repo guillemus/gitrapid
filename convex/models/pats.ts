@@ -8,7 +8,7 @@ import type { FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { partial } from 'convex-helpers/validators'
 import { v } from 'convex/values'
-import schema from '../schema'
+import schema, { etag } from '../schema'
 import type { UpsertDoc } from './models'
 
 /**
@@ -88,7 +88,7 @@ export const upsertEtagsForUser = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
-        issuesEtag: v.string(),
+        issuesEtag: etag,
     },
     async handler(ctx, args) {
         let user = await ctx.db.get(args.userId)
