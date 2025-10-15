@@ -21,6 +21,7 @@ import type * as models_issueComments from "../models/issueComments.js";
 import type * as models_issueTimelineItems from "../models/issueTimelineItems.js";
 import type * as models_issues from "../models/issues.js";
 import type * as models_models from "../models/models.js";
+import type * as models_notifications from "../models/notifications.js";
 import type * as models_pats from "../models/pats.js";
 import type * as models_repos from "../models/repos.js";
 import type * as models_userRepos from "../models/userRepos.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "models/issueTimelineItems": typeof models_issueTimelineItems;
   "models/issues": typeof models_issues;
   "models/models": typeof models_models;
+  "models/notifications": typeof models_notifications;
   "models/pats": typeof models_pats;
   "models/repos": typeof models_repos;
   "models/userRepos": typeof models_userRepos;

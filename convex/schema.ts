@@ -1,4 +1,5 @@
 import { authTables } from '@convex-dev/auth/server'
+import { vWorkflowId } from '@convex-dev/workflow'
 import { brandedString } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v, type Infer } from 'convex/values'
@@ -51,6 +52,12 @@ const userRepos = defineTable({
 })
     .index('by_repoId', ['repoId'])
     .index('by_userId_repoId', ['userId', 'repoId'])
+
+const userWorkflows = defineTable({
+    type: v.union(v.literal('notifications'), v.literal('issues')),
+    userId: v.id('users'),
+    workflowId: vWorkflowId,
+}).index('by_userId_workflowId', ['userId', 'workflowId'])
 
 const githubUsers = defineTable({
     githubId: v.number(),
@@ -212,7 +219,7 @@ const pats = defineTable({
         }),
     ),
 
-    notificationsEtag: v.optional(etag),
+    notificationsSince: v.optional(v.string()),
 }).index('by_user_id', ['userId'])
 
 const patsRepos = defineTable({
@@ -241,15 +248,19 @@ const notificationReasons = v.union(
 )
 
 const notifications = defineTable({
-    repoId: v.id('repos'),
     userId: v.id('users'),
-
-    githubId: v.number(),
-    reason: notificationReasons,
-
+    repoId: v.id('repos'),
     type: v.union(v.literal('Issue'), v.literal('PullRequest')),
-    number: v.number(),
-})
+    // github id corresponds to the notification.id field
+    githubId: v.string(),
+    // for either issue or pr, this is the number field
+    resourceNumber: v.number(),
+    reason: notificationReasons,
+    updatedAt: v.string(),
+    lastReadAt: v.optional(v.string()),
+    unread: v.boolean(),
+    title: v.string(),
+}).index('by_github_id', ['githubId'])
 
 export default defineSchema({
     ...authTables,
@@ -258,6 +269,7 @@ export default defineSchema({
 
     repos: repos,
     userRepos: userRepos,
+    userWorkflows: userWorkflows,
 
     githubUsers: githubUsers,
 

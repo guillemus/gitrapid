@@ -48,11 +48,21 @@ export namespace PATs {
             return existing
         },
     }
+
+    export const updateNotifSince = {
+        args: { patId: v.id('pats'), since: v.string() },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            await ctx.db.patch(args.patId, {
+                notificationsSince: args.since,
+            })
+        },
+    }
 }
 
 export const getByUserId = internalQuery(PATs.getByUserId)
 export const upsertForUser = internalMutation(PATs.upsertForUser)
 export const deleteByUserId = internalMutation(PATs.deleteByUserId)
+export const updateNotifSince = internalMutation(PATs.updateNotifSince)
 
 export const patch = internalMutation({
     args: {

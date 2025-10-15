@@ -1,3 +1,4 @@
+import { vWorkflowId } from '@convex-dev/workflow'
 import {
     internalMutation,
     internalQuery,
@@ -5,7 +6,7 @@ import {
     type QueryCtx,
 } from '@convex/_generated/server'
 import type { PossibleGithubUser } from '@convex/schema'
-import type { FnArgs } from '@convex/utils'
+import { type FnArgs } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 
 export namespace Users {
@@ -41,6 +42,32 @@ export namespace Users {
                 let id = await ctx.db.insert('githubUsers', args)
                 return id
             }
+        },
+    }
+
+    export const saveWorkflowId = {
+        args: {
+            type: v.union(v.literal('notifications'), v.literal('issues')),
+            userId: v.id('users'),
+            workflowId: vWorkflowId,
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+            let curr = await ctx.db
+                .query('userWorkflows')
+                .withIndex('by_userId_workflowId', (q) =>
+                    q.eq('userId', args.userId).eq('workflowId', args.workflowId),
+                )
+                .unique()
+            if (curr) {
+                return curr._id
+            }
+
+            let id = await ctx.db.insert('userWorkflows', {
+                type: args.type,
+                userId: args.userId,
+                workflowId: args.workflowId,
+            })
+            return id
         },
     }
 }

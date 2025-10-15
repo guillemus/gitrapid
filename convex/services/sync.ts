@@ -2,8 +2,15 @@ import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import { internalAction, internalMutation, type ActionCtx } from '@convex/_generated/server'
+import {
+    internalAction,
+    internalMutation,
+    type ActionCtx,
+    type MutationCtx,
+} from '@convex/_generated/server'
+import type { Notifications } from '@convex/models/notifications'
 import { SaveWorkflowResult } from '@convex/models/repos'
+import { Users } from '@convex/models/users'
 import { assertNever, err, ok, unwrap } from '@convex/shared'
 import { logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
@@ -222,7 +229,7 @@ export const backfillRepoWorkflow = workflow.define({
     },
 })
 
-export const startWorkflow = internalMutation({
+export const startBackfillRepoWorkflow = internalMutation({
     args: {
         userId: v.id('users'),
         repoId: v.id('repos'),
@@ -362,3 +369,125 @@ async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
     let octo = newOctokit(userToken)
     return ok(octo)
 }
+
+const NOTIFS_REQUEST_DELAY = 60 * 1000
+const NOTIFS_BATCH_SIZE = 100
+
+export async function startSyncNotificationsWorkflow(ctx: MutationCtx, userId: Id<'users'>) {
+    let workflowId = await workflow.start(
+        ctx,
+        internal.services.sync.syncNotificationsWorkflow,
+        { userId },
+        {
+            onComplete: internal.services.sync.scheduleNextSyncNotificationsWorkflow,
+            startAsync: true,
+        },
+    )
+
+    await Users.saveWorkflowId.handler(ctx, {
+        type: 'notifications',
+        userId,
+        workflowId,
+    })
+}
+
+export const scheduleNextSyncNotificationsWorkflow = internalMutation({
+    args: {
+        workflowId: vWorkflowId,
+        result: vResultValidator,
+        context: v.object({
+            userId: v.id('users'),
+        }),
+    },
+    async handler(ctx, args) {
+        await new Promise((resolve) => setTimeout(resolve, NOTIFS_REQUEST_DELAY))
+        await startSyncNotificationsWorkflow(ctx, args.context.userId)
+    },
+})
+
+export const syncNotificationsWorkflow = workflow.define({
+    args: {
+        userId: v.id('users'),
+    },
+    async handler(step, args) {
+        let token = await step.runQuery(internal.models.pats.getByUserId, { userId: args.userId })
+        assert(token, 'user token not found')
+
+        let since = token.notificationsSince
+        let result = await step.runAction(internal.services.sync.downloadNotifications, {
+            userId: args.userId,
+            since,
+        })
+        if (result.isErr) {
+            if (result.err.type === 'not-modified') {
+                return
+            }
+
+            // notify workflow that this failed for some reason
+            unwrap(result)
+            return
+        }
+    },
+})
+
+export const downloadNotifications = internalAction({
+    args: {
+        userId: v.id('users'),
+        since: v.optional(v.string()),
+    },
+    async handler(ctx, args) {
+        let pat = await ctx.runQuery(internal.models.pats.getByUserId, { userId: args.userId })
+        assert(pat, 'user token not found')
+
+        let octo = newOctokit(pat)
+
+        let startedAt = new Date().toISOString()
+        let notifs = await Github.listAllNotifications(octo, {
+            since: args.since,
+        })
+        if (notifs.isErr) {
+            return notifs
+        }
+
+        let upsertedRepos = new Map<number, Id<'repos'>>()
+        for (let i = 0; i < notifs.val.length; i += NOTIFS_BATCH_SIZE) {
+            let batch = notifs.val.slice(i, i + NOTIFS_BATCH_SIZE)
+            let toUpsert: Notifications.UpsertBatchArgs['notifs'] = []
+            for (let notif of batch) {
+                let repoId = upsertedRepos.get(notif.repo.id)
+                if (!repoId) {
+                    repoId = await ctx.runMutation(internal.models.repos.upsertRepoForUser, {
+                        userId: args.userId,
+                        owner: notif.repo.owner,
+                        repo: notif.repo.name,
+                        private: notif.repo.private,
+                    })
+                }
+
+                toUpsert.push({
+                    repoId: repoId,
+                    type: notif.type,
+                    githubId: notif.githubId,
+                    title: notif.title,
+                    updatedAt: notif.updatedAt,
+                    reason: notif.reason,
+                    resourceNumber: notif.resourceNumber,
+                    unread: notif.unread,
+                    lastReadAt: notif.lastReadAt ?? undefined,
+                })
+            }
+
+            await ctx.runMutation(internal.models.notifications.upsertBatch, {
+                userId: args.userId,
+                notifs: toUpsert,
+            })
+        }
+
+        await ctx.runMutation(internal.models.pats.updateNotifSince, {
+            patId: pat._id,
+            since: startedAt,
+        })
+
+        return ok()
+    },
+})

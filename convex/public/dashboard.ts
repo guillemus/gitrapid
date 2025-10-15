@@ -99,7 +99,7 @@ export const addRepo = action({
 
             repoId = savedRepo._id
         } else {
-            repoId = await ctx.runMutation(internal.models.repos.insertNewRepoForUser, {
+            repoId = await ctx.runMutation(internal.models.repos.upsertRepoForUser, {
                 userId,
                 owner,
                 repo,
@@ -107,7 +107,10 @@ export const addRepo = action({
             })
         }
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startWorkflow, { userId, repoId })
+        await ctx.scheduler.runAfter(0, internal.services.sync.startBackfillRepoWorkflow, {
+            userId,
+            repoId,
+        })
 
         return ok()
     },

@@ -99,7 +99,7 @@ export const get = internalQuery({
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
-export const insertNewRepoForUser = internalMutation({
+export const upsertRepoForUser = internalMutation({
     args: {
         userId: v.id('users'),
         owner: v.string(),
@@ -107,22 +107,40 @@ export const insertNewRepoForUser = internalMutation({
         private: v.boolean(),
     },
     async handler(ctx, args) {
-        let repoId = await ctx.db.insert('repos', {
-            owner: args.owner,
-            repo: args.repo,
-            private: args.private,
-            openIssues: 0,
-            closedIssues: 0,
-            openPullRequests: 0,
-            closedPullRequests: 0,
-            download: {
-                status: 'initial',
-            },
-        })
-        await ctx.db.insert('userRepos', {
-            userId: args.userId,
-            repoId,
-        })
+        let repoId
+        let curr = await ctx.db
+            .query('repos')
+            .withIndex('by_owner_and_repo', (x) => x.eq('owner', args.owner).eq('repo', args.repo))
+            .unique()
+        if (curr) {
+            await ctx.db.patch(curr._id, { private: args.private })
+            repoId = curr._id
+        } else {
+            repoId = await ctx.db.insert('repos', {
+                owner: args.owner,
+                repo: args.repo,
+                private: args.private,
+                openIssues: 0,
+                closedIssues: 0,
+                openPullRequests: 0,
+                closedPullRequests: 0,
+                download: {
+                    status: 'initial',
+                },
+            })
+        }
+
+        let currRel = await ctx.db
+            .query('userRepos')
+            .withIndex('by_userId_repoId', (x) => x.eq('userId', args.userId).eq('repoId', repoId))
+            .unique()
+        if (!currRel) {
+            await ctx.db.insert('userRepos', {
+                userId: args.userId,
+                repoId,
+            })
+        }
+
         return repoId
     },
 })

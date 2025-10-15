@@ -43,7 +43,7 @@ function DashboardPage() {
 
 type RepoState = { curr: SearchRepoState | AddRepoState }
 
-function initialRepoState() {
+function initialRepoState(): RepoState {
     return { curr: new SearchRepoState() }
 }
 
@@ -90,7 +90,7 @@ class AddRepoState {
 
 function RepositoryListHeader() {
     let addRepo = useAction(api.public.dashboard.addRepo)
-    let state = useMutable<RepoState>(initialRepoState())
+    let state = useMutable(initialRepoState())
     let curr = state.curr
 
     if (curr instanceof SearchRepoState) {

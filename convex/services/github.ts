@@ -1,4 +1,4 @@
-import { parseDate } from '@convex/utils'
+import { logger, parseDate } from '@convex/utils'
 import { Octokit, RequestError } from 'octokit'
 import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
 
@@ -284,16 +284,115 @@ export namespace Github {
         return ok()
     }
 
-    export async function listAllNotifications(octo: Octokit, since?: string) {
-        let p = octo
-            .paginate(octo.rest.activity.listNotificationsForAuthenticatedUser, {
-                all: true,
-                since,
-            })
-            .then((data) => ({ data }))
-        let allNotifs = await octoCatch(p)
+    const notificationReason = z.enum([
+        'approval_requested',
+        'assign',
+        'author',
+        'ci_activity',
+        'comment',
+        'invitation',
+        'manual',
+        'member_feature_requested',
+        'mention',
+        'review_requested',
+        'security_advisory_credit',
+        'security_alert',
+        'state_change',
+        'subscribed',
+        'team_mention',
+    ])
 
-        return allNotifs
+    export async function listAllNotifications(
+        octo: Octokit,
+        args?: {
+            since?: string
+        },
+    ) {
+        let pageNum = 0
+        let allNotifs = []
+        while (true) {
+            let headers: RequestHeaders | undefined
+            if (args?.since) {
+                headers = {
+                    'if-modified-since': args.since,
+                }
+            }
+
+            let page = await octoCatch(
+                octo.rest.activity.listNotificationsForAuthenticatedUser({
+                    headers,
+                    since: args?.since,
+                    per_page: 100,
+                    page: pageNum,
+                }),
+            )
+            if (page.isErr) {
+                return page
+            }
+
+            if (page.val.length === 0) {
+                break
+            }
+
+            allNotifs.push(...page.val)
+            pageNum++
+        }
+
+        let mapped = []
+        for (let notif of allNotifs) {
+            let resourceUrl = notif.subject.url
+            // https://api.github.com/repos/facebook/react/pulls/34828
+            // 34828
+            // https://api.github.com/repos/sst/opencode/issues/3154
+            // 3154
+
+            let url = new URL(resourceUrl)
+            let resourceNumber = url.pathname.split('/').pop()
+            if (!resourceNumber) {
+                logger.warn(`invalid resource url: ${url.pathname}`)
+                continue
+            }
+            let resourceNumberInt = parseInt(resourceNumber)
+            if (Number.isNaN(resourceNumberInt)) {
+                logger.warn(`invalid resource number: ${resourceNumber}`)
+                continue
+            }
+
+            let notifType
+            if (notif.subject.type === 'Issue') {
+                notifType = 'Issue' as const
+            } else if (notif.subject.type === 'PullRequest') {
+                notifType = 'PullRequest' as const
+            } else {
+                logger.warn(`invalid subject type: ${notif.subject.type}`)
+                continue
+            }
+
+            let reason = notificationReason.safeParse(notif.reason)
+            if (!reason.success) {
+                logger.warn(`invalid reason: ${notif.reason}`)
+                continue
+            }
+
+            mapped.push({
+                type: notifType,
+                title: notif.subject.title,
+                repo: {
+                    id: notif.repository.id,
+                    owner: notif.repository.owner.login,
+                    name: notif.repository.name,
+                    private: notif.repository.private,
+                },
+                githubId: notif.id,
+                resourceNumber: resourceNumberInt,
+                reason: reason.data,
+                updatedAt: notif.updated_at,
+                lastReadAt: notif.last_read_at,
+                unread: notif.unread,
+            })
+        }
+
+        return ok(mapped)
     }
 
     export async function checkForNotifUpdates(octo: Octokit, prevEtag: Etag): R<PollResult> {
@@ -363,7 +462,11 @@ export class OctoError extends RequestError {
     }
 }
 
-type OctoCatchErrors = { type: 'octo-error'; err: OctoError } | { type: 'error'; err: string }
+type OctoCatchErrors =
+    | { type: 'octo-error'; err: OctoError }
+    | { type: 'not-modified' }
+    | { type: 'rate-limit-error'; err: OctoError; retryAfterSecs?: number }
+    | { type: 'error'; err: string }
 
 // best effort really
 function tryErrToString(error: unknown): string {
@@ -384,6 +487,15 @@ function tryErrToString(error: unknown): string {
 octoCatch.errToString = function (error: Err<OctoCatchErrors>): string {
     if (error.err.type === 'octo-error') {
         return error.err.err.error()
+    } else if (error.err.type === 'rate-limit-error') {
+        let errMsg = error.err.err.message
+        if (error.err.retryAfterSecs) {
+            return `Rate limit exceeded: ${error.err.retryAfterSecs} seconds: ${errMsg}`
+        }
+
+        return `Rate limit exceeded: ${errMsg}`
+    } else if (error.err.type === 'not-modified') {
+        return 'Resource not modified'
     }
 
     return error.err.err
@@ -409,6 +521,19 @@ export async function octoCatch<T>(
         return ok(res.data)
     } catch (error) {
         if (error instanceof RequestError) {
+            let rateLimitErr = isOctoRateLimitErr(error)
+            if (rateLimitErr.isRateLimitErr) {
+                return err({
+                    type: 'rate-limit-error',
+                    err: new OctoError(error),
+                    retryAfterSecs: rateLimitErr.retryAfterSecs,
+                })
+            }
+
+            if (error.response?.status === 304) {
+                return err({ type: 'not-modified' })
+            }
+
             return err({ type: 'octo-error', err: new OctoError(error) })
         }
 
@@ -416,6 +541,32 @@ export async function octoCatch<T>(
 
         return err({ type: 'error', err: msg })
     }
+}
+
+function isOctoRateLimitErr(
+    error: RequestError,
+): { isRateLimitErr: true; retryAfterSecs?: number } | { isRateLimitErr: false } {
+    if (error.status === 403 || error.status === 429) {
+        let retryAfterSecs: number | undefined
+        let retryAfterHeader =
+            error.request.headers['retry-after'] || error.request.headers['Retry-After']
+        if (retryAfterHeader) {
+            if (typeof retryAfterHeader === 'string') {
+                let parsed = parseInt(retryAfterHeader)
+                if (!Number.isNaN(parsed)) {
+                    retryAfterSecs = parsed
+                }
+            } else if (typeof retryAfterHeader === 'number') {
+                retryAfterSecs = retryAfterHeader
+            }
+
+            return { isRateLimitErr: true, retryAfterSecs }
+        }
+
+        return { isRateLimitErr: true }
+    }
+
+    return { isRateLimitErr: false }
 }
 
 export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchErrors> {
@@ -435,7 +586,9 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
 
 import type { Etag, etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
+import type { RequestHeaders } from '@octokit/types'
 import type { Infer } from 'convex/values'
+import z from 'zod'
 
 export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }
@@ -462,12 +615,7 @@ export async function octoCatchGql<T>(promise: Promise<T>): R<T, OctoCatchGqlErr
 }
 
 export function octoWrap(context: string, octoError: Err<OctoCatchErrors>): Err<string> {
-    if (octoError.err.type === 'octo-error') {
-        return err(`${context}: ${octoError.err.err.error()}`)
-    }
-
-    let msg: string = octoError.err.err
-    return err(`${context}: ${msg}`)
+    return err(`${context}: ${octoCatch.errToString(octoError)}`)
 }
 
 export type GraphqlRateLimitError = {
@@ -478,7 +626,7 @@ export type GraphqlRateLimitError = {
 // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
 let rateLimitErr: GraphqlRateLimitError = { retryAfterSecs: 60 }
 
-export function isGraphqlRateLimitError(
+function isGraphqlRateLimitError(
     err: GraphqlResponseError<unknown>,
 ): false | GraphqlRateLimitError {
     let retryAfter = err.headers['retry-after']
