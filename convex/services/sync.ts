@@ -21,7 +21,7 @@ let fns = internal.services.sync
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-export const syncRepoIssues = internalMutation({
+export const cronRepoIssues = internalMutation({
     args: {
         paginationOpts: paginationOptsValidator,
     },
@@ -39,7 +39,11 @@ export const syncRepoIssues = internalMutation({
             let userIds = userRepos.map((r) => r.userId)
 
             // for a moreless fair distribution of token usage
-            let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]!
+            let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]
+            if (!randomUserId) {
+                logger.warn({ repoId: repo._id }, 'no users found for repo')
+                continue
+            }
 
             await ctx.scheduler.runAfter(0, fns.startSyncRepoIssues, {
                 repoId: repo._id,
@@ -50,7 +54,7 @@ export const syncRepoIssues = internalMutation({
         if (!repos.isDone) {
             // allow mutation to finish so that it releases function resources.
             // Mutations shall not last more than 1s.
-            await ctx.scheduler.runAfter(0, fns.syncRepoIssues, {
+            await ctx.scheduler.runAfter(0, fns.cronRepoIssues, {
                 paginationOpts: {
                     ...args.paginationOpts,
                     cursor: repos.continueCursor,
@@ -60,7 +64,7 @@ export const syncRepoIssues = internalMutation({
     },
 })
 
-export const syncUserNotifications = internalMutation({
+export const cronUserNotifications = internalMutation({
     args: {
         paginationOpts: paginationOptsValidator,
     },
@@ -73,7 +77,7 @@ export const syncUserNotifications = internalMutation({
         }
 
         if (!users.isDone) {
-            await ctx.scheduler.runAfter(0, fns.syncUserNotifications, {
+            await ctx.scheduler.runAfter(0, fns.cronUserNotifications, {
                 paginationOpts: {
                     ...args.paginationOpts,
                     cursor: users.continueCursor,
@@ -163,7 +167,7 @@ export const startSyncNotifs = {
 
         // startSyncAt is the moment from where we start syncing. If undefined,
         // we do a backfill of notifications
-        let startSyncAt = userWorkflows?.syncNotifications.nextSyncAt
+        let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
 
         // nextSyncAt is the moment from where we will start the next sync.
         let nextSyncAt = new Date().toISOString() as NextSyncAt

@@ -17,8 +17,6 @@ export type PossibleGithubUser = Infer<typeof possibleGithubUser>
 export const v_etag = brandedString('etag')
 export type Etag = Infer<typeof v_etag>
 
-// @ts-expect-error: maybe naming is wrong?
-
 export const v_nextSyncAt = brandedString('nextSyncAt')
 export type NextSyncAt = Infer<typeof v_nextSyncAt>
 
