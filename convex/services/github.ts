@@ -338,10 +338,8 @@ export namespace Github {
         let mapped = []
         for (let notif of allNotifs) {
             let resourceUrl = notif.subject.url
-            // https://api.github.com/repos/facebook/react/pulls/34828
-            // 34828
-            // https://api.github.com/repos/sst/opencode/issues/3154
-            // 3154
+            // https://api.github.com/repos/facebook/react/pulls/34828 -> 34828
+            // https://api.github.com/repos/sst/opencode/issues/3154 -> 3154
 
             let url = new URL(resourceUrl)
             let resourceNumber = url.pathname.split('/').pop()

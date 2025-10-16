@@ -9,6 +9,7 @@ import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction, useMutation, type ReactAction } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
 import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 
@@ -185,7 +186,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
                             variant={downloadStatus === 'failed' ? 'destructive' : 'secondary'}
                             className="rounded-full px-2 py-1 text-xs"
                         >
-                            {downloadStatus}
+                            {getDownloadStatusMsg(downloadStatus)}
                         </Badge>
                     </div>
                 )}
@@ -203,4 +204,13 @@ function Repository(props: { repo: Doc<'repos'> }) {
             </div>
         </div>
     )
+}
+
+function getDownloadStatusMsg(
+    status: FunctionReturnType<typeof api.public.dashboard.getDownloadStatus>,
+) {
+    if (status === 'completed') return null
+    if (status === 'inProgress') return 'syncing'
+
+    return status
 }
