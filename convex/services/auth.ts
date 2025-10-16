@@ -19,8 +19,11 @@ export namespace Auth {
             owner: v.string(),
             repo: v.string(),
         },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
-            let savedRepo = await Repos.getByOwnerAndRepo(ctx, args.owner, args.repo)
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            let savedRepo = await Repos.getByOwnerAndRepo.handler(ctx, {
+                owner: args.owner,
+                repo: args.repo,
+            })
             if (!savedRepo) return err('repo-not-found')
 
             let hasRepo = await UserRepos.userHasRepo(ctx, args.userId, savedRepo._id)

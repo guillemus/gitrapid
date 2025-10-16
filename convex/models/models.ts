@@ -13,8 +13,8 @@ import { possibleGithubUserData, upsertPossibleGithubUser } from './users'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
-export const IssuesUtils = {
-    async getOrCreateIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
+export namespace IssuesUtils {
+    export async function getOrCreateIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
         let issue = await Issues.getByRepoAndNumber.handler(ctx, args)
         if (issue) {
             return issue
@@ -30,9 +30,9 @@ export const IssuesUtils = {
         }
 
         return await ctx.db.get(id)
-    },
+    }
 
-    async upsertIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
+    export async function upsertIssue(ctx: MutationCtx, args: UpsertDoc<'issues'>) {
         let existing = await Issues.getByRepoAndNumber.handler(ctx, args)
         if (existing) {
             // Adjust counts if state changed
@@ -58,9 +58,9 @@ export const IssuesUtils = {
         }
 
         return await ctx.db.get(id)
-    },
+    }
 
-    async upsertIssueBody(ctx: MutationCtx, args: UpsertDoc<'issueBodies'>) {
+    export async function upsertIssueBody(ctx: MutationCtx, args: UpsertDoc<'issueBodies'>) {
         let existing = await ctx.db
             .query('issueBodies')
             .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
@@ -70,7 +70,7 @@ export const IssuesUtils = {
         } else {
             await ctx.db.insert('issueBodies', args)
         }
-    },
+    }
 }
 
 const issueData = v.object({
@@ -155,7 +155,7 @@ const comment = v.object({
 
 const UpsertLabel = {
     args: schema.tables.labels.validator.fields,
-    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
         let githubUser = await ctx.db
             .query('labels')
             .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))

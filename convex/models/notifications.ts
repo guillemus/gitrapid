@@ -4,7 +4,7 @@ import type { FnArgs } from '@convex/utils'
 import { v } from 'convex/values'
 
 export namespace Notifications {
-    export type UpsertBatchArgs = FnArgs<typeof upsertBatch.args>
+    export type UpsertBatchArgs = FnArgs<typeof upsertBatch>
     export const upsertBatch = {
         args: {
             userId: v.id('users'),
@@ -22,7 +22,7 @@ export namespace Notifications {
                 }),
             ),
         },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             for (let notif of args.notifs) {
                 let existing = await ctx.db
                     .query('notifications')

@@ -209,7 +209,7 @@ export namespace Github {
 
     type PollResult = {
         hasUpdates: boolean
-        newEtag?: Infer<typeof etag>
+        newEtag?: Etag
     }
 
     export async function checkForIssueUpdates(
@@ -241,22 +241,19 @@ export namespace Github {
         if (res.isErr) {
             if (res.err.type === 'octo-error') {
                 if (res.err.err.response?.status === 304) {
-                    return ok({
-                        hasUpdates: false,
-                        newEtag: args.etag,
-                    })
+                    return ok({ hasUpdates: false })
                 }
             }
 
             return err(octoCatch.errToString(res))
         }
 
-        let newEtag = res.val.headers.etag
+        let newEtag = res.val.headers.etag as Etag
         if (!newEtag) return ok({ hasUpdates: true })
 
         return ok({
-            hasUpdates: true,
-            newEtag: newEtag as Etag,
+            hasUpdates: res.val.data.length !== 0,
+            newEtag,
         })
     }
 
@@ -584,10 +581,12 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
     }
 }
 
-import type { Etag, etag } from '@convex/schema'
+import { internal } from '@convex/_generated/api'
+import type { Id } from '@convex/_generated/dataModel'
+import type { ActionCtx } from '@convex/_generated/server'
+import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
 import type { RequestHeaders } from '@octokit/types'
-import type { Infer } from 'convex/values'
 import z from 'zod'
 
 export type OctoCatchGqlErrors =
@@ -679,4 +678,14 @@ function includesRateLimitMessage(message: string): boolean {
         lower.includes('retry later') ||
         lower.includes('retry-after')
     )
+}
+
+export async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
+    let userToken = await ctx.runQuery(internal.models.pats.getByUserId, {
+        userId,
+    })
+    if (!userToken) return err('user token not found')
+
+    let octo = newOctokit(userToken)
+    return ok(octo)
 }

@@ -5,7 +5,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import schema from '@convex/schema'
+import type { FnArgs } from '@convex/utils'
 import { v } from 'convex/values'
 
 export namespace UserRepos {
@@ -25,18 +25,20 @@ export namespace UserRepos {
         return !!userRepo
     }
 
-    export async function insertIfNotExists(
-        ctx: MutationCtx,
-        userId: Id<'users'>,
-        repoId: Id<'repos'>,
-    ) {
-        let existing = await userHasRepo(ctx, userId, repoId)
-        if (existing) {
-            return existing
-        }
+    export const insertIfNotExists = {
+        args: {
+            userId: v.id('users'),
+            repoId: v.id('repos'),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let existing = await userHasRepo(ctx, args.userId, args.repoId)
+            if (existing) {
+                return existing
+            }
 
-        let id = await ctx.db.insert('userRepos', { userId, repoId })
-        return await ctx.db.get(id)
+            let id = await ctx.db.insert('userRepos', { userId: args.userId, repoId: args.repoId })
+            return await ctx.db.get(id)
+        },
     }
 
     export async function deleteByRepoId(ctx: MutationCtx, repoId: Id<'repos'>) {
@@ -56,17 +58,9 @@ export const getByUserId = internalQuery({
     handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })
 
-export const insertIfNotExists = internalMutation({
-    args: schema.tables.userRepos.validator.fields,
-    handler: (ctx, { userId, repoId }) => UserRepos.insertIfNotExists(ctx, userId, repoId),
-})
+export const insertIfNotExists = internalMutation(UserRepos.insertIfNotExists)
 
 export const deleteByRepoId = internalMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => UserRepos.deleteByRepoId(ctx, repoId),
-})
-
-export const listByUserId = internalQuery({
-    args: { userId: v.id('users') },
-    handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
 })

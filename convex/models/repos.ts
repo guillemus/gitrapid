@@ -1,172 +1,203 @@
-import { vResultValidator } from '@convex-dev/workpool'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import { vWorkflowId } from '@convex-dev/workflow'
+import type { Id } from '@convex/_generated/dataModel'
 import {
     internalMutation,
     internalQuery,
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import { v, type Infer } from 'convex/values'
-import schema from '../schema'
+import type { FnArgs } from '@convex/utils'
+import { workflow } from '@convex/workflow'
+import { assert } from 'convex-helpers'
+import { v } from 'convex/values'
+import { v_etag, v_nextSyncAt } from '../schema'
 
-export const Repos = {
-    async getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
+export namespace Repos {
+    export async function getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
         let res
         res = repoIds.map((id) => ctx.db.get(id))
         res = await Promise.all(res)
         res = res.filter((r) => r !== null)
         return res
-    },
+    }
 
-    async getByOwnerAndRepo(ctx: QueryCtx, owner: string, repo: string) {
-        return ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (q) => q.eq('owner', owner).eq('repo', repo))
-            .unique()
-    },
+    export const getByOwnerAndRepo = {
+        args: { owner: v.string(), repo: v.string() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            return ctx.db
+                .query('repos')
+                .withIndex('by_owner_and_repo', (q) =>
+                    q.eq('owner', args.owner).eq('repo', args.repo),
+                )
+                .unique()
+        },
+    }
 
-    async deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
+    export async function deleteById(ctx: MutationCtx, repoId: Id<'repos'>) {
         await ctx.db.delete(repoId)
-    },
+    }
 
-    async addToOpenIssuesCount(ctx: MutationCtx, repoId: Id<'repos'>, count: number) {
+    export async function addToOpenIssuesCount(
+        ctx: MutationCtx,
+        repoId: Id<'repos'>,
+        count: number,
+    ) {
         let repo = await ctx.db.get(repoId)
         if (!repo) {
             throw new Error(`repo not found: ${repoId}`)
         }
 
         await ctx.db.patch(repoId, { openIssues: repo.openIssues + count })
-    },
+    }
 
-    async addToClosedIssuesCount(ctx: MutationCtx, repoId: Id<'repos'>, count: number) {
+    export async function addToClosedIssuesCount(
+        ctx: MutationCtx,
+        repoId: Id<'repos'>,
+        count: number,
+    ) {
         let repo = await ctx.db.get(repoId)
         if (!repo) {
             throw new Error(`repo not found: ${repoId}`)
         }
 
         await ctx.db.patch(repoId, { closedIssues: repo.closedIssues + count })
-    },
+    }
 
-    async updateDownload(
-        ctx: MutationCtx,
-        repoId: Id<'repos'>,
-        download: Doc<'repos'>['download'],
-    ) {
-        await ctx.db.patch(repoId, { download })
-    },
+    export const shouldSyncIssues = {
+        args: { repoId: v.id('repos') },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            let repoWorkflow = await ctx.db
+                .query('repoWorkflows')
+                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
+                .unique()
+            if (!repoWorkflow) return true
+
+            let wStatus = await workflow.status(ctx, repoWorkflow.issues.workflowId)
+            if (wStatus.type === 'inProgress') return false
+
+            return true
+        },
+    }
+
+    export const getWorkflow = {
+        args: { repoId: v.id('repos') },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            let repoWorkflow = await ctx.db
+                .query('repoWorkflows')
+                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
+                .unique()
+            return repoWorkflow
+        },
+    }
+
+    export const saveIssuesWorkflow = {
+        args: {
+            repoId: v.id('repos'),
+            workflow: v.object({
+                workflowId: vWorkflowId,
+                nextSyncAt: v.optional(v_nextSyncAt),
+            }),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let repoWorkflow = await ctx.db
+                .query('repoWorkflows')
+                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
+                .unique()
+
+            if (repoWorkflow) {
+                // does not override etag
+                repoWorkflow.issues.workflowId = args.workflow.workflowId
+                repoWorkflow.issues.nextSyncAt = args.workflow.nextSyncAt
+
+                await ctx.db.patch(repoWorkflow._id, repoWorkflow)
+                return
+            }
+
+            await ctx.db.insert('repoWorkflows', {
+                repoId: args.repoId,
+                issues: {
+                    workflowId: args.workflow.workflowId,
+                    nextSyncAt: args.workflow.nextSyncAt,
+                },
+            })
+        },
+    }
+
+    export const setIssuesWorkflowEtag = {
+        args: { repoId: v.id('repos'), etag: v_etag },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let repoWorkflow = await ctx.db
+                .query('repoWorkflows')
+                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
+                .unique()
+            assert(repoWorkflow, 'repo workflow must exist to update issues etag')
+
+            repoWorkflow.issues.etag = args.etag
+            await ctx.db.patch(repoWorkflow._id, repoWorkflow)
+        },
+    }
+
+    export const upsertRepoForUser = {
+        args: {
+            userId: v.id('users'),
+            owner: v.string(),
+            repo: v.string(),
+            private: v.boolean(),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let repoId
+            let curr = await ctx.db
+                .query('repos')
+                .withIndex('by_owner_and_repo', (x) =>
+                    x.eq('owner', args.owner).eq('repo', args.repo),
+                )
+                .unique()
+            if (curr) {
+                await ctx.db.patch(curr._id, { private: args.private })
+                repoId = curr._id
+            } else {
+                repoId = await ctx.db.insert('repos', {
+                    owner: args.owner,
+                    repo: args.repo,
+                    private: args.private,
+                    openIssues: 0,
+                    closedIssues: 0,
+                    openPullRequests: 0,
+                    closedPullRequests: 0,
+                })
+            }
+
+            let currRel = await ctx.db
+                .query('userRepos')
+                .withIndex('by_userId_repoId', (x) =>
+                    x.eq('userId', args.userId).eq('repoId', repoId),
+                )
+                .unique()
+            if (!currRel) {
+                await ctx.db.insert('userRepos', {
+                    userId: args.userId,
+                    repoId,
+                })
+            }
+
+            return repoId
+        },
+    }
 }
 
-export const SaveWorkflowResult = {
-    args: v.object({
-        repoId: v.id('repos'),
-        lastSyncedAt: v.string(),
-        workflowRes: vResultValidator,
-    }),
-    async handler(ctx: MutationCtx, args: Infer<typeof this.args>) {
-        let res = args.workflowRes
-        if (res.kind === 'canceled') {
-            await ctx.db.patch(args.repoId, {
-                download: {
-                    status: 'cancelled',
-                    lastSyncedAt: args.lastSyncedAt,
-                },
-            })
-        } else if (res.kind === 'failed') {
-            await ctx.db.patch(args.repoId, {
-                download: {
-                    status: 'error',
-                    message: res.error,
-                    lastSyncedAt: args.lastSyncedAt,
-                },
-            })
-        } else if (res.kind === 'success') {
-            await ctx.db.patch(args.repoId, {
-                download: {
-                    status: 'success',
-                    lastSyncedAt: args.lastSyncedAt,
-                },
-            })
-        } else {
-            let _ = res satisfies never
-        }
-    },
-}
-
-export const saveWorkflowResult = internalMutation(SaveWorkflowResult)
+export const setIssuesWorkflowEtag = internalMutation(Repos.setIssuesWorkflowEtag)
+export const getWorkflow = internalQuery(Repos.getWorkflow)
 
 export const get = internalQuery({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => ctx.db.get(repoId),
 })
 
-export const upsertRepoForUser = internalMutation({
-    args: {
-        userId: v.id('users'),
-        owner: v.string(),
-        repo: v.string(),
-        private: v.boolean(),
-    },
-    async handler(ctx, args) {
-        let repoId
-        let curr = await ctx.db
-            .query('repos')
-            .withIndex('by_owner_and_repo', (x) => x.eq('owner', args.owner).eq('repo', args.repo))
-            .unique()
-        if (curr) {
-            await ctx.db.patch(curr._id, { private: args.private })
-            repoId = curr._id
-        } else {
-            repoId = await ctx.db.insert('repos', {
-                owner: args.owner,
-                repo: args.repo,
-                private: args.private,
-                openIssues: 0,
-                closedIssues: 0,
-                openPullRequests: 0,
-                closedPullRequests: 0,
-                download: {
-                    status: 'initial',
-                },
-            })
-        }
+export const upsertRepoForUser = internalMutation(Repos.upsertRepoForUser)
 
-        let currRel = await ctx.db
-            .query('userRepos')
-            .withIndex('by_userId_repoId', (x) => x.eq('userId', args.userId).eq('repoId', repoId))
-            .unique()
-        if (!currRel) {
-            await ctx.db.insert('userRepos', {
-                userId: args.userId,
-                repoId,
-            })
-        }
-
-        return repoId
-    },
-})
-
-export const getByOwnerAndRepo = internalQuery({
-    args: { owner: v.string(), repo: v.string() },
-    handler: (ctx, { owner, repo }) => Repos.getByOwnerAndRepo(ctx, owner, repo),
-})
+export const getByOwnerAndRepo = internalQuery(Repos.getByOwnerAndRepo)
 
 export const deleteById = internalMutation({
     args: { repoId: v.id('repos') },
     handler: (ctx, { repoId }) => Repos.deleteById(ctx, repoId),
 })
-
-export function canRepoBeSynced(repo: Doc<'repos'>) {
-    return repo.download.status !== 'backfilling' && repo.download.status !== 'syncing'
-}
-
-export const updateDownloadStatus = internalMutation({
-    args: {
-        repoId: v.id('repos'),
-        download: schema.tables.repos.validator.fields.download,
-    },
-    handler: (ctx, args) => Repos.updateDownload(ctx, args.repoId, args.download),
-})
-
-export function doesRepoNeedSyncing(repo: Doc<'repos'>) {
-    return repo.download.status === 'cancelled' || repo.download.status === 'error'
-}

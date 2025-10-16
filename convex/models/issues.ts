@@ -13,21 +13,11 @@ import { v } from 'convex/values'
 import { fetchGithubUser, type GithubUserDoc } from './issueTimelineItems'
 
 export namespace Issues {
-    export const getByRepoAndNumber = {
-        args: { repoId: v.id('repos'), number: v.number() },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_and_number', (q) =>
-                    q.eq('repoId', args.repoId).eq('number', args.number),
-                )
-                .unique()
-        },
-    }
+    export const getByRepoAndNumber = getByRepoAndNumberFn()
 
     export const getByRepoAndNumberWithRelations = {
         args: { repoId: v.id('repos'), number: v.number() },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
             let issue = await getByRepoAndNumber.handler(ctx, args)
             if (!issue) return null
 
@@ -42,7 +32,7 @@ export namespace Issues {
 
     export const listByRepo = {
         args: { repoId: v.id('repos') },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
             return ctx.db
                 .query('issues')
                 .withIndex('by_repo_and_number', (q) => q.eq('repoId', args.repoId))
@@ -80,7 +70,7 @@ export namespace Issues {
 
         async paginate(
             ctx: QueryCtx,
-            args: FnArgs<typeof this.args>,
+            args: FnArgs<typeof this>,
         ): Promise<PaginationResult<Doc<'issues'>>> {
             let sortBy = args.sortBy ?? 'createdAt'
 
@@ -118,7 +108,7 @@ export namespace Issues {
 
         async handler(
             ctx: QueryCtx,
-            args: FnArgs<typeof this.args>,
+            args: FnArgs<typeof this>,
         ): Promise<PaginationResult<PaginatedIssue>> {
             let issuesPagination = await this.paginate(ctx, args)
             let repoLabels = await ctx.db
@@ -146,7 +136,7 @@ export namespace Issues {
 
     export const getAssigneesByIssueId = {
         args: { issueId: v.id('issues') },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
             let issueAssignees = await ctx.db
                 .query('issueAssignees')
                 .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
@@ -162,7 +152,7 @@ export namespace Issues {
 
     export const getLabelsByIssueId = {
         args: { issueId: v.id('issues') },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
             let issueLabels = await ctx.db
                 .query('issueLabels')
                 .withIndex('by_issue_id', (q) => q.eq('issueId', args.issueId))
@@ -178,14 +168,14 @@ export namespace Issues {
 
     export const updateTitle = {
         args: { issueId: v.id('issues'), title: v.string() },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             await ctx.db.patch(args.issueId, { title: args.title })
         },
     }
 
     export const doDelete = {
         args: { issueId: v.id('issues') },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             await ctx.db.delete(args.issueId)
         },
     }
@@ -198,7 +188,7 @@ export namespace Issues {
             githubId: v.number(),
             number: v.number(),
         },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             await ctx.db.patch(args.issueId, {
                 createdAt: args.createdAt,
                 updatedAt: args.updatedAt,
@@ -221,7 +211,7 @@ export namespace Issues {
             comments: v.optional(v.number()),
             body: v.string(),
         },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             let ghUser = await ctx.db
                 .query('githubUsers')
                 .withIndex('by_githubId', (u) => u.eq('githubId', args.userGithubId))
@@ -250,13 +240,27 @@ export namespace Issues {
 
     export const deleteComment = {
         args: { commentId: v.id('issueComments') },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             await ctx.db.delete(args.commentId)
         },
     }
 }
 
-export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
+export const getByRepoAndNumber = internalQuery(getByRepoAndNumberFn())
+function getByRepoAndNumberFn() {
+    return {
+        args: { repoId: v.id('repos'), number: v.number() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_and_number', (q) =>
+                    q.eq('repoId', args.repoId).eq('number', args.number),
+                )
+                .unique()
+        },
+    }
+}
+
 export const listByRepo = internalQuery(Issues.listByRepo)
 export const updateTitle = internalMutation(Issues.updateTitle)
 export const update = internalMutation(Issues.updateIssue)
@@ -289,7 +293,7 @@ export const AssignUserToIssue = {
         login: v.string(),
         avatarUrl: v.string(),
     },
-    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
         let githubUserId: Id<'githubUsers'>
         let githubUser = await ctx.db
             .query('githubUsers')
@@ -331,7 +335,7 @@ export const AssignLabelToIssue = {
         name: v.string(),
         color: v.string(),
     },
-    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
         let labelId: Id<'labels'>
         let repoLabels = await ctx.db
             .query('labels')

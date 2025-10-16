@@ -1,11 +1,13 @@
 import { internal } from '@convex/_generated/api'
-import { action, mutation, query } from '@convex/_generated/server'
-import { doesRepoNeedSyncing } from '@convex/models/repos'
+import { action, internalMutation, mutation, query } from '@convex/_generated/server'
+import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { Auth, getTokenFromUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
 import { logger } from '@convex/utils'
+import { workflow } from '@convex/workflow'
+import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 
 export const get = query({
@@ -17,28 +19,6 @@ export const get = query({
         let repoIds = userRepos.map((ur) => ur.repoId)
         let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
         return repos.filter((r) => r !== null)
-    },
-})
-
-export const getDownload = query({
-    args: {
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, { repoId }) {
-        let userId = await Auth.getUserId(ctx)
-
-        let hasRepo = await UserRepos.userHasRepo(ctx, userId, repoId)
-        if (!hasRepo) {
-            throw new Error('not authorized to this repo')
-        }
-
-        let repo = await ctx.db.get(repoId)
-        if (!repo) return null
-
-        return {
-            status: repo.download.status,
-            message: repo.download.message,
-        }
     },
 })
 
@@ -91,12 +71,6 @@ export const addRepo = action({
                 userId,
             })
 
-            // if the repository already exists with a successful or eventually
-            // successful status then we don't need to start a new sync
-            if (!doesRepoNeedSyncing(savedRepo)) {
-                return ok()
-            }
-
             repoId = savedRepo._id
         } else {
             repoId = await ctx.runMutation(internal.models.repos.upsertRepoForUser, {
@@ -107,12 +81,50 @@ export const addRepo = action({
             })
         }
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startBackfillRepoWorkflow, {
+        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncRepoIssues, {
             userId,
             repoId,
         })
 
         return ok()
+    },
+})
+
+export const saveNewRepo = internalMutation({
+    args: {
+        userId: v.id('users'),
+        owner: v.string(),
+        repo: v.string(),
+        private: v.boolean(),
+    },
+    async handler(ctx, args) {
+        let repoId
+
+        let savedRepo = await Repos.getByOwnerAndRepo.handler(ctx, {
+            owner: args.owner,
+            repo: args.repo,
+        })
+        if (savedRepo) {
+            // insert user repo
+            await UserRepos.insertIfNotExists.handler(ctx, {
+                userId: args.userId,
+                repoId: savedRepo._id,
+            })
+
+            repoId = savedRepo._id
+        } else {
+            repoId = await Repos.upsertRepoForUser.handler(ctx, {
+                userId: args.userId,
+                owner: args.owner,
+                repo: args.repo,
+                private: args.private,
+            })
+        }
+
+        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncRepoIssues, {
+            userId: args.userId,
+            repoId,
+        })
     },
 })
 
@@ -132,5 +144,25 @@ export const removeRepo = mutation({
 
         await UserRepos.deleteByRepoId(ctx, args.repoId)
         return null
+    },
+})
+
+export const getDownloadStatus = query({
+    args: {
+        repoId: v.id('repos'),
+    },
+    async handler(ctx, args) {
+        let userId = await Auth.getUserId(ctx)
+        let userRepo = await UserRepos.userHasRepo(ctx, userId, args.repoId)
+        assert(userRepo, 'not authorized to this repo')
+
+        let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
+        if (!repoWorkflow) {
+            return null
+        }
+
+        let wStatus = await workflow.status(ctx, repoWorkflow.issues.workflowId)
+
+        return wStatus.type
     },
 })

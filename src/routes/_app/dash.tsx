@@ -142,8 +142,8 @@ function RepositoryListHeader() {
 }
 
 function Repository(props: { repo: Doc<'repos'> }) {
-    let { data: download } = useTanstackQuery(
-        convexQuery(api.public.dashboard.getDownload, {
+    let { data: downloadStatus } = useTanstackQuery(
+        convexQuery(api.public.dashboard.getDownloadStatus, {
             repoId: props.repo._id,
         }),
     )
@@ -179,17 +179,14 @@ function Repository(props: { repo: Doc<'repos'> }) {
                         </Badge>
                     )}
                 </div>
-                {download && download.status !== 'success' && (
+                {downloadStatus && downloadStatus !== 'completed' && (
                     <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
                         <Badge
-                            variant={download.status === 'error' ? 'destructive' : 'secondary'}
+                            variant={downloadStatus === 'failed' ? 'destructive' : 'secondary'}
                             className="rounded-full px-2 py-1 text-xs"
                         >
-                            {download.status}
+                            {downloadStatus}
                         </Badge>
-                        {download.message && download.status === 'error' && (
-                            <div className="mt-1 text-xs text-gray-500">{download.message}</div>
-                        )}
                     </div>
                 )}
             </div>

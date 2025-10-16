@@ -38,4 +38,6 @@ export function zodParse<T extends z.ZodTypeAny>(schema: T, value: unknown): Res
     return err(z.prettifyError(result.error))
 }
 
-export type FnArgs<T extends PropertyValidators> = DefaultArgsForOptionalValidator<T>[0]
+export type FnArgs<T extends { args: PropertyValidators }> = DefaultArgsForOptionalValidator<
+    T['args']
+>[0]

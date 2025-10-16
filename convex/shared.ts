@@ -15,6 +15,7 @@ function none<T>(): Option<T> {
     return { isSome: false, isNone: true }
 }
 
+export type O<T> = Option<T>
 export const O = { some, none }
 
 declare global {
@@ -23,8 +24,6 @@ declare global {
      * as much as possible return types
      */
     export type R<T = null, E = string> = Promise<Result<T, E>>
-
-    export type O<T> = Option<T>
 }
 
 /**
@@ -80,6 +79,22 @@ export function unwrap<T, E>(result: Result<T, E>): T {
     }
 
     return result.val
+}
+
+export function assertOk<T>(result: Result<T>, msg?: string): asserts result is Ok<T> {
+    if (result.isErr) {
+        if (msg) {
+            if (typeof result.err === 'string') {
+                throw new Error(`${msg}: ${result.err}`)
+            }
+            throw new Error(msg, { cause: result.err })
+        }
+
+        if (typeof result.err === 'string') {
+            throw new Error(result.err)
+        }
+        throw result.err
+    }
 }
 
 // enforces compile time enforcement of never type.

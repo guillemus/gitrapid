@@ -14,31 +14,18 @@ const possibleGithubUser = v.union(
 
 export type PossibleGithubUser = Infer<typeof possibleGithubUser>
 
-export const etag = brandedString('etag')
-export type Etag = Infer<typeof etag>
+export const v_etag = brandedString('etag')
+export type Etag = Infer<typeof v_etag>
+
+// @ts-expect-error: maybe naming is wrong?
+
+export const v_nextSyncAt = brandedString('nextSyncAt')
+export type NextSyncAt = Infer<typeof v_nextSyncAt>
 
 const repos = defineTable({
     owner: v.string(),
     repo: v.string(),
     private: v.boolean(),
-
-    download: v.object({
-        status: v.union(
-            // When inserting a new row to repos, initial is the default state.
-            v.literal('initial'),
-            // Represents when the repository is being downloaded for the first time.
-            v.literal('backfilling'),
-            // Represents when the repository is being synced incrementally.
-            v.literal('syncing'),
-            // Repository is ready to be used fully
-            v.literal('success'),
-            // Error happened to download. We should explain at message what happened exactly.
-            v.literal('error'),
-            v.literal('cancelled'),
-        ),
-        message: v.optional(v.string()),
-        lastSyncedAt: v.optional(v.string()),
-    }),
 
     openIssues: v.number(),
     closedIssues: v.number(),
@@ -55,14 +42,20 @@ const userRepos = defineTable({
 
 const userWorkflows = defineTable({
     userId: v.id('users'),
-    notifWorkflowId: vWorkflowId,
-    issueWorkflowIds: v.array(
-        v.object({
-            repoId: v.id('repos'),
-            workflowId: vWorkflowId,
-        }),
-    ),
+    syncNotifications: v.object({
+        workflowId: vWorkflowId,
+        nextSyncAt: v.optional(v_nextSyncAt),
+    }),
 }).index('by_userId', ['userId'])
+
+const repoWorkflows = defineTable({
+    repoId: v.id('repos'),
+    issues: v.object({
+        workflowId: vWorkflowId,
+        nextSyncAt: v.optional(v_nextSyncAt),
+        etag: v.optional(v_etag),
+    }),
+}).index('by_repoId', ['repoId'])
 
 const githubUsers = defineTable({
     githubId: v.number(),
@@ -202,18 +195,20 @@ const issueTimelineItems = defineTable({
     .index('by_repoId', ['repoId'])
     .index('by_issueId_and_createdAt', ['issueId', 'createdAt'])
 
+export const v_tokenScopes = v.array(
+    v.union(
+        v.literal('public_repo'),
+        v.literal('repo'),
+        v.literal('notifications'),
+        v.literal('read:org'),
+    ),
+)
+
 const pats = defineTable({
     githubUser: v.id('githubUsers'),
     userId: v.id('users'),
     token: v.string(),
-    scopes: v.array(
-        v.union(
-            v.literal('public_repo'),
-            v.literal('repo'),
-            v.literal('notifications'),
-            v.literal('read:org'),
-        ),
-    ),
+    scopes: v_tokenScopes,
     expiresAt: v.string(),
 
     rateLimit: v.optional(
@@ -223,15 +218,7 @@ const pats = defineTable({
             reset: v.optional(v.string()),
         }),
     ),
-
-    notificationsSince: v.optional(v.string()),
 }).index('by_user_id', ['userId'])
-
-const patsRepos = defineTable({
-    patId: v.id('pats'),
-    repoId: v.id('repos'),
-    issuesEtag: v.optional(etag),
-}).index('by_pat_repo_id', ['patId', 'repoId'])
 
 // more info at https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#about-notification-reasons
 const notificationReasons = v.union(
@@ -274,7 +261,6 @@ export default defineSchema({
 
     repos: repos,
     userRepos: userRepos,
-    userWorkflows: userWorkflows,
 
     githubUsers: githubUsers,
 
@@ -288,7 +274,9 @@ export default defineSchema({
     labels: labels,
 
     pats: pats,
-    patsRepos: patsRepos,
 
     notifications: notifications,
+
+    userWorkflows: userWorkflows,
+    repoWorkflows: repoWorkflows,
 })
