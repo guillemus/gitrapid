@@ -25,11 +25,7 @@ export namespace Users {
     }
 
     export const upsertGithubUser = {
-        args: {
-            githubId: v.number(),
-            login: v.string(),
-            avatarUrl: v.string(),
-        },
+        args: { githubId: v.number(), login: v.string(), avatarUrl: v.string() },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
             let githubUser = await ctx.db
                 .query('githubUsers')
@@ -45,27 +41,22 @@ export namespace Users {
         },
     }
 
-    export const saveWorkflowId = {
-        args: {
-            type: v.union(v.literal('notifications'), v.literal('issues')),
-            userId: v.id('users'),
-            workflowId: vWorkflowId,
-        },
+    export const saveNotifWorkflowId = {
+        args: { userId: v.id('users'), notifWorkflowId: vWorkflowId },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
-            let curr = await ctx.db
+            let userWorkflow = await ctx.db
                 .query('userWorkflows')
-                .withIndex('by_userId_workflowId', (q) =>
-                    q.eq('userId', args.userId).eq('workflowId', args.workflowId),
-                )
+                .withIndex('by_userId', (q) => q.eq('userId', args.userId))
                 .unique()
-            if (curr) {
-                return curr._id
+            if (userWorkflow) {
+                await ctx.db.patch(userWorkflow._id, { notifWorkflowId: args.notifWorkflowId })
+                return
             }
 
             let id = await ctx.db.insert('userWorkflows', {
-                type: args.type,
                 userId: args.userId,
-                workflowId: args.workflowId,
+                notifWorkflowId: args.notifWorkflowId,
+                issueWorkflowIds: [],
             })
             return id
         },

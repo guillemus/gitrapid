@@ -373,25 +373,46 @@ async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
 const NOTIFS_REQUEST_DELAY = 60 * 1000
 const NOTIFS_BATCH_SIZE = 100
 
-export async function startSyncNotificationsWorkflow(ctx: MutationCtx, userId: Id<'users'>) {
-    let workflowId = await workflow.start(
-        ctx,
-        internal.services.sync.syncNotificationsWorkflow,
-        { userId },
-        {
-            onComplete: internal.services.sync.scheduleNextSyncNotificationsWorkflow,
-            startAsync: true,
-        },
-    )
+export const startSyncNotifs = {
+    args: {
+        userId: v.id('users'),
+    },
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this.args>) {
+        let current = await ctx.db
+            .query('userWorkflows')
+            .withIndex('by_userId', (x) => x.eq('userId', args.userId))
+            .unique()
 
-    await Users.saveWorkflowId.handler(ctx, {
-        type: 'notifications',
-        userId,
-        workflowId,
-    })
+        if (current) {
+            let status = await workflow.status(ctx, current.notifWorkflowId)
+            if (status.type === 'inProgress') {
+                return
+            }
+        }
+
+        let workflowId = await workflow.start(
+            ctx,
+            internal.services.sync.syncNotifs,
+            { userId: args.userId },
+            {
+                onComplete: internal.services.sync.scheduleNextSyncNotifs,
+                context: { userId: args.userId },
+                startAsync: true,
+            },
+        )
+
+        logger.debug({ workflowId }, 'started sync notifs workflow')
+
+        await Users.saveNotifWorkflowId.handler(ctx, {
+            userId: args.userId,
+            notifWorkflowId: workflowId,
+        })
+    },
 }
 
-export const scheduleNextSyncNotificationsWorkflow = internalMutation({
+export const startSyncNotifsMutation = internalMutation(startSyncNotifs)
+
+export const scheduleNextSyncNotifs = internalMutation({
     args: {
         workflowId: vWorkflowId,
         result: vResultValidator,
@@ -400,12 +421,15 @@ export const scheduleNextSyncNotificationsWorkflow = internalMutation({
         }),
     },
     async handler(ctx, args) {
-        await new Promise((resolve) => setTimeout(resolve, NOTIFS_REQUEST_DELAY))
-        await startSyncNotificationsWorkflow(ctx, args.context.userId)
+        await ctx.scheduler.runAfter(
+            NOTIFS_REQUEST_DELAY,
+            internal.services.sync.startSyncNotifsMutation,
+            { userId: args.context.userId },
+        )
     },
 })
 
-export const syncNotificationsWorkflow = workflow.define({
+export const syncNotifs = workflow.define({
     args: {
         userId: v.id('users'),
     },
@@ -462,6 +486,7 @@ export const downloadNotifications = internalAction({
                         repo: notif.repo.name,
                         private: notif.repo.private,
                     })
+                    upsertedRepos.set(notif.repo.id, repoId)
                 }
 
                 toUpsert.push({

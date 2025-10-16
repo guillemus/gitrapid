@@ -5,6 +5,7 @@ import schema from '@convex/schema'
 import { Auth } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
+import { workflow } from '@convex/workflow'
 import { doc } from 'convex-helpers/validators'
 import { v } from 'convex/values'
 
@@ -21,8 +22,6 @@ export const get = query({
         }
     },
 })
-
-// @ts-expect-error: this is wrong, savePAT should rather be a mutation that enqueues notifications sync workflow.
 
 export const savePAT = action({
     args: {
@@ -49,6 +48,8 @@ export const savePAT = action({
             scopes,
             expiresAt: res.val.expiration.toISOString(),
         })
+
+        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncNotifsMutation, { userId })
 
         return ok()
     },

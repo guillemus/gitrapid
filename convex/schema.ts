@@ -54,10 +54,15 @@ const userRepos = defineTable({
     .index('by_userId_repoId', ['userId', 'repoId'])
 
 const userWorkflows = defineTable({
-    type: v.union(v.literal('notifications'), v.literal('issues')),
     userId: v.id('users'),
-    workflowId: vWorkflowId,
-}).index('by_userId_workflowId', ['userId', 'workflowId'])
+    notifWorkflowId: vWorkflowId,
+    issueWorkflowIds: v.array(
+        v.object({
+            repoId: v.id('repos'),
+            workflowId: vWorkflowId,
+        }),
+    ),
+}).index('by_userId', ['userId'])
 
 const githubUsers = defineTable({
     githubId: v.number(),

@@ -3,6 +3,6 @@ import { components } from './_generated/api'
 
 export const workflow = new WorkflowManager(components.workflow, {
     workpoolOptions: {
-        maxParallelism: 50,
+        maxParallelism: 20,
     },
 })
