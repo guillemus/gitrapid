@@ -2,7 +2,7 @@ import { authTables } from '@convex-dev/auth/server'
 import { vWorkflowId } from '@convex-dev/workflow'
 import { brandedString } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
-import { v, type Infer } from 'convex/values'
+import { v, type Infer, type Validator } from 'convex/values'
 
 const possibleGithubUser = v.union(
     // Null means that the user no longer exists or for some reason the actor could not be fetched from github.
@@ -19,6 +19,10 @@ export type Etag = Infer<typeof v_etag>
 
 export const v_nextSyncAt = brandedString('nextSyncAt')
 export type NextSyncAt = Infer<typeof v_nextSyncAt>
+
+export function v_nullable<T extends Validator<any, any, any>>(validator: T) {
+    return v.union(v.null(), validator)
+}
 
 const repos = defineTable({
     owner: v.string(),

@@ -1,12 +1,14 @@
+import { vWorkflowId } from '@convex-dev/workflow'
+import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { internalAction, internalMutation, type MutationCtx } from '@convex/_generated/server'
 import type { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
-import { v_nextSyncAt, type NextSyncAt } from '@convex/schema'
+import { v_nextSyncAt, v_nullable, type NextSyncAt } from '@convex/schema'
 import { assertOk, err, ok, unwrap } from '@convex/shared'
-import { logger, type FnArgs } from '@convex/utils'
+import { logger, type FnArgs, type WCtx } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -94,7 +96,7 @@ export const downloadRepoPage = internalAction({
         userId: v.id('users'),
         repoId: v.id('repos'),
         cursor: v.optional(v.string()),
-        lastSyncedAt: v.optional(v.string()),
+        lastSyncedAt: v_nullable(v.string()),
     },
     async handler(ctx, args): R<{ nextCursor?: string }> {
         let octo = await octoFromUserId(ctx, args.userId)
@@ -108,13 +110,13 @@ export const downloadRepoPage = internalAction({
 
         let dbInsertsP = Promise.resolve()
         for (let i = 0; i < TOTAL_FETCHES_PER_CALL; i++) {
-            logger.info(`${owner}/${repo}: cursor ${cursor}`)
+            logger.debug(`${owner}/${repo}: cursor ${cursor}`)
 
             let issuesPage = await Graphql.fetchIssuesPage(octo.val, {
                 owner,
                 repo,
                 cursor,
-                since: args.lastSyncedAt,
+                since: args.lastSyncedAt ?? undefined,
             })
             if (issuesPage.isErr) {
                 if (issuesPage.err.type === 'RATE_LIMIT_ERROR') {
@@ -176,16 +178,40 @@ export const startSyncNotifs = {
             ctx,
             internal.services.sync.syncNotifs,
             { userId, startSyncAt },
-            { startAsync: true },
+            {
+                startAsync: true,
+                onComplete: fns.handleSyncNotifsComplete,
+                context: { userId, nextSyncAt } satisfies WCtx<typeof fns.handleSyncNotifsComplete>,
+            },
         )
 
         await Users.saveNotifWorkflow.handler(ctx, {
             userId,
-            nextSyncAt,
             workflowId,
+            nextSyncAt: null,
         })
     },
 }
+
+export const handleSyncNotifsComplete = internalMutation({
+    args: {
+        workflowId: vWorkflowId,
+        context: v.object({
+            userId: v.id('users'),
+            nextSyncAt: v_nullable(v_nextSyncAt),
+        }),
+        result: vResultValidator,
+    },
+    async handler(ctx, args) {
+        if (args.result.kind === 'success') {
+            await Users.saveNotifWorkflow.handler(ctx, {
+                userId: args.context.userId,
+                workflowId: args.workflowId,
+                nextSyncAt: args.context.nextSyncAt,
+            })
+        }
+    },
+})
 
 export const startSyncNotifsMutation = internalMutation(startSyncNotifs)
 
@@ -282,7 +308,7 @@ export const startSyncRepoIssues = internalMutation({
 
         let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
 
-        let startSyncAt = repoWorkflow?.issues.nextSyncAt
+        let startSyncAt = repoWorkflow?.issues.nextSyncAt ?? null
         let nextSyncAt = new Date().toISOString() as NextSyncAt
 
         let workflowId = await workflow.start(
@@ -291,6 +317,11 @@ export const startSyncRepoIssues = internalMutation({
             { userId: args.userId, repoId: args.repoId, startSyncAt },
             {
                 startAsync: true,
+                context: {
+                    repoId: args.repoId,
+                    nextSyncAt,
+                } satisfies WCtx<typeof fns.handleSyncIssuesComplete>,
+                onComplete: fns.handleSyncIssuesComplete,
             },
         )
 
@@ -304,8 +335,30 @@ export const startSyncRepoIssues = internalMutation({
     },
 })
 
+export const handleSyncIssuesComplete = internalMutation({
+    args: {
+        workflowId: vWorkflowId,
+        context: v.object({
+            repoId: v.id('repos'),
+            nextSyncAt: v_nextSyncAt,
+        }),
+        result: vResultValidator,
+    },
+    async handler(ctx, args) {
+        if (args.result.kind === 'success') {
+            await Repos.saveIssuesWorkflow.handler(ctx, {
+                repoId: args.context.repoId,
+                workflow: {
+                    workflowId: args.workflowId,
+                    nextSyncAt: args.context.nextSyncAt,
+                },
+            })
+        }
+    },
+})
+
 export const syncIssues = workflow.define({
-    args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v.optional(v_nextSyncAt) },
+    args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v_nullable(v_nextSyncAt) },
     async handler(step, args): Promise<void> {
         let hasNewIssues = await step.runAction(fns.hasRepoNewIssues, {
             userId: args.userId,
@@ -318,7 +371,12 @@ export const syncIssues = workflow.define({
         while (true) {
             let next = await step.runAction(
                 fns.downloadRepoPage,
-                { userId: args.userId, repoId: args.repoId, cursor },
+                {
+                    userId: args.userId,
+                    repoId: args.repoId,
+                    lastSyncedAt: args.startSyncAt,
+                    cursor,
+                },
                 { retry: { initialBackoffMs: 4000, base: 2, maxAttempts: 5 } },
             )
             assertOk(next)
@@ -330,7 +388,7 @@ export const syncIssues = workflow.define({
 })
 
 export const hasRepoNewIssues = internalAction({
-    args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v.optional(v_nextSyncAt) },
+    args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v_nullable(v_nextSyncAt) },
     async handler(ctx, args): R<boolean> {
         let octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
@@ -348,7 +406,7 @@ export const hasRepoNewIssues = internalAction({
         let issueUpdates = await Github.checkForIssueUpdates(octo.val, {
             owner: savedRepo.owner,
             repo: savedRepo.repo,
-            since: args.startSyncAt,
+            since: args.startSyncAt ?? undefined,
             etag,
         })
         if (issueUpdates.isErr) return issueUpdates

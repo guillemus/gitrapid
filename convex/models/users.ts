@@ -5,7 +5,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import { v_nextSyncAt, type PossibleGithubUser } from '@convex/schema'
+import { v_nextSyncAt, v_nullable, type PossibleGithubUser } from '@convex/schema'
 import { type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { v, type Infer } from 'convex/values'
@@ -78,7 +78,7 @@ export namespace Users {
         args: {
             userId: v.id('users'),
             workflowId: vWorkflowId,
-            nextSyncAt: v.optional(v_nextSyncAt),
+            nextSyncAt: v_nullable(v_nextSyncAt),
         },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             let userWorkflow = await ctx.db
@@ -87,19 +87,19 @@ export namespace Users {
                 .unique()
 
             if (userWorkflow) {
-                await ctx.db.patch(userWorkflow._id, {
-                    syncNotifications: {
-                        nextSyncAt: args.nextSyncAt,
-                        workflowId: args.workflowId,
-                    },
-                })
+                userWorkflow.syncNotifications.workflowId = args.workflowId
+                if (args.nextSyncAt) {
+                    userWorkflow.syncNotifications.nextSyncAt = args.nextSyncAt
+                }
+
+                await ctx.db.patch(userWorkflow._id, userWorkflow)
                 return
             }
 
             await ctx.db.insert('userWorkflows', {
                 userId: args.userId,
                 syncNotifications: {
-                    nextSyncAt: args.nextSyncAt,
+                    nextSyncAt: args.nextSyncAt ?? undefined,
                     workflowId: args.workflowId,
                 },
             })

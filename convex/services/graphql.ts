@@ -1331,9 +1331,9 @@ async function doGraphqlFetchRequest<T>(
     args: RequestParameters,
     schema: z.ZodSchema<T>,
 ): R<T, FetchIssuesErrors> {
-    console.time(label)
+    let start = Date.now()
     let res = await octoCatchGql(octo.graphql(query, args))
-    console.timeEnd(label)
+    logger.debug(`${label}: ${Date.now() - start}ms`)
 
     if (res.isErr) {
         if (res.err.type === 'rate-limit-error') {

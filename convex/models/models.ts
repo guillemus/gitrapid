@@ -1,5 +1,6 @@
 import type { Doc, TableNames } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx } from '@convex/_generated/server'
+import { assertNever } from '@convex/shared'
 import { logger, type FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import type { WithoutSystemFields } from 'convex/server'
@@ -9,8 +10,7 @@ import { IssueComments } from './issueComments'
 import { AssignLabelToIssue, AssignUserToIssue, Issues } from './issues'
 import { IssueTimelineItems } from './issueTimelineItems'
 import { Repos } from './repos'
-import { possibleGithubUserData, getOrCreatePossibleGithubUser } from './users'
-import { assertNever } from '@convex/shared'
+import { getOrCreatePossibleGithubUser, possibleGithubUserData } from './users'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 

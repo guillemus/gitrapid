@@ -1,23 +1,31 @@
-import type { DefaultArgsForOptionalValidator } from 'convex/server'
+import type {
+    DefaultArgsForOptionalValidator,
+    FunctionArgs,
+    FunctionReference,
+} from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
 import pino from 'pino'
 import { z } from 'zod'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
 
-export const logger = appEnv.DEBUG_LOGGER ? debugLogger() : pino({ level: 'info' })
+export const logger = createLogger()
 
-function debugLogger() {
-    return pino({
-        level: 'debug',
-        transport: {
-            target: 'pino-pretty',
-            options: {
-                colorize: true,
-                ignore: 'pid,hostname,time',
+function createLogger() {
+    if (appEnv.DEBUG_LOGGER) {
+        return pino({
+            level: 'debug',
+            transport: {
+                target: 'pino-pretty',
+                options: {
+                    colorize: true,
+                    ignore: 'pid,hostname,time',
+                },
             },
-        },
-    })
+        })
+    }
+
+    return pino({ level: 'info' })
 }
 
 export function parseDate(date: string): Result<Date> {
@@ -41,3 +49,5 @@ export function zodParse<T extends z.ZodTypeAny>(schema: T, value: unknown): Res
 export type FnArgs<T extends { args: PropertyValidators }> = DefaultArgsForOptionalValidator<
     T['args']
 >[0]
+
+export type WCtx<FuncRef extends FunctionReference<any, any>> = FunctionArgs<FuncRef>['context']
