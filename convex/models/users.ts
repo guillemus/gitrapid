@@ -26,7 +26,7 @@ export namespace Users {
         },
     }
 
-    export const upsertGithubUser = {
+    export const getOrCreateGithubUser = {
         args: { githubId: v.number(), login: v.string(), avatarUrl: v.string() },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             let githubUser = await ctx.db
@@ -34,7 +34,6 @@ export namespace Users {
                 .withIndex('by_githubId', (u) => u.eq('githubId', args.githubId))
                 .unique()
             if (githubUser) {
-                await ctx.db.patch(githubUser._id, args)
                 return githubUser._id
             } else {
                 let id = await ctx.db.insert('githubUsers', args)
@@ -110,7 +109,7 @@ export namespace Users {
 
 export const list = internalQuery(Users.list)
 export const get = internalQuery(Users.get)
-export const upsertGithubUser = internalMutation(Users.upsertGithubUser)
+export const getOrCreateGithubUser = internalMutation(Users.getOrCreateGithubUser)
 
 export const possibleGithubUserData = v.union(
     v.null(),
@@ -124,12 +123,12 @@ export const possibleGithubUserData = v.union(
 
 type PossibleGithubUserData = Infer<typeof possibleGithubUserData>
 
-export async function upsertPossibleGithubUser(
+export async function getOrCreatePossibleGithubUser(
     ctx: MutationCtx,
     args: PossibleGithubUserData,
 ): Promise<PossibleGithubUser> {
     if (args !== null && args !== 'github-actions') {
-        let githubUserId = await Users.upsertGithubUser.handler(ctx, args)
+        let githubUserId = await Users.getOrCreateGithubUser.handler(ctx, args)
         return githubUserId
     }
 

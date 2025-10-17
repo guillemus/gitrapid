@@ -38,7 +38,7 @@ export const handleCorrectPATAddition = internalMutation({
         }),
     },
     async handler(ctx, args) {
-        let githubUserId = await Users.upsertGithubUser.handler(ctx, {
+        let githubUserId = await Users.getOrCreateGithubUser.handler(ctx, {
             githubId: args.githubUser.id,
             login: args.githubUser.login,
             avatarUrl: args.githubUser.avatarUrl,
@@ -73,7 +73,7 @@ export const savePAT = action({
             return wrap('Failed to validate token', res)
         }
 
-        let githubUserId = await ctx.runMutation(internal.models.users.upsertGithubUser, {
+        let githubUserId = await ctx.runMutation(internal.models.users.getOrCreateGithubUser, {
             githubId: res.val.githubUser.githubId,
             login: res.val.githubUser.login,
             avatarUrl: res.val.githubUser.avatarUrl,

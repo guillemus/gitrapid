@@ -9,7 +9,8 @@ import { IssueComments } from './issueComments'
 import { AssignLabelToIssue, AssignUserToIssue, Issues } from './issues'
 import { IssueTimelineItems } from './issueTimelineItems'
 import { Repos } from './repos'
-import { possibleGithubUserData, upsertPossibleGithubUser } from './users'
+import { possibleGithubUserData, getOrCreatePossibleGithubUser } from './users'
+import { assertNever } from '@convex/shared'
 
 export type UpsertDoc<T extends TableNames> = WithoutSystemFields<Doc<T>>
 
@@ -194,7 +195,7 @@ export const insertIssuesWithCommentsBatch = internalMutation({
     },
     handler: async (ctx, { repoId, items }) => {
         for (let item of items) {
-            let author = await upsertPossibleGithubUser(ctx, item.issue.author)
+            let author = await getOrCreatePossibleGithubUser(ctx, item.issue.author)
 
             let issueDoc = await IssuesUtils.upsertIssue(ctx, {
                 repoId,
@@ -242,15 +243,15 @@ export const insertIssuesWithCommentsBatch = internalMutation({
             if (item.timelineItems.length > 0) {
                 let docs: UpsertDoc<'issueTimelineItems'>[] = []
                 for (let t of item.timelineItems) {
-                    let actor = await upsertPossibleGithubUser(ctx, t.actor)
+                    let actor = await getOrCreatePossibleGithubUser(ctx, t.actor)
 
                     let item: UpsertDoc<'issueTimelineItems'>['item']
                     if (t.item.type === 'assigned') {
-                        let assignee = await upsertPossibleGithubUser(ctx, t.item.assignee)
+                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
 
                         item = { type: 'assigned', assignee }
                     } else if (t.item.type === 'unassigned') {
-                        let assignee = await upsertPossibleGithubUser(ctx, t.item.assignee)
+                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
 
                         item = { type: 'unassigned', assignee }
                     } else if (t.item.type === 'labeled') {
@@ -319,7 +320,7 @@ export const insertIssuesWithCommentsBatch = internalMutation({
                             },
                         }
                     } else {
-                        let _ = t.item satisfies never
+                        assertNever(t.item)
                         logger.error({ item: t.item }, `unknown timeline item`)
                         continue
                     }
@@ -340,7 +341,7 @@ export const insertIssuesWithCommentsBatch = internalMutation({
             if (item.comments.length > 0) {
                 let docs: UpsertDoc<'issueComments'>[] = []
                 for (let c of item.comments) {
-                    let author = await upsertPossibleGithubUser(ctx, c.author)
+                    let author = await getOrCreatePossibleGithubUser(ctx, c.author)
 
                     docs.push({
                         issueId: issueDoc._id,
