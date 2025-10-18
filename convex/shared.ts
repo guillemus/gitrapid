@@ -81,7 +81,10 @@ export function unwrap<T, E>(result: Result<T, E>): T {
     return result.val
 }
 
-export function assertOk<T>(result: Result<T>, msg?: string): asserts result is Ok<T> {
+export function assertOk<T, E = string>(
+    result: Result<T, E>,
+    msg?: string,
+): asserts result is Ok<T> {
     if (result.isErr) {
         if (msg) {
             if (typeof result.err === 'string') {

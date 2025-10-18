@@ -15,7 +15,7 @@ const envSchema = z.object({
     DEV: boolFromString,
     DEBUG_LOGGER: boolFromString,
     CONVEX_SITE_URL: z.string().optional().default(''),
-    SECRET: z.string(),
+    SECRET: z.string().optional(),
 })
 
 export const appEnv = envSchema.parse(process.env)

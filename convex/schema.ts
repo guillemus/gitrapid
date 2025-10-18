@@ -256,7 +256,7 @@ const notifications = defineTable({
     title: v.string(),
 })
     .index('by_github_id', ['githubId'])
-    .index('by_userId', ['userId'])
+    .index('by_userId_updatedAt', ['userId', 'updatedAt'])
 
 export default defineSchema({
     ...authTables,

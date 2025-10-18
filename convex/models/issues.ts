@@ -117,8 +117,10 @@ export namespace Issues {
                 .collect()
 
             let mapped = await asyncMap(issuesPagination.page, async (issue) => {
-                let labels = await getIssueLabels(ctx, repoLabels, issue._id)
-                let author = await fetchGithubUser(ctx, logger, issue.author)
+                let [labels, author] = await Promise.all([
+                    getIssueLabels(ctx, repoLabels, issue._id),
+                    fetchGithubUser(ctx, logger, issue.author),
+                ])
 
                 return {
                     ...issue,

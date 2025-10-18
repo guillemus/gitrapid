@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ConvexRouteImport } from './routes/convex'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
@@ -21,6 +22,11 @@ import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owne
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConvexRoute = ConvexRouteImport.update({
+  id: '/convex',
+  path: '/convex',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -59,6 +65,7 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/convex': typeof ConvexRoute
   '/login': typeof LoginRoute
   '/dash': typeof AppDashRoute
   '/notifications': typeof AppNotificationsRoute
@@ -68,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/issues': typeof AppOwnerRepoIssuesIndexRoute
 }
 export interface FileRoutesByTo {
+  '/convex': typeof ConvexRoute
   '/login': typeof LoginRoute
   '/dash': typeof AppDashRoute
   '/notifications': typeof AppNotificationsRoute
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
+  '/convex': typeof ConvexRoute
   '/login': typeof LoginRoute
   '/_app/dash': typeof AppDashRoute
   '/_app/notifications': typeof AppNotificationsRoute
@@ -90,6 +99,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/convex'
     | '/login'
     | '/dash'
     | '/notifications'
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/issues'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/convex'
     | '/login'
     | '/dash'
     | '/notifications'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/convex'
     | '/login'
     | '/_app/dash'
     | '/_app/notifications'
@@ -120,6 +132,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  ConvexRoute: typeof ConvexRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -130,6 +143,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/convex': {
+      id: '/convex'
+      path: '/convex'
+      fullPath: '/convex'
+      preLoaderRoute: typeof ConvexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -208,6 +228,7 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
+  ConvexRoute: ConvexRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

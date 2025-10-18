@@ -15,11 +15,15 @@ function RouteComponent() {
         },
     })
 
+    console.log(notifications?.page)
+
     return (
         <div>
-            {notifications?.page.map((p) => (
-                <div key={p._id}>
-                    <p>{p.title}</p>
+            {notifications?.page.map((n) => (
+                <div key={n._id}>
+                    <p>
+                        {n.repo.owner}/{n.repo.repo} #{n.resourceNumber} {n.title}
+                    </p>
                 </div>
             ))}
         </div>

@@ -58,9 +58,9 @@ function LoginPage() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        {state.error.get() && (
+                        {state.nested('error').get() && (
                             <Alert variant="destructive" className="mb-4">
-                                <AlertDescription>{state.error.get()}</AlertDescription>
+                                <AlertDescription>{state.nested('error').get()}</AlertDescription>
                             </Alert>
                         )}
 
