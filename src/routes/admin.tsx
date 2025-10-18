@@ -1,10 +1,11 @@
-import { qcPersistentDurable } from '@/client/queryClient'
-import { usePageQuery, usePaginationState } from '@/client/utils'
+import { qcMaxDurable } from '@/client/queryClient'
+import { usePageQuery, usePaginationState, type PaginationState } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@convex/_generated/api'
 import { createFileRoute } from '@tanstack/react-router'
+import type { PaginationResult } from 'convex/server'
 import { Code2, Grid3X3 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -55,18 +56,16 @@ function RouteComponent() {
     let [viewMode, setViewMode] = useState<ViewMode>('table')
     let pagination = usePaginationState()
 
-    const getItemsPerPage = () => 20
-
     const result = usePageQuery(
         api.devonly.listTable,
         {
             table: activeTab,
             paginationOpts: {
-                numItems: getItemsPerPage(),
+                numItems: 20,
                 cursor: pagination.currCursor(),
             },
         },
-        qcPersistentDurable,
+        qcMaxDurable,
     )
 
     const isLoading = result === undefined
@@ -85,10 +84,7 @@ function RouteComponent() {
     return (
         <div className="flex h-screen flex-col overflow-hidden p-6">
             <div className="mb-4">
-                <h1 className="text-2xl font-bold">Convex Database Inspector</h1>
-                <p className="text-muted-foreground text-sm">
-                    Development tool to inspect and paginate through Convex tables
-                </p>
+                <h1 className="text-2xl font-bold">Admin</h1>
             </div>
 
             <Tabs
@@ -111,24 +107,10 @@ function RouteComponent() {
                         className="flex-1 overflow-hidden"
                     >
                         <Card className="flex h-full flex-col p-4">
-                            {/* View Mode Toggle */}
-                            <div className="mb-4 flex justify-end gap-2">
-                                <Button
-                                    variant={viewMode === 'table' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setViewMode('table')}
-                                    title="Table view"
-                                >
-                                    <Grid3X3 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant={viewMode === 'json' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setViewMode('json')}
-                                    title="JSON view"
-                                >
-                                    <Code2 className="h-4 w-4" />
-                                </Button>
+                            <div className="flex justify-between gap-4">
+                                <PaginationControls pagination={pagination} result={result} />
+
+                                <ViewModeToggle viewMode={viewMode} setViewMode={setViewMode} />
                             </div>
 
                             {/* Loading State */}
@@ -157,7 +139,7 @@ function RouteComponent() {
                                                     {columns.map((column) => (
                                                         <th
                                                             key={column}
-                                                            className="border-border text-muted-foreground border-r px-3 py-2 text-left font-semibold tracking-wide uppercase last:border-r-0"
+                                                            className="border-border text-muted-foreground border-r px-3 py-2 text-left font-semibold tracking-wide last:border-r-0"
                                                         >
                                                             {column}
                                                         </th>
@@ -168,7 +150,7 @@ function RouteComponent() {
                                                 {items.map((record, rowIndex) => (
                                                     <tr
                                                         key={rowIndex}
-                                                        className="border-border border-t"
+                                                        className="border-border border-t last:border-b"
                                                     >
                                                         {columns.map((column) => (
                                                             <td
@@ -186,33 +168,6 @@ function RouteComponent() {
                                                 ))}
                                             </tbody>
                                         </table>
-                                    </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="mt-3 flex items-center justify-between border-t pt-3">
-                                        <div className="text-muted-foreground text-xs">
-                                            {pagination.currCursor()
-                                                ? 'Page ' + (pagination.currCursor() ? '2+' : '1')
-                                                : 'Page 1'}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!pagination.canGoPrev()}
-                                                onClick={() => pagination.goToPrev()}
-                                            >
-                                                Previous
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!pagination.canGoNext(result)}
-                                                onClick={() => pagination.goToNext(result)}
-                                            >
-                                                Next
-                                            </Button>
-                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -234,39 +189,67 @@ function RouteComponent() {
                                             ))}
                                         </div>
                                     </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="mt-3 flex items-center justify-between border-t pt-3">
-                                        <div className="text-muted-foreground text-xs">
-                                            {pagination.currCursor()
-                                                ? 'Page ' + (pagination.currCursor() ? '2+' : '1')
-                                                : 'Page 1'}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!pagination.canGoPrev()}
-                                                onClick={() => pagination.goToPrev()}
-                                            >
-                                                Previous
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={!pagination.canGoNext(result)}
-                                                onClick={() => pagination.goToNext(result)}
-                                            >
-                                                Next
-                                            </Button>
-                                        </div>
-                                    </div>
                                 </div>
                             )}
                         </Card>
                     </TabsContent>
                 ))}
             </Tabs>
+        </div>
+    )
+}
+
+function PaginationControls(props: {
+    pagination: PaginationState
+    result?: PaginationResult<unknown>
+}) {
+    if (!props.pagination.canGoPrev() && !props.pagination.canGoNext(props.result)) {
+        return <div></div>
+    }
+
+    return (
+        <div className="flex justify-between">
+            <div className="flex gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!props.pagination.canGoPrev()}
+                    onClick={() => props.pagination.goToPrev()}
+                >
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!props.pagination.canGoNext(props.result)}
+                    onClick={() => props.pagination.goToNext(props.result)}
+                >
+                    Next
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+function ViewModeToggle(props: { viewMode: ViewMode; setViewMode: (viewMode: ViewMode) => void }) {
+    return (
+        <div className="mb-4 flex justify-end gap-2">
+            <Button
+                variant={props.viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => props.setViewMode('table')}
+                title="Table view"
+            >
+                <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+                variant={props.viewMode === 'json' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => props.setViewMode('json')}
+                title="JSON view"
+            >
+                <Code2 className="h-4 w-4" />
+            </Button>
         </div>
     )
 }

@@ -43,10 +43,12 @@ function createQueryClient(
     return queryClient
 }
 
-export const qcPersistentDurable = createQueryClient(convex, {
+export const qcMaxDurable = createQueryClient(convex, {
     dbname: 'react-query-cache-durable',
     persisted: true,
-    gcTime: 30 * 24 * 60 * 60 * 1000, // 30 days
+    // https://stackoverflow.com/questions/77815938/what-is-the-maximum-duration-i-can-set-to-gctime-cachetime-in-react-query
+    // Just to be safe, let's use 10 days.
+    gcTime: 10 * 24 * 60 * 60 * 1000,
 })
 
 // query client that persists queries to indexeddb. Use for subscriptions that
