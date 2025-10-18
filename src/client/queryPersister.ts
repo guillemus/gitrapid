@@ -3,16 +3,16 @@ import { persistQueryClient as tanstackPersistQueryClient } from '@tanstack/reac
 import { del, get, set } from 'idb-keyval'
 
 // Caches to indexed db. I might want to do this for max (perceived) performance.
-export async function persistQueryClient(queryClient: QueryClient) {
+export async function persistQueryClient(queryClient: QueryClient, dbname: string) {
     const persister = {
         persistClient: async (client: unknown) => {
-            await set('react-query-cache', client)
+            await set(dbname, client)
         },
         restoreClient: async () => {
-            return await get('react-query-cache')
+            return await get(dbname)
         },
         removeClient: async () => {
-            await del('react-query-cache')
+            await del(dbname)
         },
     }
 

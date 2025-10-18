@@ -18,33 +18,48 @@ export function useConvexHttp() {
     return convexHttp
 }
 
-function createQueryClient(convex: ConvexReactClient, persisted: boolean) {
+function createQueryClient(
+    convex: ConvexReactClient,
+    options: ({ persisted: false } | { persisted: true; dbname: string }) & {
+        gcTime?: number
+    },
+) {
     const convexQueryClient = new ConvexQueryClient(convex)
     const queryClient = new QueryClient({
         defaultOptions: {
             queries: {
                 queryKeyHashFn: convexQueryClient.hashFn(),
                 queryFn: convexQueryClient.queryFn(),
-                gcTime: 5 * 60 * 1000, // 5 minutes
+                gcTime: options.gcTime,
             },
         },
     })
     convexQueryClient.connect(queryClient)
 
-    if (persisted) {
-        void persistQueryClient(queryClient)
+    if (options.persisted) {
+        void persistQueryClient(queryClient, options.dbname)
     }
 
     return queryClient
 }
 
+export const qcPersistentDurable = createQueryClient(convex, {
+    dbname: 'react-query-cache-durable',
+    persisted: true,
+    gcTime: 30 * 24 * 60 * 60 * 1000, // 30 days
+})
+
 // query client that persists queries to indexeddb. Use for subscriptions that
 // aren't very dynamic (get issue, list user repos, ...).
-export const qcPersistent = createQueryClient(convex, true)
+export const qcPersistent = createQueryClient(convex, {
+    dbname: 'react-query-cache',
+    persisted: true,
+    gcTime: 5 * 60 * 1000,
+})
 
 // query client that doesn't persist queries. Do use for subscriptions that are
 // very dynamic (filtering issues).
-export const qcMem = createQueryClient(convex, false)
+export const qcMem = createQueryClient(convex, { persisted: false })
 
 export function useLogout() {
     const authActions = useAuthActions()
