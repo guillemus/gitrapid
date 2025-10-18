@@ -1,3 +1,9 @@
+// Very basic admin panel, vibecoded bc convex dashboard is very very slow the
+// more data I have there. (note, everything that takes more than 500ms is slow
+// to me. That's the whole reason of this project.)
+// TODO: ideally this would not be included on the production bundle by default,
+// but I don't know how to conditionally not include this in tanstack router.
+
 import { qcMaxDurable } from '@/client/queryClient'
 import { usePageQuery, usePaginationState, type PaginationState } from '@/client/utils'
 import { Button } from '@/components/ui/button'
@@ -9,7 +15,7 @@ import type { PaginationResult } from 'convex/server'
 import { Code2, Grid3X3 } from 'lucide-react'
 import { useState } from 'react'
 
-export const Route = createFileRoute('/admin')({
+export const Route = createFileRoute('/_app/admin')({
     component: RouteComponent,
 })
 
@@ -82,11 +88,7 @@ function RouteComponent() {
     }
 
     return (
-        <div className="flex h-screen flex-col overflow-hidden p-6">
-            <div className="mb-4">
-                <h1 className="text-2xl font-bold">Admin</h1>
-            </div>
-
+        <div className="flex h-screen flex-col overflow-hidden">
             <Tabs
                 value={activeTab}
                 onValueChange={handleTabChange}

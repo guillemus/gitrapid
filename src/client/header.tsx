@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Link, useParams, useRouterState } from '@tanstack/react-router'
-import { Bell, Code, GitPullRequest, Settings } from 'lucide-react'
+import { Bell, Code, GitPullRequest, LayoutDashboard, Settings } from 'lucide-react'
 
 export function Header() {
     let isIssues = useRouterState({
@@ -44,6 +44,13 @@ export function Header() {
                     </div>
 
                     <div className="flex items-center space-x-4">
+                        {import.meta.env.DEV && (
+                            <Button variant="ghost" size="icon" asChild aria-label="Admin">
+                                <Link to="/admin">
+                                    <LayoutDashboard className="h-5 w-5" />
+                                </Link>
+                            </Button>
+                        )}
                         <Button variant="ghost" size="icon" asChild aria-label="Notifications">
                             <Link to="/notifications">
                                 <Bell className="h-5 w-5" />

@@ -4,10 +4,7 @@ const boolFromString = z
     .string()
     .transform((s) => {
         const v = s.trim().toLowerCase()
-        if (v === 'true') return true
-        if (v === 'false') return false
-
-        return false
+        return v === 'true'
     })
     .default(false)
 

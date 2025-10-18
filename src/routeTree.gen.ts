@@ -10,11 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppDashRouteImport } from './routes/_app/dash'
+import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppOwnerRepoIssuesIndexRouteImport } from './routes/_app/$owner/$repo/issues/index'
 import { Route as AppOwnerRepoIssuesNewRouteImport } from './routes/_app/$owner/$repo/issues/new'
 import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owner/$repo/issues/$issue'
@@ -22,11 +22,6 @@ import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owne
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -48,6 +43,11 @@ const AppDashRoute = AppDashRouteImport.update({
   path: '/dash',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppOwnerRepoIssuesIndexRoute = AppOwnerRepoIssuesIndexRouteImport.update({
   id: '/$owner/$repo/issues/',
   path: '/$owner/$repo/issues/',
@@ -65,8 +65,8 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/dash': typeof AppDashRoute
   '/notifications': typeof AppNotificationsRoute
   '/settings': typeof AppSettingsRoute
@@ -75,8 +75,8 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/issues': typeof AppOwnerRepoIssuesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/dash': typeof AppDashRoute
   '/notifications': typeof AppNotificationsRoute
   '/settings': typeof AppSettingsRoute
@@ -87,8 +87,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
-  '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
+  '/_app/admin': typeof AppAdminRoute
   '/_app/dash': typeof AppDashRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -99,8 +99,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/admin'
     | '/login'
+    | '/admin'
     | '/dash'
     | '/notifications'
     | '/settings'
@@ -109,8 +109,8 @@ export interface FileRouteTypes {
     | '/$owner/$repo/issues'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/admin'
     | '/login'
+    | '/admin'
     | '/dash'
     | '/notifications'
     | '/settings'
@@ -120,8 +120,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
-    | '/admin'
     | '/login'
+    | '/_app/admin'
     | '/_app/dash'
     | '/_app/notifications'
     | '/_app/settings'
@@ -132,7 +132,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  AdminRoute: typeof AdminRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -143,13 +142,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -180,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/$owner/$repo/issues/': {
       id: '/_app/$owner/$repo/issues/'
       path: '/$owner/$repo/issues'
@@ -205,6 +204,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppDashRoute: typeof AppDashRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -214,6 +214,7 @@ interface AppRouteRouteChildren {
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppDashRoute: AppDashRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppSettingsRoute: AppSettingsRoute,
@@ -228,7 +229,6 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  AdminRoute: AdminRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
