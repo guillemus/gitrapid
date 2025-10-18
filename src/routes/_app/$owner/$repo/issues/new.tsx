@@ -180,7 +180,7 @@ function CreateNewIssuePage() {
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={state.creatingIssue.get()}>
-                                {state.creatingIssue ? 'Creating...' : 'Create'}
+                                {state.creatingIssue.get() ? 'Creating...' : 'Create'}
                             </Button>
                         </div>
                     </div>

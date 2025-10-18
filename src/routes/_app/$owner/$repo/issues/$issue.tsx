@@ -206,7 +206,7 @@ function IssueHeader(props: { issue: Data['issue'] }) {
     return (
         <div className="flex items-start justify-between gap-2.5">
             <div className="min-w-0 flex-1">
-                {state.editing ? (
+                {state.editing.get() ? (
                     <div className="flex flex-wrap items-center gap-2">
                         <Input
                             value={state.titleDraft.get()}
@@ -242,7 +242,7 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                 </div>
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
-                {state.editing ? (
+                {state.editing.get() ? (
                     <>
                         <Button
                             size="sm"
@@ -253,7 +253,7 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                             Cancel
                         </Button>
                         <Button size="sm" onClick={saveTitle} disabled={state.saving.get()}>
-                            {state.saving ? 'Saving...' : 'Save title'}
+                            {state.saving.get() ? 'Saving...' : 'Save title'}
                         </Button>
                     </>
                 ) : (
@@ -644,7 +644,7 @@ function AddCommentBox() {
                         disabled={state.addingComment.get()}
                     >
                         <Plus className="h-4 w-4" />
-                        {state.addingComment ? 'Adding...' : 'Comment'}
+                        {state.addingComment.get() ? 'Adding...' : 'Comment'}
                     </Button>
                 </div>
             </form>

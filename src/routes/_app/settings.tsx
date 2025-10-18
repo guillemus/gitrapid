@@ -375,7 +375,7 @@ function SettingsPage() {
                 handleRemoveToken={handleRemoveToken}
             />
 
-            {state.shouldUpdateToken && <CreateTokenCard />}
+            {state.shouldUpdateToken.get() && <CreateTokenCard />}
         </div>
     )
 }
