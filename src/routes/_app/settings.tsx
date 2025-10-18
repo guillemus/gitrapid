@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
+import { hookstate, useHookstate } from '@hookstate/core'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation } from 'convex/react'
 import {
@@ -24,7 +25,6 @@ import {
     RefreshCw,
     Trash2,
 } from 'lucide-react'
-import { proxy, useSnapshot } from 'valtio'
 import z from 'zod'
 
 const search = z.object({
@@ -103,7 +103,7 @@ function getExpirationInfo(expiresAt: string) {
     }
 }
 
-const state = proxy({
+let pageState = hookstate({
     tokenInput: '',
     selectedScopes: ['repo', 'notifications', 'read:org'] as ScopeWithNone[],
     shouldUpdateToken: false,
@@ -117,14 +117,14 @@ function handleScopeChange(scope: ScopeWithNone, checked: boolean) {
     if (scope === 'read:org') return
 
     if (checked) {
-        state.selectedScopes.push(scope)
+        pageState.selectedScopes.merge([scope])
     } else {
-        state.selectedScopes = state.selectedScopes.filter((id) => id !== scope)
+        pageState.selectedScopes.set((s) => s.filter((id) => id !== scope))
     }
 }
 
 function generateGitHubUrl() {
-    const scopes = state.selectedScopes.join(',')
+    const scopes = pageState.selectedScopes.join(',')
     const description = scopes ? `GitRapid (${scopes})` : 'GitRapid'
 
     const baseUrl = 'https://github.com/settings/tokens/new'
@@ -140,11 +140,13 @@ function generateGitHubUrl() {
 
 async function copyUrlToClipboard() {
     await navigator.clipboard.writeText(generateGitHubUrl())
-    state.copyFeedback = true
-    setTimeout(() => (state.copyFeedback = false), 2000) // Reset after 2 seconds
+    pageState.copyFeedback.set(true)
+    setTimeout(() => pageState.copyFeedback.set(false), 2000) // Reset after 2 seconds
 }
 
 function CreateTokenCard() {
+    let state = useHookstate(pageState)
+
     return (
         <Card>
             <CardHeader>
@@ -203,25 +205,22 @@ function CreateTokenCard() {
                                         }`}
                                         onClick={() => {
                                             if (!isRequired) {
-                                                handleScopeChange(
-                                                    option.scope,
-                                                    !state.selectedScopes.includes(option.scope),
-                                                )
+                                                let checked = !state.selectedScopes
+                                                    .get()
+                                                    .includes(option.scope)
+                                                handleScopeChange(option.scope, checked)
                                             }
                                         }}
                                     >
                                         <div onClick={(e) => e.stopPropagation()}>
                                             <Checkbox
                                                 id={option.scope}
-                                                checked={state.selectedScopes.includes(
-                                                    option.scope,
-                                                )}
+                                                checked={state.selectedScopes
+                                                    .get()
+                                                    .includes(option.scope)}
                                                 disabled={isRequired}
                                                 onCheckedChange={(checked) =>
-                                                    handleScopeChange(
-                                                        option.scope,
-                                                        checked as boolean,
-                                                    )
+                                                    handleScopeChange(option.scope, !!checked)
                                                 }
                                             />
                                         </div>
@@ -274,7 +273,7 @@ function CreateTokenCard() {
                                     onClick={copyUrlToClipboard}
                                     className="h-6 w-6 flex-shrink-0 p-0"
                                 >
-                                    {state.copyFeedback ? (
+                                    {state.copyFeedback.get() ? (
                                         <CheckCircle className="h-3 w-3 text-green-600" />
                                     ) : (
                                         <Copy className="h-3 w-3" />
@@ -304,37 +303,38 @@ function CreateTokenCard() {
 }
 
 function SettingsPage() {
-    useSnapshot(state)
     const page = usePageQuery(api.public.settings.get, {})
     const savePAT = useAction(api.public.settings.savePAT)
     const deletePAT = useMutation(api.public.settings.deletePAT)
 
+    let state = useHookstate(pageState)
+
     async function handleSaveToken() {
-        if (!state.tokenInput.trim()) return
+        if (!state.tokenInput.get().trim()) return
 
-        state.isSaving = true
-        state.errorMessage = null
+        state.isSaving.set(true)
+        state.errorMessage.set(null)
 
-        let scopes = state.selectedScopes
+        let scopes = [...state.selectedScopes.get()]
 
         const result = await savePAT({
-            token: state.tokenInput,
+            token: state.tokenInput.get(),
             scopes,
         })
         if (result.isErr) {
-            state.errorMessage = 'Invalid token. Please check that you copied it correctly.'
-            setTimeout(() => (state.errorMessage = null), 4000)
+            state.errorMessage.set('Invalid token. Please check that you copied it correctly.')
+            setTimeout(() => state.errorMessage.set(null), 4000)
         } else {
-            state.tokenInput = ''
+            state.tokenInput.set((s) => s.trim())
         }
 
-        state.shouldUpdateToken = false
-        state.isSaving = false
+        state.shouldUpdateToken.set(false)
+        state.isSaving.set(false)
     }
 
     async function handleRemoveToken() {
         await deletePAT()
-        state.tokenInput = ''
+        state.tokenInput.set('')
     }
 
     if (!page) return null // loading page
@@ -381,7 +381,7 @@ function SettingsPage() {
 }
 
 function PasteTokenCard(props: { handleSaveToken: () => void }) {
-    useSnapshot(state)
+    let state = useHookstate(pageState)
 
     return (
         <Card className="mb-6">
@@ -400,21 +400,21 @@ function PasteTokenCard(props: { handleSaveToken: () => void }) {
                         id="token"
                         type="password"
                         placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                        value={state.tokenInput}
-                        onChange={(e) => (state.tokenInput = e.target.value)}
+                        value={state.tokenInput.get()}
+                        onChange={(e) => state.tokenInput.set(e.target.value)}
                         className="font-mono"
                     />
-                    {state.errorMessage && (
+                    {state.errorMessage.get() && (
                         <div className="mt-2 flex items-center space-x-2">
                             <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
-                            <span className="text-sm text-red-600">{state.errorMessage}</span>
+                            <span className="text-sm text-red-600">{state.errorMessage.get()}</span>
                         </div>
                     )}
                 </div>
                 <div className="flex space-x-2">
                     <Button
                         onClick={props.handleSaveToken}
-                        disabled={!state.tokenInput.trim() || state.isSaving}
+                        disabled={!state.tokenInput.get().trim() || state.isSaving.get()}
                         className="flex-1"
                     >
                         {state.isSaving ? 'Saving...' : 'Save Token'}
@@ -431,8 +431,8 @@ function TokenAlreadyConfiguredCard(props: {
     handleSaveToken: () => void
     handleRemoveToken: () => void
 }) {
-    useSnapshot(state)
     let { formattedDate, isExpiring } = getExpirationInfo(props.expiresAt)
+    let state = useHookstate(pageState)
 
     return (
         <Card>
@@ -485,7 +485,7 @@ function TokenAlreadyConfiguredCard(props: {
                     </div>
                 </div>
 
-                {state.shouldUpdateToken ? (
+                {state.shouldUpdateToken.get() ? (
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <label htmlFor="update-token-input" className="text-sm font-medium">
@@ -495,15 +495,15 @@ function TokenAlreadyConfiguredCard(props: {
                                 id="update-token-input"
                                 type="password"
                                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                                value={state.tokenInput}
-                                onChange={(e) => (state.tokenInput = e.target.value)}
+                                value={state.tokenInput.get()}
+                                onChange={(e) => state.tokenInput.set(e.target.value)}
                                 className="font-mono"
                             />
-                            {state.errorMessage && (
+                            {state.errorMessage.get() && (
                                 <div className="mt-2 flex items-center space-x-2">
                                     <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
                                     <span className="text-sm text-red-600">
-                                        {state.errorMessage}
+                                        {state.errorMessage.get()}
                                     </span>
                                 </div>
                             )}
@@ -511,17 +511,17 @@ function TokenAlreadyConfiguredCard(props: {
                         <div className="flex space-x-2">
                             <Button
                                 onClick={props.handleSaveToken}
-                                disabled={!state.tokenInput.trim() || state.isSaving}
+                                disabled={!state.tokenInput.get().trim() || state.isSaving.get()}
                                 className="flex-1"
                             >
-                                {state.isSaving ? 'Saving...' : 'Save New Token'}
+                                {state.isSaving.get() ? 'Saving...' : 'Save New Token'}
                             </Button>
                             <Button
                                 variant="outline"
                                 onClick={() => {
-                                    state.shouldUpdateToken = false
-                                    state.tokenInput = ''
-                                    state.errorMessage = null
+                                    state.shouldUpdateToken.set(false)
+                                    state.tokenInput.set('')
+                                    state.errorMessage.set(null)
                                 }}
                                 className="flex-1"
                             >
@@ -533,7 +533,7 @@ function TokenAlreadyConfiguredCard(props: {
                     <div className="grid grid-cols-2 gap-2">
                         <Button
                             variant="outline"
-                            onClick={() => (state.shouldUpdateToken = true)}
+                            onClick={() => state.shouldUpdateToken.set(true)}
                             className="flex-1"
                         >
                             <RefreshCw className="h-4 w-4" />

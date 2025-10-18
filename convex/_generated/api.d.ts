@@ -28,6 +28,7 @@ import type * as models_userRepos from "../models/userRepos.js";
 import type * as models_users from "../models/users.js";
 import type * as public_dashboard from "../public/dashboard.js";
 import type * as public_issues from "../public/issues.js";
+import type * as public_notifications from "../public/notifications.js";
 import type * as public_settings from "../public/settings.js";
 import type * as services_auth from "../services/auth.js";
 import type * as services_github from "../services/github.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "models/users": typeof models_users;
   "public/dashboard": typeof public_dashboard;
   "public/issues": typeof public_issues;
+  "public/notifications": typeof public_notifications;
   "public/settings": typeof public_settings;
   "services/auth": typeof services_auth;
   "services/github": typeof services_github;

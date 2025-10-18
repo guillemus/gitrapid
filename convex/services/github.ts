@@ -484,7 +484,7 @@ octoCatch.errToString = function (error: Err<OctoCatchErrors>): string {
         return error.err.err.error()
     } else if (error.err.type === 'rate-limit-error') {
         let errMsg = error.err.err.message
-        if (error.err.retryAfterSecs) {
+        if (error.err.retryAfterSecs !== undefined) {
             return `Rate limit exceeded: ${error.err.retryAfterSecs} seconds: ${errMsg}`
         }
 

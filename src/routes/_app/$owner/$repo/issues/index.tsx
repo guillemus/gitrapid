@@ -1,5 +1,10 @@
 import { qcPersistent } from '@/client/queryClient'
-import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
+import {
+    formatRelativeTime,
+    usePageQuery,
+    usePaginationState,
+    type PaginationState,
+} from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
+import { useHookstate } from '@hookstate/core'
 import { IssueOpenedIcon } from '@primer/octicons-react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import type { FunctionReturnType, PaginationResult } from 'convex/server'
@@ -60,48 +66,6 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     component: IssuesPage,
 })
 
-class PaginationState {
-    index = 0
-    cursors: (string | null)[] = [null]
-
-    resetCursors() {
-        this.cursors = [null]
-        this.index = 0
-    }
-
-    currCursor() {
-        return this.cursors[this.index] ?? null
-    }
-
-    canGoPrev() {
-        return this.index > 0
-    }
-
-    goToPrev() {
-        if (this.index > 0) {
-            this.index--
-        }
-    }
-
-    canGoNext(pag?: PaginationResult<unknown>) {
-        if (!pag) return false
-
-        return !pag.isDone
-    }
-
-    goToNext(pag: PaginationResult<unknown>) {
-        if (!this.canGoNext(pag)) return
-
-        let nextCursor = pag.continueCursor
-
-        this.index++
-        if (this.currCursor() === null) {
-            this.cursors.push(nextCursor)
-            return
-        }
-    }
-}
-
 function useSearch() {
     let search = Route.useSearch()
     return {
@@ -115,7 +79,7 @@ type IssuesListResult = FunctionReturnType<typeof api.public.issues.list>
 type FoundIssue = IssuesListResult['page'][number]
 
 function IssuesPage() {
-    let cursorState = useMutable(new PaginationState())
+    let cursorState = usePaginationState()
 
     let navigate = Route.useNavigate()
     let params = Route.useParams()
@@ -277,7 +241,7 @@ function SortByDropdown(props: { cursorState: PaginationState }) {
 
 // will be soon added back
 function _SearchBar(props: { cursorState: PaginationState }) {
-    let searchInput = useMutable({ value: '' })
+    let searchInput = useHookstate({ input: '' })
     let navigate = Route.useNavigate()
 
     return (
@@ -287,9 +251,9 @@ function _SearchBar(props: { cursorState: PaginationState }) {
                     autoFocus
                     placeholder="Search issues by title"
                     className="rounded-r-none pr-10 font-normal"
-                    value={searchInput.value}
+                    value={searchInput.input.get()}
                     onChange={(e) => {
-                        searchInput.value = e.target.value
+                        searchInput.input.set(e.target.value)
                     }}
                     onKeyDown={async (e) => {
                         if (e.key === 'Enter') {
@@ -297,7 +261,7 @@ function _SearchBar(props: { cursorState: PaginationState }) {
 
                             await navigate({
                                 to: `/$owner/$repo/issues`,
-                                search: (p) => ({ ...p, search: searchInput.value }),
+                                search: (p) => ({ ...p, search: searchInput.input.get() }),
                             })
                         }
                     }}
@@ -306,10 +270,10 @@ function _SearchBar(props: { cursorState: PaginationState }) {
                     type="button"
                     aria-label="Clear search"
                     onClick={() => {
-                        searchInput.value = ''
+                        searchInput.input.set('')
                     }}
                     className={`text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 transition-colors ${
-                        searchInput.value.length === 0 ? 'hidden' : ''
+                        searchInput.input.get().length === 0 ? 'hidden' : ''
                     }`}
                 >
                     <X className="h-4 w-4" />

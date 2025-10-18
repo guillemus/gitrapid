@@ -216,10 +216,7 @@ export const handleSyncNotifsComplete = internalMutation({
 export const startSyncNotifsMutation = internalMutation(startSyncNotifs)
 
 export const syncNotifs = workflow.define({
-    args: {
-        userId: v.id('users'),
-        startSyncAt: v.optional(v.string()),
-    },
+    args: { userId: v.id('users'), startSyncAt: v.optional(v.string()) },
     async handler(step, args) {
         let result = await step.runAction(internal.services.sync.downloadNotifications, {
             userId: args.userId,

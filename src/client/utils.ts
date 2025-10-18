@@ -1,17 +1,21 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { QueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { useEffect, useEffectEvent, useMemo, useRef } from 'react'
-import { proxy, useSnapshot } from 'valtio'
-
-import { type FunctionArgs, type FunctionReference, getFunctionName } from 'convex/server'
+import { useEffect, useEffectEvent, useRef } from 'react'
+import {
+    type FunctionArgs,
+    type FunctionReference,
+    getFunctionName,
+    type PaginationResult,
+} from 'convex/server'
 import { useConvexHttp } from './queryClient'
+import { hookstate, useHookstate } from '@hookstate/core'
 
 // These exists bc of naming conflict with convex. This way is much easier to autoimport without naming conflicts
 export const useTanstackQuery = useQuery
 export const useTanstackMutation = useMutation
 
-const didFirstLoad = proxy({ value: false })
+const globalState = hookstate({ didFirstLoad: false })
 
 // The websocket connection takes from 700ms to 1.2s to start out, so the http
 // client gives us around 300ms of load improvement
@@ -20,7 +24,7 @@ export function usePageQuery<
     Args extends FunctionArgs<Query> | 'skip',
 >(query: Query, args: Args, queryClient?: QueryClient) {
     let convexHttp = useConvexHttp()
-    let firstLoad = useSnapshot(didFirstLoad)
+    let state = useHookstate(globalState)
 
     let httpQuery = useTanstackQuery(
         {
@@ -36,10 +40,10 @@ export function usePageQuery<
                     // clientside, the query will error with an 401. For the moment when
                     // that happens we just shrug and move on to the ws data instead.
 
-                    didFirstLoad.value = true
+                    state.didFirstLoad.set(true)
                 }
             },
-            enabled: !!convexHttp && !firstLoad.value,
+            enabled: !!convexHttp && !state.didFirstLoad.get(),
             staleTime: Infinity,
         },
         queryClient,
@@ -125,22 +129,6 @@ export function getLanguageFromExtension(filePath: string): string {
     return languageMap[extension || ''] || 'text'
 }
 
-export function useDebounce<T>(value: T, delay: number): T {
-    const state = useMutable({ debouncedValue: value })
-
-    let setDebouncedValue = useEffectEvent((value: T) => {
-        state.debouncedValue = value
-    })
-
-    useEffect(() => {
-        const timeoutId = setTimeout(setDebouncedValue, delay)
-
-        return () => clearTimeout(timeoutId)
-    }, [delay])
-
-    return state.debouncedValue
-}
-
 export function useClickOutside(onclickOutside: () => void) {
     const containerRef = useRef<HTMLDivElement>(null)
 
@@ -161,12 +149,12 @@ export function useClickOutside(onclickOutside: () => void) {
     return containerRef
 }
 
-export function useMutable<T extends object>(initial: T): T {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    let c = useMemo(() => proxy(initial), [])
-    useSnapshot(c)
-    return c
-}
+// export function useMutable<T extends object>(initial: T): T {
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//     let c = useMemo(() => proxy(initial), [])
+//     useSnapshot(c)
+//     return c
+// }
 
 export function useDefined<T>(t?: T) {
     let ref = useRef(t)
@@ -193,5 +181,62 @@ export function formatRelativeTime(date: string | number | Date): string {
     } catch {
         // Fallback to locale date string if parsing fails
         return new Date(date).toLocaleDateString()
+    }
+}
+
+export type PaginationState = ReturnType<typeof usePaginationState>
+
+export function usePaginationState() {
+    let state = useHookstate({
+        index: 0,
+        cursors: [null] as (string | null)[],
+    })
+
+    function resetCursors() {
+        state.set({ index: 0, cursors: [null] })
+    }
+
+    function currCursor() {
+        let index = state.index.get()
+        let curr = state.cursors[index]?.get()
+
+        return curr ?? null
+    }
+
+    function canGoPrev() {
+        return state.index.get() > 0
+    }
+
+    function goToPrev() {
+        if (state.index.get() > 0) {
+            state.index.set((x) => x - 1)
+        }
+    }
+
+    function canGoNext(pag?: PaginationResult<unknown>) {
+        if (!pag) return false
+
+        return !pag.isDone
+    }
+
+    function goToNext(pag?: PaginationResult<unknown>) {
+        if (!pag) return
+        if (!canGoNext(pag)) return
+
+        let nextCursor = pag.continueCursor
+
+        state.index.set((x) => x + 1)
+        if (currCursor() === null) {
+            state.cursors[state.cursors.length]?.set(nextCursor)
+        }
+    }
+
+    return {
+        currCursor,
+        resetCursors,
+        canGoPrev,
+        goToPrev,
+        canGoNext,
+        goToNext,
     }
 }

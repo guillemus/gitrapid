@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppDashRouteImport } from './routes/_app/dash'
 import { Route as AppOwnerRepoIssuesIndexRouteImport } from './routes/_app/$owner/$repo/issues/index'
 import { Route as AppOwnerRepoIssuesNewRouteImport } from './routes/_app/$owner/$repo/issues/new'
@@ -29,6 +30,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppNotificationsRoute = AppNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppDashRoute = AppDashRouteImport.update({
@@ -55,6 +61,7 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dash': typeof AppDashRoute
+  '/notifications': typeof AppNotificationsRoute
   '/settings': typeof AppSettingsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
   '/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dash': typeof AppDashRoute
+  '/notifications': typeof AppNotificationsRoute
   '/settings': typeof AppSettingsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
   '/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/dash': typeof AppDashRoute
+  '/_app/notifications': typeof AppNotificationsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
   '/_app/$owner/$repo/issues/new': typeof AppOwnerRepoIssuesNewRoute
@@ -83,6 +92,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/login'
     | '/dash'
+    | '/notifications'
     | '/settings'
     | '/$owner/$repo/issues/$issue'
     | '/$owner/$repo/issues/new'
@@ -91,6 +101,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/dash'
+    | '/notifications'
     | '/settings'
     | '/$owner/$repo/issues/$issue'
     | '/$owner/$repo/issues/new'
@@ -100,6 +111,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/dash'
+    | '/_app/notifications'
     | '/_app/settings'
     | '/_app/$owner/$repo/issues/$issue'
     | '/_app/$owner/$repo/issues/new'
@@ -132,6 +144,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/notifications': {
+      id: '/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AppNotificationsRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/dash': {
@@ -167,6 +186,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteRouteChildren {
   AppDashRoute: typeof AppDashRoute
+  AppNotificationsRoute: typeof AppNotificationsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppOwnerRepoIssuesIssueRoute: typeof AppOwnerRepoIssuesIssueRoute
   AppOwnerRepoIssuesNewRoute: typeof AppOwnerRepoIssuesNewRoute
@@ -175,6 +195,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppDashRoute: AppDashRoute,
+  AppNotificationsRoute: AppNotificationsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppOwnerRepoIssuesIssueRoute: AppOwnerRepoIssuesIssueRoute,
   AppOwnerRepoIssuesNewRoute: AppOwnerRepoIssuesNewRoute,

@@ -254,7 +254,9 @@ const notifications = defineTable({
     lastReadAt: v.optional(v.string()),
     unread: v.boolean(),
     title: v.string(),
-}).index('by_github_id', ['githubId'])
+})
+    .index('by_github_id', ['githubId'])
+    .index('by_userId', ['userId'])
 
 export default defineSchema({
     ...authTables,

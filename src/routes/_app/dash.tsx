@@ -1,5 +1,5 @@
 import { qcPersistent } from '@/client/queryClient'
-import { useMutable, usePageQuery, useTanstackQuery } from '@/client/utils'
+import { usePageQuery, useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { Doc } from '@convex/_generated/dataModel'
+import { useHookstate, type State } from '@hookstate/core'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction, useMutation, type ReactAction } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
@@ -42,65 +43,65 @@ function DashboardPage() {
     )
 }
 
-type RepoState = { curr: SearchRepoState | AddRepoState }
-
-function initialRepoState(): RepoState {
-    return { curr: new SearchRepoState() }
+type RepoState = SearchRepoState | AddRepoState
+type SearchRepoState = {
+    type: 'search'
+    searchInput: string
 }
-
-class SearchRepoState {
-    searchInput = ''
-
-    goToAddRepo(state: RepoState) {
-        state.curr = new AddRepoState()
-    }
-}
-
-class AddRepoState {
-    githubUrl = ''
-    isAdding = false
+type AddRepoState = {
+    type: 'add'
+    githubUrl: string
+    isAdding: boolean
     addRepoError?: { title: string; description: string }
+}
 
-    async addRepoWithAction(action: ReactAction<typeof api.public.dashboard.addRepo>) {
-        if (!this.githubUrl.trim()) return
+function goToAddRepo(state: State<RepoState>) {
+    state.set({ type: 'add', githubUrl: '', isAdding: false, addRepoError: undefined })
+}
 
-        this.isAdding = true
-        this.addRepoError = undefined
+function goToSearchRepo(state: State<RepoState>) {
+    state.set({ type: 'search', searchInput: '' })
+}
 
-        let res = await action({ githubUrl: this.githubUrl })
+async function addRepoWithAction(
+    state: State<AddRepoState>,
+    action: ReactAction<typeof api.public.dashboard.addRepo>,
+) {
+    if (!state.githubUrl.get().trim()) return
 
-        this.isAdding = false
-        this.githubUrl = ''
+    state.isAdding.set(true)
+    state.addRepoError.set(undefined)
 
-        if (!res.isErr) return
+    let res = await action({ githubUrl: state.githubUrl.get() })
 
-        this.addRepoError = {
-            title: 'Something went wrong',
-            description: res.err,
-        }
+    state.isAdding.set(false)
+    state.githubUrl.set('')
 
-        setTimeout(() => {
-            this.addRepoError = undefined
-        }, 4000)
-    }
+    if (!res.isErr) return
 
-    goToSearchRepo(state: RepoState) {
-        state.curr = new SearchRepoState()
-    }
+    state.addRepoError.set({
+        title: 'Something went wrong',
+        description: res.err,
+    })
+
+    setTimeout(() => {
+        state.addRepoError.set(undefined)
+    }, 4000)
 }
 
 function RepositoryListHeader() {
     let addRepo = useAction(api.public.dashboard.addRepo)
-    let state = useMutable(initialRepoState())
-    let curr = state.curr
+    let state = useHookstate<RepoState>({ type: 'search', searchInput: '' })
 
-    if (curr instanceof SearchRepoState) {
+    if (state.type.value === 'search') {
         return (
             <div className="flex justify-end gap-4">
-                <Button onClick={() => curr.goToAddRepo(state)}>Add repository</Button>
+                <Button onClick={() => goToAddRepo(state)}>Add repository</Button>
             </div>
         )
     }
+
+    let s = state as State<AddRepoState>
 
     return (
         <div className="flex flex-col gap-4">
@@ -108,31 +109,33 @@ function RepositoryListHeader() {
                 <Input
                     placeholder="Paste GitHub repo URL (e.g. github.com/owner/repo)"
                     className="w-full"
-                    value={curr.githubUrl}
-                    onChange={(e) => (curr.githubUrl = e.target.value)}
-                    onEnter={() => curr.addRepoWithAction(addRepo)}
+                    value={s.githubUrl.get()}
+                    onChange={(e) => s.merge({ githubUrl: e.target.value })}
+                    onEnter={() => addRepoWithAction(s, addRepo)}
                 />
 
                 <div className="flex gap-1">
                     <Button
-                        disabled={curr.isAdding || !curr.githubUrl.trim()}
-                        onClick={() => curr.addRepoWithAction(addRepo)}
+                        disabled={s.isAdding.get() || !s.githubUrl.get().trim()}
+                        onClick={() => addRepoWithAction(s, addRepo)}
                     >
-                        {curr.isAdding ? 'Adding...' : 'Submit'}
+                        {s.isAdding.get() ? 'Adding...' : 'Submit'}
                     </Button>
-                    <Button variant="outline" onClick={() => curr.goToSearchRepo(state)}>
+                    <Button variant="outline" onClick={() => goToSearchRepo(state)}>
                         Cancel
                     </Button>
                 </div>
             </div>
-            {curr.addRepoError && (
+            {s.addRepoError.get() && (
                 <div className="mt-2 min-h-[32px]">
-                    {curr.addRepoError && (
+                    {s.addRepoError.get() && (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                <div className="font-medium">{curr.addRepoError.title}</div>
-                                <div className="mt-1 text-sm">{curr.addRepoError.description}</div>
+                                <div className="font-medium">{s.addRepoError.get()?.title}</div>
+                                <div className="mt-1 text-sm">
+                                    {s.addRepoError.get()?.description}
+                                </div>
                             </AlertDescription>
                         </Alert>
                     )}

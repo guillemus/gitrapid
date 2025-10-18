@@ -1,9 +1,9 @@
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
-import { useMutable } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import { useHookstate } from '@hookstate/core'
 import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
@@ -22,7 +22,7 @@ function CreateNewIssuePage() {
     let { owner, repo } = Route.useParams()
     let navigate = useNavigate()
 
-    let state = useMutable({
+    let state = useHookstate({
         createdIssueId: null as Id<'issues'> | null,
         creatingIssue: false,
         title: '',
@@ -33,21 +33,22 @@ function CreateNewIssuePage() {
     let createIssueMutation = useMutation(api.public.issues.create)
 
     let createdIssueParams = 'skip' as 'skip' | { issueId: Id<'issues'> }
-    if (state.createdIssueId) {
-        createdIssueParams = { issueId: state.createdIssueId }
+    let createdIssueId = state.createdIssueId.get()
+    if (createdIssueId) {
+        createdIssueParams = { issueId: createdIssueId }
     }
     let createdIssue = useQuery(api.public.issues.getById, createdIssueParams)
 
     async function createIssue(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
 
-        state.creatingIssue = true
+        state.creatingIssue.set(true)
         try {
             let issueId = await createIssueMutation({
                 owner,
                 repo,
-                title: state.title,
-                body: state.body,
+                title: state.title.get(),
+                body: state.body.get(),
             })
             if (issueId.isErr) {
                 if (issueId.err === 'PAT_NOT_FOUND') {
@@ -68,11 +69,11 @@ function CreateNewIssuePage() {
                 } else throw issueId.err
             }
 
-            state.createdIssueId = issueId.val
+            state.createdIssueId.set(issueId.val)
         } catch {
             toast.error('Failed to create issue')
         } finally {
-            state.creatingIssue = false
+            state.creatingIssue.set(false)
         }
     }
 
@@ -104,8 +105,8 @@ function CreateNewIssuePage() {
                             required
                             placeholder="Title"
                             id="title"
-                            value={state.title}
-                            onChange={(e) => (state.title = e.target.value)}
+                            value={state.title.get()}
+                            onChange={(e) => state.title.set(e.target.value)}
                         />
                     </div>
 
@@ -120,42 +121,42 @@ function CreateNewIssuePage() {
                                 <button
                                     type="button"
                                     className={`rounded px-2 py-1 font-medium ${
-                                        state.tab === 'write'
+                                        state.tab.get() === 'write'
                                             ? 'text-foreground'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
-                                    onClick={() => (state.tab = 'write')}
+                                    onClick={() => state.tab.set('write')}
                                 >
                                     Write
                                 </button>
                                 <button
                                     type="button"
                                     className={`rounded px-2 py-1 font-medium ${
-                                        state.tab === 'preview'
+                                        state.tab.get() === 'preview'
                                             ? 'text-foreground'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
-                                    onClick={() => (state.tab = 'preview')}
+                                    onClick={() => state.tab.set('preview')}
                                 >
                                     Preview
                                 </button>
                             </div>
                             <div className="relative">
-                                {state.tab === 'write' && (
+                                {state.tab.get() === 'write' && (
                                     <textarea
                                         id="description"
                                         rows={12}
                                         className="bg-background placeholder:text-muted-foreground w-full resize-y rounded-md p-3 text-sm outline-none"
                                         placeholder="Type your description here..."
-                                        value={state.body}
-                                        onChange={(e) => (state.body = e.target.value)}
+                                        value={state.body.get()}
+                                        onChange={(e) => state.body.set(e.target.value)}
                                     />
                                 )}
-                                {state.tab === 'preview' && (
+                                {state.tab.get() === 'preview' && (
                                     <div className="prose prose-sm markdown-body max-w-none bg-white p-4 text-black">
                                         <div
                                             dangerouslySetInnerHTML={{
-                                                __html: renderMarkdownToHtml(state.body),
+                                                __html: renderMarkdownToHtml(state.body.get()),
                                             }}
                                         />
                                     </div>
@@ -178,7 +179,7 @@ function CreateNewIssuePage() {
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={state.creatingIssue}>
+                            <Button type="submit" disabled={state.creatingIssue.get()}>
                                 {state.creatingIssue ? 'Creating...' : 'Create'}
                             </Button>
                         </div>

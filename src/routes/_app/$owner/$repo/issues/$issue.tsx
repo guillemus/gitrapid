@@ -1,6 +1,6 @@
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { qcPersistent } from '@/client/queryClient'
-import { formatRelativeTime, useMutable, usePageQuery } from '@/client/utils'
+import { formatRelativeTime, usePageQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
+import { useHookstate } from '@hookstate/core'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
@@ -153,38 +154,38 @@ function SingleIssuesPage() {
 function IssueHeader(props: { issue: Data['issue'] }) {
     let { owner, repo } = Route.useParams()
     let editTitle = useMutation(api.public.issues.editTitle)
-    let state = useMutable({
+    let state = useHookstate({
         editing: false,
         saving: false,
         titleDraft: props.issue.title,
     })
 
-    if (!state.editing && state.titleDraft !== props.issue.title) {
-        state.titleDraft = props.issue.title
+    if (!state.editing.get() && state.titleDraft.get() !== props.issue.title) {
+        state.titleDraft.set(props.issue.title)
     }
 
     function startEditing() {
-        state.titleDraft = props.issue.title
-        state.editing = true
+        state.titleDraft.set(props.issue.title)
+        state.editing.set(true)
     }
 
     function cancelEditing() {
-        state.editing = false
-        state.titleDraft = props.issue.title
+        state.editing.set(false)
+        state.titleDraft.set(props.issue.title)
     }
 
     async function saveTitle() {
-        let nextTitle = state.titleDraft.trim()
+        let nextTitle = state.titleDraft.get().trim()
         if (!nextTitle) {
             toast.error('Issue title cannot be empty')
             return
         }
         if (nextTitle === props.issue.title) {
-            state.editing = false
+            state.editing.set(false)
             return
         }
 
-        state.saving = true
+        state.saving.set(true)
 
         try {
             await editTitle({
@@ -193,13 +194,13 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                 issueNumber: props.issue.number,
                 newTitle: nextTitle,
             })
-            state.editing = false
+            state.editing.set(false)
         } catch (error) {
             let message = error instanceof Error ? error.message : 'Failed to update title'
             toast.error(message)
         }
 
-        state.saving = false
+        state.saving.set(false)
     }
 
     return (
@@ -208,11 +209,11 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                 {state.editing ? (
                     <div className="flex flex-wrap items-center gap-2">
                         <Input
-                            value={state.titleDraft}
-                            onChange={(event) => (state.titleDraft = event.target.value)}
+                            value={state.titleDraft.get()}
+                            onChange={(event) => state.titleDraft.set(event.target.value)}
                             onEnter={saveTitle}
                             autoFocus
-                            disabled={state.saving}
+                            disabled={state.saving.get()}
                             className="text-foreground text-3xl font-semibold"
                         />
                         <span className="text-muted-foreground text-3xl font-normal">
@@ -247,11 +248,11 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                             size="sm"
                             variant="outline"
                             onClick={cancelEditing}
-                            disabled={state.saving}
+                            disabled={state.saving.get()}
                         >
                             Cancel
                         </Button>
-                        <Button size="sm" onClick={saveTitle} disabled={state.saving}>
+                        <Button size="sm" onClick={saveTitle} disabled={state.saving.get()}>
                             {state.saving ? 'Saving...' : 'Save title'}
                         </Button>
                     </>
@@ -573,7 +574,7 @@ function AddCommentBox() {
     let { owner, repo, issue: number } = Route.useParams()
     let addComment = useMutation(api.public.issues.addComment)
 
-    let state = useMutable({
+    let state = useHookstate({
         addingComment: false,
         comment: '',
     })
@@ -581,10 +582,15 @@ function AddCommentBox() {
     async function handleAddComment(e: { preventDefault: () => void }) {
         e.preventDefault()
 
-        state.addingComment = true
-        let res = await addComment({ owner, repo, issueNumber: number, comment: state.comment })
-        state.addingComment = false
-        state.comment = ''
+        state.addingComment.set(true)
+        let res = await addComment({
+            owner,
+            repo,
+            issueNumber: number,
+            comment: state.comment.get(),
+        })
+        state.addingComment.set(false)
+        state.comment.set('')
 
         if (res.isErr) {
             if (res.err.type === 'INSUFFICIENT_SCOPES') {
@@ -616,13 +622,13 @@ function AddCommentBox() {
                 <div className="rounded-md border">
                     <textarea
                         rows={5}
-                        onChange={(e) => (state.comment = e.target.value)}
+                        onChange={(e) => state.comment.set(e.target.value)}
                         onKeyDown={async (e) => {
                             if (e.key === 'Enter') {
                                 await handleAddComment(e)
                             }
                         }}
-                        value={state.comment}
+                        value={state.comment.get()}
                         className="bg-background placeholder:text-muted-foreground w-full resize-none rounded-md p-3 text-sm outline-none"
                         placeholder="Write a comment..."
                     />
@@ -635,7 +641,7 @@ function AddCommentBox() {
                         type="submit"
                         size="sm"
                         className="gap-2"
-                        disabled={state.addingComment}
+                        disabled={state.addingComment.get()}
                     >
                         <Plus className="h-4 w-4" />
                         {state.addingComment ? 'Adding...' : 'Comment'}

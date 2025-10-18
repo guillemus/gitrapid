@@ -1,8 +1,8 @@
-import { useMutable } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { useAuthActions } from '@convex-dev/auth/react'
+import { useHookstate } from '@hookstate/core'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 import { useConvexAuth } from 'convex/react'
@@ -15,19 +15,18 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
     let auth = useConvexAuth()
     let actions = useAuthActions()
-    let state = useMutable({ isLoading: false, error: null as string | null })
+    let state = useHookstate({ isLoading: false, error: null as string | null })
 
     let isLoading = state.isLoading || auth.isLoading || auth.isAuthenticated
 
     async function handleGitHubLogin() {
-        state.isLoading = true
-        state.error = null
+        state.set({ isLoading: true, error: null })
 
         try {
             await actions.signIn('github', { redirectTo: '/dash' })
         } catch {
-            state.error = 'Failed to sign in with GitHub. Please try again.'
-            state.isLoading = false
+            state.error.set('Failed to sign in with GitHub. Please try again.')
+            state.isLoading.set(false)
         }
     }
 
@@ -67,11 +66,11 @@ function LoginPage() {
 
                         <Button
                             onClick={handleGitHubLogin}
-                            disabled={state.isLoading}
+                            disabled={state.isLoading.get()}
                             className="h-12 w-full transform bg-slate-900 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-slate-800 active:scale-[0.98]"
                             size="lg"
                         >
-                            {isLoading ? (
+                            {isLoading.get() ? (
                                 <>
                                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                                     Signing in...
