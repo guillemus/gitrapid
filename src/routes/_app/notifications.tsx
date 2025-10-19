@@ -1,4 +1,4 @@
-import { usePageQuery, usePaginationState } from '@/client/utils'
+import { useTanstackQuery, usePaginationState } from '@/client/utils'
 import { api } from '@convex/_generated/api'
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -8,7 +8,7 @@ export const Route = createFileRoute('/_app/notifications')({
 
 function RouteComponent() {
     let cursorState = usePaginationState()
-    let notifications = usePageQuery(api.public.notifications.list, {
+    let notifications = useTanstackQuery(api.public.notifications.list, {
         paginationOpts: {
             numItems: 50,
             cursor: cursorState.currCursor(),

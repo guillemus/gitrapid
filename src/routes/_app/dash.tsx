@@ -1,5 +1,5 @@
 import { qcPersistent } from '@/client/queryClient'
-import { usePageQuery, useTanstackQuery } from '@/client/utils'
+import { useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ export const Route = createFileRoute('/_app/dash')({
 })
 
 function DashboardPage() {
-    let data = usePageQuery(api.public.dashboard.get, {})
+    let data = useTanstackQuery(api.public.dashboard.get, {})
 
     return (
         <div className="space-y-6">
@@ -146,11 +146,9 @@ function RepositoryListHeader() {
 }
 
 function Repository(props: { repo: Doc<'repos'> }) {
-    let { data: downloadStatus } = useTanstackQuery(
-        convexQuery(api.public.dashboard.getDownloadStatus, {
-            repoId: props.repo._id,
-        }),
-    )
+    let downloadStatus = useTanstackQuery(api.public.dashboard.getDownloadStatus, {
+        repoId: props.repo._id,
+    })
 
     let removeRepo = useMutation(api.public.dashboard.removeRepo)
     let [isRemoving, setIsRemoving] = useState(false)

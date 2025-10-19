@@ -5,7 +5,7 @@
 // but I don't know how to conditionally not include this in tanstack router.
 
 import { qcMaxDurable } from '@/client/queryClient'
-import { usePageQuery, usePaginationState, type PaginationState } from '@/client/utils'
+import { useTanstackQuery, usePaginationState, type PaginationState } from '@/client/utils'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -18,6 +18,14 @@ import { useState } from 'react'
 export const Route = createFileRoute('/_app/admin')({
     component: RouteComponent,
 })
+
+function RouteComponent() {
+    if (import.meta.env.DEV) {
+        return <Admin />
+    }
+
+    return null
+}
 
 const TABLE_NAMES = [
     'repos',
@@ -51,12 +59,12 @@ function formatCellValue(value: unknown): string {
     return JSON.stringify(value)
 }
 
-function RouteComponent() {
+function Admin() {
     let [activeTab, setActiveTab] = useState<TableName>(TABLE_NAMES[0])
     let [viewMode, setViewMode] = useState<ViewMode>('table')
     let pagination = usePaginationState()
 
-    const result = usePageQuery(
+    const result = useTanstackQuery(
         api.devonly.listTable,
         {
             table: activeTab,

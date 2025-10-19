@@ -62,11 +62,11 @@ export const qcPersistent = createQueryClient(convex, {
     gcTime: 1 * day,
 })
 
-export const defaultQc = qcPersistent
-
 // query client that doesn't persist queries. Do use for subscriptions that are
 // very dynamic (filtering issues).
 export const qcMem = createQueryClient(convex, { persisted: false })
+
+export const defaultQc = qcPersistent
 
 export function useLogout() {
     const authActions = useAuthActions()

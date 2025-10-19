@@ -1,7 +1,7 @@
 import { qcPersistent } from '@/client/queryClient'
 import {
     formatRelativeTime,
-    usePageQuery,
+    useTanstackQuery,
     usePaginationState,
     type PaginationState,
 } from '@/client/utils'
@@ -85,7 +85,7 @@ function IssuesPage() {
     let params = Route.useParams()
     let search = useSearch()
 
-    let page = usePageQuery(api.public.issues.list, {
+    let page = useTanstackQuery(api.public.issues.list, {
         owner: params.owner,
         repo: params.repo,
         state: search.state,

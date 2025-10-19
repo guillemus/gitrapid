@@ -35,7 +35,7 @@ export namespace Auth {
 
     export async function getUserId(ctx: { auth: ConvexAuth }) {
         const userId = await getAuthUserId(ctx)
-        assert(userId, 'not authenticated')
+        assert(userId, `${getUserId.name}: ctx not authenticated`)
 
         return userId
     }

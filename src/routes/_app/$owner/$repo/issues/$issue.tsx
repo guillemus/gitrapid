@@ -1,6 +1,6 @@
 import { renderMarkdownToHtml } from '@/client/lib/markdown'
 import { qcPersistent } from '@/client/queryClient'
-import { formatRelativeTime, usePageQuery } from '@/client/utils'
+import { formatRelativeTime, useTanstackQuery } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,7 +59,7 @@ type TimelineItems = Data['timelineItems']
 function SingleIssuesPage() {
     let { owner, repo, issue: number } = Route.useParams()
 
-    let data = usePageQuery(api.public.issues.get, { owner, repo, number })
+    let data = useTanstackQuery(api.public.issues.get, { owner, repo, number })
 
     // Compute markdown HTML before any early return to keep hooks order stable
     let issueBodyMd = data?.body?.body || ''

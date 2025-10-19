@@ -1,5 +1,5 @@
 import { qcPersistent } from '@/client/queryClient'
-import { usePageQuery } from '@/client/utils'
+import { useTanstackQuery } from '@/client/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -124,7 +124,7 @@ function handleScopeChange(scope: ScopeWithNone, checked: boolean) {
 }
 
 function generateGitHubUrl() {
-    const scopes = pageState.selectedScopes.join(',')
+    const scopes = pageState.selectedScopes.get().join(',')
     const description = scopes ? `GitRapid (${scopes})` : 'GitRapid'
 
     const baseUrl = 'https://github.com/settings/tokens/new'
@@ -303,7 +303,7 @@ function CreateTokenCard() {
 }
 
 function SettingsPage() {
-    const page = usePageQuery(api.public.settings.get, {})
+    const page = useTanstackQuery(api.public.settings.get, {})
     const savePAT = useAction(api.public.settings.savePAT)
     const deletePAT = useMutation(api.public.settings.deletePAT)
 
@@ -417,7 +417,7 @@ function PasteTokenCard(props: { handleSaveToken: () => void }) {
                         disabled={!state.tokenInput.get().trim() || state.isSaving.get()}
                         className="flex-1"
                     >
-                        {state.isSaving ? 'Saving...' : 'Save Token'}
+                        {state.isSaving.get() ? 'Saving...' : 'Save Token'}
                     </Button>
                 </div>
             </CardContent>

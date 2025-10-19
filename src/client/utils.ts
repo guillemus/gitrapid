@@ -1,63 +1,18 @@
 import { convexQuery } from '@convex-dev/react-query'
-import { hookstate, useHookstate } from '@hookstate/core'
-import { QueryClient, useMutation, useQuery } from '@tanstack/react-query'
-import {
-    type FunctionArgs,
-    type FunctionReference,
-    getFunctionName,
-    type PaginationResult,
-} from 'convex/server'
+import { useHookstate } from '@hookstate/core'
+import { QueryClient, useQuery } from '@tanstack/react-query'
+import { type FunctionArgs, type FunctionReference, type PaginationResult } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useEffectEvent, useRef } from 'react'
-import { useConvexHttp } from './queryClient'
-
-// These exists bc of naming conflict with convex. This way is much easier to autoimport without naming conflicts
-export const useTanstackQuery = useQuery
-export const useTanstackMutation = useMutation
-
-const globalState = hookstate({ didFirstLoad: false })
 
 // The websocket connection takes from 700ms to 1.2s to start out, so the http
 // client gives us around 300ms of load improvement
-export function usePageQuery<
+export function useTanstackQuery<
     Query extends FunctionReference<'query'>,
     Args extends FunctionArgs<Query> | 'skip',
 >(query: Query, args: Args, queryClient?: QueryClient) {
-    let convexHttp = useConvexHttp()
-    let state = useHookstate(globalState)
-
-    let httpQuery = useTanstackQuery(
-        {
-            queryKey: ['convexHttpQuery', getFunctionName(query), args],
-
-            queryFn: async () => {
-                try {
-                    // @ts-expect-error: disable for simplicity
-                    let res = await convexHttp!.query(query, args)
-                    return res
-                } finally {
-                    // In the situations where the user has an expired jwt token
-                    // clientside, the query will error with an 401. For the moment when
-                    // that happens we just shrug and move on to the ws data instead.
-
-                    state.didFirstLoad.set(true)
-                }
-            },
-            enabled: !!convexHttp && !state.didFirstLoad.get(),
-            staleTime: Infinity,
-        },
-        queryClient,
-    )
-
-    let wsQuery = useTanstackQuery(convexQuery(query, args), queryClient)
-
-    if (wsQuery.data) {
-        return wsQuery.data
-    } else if (httpQuery.isError) {
-        return wsQuery.data
-    }
-
-    return httpQuery.data
+    let wsQuery = useQuery(convexQuery(query, args), queryClient)
+    return wsQuery.data
 }
 
 export function getLanguageFromExtension(filePath: string): string {
