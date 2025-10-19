@@ -319,6 +319,7 @@ export namespace Github {
                 octo.rest.activity.listNotificationsForAuthenticatedUser({
                     headers,
                     since: args?.since,
+                    all: true,
                     per_page: 100,
                     page: pageNum,
                 }),

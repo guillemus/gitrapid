@@ -47,14 +47,8 @@ function formatCellValue(value: unknown): string {
     if (value === undefined) {
         return 'undefined'
     }
-    if (typeof value === 'object') {
-        try {
-            return JSON.stringify(value)
-        } catch (error) {
-            return '[object]'
-        }
-    }
-    return String(value)
+
+    return JSON.stringify(value)
 }
 
 function RouteComponent() {

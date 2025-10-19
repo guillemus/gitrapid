@@ -8,7 +8,7 @@ export const Route = createFileRoute('/_app/notifications')({
 
 function RouteComponent() {
     let cursorState = usePaginationState()
-    let notifications = usePageQuery(api.public.notifications.paginate, {
+    let notifications = usePageQuery(api.public.notifications.list, {
         paginationOpts: {
             numItems: 50,
             cursor: cursorState.currCursor(),
@@ -21,6 +21,7 @@ function RouteComponent() {
         <div>
             {notifications?.page.map((n) => (
                 <div key={n._id}>
+                    <p>{n._id}</p>
                     <p>
                         {n.repo.owner}/{n.repo.repo} #{n.resourceNumber} {n.title}
                     </p>

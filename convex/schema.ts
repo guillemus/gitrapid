@@ -20,6 +20,10 @@ export type Etag = Infer<typeof v_etag>
 export const v_nextSyncAt = brandedString('nextSyncAt')
 export type NextSyncAt = Infer<typeof v_nextSyncAt>
 
+export function newNextSyncAt(d: Date): NextSyncAt {
+    return d.toISOString() as NextSyncAt
+}
+
 export function v_nullable<T extends Validator<any, any, any>>(validator: T) {
     return v.union(v.null(), validator)
 }

@@ -2,13 +2,13 @@ import { vWorkflowId } from '@convex-dev/workflow'
 import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, internalMutation, type MutationCtx } from '@convex/_generated/server'
+import { internalAction, internalMutation } from '@convex/_generated/server'
 import type { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
-import { v_nextSyncAt, v_nullable, type NextSyncAt } from '@convex/schema'
+import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
 import { assertOk, err, ok, unwrap } from '@convex/shared'
-import { logger, type FnArgs, type WCtx } from '@convex/utils'
+import { logger, type WCtx } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -159,9 +159,9 @@ export const downloadRepoPage = internalAction({
 
 const NOTIFS_BATCH_SIZE = 100
 
-export const startSyncNotifs = {
+export const startSyncNotifsMutation = internalMutation({
     args: { userId: v.id('users') },
-    async handler(ctx: MutationCtx, { userId }: FnArgs<typeof this>) {
+    async handler(ctx, { userId }) {
         let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
         if (!shouldSync) return
 
@@ -172,7 +172,7 @@ export const startSyncNotifs = {
         let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
 
         // nextSyncAt is the moment from where we will start the next sync.
-        let nextSyncAt = new Date().toISOString() as NextSyncAt
+        let nextSyncAt = newNextSyncAt(new Date())
 
         let workflowId = await workflow.start(
             ctx,
@@ -191,7 +191,7 @@ export const startSyncNotifs = {
             nextSyncAt: null,
         })
     },
-}
+})
 
 export const handleSyncNotifsComplete = internalMutation({
     args: {
@@ -212,8 +212,6 @@ export const handleSyncNotifsComplete = internalMutation({
         }
     },
 })
-
-export const startSyncNotifsMutation = internalMutation(startSyncNotifs)
 
 export const syncNotifs = workflow.define({
     args: { userId: v.id('users'), startSyncAt: v.optional(v.string()) },
@@ -306,7 +304,7 @@ export const startSyncRepoIssues = internalMutation({
         let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
 
         let startSyncAt = repoWorkflow?.issues.nextSyncAt ?? null
-        let nextSyncAt = new Date().toISOString() as NextSyncAt
+        let nextSyncAt = newNextSyncAt(new Date())
 
         let workflowId = await workflow.start(
             ctx,

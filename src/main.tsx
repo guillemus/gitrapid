@@ -1,4 +1,4 @@
-import { convex, qcPersistent } from '@/client/queryClient'
+import { convex, defaultQc } from '@/client/queryClient'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
@@ -20,7 +20,7 @@ declare module '@tanstack/react-router' {
 export function Main() {
     return (
         <ConvexAuthProvider client={convex}>
-            <QueryClientProvider client={qcPersistent}>
+            <QueryClientProvider client={defaultQc}>
                 <RouterProvider router={router} />
             </QueryClientProvider>
         </ConvexAuthProvider>

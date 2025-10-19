@@ -3,7 +3,7 @@ import { Auth } from '@convex/services/auth'
 import { asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 
-export const paginate = query({
+export const list = query({
     args: {
         paginationOpts: paginationOptsValidator,
     },
@@ -13,7 +13,7 @@ export const paginate = query({
         let page = await ctx.db
             .query('notifications')
             .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
-            .order('asc')
+            .order('desc')
             .paginate(args.paginationOpts)
 
         let mapped
