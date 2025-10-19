@@ -1,5 +1,5 @@
 # GitRapid
 
-The fastest github ui on earth.
+A faster github ui. WIP
 
 (more docs coming...)
