@@ -1,8 +1,8 @@
 import { qcPersistent } from '@/client/queryClient'
 import {
     formatRelativeTime,
-    useTanstackQuery,
     usePaginationState,
+    useTanstackQuery,
     type PaginationState,
 } from '@/client/utils'
 import { GhLabel, GhUser } from '@/components/github'
