@@ -1,4 +1,4 @@
-import { convex, defaultQc } from '@/client/queryClient'
+import { convex, defaultQc } from '@/lib/queryClient'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'

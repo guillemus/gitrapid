@@ -1,5 +1,5 @@
-import { qcPersistent } from '@/client/queryClient'
-import { useTanstackQuery } from '@/client/utils'
+import { qcPersistent } from '@/lib/queryClient'
+import { useTanstackQuery } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

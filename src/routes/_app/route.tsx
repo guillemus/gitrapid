@@ -1,4 +1,4 @@
-import { Header } from '@/client/header'
+import { Header } from '@/components/header'
 import { useAuthToken } from '@convex-dev/auth/react'
 import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
 import { Unauthenticated, useConvexAuth } from 'convex/react'

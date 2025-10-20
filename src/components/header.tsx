@@ -1,4 +1,4 @@
-import { useLogout } from '@/client/queryClient'
+import { useLogout } from '@/lib/queryClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,13 +44,6 @@ export function Header() {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        {import.meta.env.DEV && (
-                            <Button variant="ghost" size="icon" asChild aria-label="Admin">
-                                <Link to="/admin">
-                                    <LayoutDashboard className="h-5 w-5" />
-                                </Link>
-                            </Button>
-                        )}
                         <Button variant="ghost" size="icon" asChild aria-label="Notifications">
                             <Link to="/notifications">
                                 <Bell className="h-5 w-5" />

@@ -1,10 +1,10 @@
-import { qcPersistent } from '@/client/queryClient'
+import { qcPersistent } from '@/lib/queryClient'
 import {
     formatRelativeTime,
     usePaginationState,
     useTanstackQuery,
     type PaginationState,
-} from '@/client/utils'
+} from '@/lib/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
