@@ -10,7 +10,7 @@ function RouteComponent() {
     let cursorState = usePaginationState()
     let notifications = useTanstackQuery(api.public.notifications.list, {
         paginationOpts: {
-            numItems: 50,
+            numItems: 25,
             cursor: cursorState.currCursor(),
         },
     })
@@ -21,10 +21,10 @@ function RouteComponent() {
         <div>
             {notifications?.page.map((n) => (
                 <div key={n._id}>
-                    <p>{n._id}</p>
                     <p>
-                        {n.repo.owner}/{n.repo.repo} #{n.resourceNumber} {n.title}
+                        {n.repo.owner}/{n.repo.repo} #{n.resourceNumber}
                     </p>
+                    <p>{n.title}</p>
                 </div>
             ))}
         </div>

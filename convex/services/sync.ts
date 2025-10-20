@@ -222,6 +222,7 @@ export const syncNotifs = workflow.define({
         })
         if (result.isErr) {
             if (result.err.type === 'not-modified') {
+                console.debug(`no new notifications found for userId ${args.userId}`)
                 return
             }
 

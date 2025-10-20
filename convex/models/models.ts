@@ -79,6 +79,14 @@ const issueData = v.object({
     number: v.number(),
     title: v.string(),
     state: v.union(v.literal('open'), v.literal('closed')),
+    stateReason: v.optional(
+        v.union(
+            v.literal('completed'),
+            v.literal('not_planned'),
+            v.literal('duplicate'),
+            v.literal('reopened'),
+        ),
+    ),
     author: possibleGithubUserData,
     createdAt: v.string(),
     updatedAt: v.string(),

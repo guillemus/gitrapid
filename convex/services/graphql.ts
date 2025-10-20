@@ -395,6 +395,7 @@ const IssueNodeSchema = z.object({
     number: z.number(),
     title: z.string(),
     state: z.enum(['OPEN', 'CLOSED']),
+    stateReason: z.enum(['COMPLETED', 'NOT_PLANNED', 'DUPLICATE', 'REOPENED']).nullish(),
     body: z
         .string()
         .nullish()
@@ -464,6 +465,7 @@ let getIssuesWithCommentsQuery = `
                     number
                     title
                     state
+                    stateReason
                     body
                     createdAt
                     updatedAt
@@ -1122,6 +1124,16 @@ type IssueNode = z.infer<typeof IssueNodeSchema>
 
 function issueNodeToIssueDoc(node: IssueNode): Result<IssueData> {
     let state: 'open' | 'closed' = node.state === 'CLOSED' ? 'closed' : 'open'
+    let stateReason
+    if (node.stateReason === 'COMPLETED') {
+        stateReason = 'completed' as const
+    } else if (node.stateReason === 'NOT_PLANNED') {
+        stateReason = 'not_planned' as const
+    } else if (node.stateReason === 'DUPLICATE') {
+        stateReason = 'duplicate' as const
+    } else if (node.stateReason === 'REOPENED') {
+        stateReason = 'reopened' as const
+    }
 
     let author = gqlGithubUserToDbGithubUser(node.author)
 
@@ -1131,6 +1143,7 @@ function issueNodeToIssueDoc(node: IssueNode): Result<IssueData> {
         title: node.title,
         author,
         state,
+        stateReason,
         createdAt: node.createdAt,
         updatedAt: node.updatedAt,
         closedAt: node.closedAt ?? undefined,

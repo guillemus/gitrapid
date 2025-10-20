@@ -75,6 +75,14 @@ const issues = defineTable({
     number: v.number(), // Issue number in the repo
     title: v.string(),
     state: v.union(v.literal('open'), v.literal('closed')),
+    stateReason: v.optional(
+        v.union(
+            v.literal('completed'),
+            v.literal('not_planned'),
+            v.literal('duplicate'),
+            v.literal('reopened'),
+        ),
+    ),
 
     author: possibleGithubUser,
     createdAt: v.string(),
