@@ -1,14 +1,12 @@
-import { vWorkflowId } from '@convex-dev/workflow'
-import { vResultValidator } from '@convex-dev/workpool'
 import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, internalMutation } from '@convex/_generated/server'
+import { action, internalAction, internalMutation, mutation } from '@convex/_generated/server'
 import type { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
 import { assertOk, err, ok, unwrap } from '@convex/shared'
-import { logger, type WCtx } from '@convex/utils'
+import { logger } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -294,58 +292,39 @@ export const startSyncRepoIssues = internalMutation({
         let workflowId = await workflow.start(
             ctx,
             internal.services.sync.syncIssues,
-            { userId: args.userId, repoId: args.repoId, startSyncAt },
-            {
-                startAsync: true,
-                context: {
-                    repoId: args.repoId,
-                    nextSyncAt,
-                } satisfies WCtx<typeof fns.handleSyncIssuesComplete>,
-                onComplete: fns.handleSyncIssuesComplete,
-            },
+            { userId: args.userId, repoId: args.repoId, startSyncAt, nextSyncAt },
+            { startAsync: true },
         )
 
         await Repos.saveIssuesWorkflow.handler(ctx, {
             repoId: args.repoId,
             workflow: {
                 workflowId,
-                nextSyncAt,
+                nextSyncAt: null,
             },
         })
     },
 })
 
-export const handleSyncIssuesComplete = internalMutation({
-    args: {
-        workflowId: vWorkflowId,
-        context: v.object({
-            repoId: v.id('repos'),
-            nextSyncAt: v_nextSyncAt,
-        }),
-        result: vResultValidator,
-    },
-    async handler(ctx, args) {
-        if (args.result.kind === 'success') {
-            await Repos.saveIssuesWorkflow.handler(ctx, {
-                repoId: args.context.repoId,
-                workflow: {
-                    workflowId: args.workflowId,
-                    nextSyncAt: args.context.nextSyncAt,
-                },
-            })
-        }
-    },
-})
-
 export const syncIssues = workflow.define({
-    args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v_nullable(v_nextSyncAt) },
+    args: {
+        userId: v.id('users'),
+        repoId: v.id('repos'),
+        startSyncAt: v_nullable(v_nextSyncAt),
+        nextSyncAt: v_nextSyncAt,
+    },
     async handler(step, args): Promise<void> {
         let hasNewIssues = await step.runAction(fns.hasRepoNewIssues, {
             userId: args.userId,
             repoId: args.repoId,
             startSyncAt: args.startSyncAt,
         })
-        if (hasNewIssues.isErr) return
+        assertOk(hasNewIssues)
+
+        if (!hasNewIssues.val) {
+            logger.debug({ userId: args.userId, repoId: args.repoId }, 'no new issues found')
+            return
+        }
 
         let cursor: string | undefined
         while (true) {
@@ -364,12 +343,17 @@ export const syncIssues = workflow.define({
             if (!next.val.nextCursor) break
             cursor = next.val.nextCursor
         }
+
+        await step.runMutation(internal.models.repos.saveIssuesWorkflow, {
+            repoId: args.repoId,
+            workflow: { workflowId: step.workflowId, nextSyncAt: args.nextSyncAt },
+        })
     },
 })
 
 export const hasRepoNewIssues = internalAction({
     args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v_nullable(v_nextSyncAt) },
-    async handler(ctx, args): R<boolean> {
+    async handler(ctx, args) {
         let octo = await octoFromUserId(ctx, args.userId)
         if (octo.isErr) return octo
 

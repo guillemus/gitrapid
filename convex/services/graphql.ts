@@ -661,7 +661,7 @@ async function fetchIssuesPageGraphQL(
     )
     if (res.isErr) return res
 
-    logger.info(
+    logger.debug(
         {
             cost: res.val.rateLimit.cost,
             used: res.val.rateLimit.used,

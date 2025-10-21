@@ -13,7 +13,17 @@ import { v } from 'convex/values'
 import { fetchGithubUser, type GithubUserDoc } from './issueTimelineItems'
 
 export namespace Issues {
-    export const getByRepoAndNumber = getByRepoAndNumberFn()
+    export const getByRepoAndNumber = {
+        args: { repoId: v.id('repos'), number: v.number() },
+        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
+            return ctx.db
+                .query('issues')
+                .withIndex('by_repo_and_number', (q) =>
+                    q.eq('repoId', args.repoId).eq('number', args.number),
+                )
+                .unique()
+        },
+    }
 
     export const getByRepoAndNumberWithRelations = {
         args: { repoId: v.id('repos'), number: v.number() },
@@ -248,21 +258,7 @@ export namespace Issues {
     }
 }
 
-export const getByRepoAndNumber = internalQuery(getByRepoAndNumberFn())
-function getByRepoAndNumberFn() {
-    return {
-        args: { repoId: v.id('repos'), number: v.number() },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
-            return ctx.db
-                .query('issues')
-                .withIndex('by_repo_and_number', (q) =>
-                    q.eq('repoId', args.repoId).eq('number', args.number),
-                )
-                .unique()
-        },
-    }
-}
-
+export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
 export const listByRepo = internalQuery(Issues.listByRepo)
 export const updateTitle = internalMutation(Issues.updateTitle)
 export const update = internalMutation(Issues.updateIssue)

@@ -13,7 +13,6 @@ import type * as crons from "../crons.js";
 import type * as devonly from "../devonly.js";
 import type * as env from "../env.js";
 import type * as http from "../http.js";
-import type * as localcx from "../localcx.js";
 import type * as migrations from "../migrations.js";
 import type * as models_authAccounts from "../models/authAccounts.js";
 import type * as models_issueBodies from "../models/issueBodies.js";
@@ -58,7 +57,6 @@ declare const fullApi: ApiFromModules<{
   devonly: typeof devonly;
   env: typeof env;
   http: typeof http;
-  localcx: typeof localcx;
   migrations: typeof migrations;
   "models/authAccounts": typeof models_authAccounts;
   "models/issueBodies": typeof models_issueBodies;

@@ -52,8 +52,9 @@ export const Route = createFileRoute('/_app/$owner/$repo/issues/$issue')({
 })
 
 type Data = Exclude<FunctionReturnType<typeof api.public.issues.get>, null>
-type Comments = Data['comments']
-type TimelineItems = Data['timelineItems']
+type ThreadItem = Data['thread'][number]
+type CommentItem = (ThreadItem & { type: 'comment' })['comment']
+type TimelineItem = (ThreadItem & { type: 'timelineItem' })['timelineItem']
 
 function SingleIssuesPage() {
     let { owner, repo, issue: number } = Route.useParams()
@@ -99,11 +100,27 @@ function SingleIssuesPage() {
                             )}
 
                             {/* Timeline items and comments in chronological order */}
-                            {renderTimelineItems(data.timelineItems, data.comments)}
+                            {data.thread.map((item) => {
+                                if (item.type === 'comment') {
+                                    return (
+                                        <CommentItem
+                                            key={item.comment._id}
+                                            comment={item.comment}
+                                        />
+                                    )
+                                } else {
+                                    return (
+                                        <TimelineEvent
+                                            key={item.timelineItem._id}
+                                            event={item.timelineItem}
+                                        />
+                                    )
+                                }
+                            })}
+
+                            <AddCommentBox />
                         </div>
                     </div>
-
-                    <AddCommentBox />
                 </div>
 
                 {/* Sidebar */}
@@ -310,7 +327,7 @@ function EmptyIssueBody(props: { author: GithubUserDoc; createdAt: string }) {
     )
 }
 
-function CommentItem(props: { comment: Comments[number] }) {
+function CommentItem(props: { comment: CommentItem }) {
     return (
         <div className="overflow-hidden rounded-md border">
             <div className="bg-muted/40 flex items-center gap-3 border-b px-4 py-2">
@@ -334,7 +351,7 @@ function CommentItem(props: { comment: Comments[number] }) {
     )
 }
 
-function TimelineEvent(props: { event: TimelineItems[number] }) {
+function TimelineEvent(props: { event: TimelineItem }) {
     return (
         <div className="flex items-center gap-3 text-sm">
             <TimelineEventIcon event={props.event} />
@@ -346,8 +363,8 @@ function TimelineEvent(props: { event: TimelineItems[number] }) {
     )
 }
 
-function TimelineEventIcon({ event }: { event: TimelineItems[number] }) {
-    switch (event.item.type) {
+function TimelineEventIcon(props: { event: TimelineItem }) {
+    switch (props.event.item.type) {
         case 'assigned':
             return <UserPlus className="h-4 w-4" />
         case 'unassigned':
@@ -389,7 +406,7 @@ function sameGithubUser(u1: GithubUserDoc, u2: GithubUserDoc): boolean {
     return u1.githubId === u2.githubId
 }
 
-function TimelineEventDescription(props: { event: TimelineItems[number] }) {
+function TimelineEventDescription(props: { event: TimelineItem }) {
     let t = props.event.item
     let actor = props.event.actor
 
@@ -532,41 +549,6 @@ function TimelineEventDescription(props: { event: TimelineItems[number] }) {
                 </span>
             )
     }
-}
-
-function renderTimelineItems(timelineItems: TimelineItems, comments: Comments) {
-    // Combine timeline items and comments, sort by createdAt
-    let allItems: Array<
-        | {
-              type: 'timeline'
-              item: TimelineItems[number]
-              createdAt: string
-          }
-        | {
-              type: 'comment'
-              item: Comments[number]
-              createdAt: string
-          }
-    > = []
-
-    for (let item of timelineItems) {
-        allItems.push({ type: 'timeline', item, createdAt: item.createdAt })
-    }
-
-    for (let comment of comments) {
-        allItems.push({ type: 'comment', item: comment, createdAt: comment.createdAt })
-    }
-
-    // Sort by creation time (oldest first)
-    allItems.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
-    return allItems.map((item) => {
-        if (item.type === 'timeline') {
-            return <TimelineEvent key={`timeline-${item.item._id}`} event={item.item} />
-        } else {
-            return <CommentItem key={`comment-${item.item._id}`} comment={item.item} />
-        }
-    })
 }
 
 function AddCommentBox() {

@@ -10,7 +10,7 @@ import type { FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
-import { v_etag, v_nextSyncAt } from '../schema'
+import { v_etag, v_nextSyncAt, v_nullable } from '../schema'
 
 export namespace Repos {
     export async function getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -95,7 +95,7 @@ export namespace Repos {
             repoId: v.id('repos'),
             workflow: v.object({
                 workflowId: vWorkflowId,
-                nextSyncAt: v.optional(v_nextSyncAt),
+                nextSyncAt: v_nullable(v_nextSyncAt),
             }),
         },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
@@ -107,7 +107,9 @@ export namespace Repos {
             if (repoWorkflow) {
                 // does not override etag
                 repoWorkflow.issues.workflowId = args.workflow.workflowId
-                repoWorkflow.issues.nextSyncAt = args.workflow.nextSyncAt
+                if (args.workflow.nextSyncAt) {
+                    repoWorkflow.issues.nextSyncAt = args.workflow.nextSyncAt
+                }
 
                 await ctx.db.patch(repoWorkflow._id, repoWorkflow)
                 return
@@ -117,7 +119,7 @@ export namespace Repos {
                 repoId: args.repoId,
                 issues: {
                     workflowId: args.workflow.workflowId,
-                    nextSyncAt: args.workflow.nextSyncAt,
+                    nextSyncAt: args.workflow.nextSyncAt ?? undefined,
                 },
             })
         },
@@ -187,6 +189,7 @@ export namespace Repos {
 
 export const setIssuesWorkflowEtag = internalMutation(Repos.setIssuesWorkflowEtag)
 export const getWorkflow = internalQuery(Repos.getWorkflow)
+export const saveIssuesWorkflow = internalMutation(Repos.saveIssuesWorkflow)
 
 export const get = internalQuery({
     args: { repoId: v.id('repos') },

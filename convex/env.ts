@@ -2,7 +2,9 @@ import { z } from 'zod'
 
 const boolFromString = z
     .string()
+    .optional()
     .transform((s) => {
+        if (!s) return false
         const v = s.trim().toLowerCase()
         return v === 'true'
     })

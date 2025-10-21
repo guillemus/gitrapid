@@ -81,13 +81,30 @@ export const get = query({
         let timelineItems = await IssueTimelineItems.listByIssueId(ctx, issue._id)
         let comments = await IssueComments.listByIssueIdWithRelations(ctx, issue._id)
 
+        let thread = []
+        thread.push(
+            ...comments.map((c) => ({
+                type: 'comment' as const,
+                createdAt: c.createdAt,
+                comment: c,
+            })),
+        )
+        thread.push(
+            ...timelineItems.map((t) => ({
+                type: 'timelineItem' as const,
+                createdAt: t.createdAt,
+                timelineItem: t,
+            })),
+        )
+
+        thread.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
         return {
             issue,
             assignees,
             labels,
             body,
-            timelineItems,
-            comments,
+            thread,
         }
     },
 })
@@ -301,12 +318,11 @@ export const editTitleAction = internalAction({
         })
         if (issue.isErr) {
             logger.error(`octo error: failed to edit issue title: ${issue.err}`)
+            await ctx.runMutation(internal.models.issues.updateTitle, {
+                issueId: args.issueId,
+                title: args.prevTitle,
+            })
             return
         }
-
-        await ctx.runMutation(internal.models.issues.updateTitle, {
-            issueId: args.issueId,
-            title: args.prevTitle,
-        })
     },
 })
