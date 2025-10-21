@@ -1,10 +1,3 @@
-import { qcPersistent } from '@/lib/queryClient'
-import {
-    formatRelativeTime,
-    usePaginationState,
-    useTanstackQuery,
-    type PaginationState,
-} from '@/lib/utils'
 import { GhLabel, GhUser } from '@/components/github'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,6 +8,13 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { qcPersistent } from '@/lib/queryClient'
+import {
+    formatRelativeTime,
+    usePaginationState,
+    useTanstackQuery,
+    type PaginationState,
+} from '@/lib/utils'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import { useHookstate } from '@hookstate/core'

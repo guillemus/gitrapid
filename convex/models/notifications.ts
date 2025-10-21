@@ -11,7 +11,7 @@ export namespace Notifications {
             notifs: v.array(
                 v.object({
                     repoId: v.id('repos'),
-                    type: v.union(v.literal('Issue'), v.literal('PullRequest')),
+                    type: schema.tables.notifications.validator.fields.type,
                     githubId: v.string(),
                     resourceNumber: v.number(),
                     reason: schema.tables.notifications.validator.fields.reason,

@@ -1,4 +1,3 @@
-import { useLogout } from '@/lib/queryClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,9 +7,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useLogout } from '@/lib/queryClient'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Link, useParams, useRouterState } from '@tanstack/react-router'
-import { Bell, Code, GitPullRequest, LayoutDashboard, Settings } from 'lucide-react'
+import { Bell, Code, GitPullRequest, Settings } from 'lucide-react'
 
 export function Header() {
     let isIssues = useRouterState({

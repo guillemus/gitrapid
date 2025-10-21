@@ -110,6 +110,7 @@ export namespace Users {
 export const list = internalQuery(Users.list)
 export const get = internalQuery(Users.get)
 export const getOrCreateGithubUser = internalMutation(Users.getOrCreateGithubUser)
+export const saveNotifWorkflow = internalMutation(Users.saveNotifWorkflow)
 
 export const possibleGithubUserData = v.union(
     v.null(),

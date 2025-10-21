@@ -305,19 +305,14 @@ export namespace Github {
             since?: string
         },
     ) {
+        // the 'if-modified-since' doesn't seem to work, so we can't use it to do
+        // efficient polling.
+
         let pageNum = 0
         let allNotifs = []
         while (true) {
-            let headers: RequestHeaders | undefined
-            if (args?.since) {
-                headers = {
-                    'if-modified-since': args.since,
-                }
-            }
-
             let page = await octoCatch(
                 octo.rest.activity.listNotificationsForAuthenticatedUser({
-                    headers,
                     since: args?.since,
                     all: true,
                     per_page: 100,
@@ -354,11 +349,14 @@ export namespace Github {
                 continue
             }
 
-            let notifType
-            if (notif.subject.type === 'Issue') {
-                notifType = 'Issue' as const
-            } else if (notif.subject.type === 'PullRequest') {
-                notifType = 'PullRequest' as const
+            let notifType: Doc<'notifications'>['type']
+            if (
+                notif.subject.type === 'Issue' ||
+                notif.subject.type === 'PullRequest' ||
+                notif.subject.type === 'Commit' ||
+                notif.subject.type === 'Release'
+            ) {
+                notifType = notif.subject.type
             } else {
                 logger.warn(`invalid subject type: ${notif.subject.type}`)
                 continue
@@ -581,11 +579,10 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
 }
 
 import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
-import type { RequestHeaders } from '@octokit/types'
 import z from 'zod'
 
 export type OctoCatchGqlErrors =

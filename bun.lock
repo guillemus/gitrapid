@@ -11,7 +11,7 @@
         "@convex-dev/auth": "^0.0.90",
         "@convex-dev/migrations": "^0.2.9",
         "@convex-dev/react-query": "0.0.0-alpha.11",
-        "@convex-dev/workflow": "^0.2.6",
+        "@convex-dev/workflow": "^0.2.7",
         "@convex-dev/workpool": "^0.2.18",
         "@edge-runtime/vm": "^5.0.0",
         "@fontsource/geist-sans": "5.2.5",
@@ -190,7 +190,7 @@
 
     "@convex-dev/react-query": ["@convex-dev/react-query@0.0.0-alpha.11", "", { "dependencies": { "@auth/core": "^0.37.0", "@convex-dev/auth": "^0.0.83", "convex-helpers": "^0.1.85" }, "peerDependencies": { "@tanstack/react-query": "^5.0.0", "convex": "^1.24.8" } }, "sha512-Fy/p3JOvUUNrbBBQD0AEXcSU40PBu567gm3XRgExHkiKlv07kBOjnuXA0TvodKkryyuHLbuIxYP8XIv03i6DEw=="],
 
-    "@convex-dev/workflow": ["@convex-dev/workflow@0.2.6", "", { "dependencies": { "async-channel": "^0.2.0" }, "peerDependencies": { "@convex-dev/workpool": "^0.2.17", "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.99" } }, "sha512-jXaRqBHiRKHCbm8kll0+PxlRtHFkmXCVVbKBhuVYLP4/O5Tlxb2teXDKx+pv3hsmcps0uySm5QKSmsp51N1hTw=="],
+    "@convex-dev/workflow": ["@convex-dev/workflow@0.2.7", "", { "dependencies": { "async-channel": "^0.2.0" }, "peerDependencies": { "@convex-dev/workpool": "^0.2.18", "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.99" } }, "sha512-BUVJBKSMEuHNztFBlcmCdlsRwdPqLn2iv72teTrHlkMVKvQj1EhBIflT7asjWBrVy3JUgWiVdUbl58xv5+kXSQ=="],
 
     "@convex-dev/workpool": ["@convex-dev/workpool@0.2.18", "", { "peerDependencies": { "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.94" } }, "sha512-tfRfBCukaRiybxwy4/W3rLWpIRhPivFH9tC5++d0XE1sV627vw2mAwOM9SnpY1k+BWVoNrHrHrxBheklSbuAag=="],
 

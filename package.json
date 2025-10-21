@@ -29,7 +29,7 @@
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/migrations": "^0.2.9",
     "@convex-dev/react-query": "0.0.0-alpha.11",
-    "@convex-dev/workflow": "^0.2.6",
+    "@convex-dev/workflow": "^0.2.7",
     "@convex-dev/workpool": "^0.2.18",
     "@edge-runtime/vm": "^5.0.0",
     "@fontsource/geist-sans": "5.2.5",

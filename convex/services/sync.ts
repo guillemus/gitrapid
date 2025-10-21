@@ -179,44 +179,20 @@ export const startSyncNotifsMutation = internalMutation({
         let workflowId = await workflow.start(
             ctx,
             internal.services.sync.syncNotifs,
-            { userId, startSyncAt },
-            {
-                startAsync: true,
-                onComplete: fns.handleSyncNotifsComplete,
-                context: { userId, nextSyncAt } satisfies WCtx<typeof fns.handleSyncNotifsComplete>,
-            },
+            { userId, startSyncAt, nextSyncAt },
+            { startAsync: true },
         )
 
-        await Users.saveNotifWorkflow.handler(ctx, {
-            userId,
-            workflowId,
-            nextSyncAt: null,
-        })
-    },
-})
-
-export const handleSyncNotifsComplete = internalMutation({
-    args: {
-        workflowId: vWorkflowId,
-        context: v.object({
-            userId: v.id('users'),
-            nextSyncAt: v_nullable(v_nextSyncAt),
-        }),
-        result: vResultValidator,
-    },
-    async handler(ctx, args) {
-        if (args.result.kind === 'success') {
-            await Users.saveNotifWorkflow.handler(ctx, {
-                userId: args.context.userId,
-                workflowId: args.workflowId,
-                nextSyncAt: args.context.nextSyncAt,
-            })
-        }
+        await Users.saveNotifWorkflow.handler(ctx, { userId, workflowId, nextSyncAt: null })
     },
 })
 
 export const syncNotifs = workflow.define({
-    args: { userId: v.id('users'), startSyncAt: v.optional(v.string()) },
+    args: {
+        userId: v.id('users'),
+        startSyncAt: v.optional(v_nextSyncAt),
+        nextSyncAt: v_nextSyncAt,
+    },
     async handler(step, args) {
         let result = await step.runAction(internal.services.sync.downloadNotifications, {
             userId: args.userId,
@@ -232,6 +208,12 @@ export const syncNotifs = workflow.define({
             unwrap(result)
             return
         }
+
+        await step.runMutation(internal.models.users.saveNotifWorkflow, {
+            userId: args.userId,
+            workflowId: step.workflowId,
+            nextSyncAt: args.nextSyncAt,
+        })
     },
 })
 
@@ -288,7 +270,7 @@ export const downloadNotifications = internalAction({
             })
         }
 
-        return ok()
+        return ok({ totalFound: notifs.val.length })
     },
 })
 

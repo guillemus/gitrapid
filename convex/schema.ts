@@ -255,7 +255,12 @@ const notificationReasons = v.union(
 const notifications = defineTable({
     userId: v.id('users'),
     repoId: v.id('repos'),
-    type: v.union(v.literal('Issue'), v.literal('PullRequest')),
+    type: v.union(
+        v.literal('Issue'),
+        v.literal('PullRequest'),
+        v.literal('Commit'),
+        v.literal('Release'),
+    ),
     // github id corresponds to the notification.id field
     githubId: v.string(),
     // for either issue or pr, this is the number field
