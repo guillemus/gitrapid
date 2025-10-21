@@ -161,7 +161,9 @@ const NOTIFS_BATCH_SIZE = 100
 
 export const startSyncNotifsMutation = internalMutation({
     args: { userId: v.id('users') },
-    async handler(ctx, { userId }) {
+    async handler(ctx, args) {
+        let userId = args.userId
+
         let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
         if (!shouldSync) return
 

@@ -83,7 +83,6 @@ const issues = defineTable({
             v.literal('reopened'),
         ),
     ),
-
     author: possibleGithubUser,
     createdAt: v.string(),
     updatedAt: v.string(),
