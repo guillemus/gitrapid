@@ -113,7 +113,7 @@ function NotificationRow({
 
                 <div className="min-w-0 flex-1">
                     <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1">
                             <h3 className="truncate text-sm font-medium text-gray-900">
                                 {notification.title}
                             </h3>
@@ -158,14 +158,6 @@ function RouteComponent() {
     return (
         <div className="min-h-screen bg-white">
             <div className="mx-auto max-w-4xl px-4 py-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-                    <p className="mt-2 text-gray-600">
-                        {isEmpty ? 'No notifications' : `Showing your notifications`}
-                    </p>
-                </div>
-
                 {/* Notifications List */}
                 {isEmpty ? (
                     <Card className="border-gray-200 p-12 text-center">

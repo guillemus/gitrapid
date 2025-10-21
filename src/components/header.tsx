@@ -13,9 +13,12 @@ import { Link, useParams, useRouterState } from '@tanstack/react-router'
 import { Bell, Code, GitPullRequest, Settings } from 'lucide-react'
 
 export function Header() {
-    let isIssues = useRouterState({
-        select: (state) => state.location.pathname.includes('/issues'),
+    let pathname = useRouterState({
+        select: (state) => state.location.pathname,
     })
+
+    let isIssues = pathname.includes('/issues')
+    let isNotifications = pathname.includes('/notifications')
 
     let { owner, repo } = useParams({ strict: false })
     let logout = useLogout()
@@ -30,6 +33,9 @@ export function Header() {
                                 <Code className="h-4 w-4" />
                             </Link>
                         </div>
+                        {isNotifications && (
+                            <div className="text-sm font-medium">Notifications</div>
+                        )}
                         {owner && repo && (
                             <>
                                 <div className="flex items-center space-x-1">
