@@ -1,5 +1,5 @@
 import { internal } from '@convex/_generated/api'
-import { internalAction, mutation, query } from '@convex/_generated/server'
+import { internalAction } from '@convex/_generated/server'
 import { IssueBodies } from '@convex/models/issueBodies'
 import { IssueComments } from '@convex/models/issueComments'
 import { Issues } from '@convex/models/issues'
@@ -7,12 +7,12 @@ import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { Auth, canUserCommentOnRepo } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger } from '@convex/utils'
+import { logger, publicMutation, publicQuery } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
-export const list = query({
+export const list = publicQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
@@ -23,7 +23,12 @@ export const list = query({
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
-        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(
+            ctx,
+            ctx.userId,
+            args.owner,
+            args.repo,
+        )
         assert(!user.isErr, 'failed to get user with token')
 
         let savedRepo = user.val.userRepo
@@ -42,7 +47,7 @@ export const list = query({
     },
 })
 
-export const getById = query({
+export const getById = publicQuery({
     args: {
         issueId: v.id('issues'),
     },
@@ -51,16 +56,15 @@ export const getById = query({
     },
 })
 
-export const get = query({
+export const get = publicQuery({
     args: {
         owner: v.string(),
         repo: v.string(),
         number: v.number(),
     },
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
         let userRepo = await Auth.getUserAssociatedRepo.handler(ctx, {
-            userId,
+            userId: ctx.userId,
             owner: args.owner,
             repo: args.repo,
         })
@@ -116,10 +120,15 @@ let createArgs = v.object({
     body: v.string(),
 })
 
-export const create = mutation({
+export const create = publicMutation({
     args: createArgs,
     async handler(ctx, args) {
-        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(
+            ctx,
+            ctx.userId,
+            args.owner,
+            args.repo,
+        )
         if (user.isErr) {
             return wrap('Failed to get user with token', user)
         }
@@ -191,10 +200,15 @@ let addCommentArgs = v.object({
     comment: v.string(),
 })
 
-export const addComment = mutation({
+export const addComment = publicMutation({
     args: addCommentArgs,
     async handler(ctx, args) {
-        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(
+            ctx,
+            ctx.userId,
+            args.owner,
+            args.repo,
+        )
         assert(!user.isErr, 'failed to get user with token')
 
         let savedRepo = user.val.userRepo
@@ -268,10 +282,15 @@ let editTitleArgs = v.object({
     newTitle: v.string(),
 })
 
-export const editTitle = mutation({
+export const editTitle = publicMutation({
     args: editTitleArgs,
     async handler(ctx, args) {
-        let user = await Auth.getUserWithTokenAndAssociatedRepo(ctx, args.owner, args.repo)
+        let user = await Auth.getUserWithTokenAndAssociatedRepo(
+            ctx,
+            ctx.userId,
+            args.owner,
+            args.repo,
+        )
         if (user.isErr) {
             return wrap('Failed to get user with token', user)
         }

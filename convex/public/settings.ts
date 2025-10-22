@@ -6,14 +6,14 @@ import schema, { v_tokenScopes } from '@convex/schema'
 import { Auth } from '@convex/services/auth'
 import { Github } from '@convex/services/github'
 import { ok, wrap } from '@convex/shared'
+import { publicAction, publicMutation, publicQuery } from '@convex/utils'
 import { doc } from 'convex-helpers/validators'
 import { v } from 'convex/values'
 
-export const get = query({
+export const get = publicQuery({
     args: {},
     async handler(ctx) {
-        let userId = await Auth.getUserId(ctx)
-        let pat = await PATs.getByUserId.handler(ctx, { userId })
+        let pat = await PATs.getByUserId.handler(ctx, { userId: ctx.userId })
         if (!pat) return 'PAT_NOT_SET'
 
         return {
@@ -60,14 +60,12 @@ export const handleCorrectPATAddition = internalMutation({
     },
 })
 
-export const savePAT = action({
+export const savePAT = publicAction({
     args: {
         token: v.string(),
         scopes: doc(schema, 'pats').fields.scopes,
     },
     async handler(ctx, { token, scopes }): R {
-        let userId = await Auth.getUserId(ctx)
-
         let res = await Github.getUserAndTokenExpiration({ token })
         if (res.isErr) {
             return wrap('Failed to validate token', res)
@@ -80,23 +78,24 @@ export const savePAT = action({
         })
         await ctx.runMutation(internal.models.pats.upsertForUser, {
             githubUser: githubUserId,
-            userId,
+            userId: ctx.userId,
             token,
             scopes,
             expiresAt: res.val.expiration.toISOString(),
         })
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncNotifs, { userId })
+        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncNotifs, {
+            userId: ctx.userId,
+        })
 
         return ok()
     },
 })
 
-export const deletePAT = mutation({
+export const deletePAT = publicMutation({
     args: {},
     async handler(ctx) {
-        let userId = await Auth.getUserId(ctx)
-        let pat = await PATs.getByUserId.handler(ctx, { userId })
+        let pat = await PATs.getByUserId.handler(ctx, { userId: ctx.userId })
 
         if (pat) {
             await ctx.db.delete(pat._id)

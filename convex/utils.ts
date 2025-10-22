@@ -1,4 +1,4 @@
-import { customMutation, customQuery } from 'convex-helpers/server/customFunctions'
+import { customAction, customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import type {
     DefaultArgsForOptionalValidator,
     FunctionArgs,
@@ -7,9 +7,10 @@ import type {
 import type { PropertyValidators } from 'convex/values'
 import pino from 'pino'
 import { z } from 'zod'
-import { mutation, query } from './_generated/server'
+import { action, mutation, query } from './_generated/server'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
+import { Auth } from './services/auth'
 
 export const logger = createLogger()
 
@@ -69,5 +70,38 @@ export const devOnlyMutation = customMutation(mutation, {
         if (!appEnv.DEV) throw new Error('dev only')
 
         return { ctx, args }
+    },
+})
+
+export const publicQuery = customQuery(query, {
+    args: {},
+    async input(ctx, args) {
+        let userId = await Auth.getUserId(ctx)
+        return {
+            ctx: { ...ctx, userId },
+            args,
+        }
+    },
+})
+
+export const publicMutation = customMutation(mutation, {
+    args: {},
+    async input(ctx, args) {
+        let userId = await Auth.getUserId(ctx)
+        return {
+            ctx: { ...ctx, userId },
+            args,
+        }
+    },
+})
+
+export const publicAction = customAction(action, {
+    args: {},
+    async input(ctx, args) {
+        let userId = await Auth.getUserId(ctx)
+        return {
+            ctx: { ...ctx, userId },
+            args,
+        }
     },
 })

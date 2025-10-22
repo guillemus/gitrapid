@@ -42,10 +42,10 @@ export namespace Auth {
 
     export async function getUserWithTokenAndAssociatedRepo(
         ctx: QueryCtx,
+        userId: Id<'users'>,
         owner: string,
         repo: string,
     ) {
-        let userId = await getUserId(ctx)
         let pat = await PATs.getByUserId.handler(ctx, { userId })
         if (!pat) return err('PAT_NOT_FOUND')
         if (new Date(pat.expiresAt) < new Date()) return err('PAT_EXPIRED')

@@ -1,18 +1,15 @@
-import { query } from '@convex/_generated/server'
-import { Auth } from '@convex/services/auth'
+import { publicQuery } from '@convex/utils'
 import { asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 
-export const list = query({
+export const list = publicQuery({
     args: {
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-
         let page = await ctx.db
             .query('notifications')
-            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', ctx.userId))
             .order('desc')
             .paginate(args.paginationOpts)
 

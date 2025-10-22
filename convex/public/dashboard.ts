@@ -1,20 +1,19 @@
 import { internal } from '@convex/_generated/api'
-import { action, internalMutation, mutation, query } from '@convex/_generated/server'
+import { internalMutation } from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
-import { Auth, getTokenFromUserId } from '@convex/services/auth'
+import { getTokenFromUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
-import { logger } from '@convex/utils'
+import { logger, publicAction, publicMutation, publicQuery } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 
-export const get = query({
+export const get = publicQuery({
     args: {},
     async handler(ctx) {
-        let userId = await Auth.getUserId(ctx)
-        let userRepos = await UserRepos.getUserRepoIds(ctx, userId)
+        let userRepos = await UserRepos.getUserRepoIds(ctx, ctx.userId)
 
         let repoIds = userRepos.map((ur) => ur.repoId)
         let repos = await Promise.all(repoIds.map((id) => ctx.db.get(id)))
@@ -29,16 +28,15 @@ export type FoundRepo = {
     description: string
 }
 
-export const addRepo = action({
+export const addRepo = publicAction({
     args: {
         githubUrl: v.string(),
     },
 
     async handler(ctx, args): R {
-        let userId = await Auth.getUserId(ctx)
-        let token = await getTokenFromUserId(ctx, userId)
+        let token = await getTokenFromUserId(ctx, ctx.userId)
         if (token.isErr) {
-            logger.error(`failed to get token for user ${userId}: ${token.err}`)
+            logger.error(`failed to get token for user ${ctx.userId}: ${token.err}`)
             return err('failed to get token')
         }
 
@@ -46,7 +44,7 @@ export const addRepo = action({
 
         let parsed = parseGithubUrl(args.githubUrl)
         if (parsed.isErr) {
-            logger.error(`failed to parse github url for user ${userId}: ${parsed.err}`)
+            logger.error(`failed to parse github url for user ${ctx.userId}: ${parsed.err}`)
             return wrap('failed to parse github url', parsed)
         }
 
@@ -55,7 +53,7 @@ export const addRepo = action({
         let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
         if (repoData.isErr) {
             let errmsg = octoCatch.errToString(repoData)
-            logger.error(`failed to get repo data for user ${userId}: ${errmsg}`)
+            logger.error(`failed to get repo data for user ${ctx.userId}: ${errmsg}`)
             return err('failed to get repo data')
         }
 
@@ -68,13 +66,13 @@ export const addRepo = action({
             // insert user repo
             await ctx.runMutation(internal.models.userRepos.insertIfNotExists, {
                 repoId: savedRepo._id,
-                userId,
+                userId: ctx.userId,
             })
 
             repoId = savedRepo._id
         } else {
             repoId = await ctx.runMutation(internal.models.repos.upsertRepoForUser, {
-                userId,
+                userId: ctx.userId,
                 owner,
                 repo,
                 private: repoData.val.private,
@@ -82,7 +80,7 @@ export const addRepo = action({
         }
 
         await ctx.scheduler.runAfter(0, internal.services.sync.startSyncRepoIssues, {
-            userId,
+            userId: ctx.userId,
             repoId,
         })
 
@@ -128,15 +126,13 @@ export const saveNewRepo = internalMutation({
     },
 })
 
-export const removeRepo = mutation({
+export const removeRepo = publicMutation({
     args: {
         repoId: v.id('repos'),
     },
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-
         // Find and delete the userRepo association
-        let userRepos = await UserRepos.getUserRepoIds(ctx, userId)
+        let userRepos = await UserRepos.getUserRepoIds(ctx, ctx.userId)
         let userRepo = userRepos.find((ur) => ur.repoId === args.repoId)
         if (!userRepo) {
             throw new Error('not authorized to this repo')
@@ -147,13 +143,12 @@ export const removeRepo = mutation({
     },
 })
 
-export const getDownloadStatus = query({
+export const getDownloadStatus = publicQuery({
     args: {
         repoId: v.id('repos'),
     },
     async handler(ctx, args) {
-        let userId = await Auth.getUserId(ctx)
-        let userRepo = await UserRepos.userHasRepo(ctx, userId, args.repoId)
+        let userRepo = await UserRepos.userHasRepo(ctx, ctx.userId, args.repoId)
         assert(userRepo, 'not authorized to this repo')
 
         let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
