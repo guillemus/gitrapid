@@ -1,6 +1,6 @@
 import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { action, internalAction, internalMutation, mutation } from '@convex/_generated/server'
+import { internalAction, internalMutation } from '@convex/_generated/server'
 import type { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'

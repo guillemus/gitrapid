@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"CONVEX,ASTRO \" \"bun cx\" \"bun astro:dev\"",
+    "dev": "concurrently -c \"cyan.bold,green.bold\" -n \"CONVEX,ASTRO \" \"bun cx\" \"bun ui\"",
     "cx": "convex dev --typecheck disable",
     "ts": "tsgo --watch",
     "build": "astro build",
@@ -14,7 +14,7 @@
     "scripts:debug": "bun tsx --inspect scripts/scripts.ts",
     "truncate": "bun run scripts/cmd/truncate.ts",
     "data": "bun run scripts/cmd/data.ts",
-    "astro:dev": "astro dev --port 3000",
+    "ui": "astro dev --port 3000",
     "astro": "astro",
     "vitest": "vitest run --test-timeout=0 --no-file-parallelism",
     "vitest:debug": "vitest run --test-timeout=0 --inspect --inspect-brk --no-file-parallelism",

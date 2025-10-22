@@ -87,8 +87,8 @@ function NotificationRow({
     let navigate = useNavigate()
     let reasonColors = getReasonBadgeColor(notification.reason)
 
-    function handleClick() {
-        navigate({
+    async function handleClick() {
+        await navigate({
             to: '/$owner/$repo/issues/$issue',
             params: {
                 owner: notification.repo.owner,

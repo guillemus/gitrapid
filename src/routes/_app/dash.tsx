@@ -15,10 +15,10 @@ import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 
 export const Route = createFileRoute('/_app/dash')({
-    component: DashboardPage,
     loader: () => {
         void qcPersistent.prefetchQuery(convexQuery(api.public.dashboard.get, {}))
     },
+    component: DashboardPage,
 })
 
 function DashboardPage() {

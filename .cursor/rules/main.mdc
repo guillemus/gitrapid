@@ -32,6 +32,5 @@ We must **never** use the TypeScript `any` type or the `as any` cast anywhere in
 
 # commands
 
-- use `bun format` to format code. Formatting will cleanup unused imports, use this before checking types or running linter commands.
+- use `bun fl` to format and lint code. Use this before checking types.
 - use `bun tsgo` to check typescript types.
-- use `bun lint` to run the linter.
