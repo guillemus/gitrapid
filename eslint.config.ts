@@ -25,7 +25,11 @@ export default defineConfig([
         rules: {
             '@typescript-eslint/strict-boolean-expressions': [
                 'error',
-                { allowNullableBoolean: true },
+                {
+                    allowNullableBoolean: true,
+                    allowNullableString: true,
+                    allowNullableNumber: true,
+                },
             ],
         },
     },

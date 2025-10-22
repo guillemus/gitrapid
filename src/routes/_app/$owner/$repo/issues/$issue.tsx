@@ -131,7 +131,7 @@ function SingleIssuesPage() {
                         {/* Assignees */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Assignees</div>
-                            {data.assignees && data.assignees.length > 0 ? (
+                            {(data.assignees?.length ?? 0) > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {data.assignees.map((assignee, index) => (
                                         <div key={index} className="flex items-center gap-2">
@@ -151,7 +151,7 @@ function SingleIssuesPage() {
                         {/* Labels */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Labels</div>
-                            {data.labels && data.labels.length > 0 ? (
+                            {(data.labels?.length ?? 0) > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {data.labels.map((label) => (
                                         <GhLabel key={label._id} label={label} />
@@ -402,8 +402,8 @@ function TimelineEventIcon(props: { event: TimelineItem }) {
 }
 
 function sameGithubUser(u1: GithubUserDoc, u2: GithubUserDoc): boolean {
-    if (!u1 || u1 === 'github-actions') return false
-    if (!u2 || u2 === 'github-actions') return false
+    if (u1 === null || u1 === 'github-actions') return false
+    if (u2 === null || u2 === 'github-actions') return false
 
     return u1.githubId === u2.githubId
 }

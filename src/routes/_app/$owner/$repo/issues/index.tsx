@@ -409,7 +409,7 @@ function OpenIssuesButton(props: { cursorState: PaginationState; totalIssues?: n
             }}
         >
             <AlertCircle className="h-4 w-4" />
-            {props.totalIssues ? `${props.totalIssues} Open` : '... Open'}
+            {(props.totalIssues ?? 0) > 0 ? `${props.totalIssues} Open` : '... Open'}
         </Button>
     )
 }
@@ -432,7 +432,7 @@ function ClosedIssuesButton(props: { cursorState: PaginationState; totalIssues?:
             }}
         >
             <CheckCircle className="h-4 w-4" />
-            {props.totalIssues ? `${props.totalIssues} Closed` : '... Closed'}
+            {(props.totalIssues ?? 0) > 0 ? `${props.totalIssues} Closed` : '... Closed'}
         </Button>
     )
 }

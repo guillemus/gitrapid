@@ -158,10 +158,7 @@ function Repository(props: { repo: Doc<'repos'> }) {
     async function handleRemoveRepo() {
         if (confirm('Are you sure you want to remove this repository?')) {
             setIsRemoving(true)
-            let result = await removeRepo({ repoId: props.repo._id })
-            if (result) {
-                alert('Failed to remove repository: ' + result)
-            }
+            await removeRepo({ repoId: props.repo._id })
             setIsRemoving(false)
         }
     }

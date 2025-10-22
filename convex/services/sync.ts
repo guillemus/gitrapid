@@ -16,13 +16,6 @@ import { Graphql } from './graphql'
 
 let fns = internal.services.sync
 
-// @ts-expect-error: there are logic errors on the return values of the should sync x handler calls
-
-// Listing data reference:
-// https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
-// https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
-// https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
-
 export namespace Crons {
     export const repoIssues = {
         args: {
@@ -33,7 +26,7 @@ export namespace Crons {
 
             for (let repo of repos.page) {
                 let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: repo._id })
-                if (!shouldSync) continue
+                if (shouldSync.isErr) continue
 
                 let userRepos = await ctx.db
                     .query('userRepos')
@@ -102,7 +95,7 @@ export namespace Workflows {
         },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: args.repoId })
-            if (!shouldSync) {
+            if (shouldSync.isErr) {
                 logger.debug({ userId: args.userId, repoId: args.repoId }, 'skipping sync issues')
                 return
             }

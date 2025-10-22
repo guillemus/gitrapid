@@ -1,6 +1,6 @@
 import { logger, parseDate } from '@convex/utils'
 import { Octokit, RequestError } from 'octokit'
-import { err, ok, tryCatch, wrap, type Err, type Result } from '../shared'
+import { err, O, ok, tryCatch, wrap, type Err, type Result } from '../shared'
 
 /**
  * Octokit for some reason accepts auth as any. This is bad, and I've been
@@ -51,7 +51,7 @@ export namespace Github {
         if (res.isErr) return wrap('failed to get token expiration', res)
 
         let expirationHeader = res.val.headers['github-authentication-token-expiration']
-        if (!expirationHeader) {
+        if (expirationHeader === undefined || expirationHeader === '') {
             return err('no expiration header found in response')
         }
 
@@ -248,8 +248,8 @@ export namespace Github {
             return err(octoCatch.errToString(res))
         }
 
+        if (!res.val.headers.etag) return ok({ hasUpdates: true })
         let newEtag = res.val.headers.etag as Etag
-        if (!newEtag) return ok({ hasUpdates: true })
 
         return ok({
             hasUpdates: res.val.data.length !== 0,
@@ -388,35 +388,6 @@ export namespace Github {
 
         return ok(mapped)
     }
-
-    export async function checkForNotifUpdates(octo: Octokit, prevEtag: Etag): R<PollResult> {
-        let headers: Record<string, string> = {}
-        if (prevEtag) {
-            headers['If-None-Match'] = prevEtag
-        }
-
-        let res = await octoCatchFull(
-            octo.rest.activity.listNotificationsForAuthenticatedUser({
-                headers,
-            }),
-        )
-        if (res.isErr) {
-            if (res.err.type === 'octo-error') {
-                if (res.err.err.response?.status === 304) {
-                    return ok({
-                        hasUpdates: false,
-                        newEtag: prevEtag,
-                    })
-                }
-            }
-            return err(octoCatch.errToString(res))
-        }
-
-        let newEtag = res.val.headers.etag
-        if (!newEtag) return ok({ hasUpdates: true, newEtag: prevEtag })
-
-        return ok({ hasUpdates: true, newEtag: newEtag as Etag })
-    }
 }
 
 export function parseGithubUrl(raw: string): Result<{ owner: string; repo: string }> {
@@ -468,7 +439,7 @@ function tryErrToString(error: unknown): string {
     // that it is an error
     let msg: unknown = error?.message
 
-    if (msg && typeof msg === 'string') {
+    if (typeof msg === 'string') {
         return msg
     }
     try {
@@ -542,9 +513,12 @@ function isOctoRateLimitErr(
 ): { isRateLimitErr: true; retryAfterSecs?: number } | { isRateLimitErr: false } {
     if (error.status === 403 || error.status === 429) {
         let retryAfterSecs: number | undefined
-        let retryAfterHeader =
-            error.request.headers['retry-after'] || error.request.headers['Retry-After']
-        if (retryAfterHeader) {
+        let retryAfterHeader = error.request.headers['retry-after']
+        if (typeof retryAfterHeader !== 'string') {
+            retryAfterHeader = error.request.headers['Retry-After']
+        }
+
+        if (typeof retryAfterHeader === 'string') {
             if (typeof retryAfterHeader === 'string') {
                 let parsed = parseInt(retryAfterHeader)
                 if (!Number.isNaN(parsed)) {
@@ -597,8 +571,8 @@ export async function octoCatchGql<T>(promise: Promise<T>): R<T, OctoCatchGqlErr
     } catch (error) {
         if (error instanceof GraphqlResponseError) {
             let rateLimitErr = isGraphqlRateLimitError(error)
-            if (rateLimitErr) {
-                return err({ type: 'rate-limit-error', err: rateLimitErr })
+            if (rateLimitErr.isSome) {
+                return err({ type: 'rate-limit-error', err: rateLimitErr.val })
             }
 
             return err({ type: 'gql-error', err: error })
@@ -621,47 +595,43 @@ export type GraphqlRateLimitError = {
 // https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
 let rateLimitErr: GraphqlRateLimitError = { retryAfterSecs: 60 }
 
-function isGraphqlRateLimitError(
-    err: GraphqlResponseError<unknown>,
-): false | GraphqlRateLimitError {
+function isGraphqlRateLimitError(err: GraphqlResponseError<unknown>): O<GraphqlRateLimitError> {
     let retryAfter = err.headers['retry-after']
-    if (!retryAfter) {
+    if (typeof retryAfter !== 'string') {
         retryAfter = err.headers['Retry-After']
     }
 
     const status = err.headers.status
 
     if (status === '403' || status === '429') {
-        if (retryAfter) {
-            if (typeof retryAfter === 'string') {
-                let retryAfterSecs = parseInt(retryAfter)
-                if (Number.isNaN(retryAfterSecs)) {
-                    return rateLimitErr
-                }
-
-                return { retryAfterSecs }
+        if (typeof retryAfter === 'string') {
+            let retryAfterSecs = parseInt(retryAfter)
+            if (Number.isNaN(retryAfterSecs)) {
+                return O.some(rateLimitErr)
             }
 
-            if (typeof retryAfter === 'number') {
-                return { retryAfterSecs: retryAfter }
-            }
+            return O.some({ retryAfterSecs })
         }
 
-        return rateLimitErr
+        if (typeof retryAfter === 'number') {
+            return O.some({ retryAfterSecs: retryAfter })
+        }
+
+        return O.none()
     }
 
     if (err.errors) {
         for (let error of err.errors) {
             if (error.type === 'RATE_LIMITED') {
-                return rateLimitErr
+                return O.some(rateLimitErr)
             }
             if (includesRateLimitMessage(error.message)) {
-                return rateLimitErr
+                return O.some(rateLimitErr)
             }
         }
     }
 
-    return false
+    return O.none()
 }
 
 function includesRateLimitMessage(message: string): boolean {

@@ -60,7 +60,7 @@ function getReasonBadgeColor(reason: NotificationReason) {
         subscribed: { bg: 'bg-gray-100', text: 'text-gray-700' },
         team_mention: { bg: 'bg-purple-100', text: 'text-purple-700' },
     }
-    return reasonMap[reason] || { bg: 'bg-gray-100', text: 'text-gray-700' }
+    return reasonMap[reason] ?? { bg: 'bg-gray-100', text: 'text-gray-700' }
 }
 
 function formatReason(reason: NotificationReason) {

@@ -136,7 +136,7 @@ export function useClickOutside(onclickOutside: () => void) {
 
 export function useDefined<T>(t?: T) {
     let ref = useRef(t)
-    if (t) {
+    if (t !== undefined) {
         ref.current = t
     }
 
