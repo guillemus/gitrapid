@@ -222,7 +222,10 @@ function CreateTokenCard() {
                                                     .includes(option.scope)}
                                                 disabled={isRequired}
                                                 onCheckedChange={(checked) =>
-                                                    handleScopeChange(option.scope, !!checked)
+                                                    handleScopeChange(
+                                                        option.scope,
+                                                        checked === true,
+                                                    )
                                                 }
                                             />
                                         </div>
@@ -339,7 +342,7 @@ function SettingsPage() {
         state.tokenInput.set('')
     }
 
-    if (!page) return null // loading page
+    if (page === undefined) return null // loading page
 
     if (page === 'PAT_NOT_SET') {
         return (

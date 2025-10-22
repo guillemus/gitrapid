@@ -6,6 +6,7 @@ import {
     type QueryCtx,
 } from '@convex/_generated/server'
 import { v_nextSyncAt, v_nullable, type PossibleGithubUser } from '@convex/schema'
+import { err, ok } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { v, type Infer } from 'convex/values'
@@ -56,7 +57,7 @@ export namespace Users {
         args: { userId: v.id('users') },
         async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
             let pat = await PATs.getByUserId.handler(ctx, { userId: args.userId })
-            if (!pat) return false
+            if (!pat) return err('pat not found')
 
             let userWorkflow = await ctx.db
                 .query('userWorkflows')
@@ -65,12 +66,12 @@ export namespace Users {
 
             // if no userWorkflow found we can assume that nothing is being run,
             // safe to assume that we can start a sync
-            if (!userWorkflow) return true
+            if (!userWorkflow) return ok()
 
             let wStatus = await workflow.status(ctx, userWorkflow.syncNotifications.workflowId)
-            if (wStatus.type === 'inProgress') return false
+            if (wStatus.type === 'inProgress') return err('workflow in progress')
 
-            return true
+            return ok()
         },
     }
 

@@ -1,3 +1,4 @@
+import { customMutation, customQuery } from 'convex-helpers/server/customFunctions'
 import type {
     DefaultArgsForOptionalValidator,
     FunctionArgs,
@@ -6,6 +7,7 @@ import type {
 import type { PropertyValidators } from 'convex/values'
 import pino from 'pino'
 import { z } from 'zod'
+import { mutation, query } from './_generated/server'
 import { appEnv } from './env'
 import { err, ok, type Result } from './shared'
 
@@ -51,3 +53,21 @@ export type FnArgs<T extends { args: PropertyValidators }> = DefaultArgsForOptio
 >[0]
 
 export type WCtx<FuncRef extends FunctionReference<any, any>> = FunctionArgs<FuncRef>['context']
+
+export const devOnlyQuery = customQuery(query, {
+    args: {},
+    async input(ctx, args) {
+        if (!appEnv.DEV) throw new Error('dev only')
+
+        return { ctx, args }
+    },
+})
+
+export const devOnlyMutation = customMutation(mutation, {
+    args: {},
+    async input(ctx, args) {
+        if (!appEnv.DEV) throw new Error('dev only')
+
+        return { ctx, args }
+    },
+})

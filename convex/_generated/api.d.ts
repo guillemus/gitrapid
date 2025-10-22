@@ -10,7 +10,6 @@
 
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
-import type * as devonly from "../devonly.js";
 import type * as env from "../env.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
@@ -54,7 +53,6 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
-  devonly: typeof devonly;
   env: typeof env;
   http: typeof http;
   migrations: typeof migrations;

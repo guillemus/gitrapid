@@ -6,6 +6,7 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
+import { err, ok } from '@convex/shared'
 import type { FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
@@ -70,12 +71,12 @@ export namespace Repos {
                 .query('repoWorkflows')
                 .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
                 .unique()
-            if (!repoWorkflow) return true
+            if (!repoWorkflow) return ok()
 
             let wStatus = await workflow.status(ctx, repoWorkflow.issues.workflowId)
-            if (wStatus.type === 'inProgress') return false
+            if (wStatus.type === 'inProgress') return err('workflow in progress')
 
-            return true
+            return ok()
         },
     }
 

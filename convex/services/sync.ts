@@ -6,7 +6,7 @@ import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
 import { assertOk, err, ok, unwrap } from '@convex/shared'
-import { logger, type FnArgs } from '@convex/utils'
+import { devOnlyMutation, logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -15,6 +15,8 @@ import { Github, newOctokit, octoFromUserId } from './github'
 import { Graphql } from './graphql'
 
 let fns = internal.services.sync
+
+// @ts-expect-error: there are logic errors on the return values of the should sync x handler calls
 
 // Listing data reference:
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-commits
@@ -178,8 +180,8 @@ export namespace Workflows {
             let userId = args.userId
 
             let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
-            if (!shouldSync) {
-                logger.debug({ userId }, 'skipping sync notifs')
+            if (shouldSync.isErr) {
+                logger.debug({ userId, error: shouldSync.err }, 'skipping sync notifs')
                 return
             }
 
@@ -216,7 +218,7 @@ export namespace Workflows {
             })
             if (result.isErr) {
                 if (result.err.type === 'not-modified') {
-                    console.debug(`no new notifications found for userId ${args.userId}`)
+                    console.info(`no new notifications found for userId ${args.userId}`)
                     return
                 }
 
@@ -235,8 +237,11 @@ export namespace Workflows {
 }
 
 export const startSyncRepoIssues = internalMutation(Workflows.startSyncRepoIssues)
+export const startSyncRepoIssuesDev = devOnlyMutation(Workflows.startSyncRepoIssues)
 export const syncIssues = Workflows.syncRepoIssues
+
 export const startSyncNotifs = internalMutation(Workflows.startSyncNotifs)
+export const startSyncNotifsDev = devOnlyMutation(Workflows.startSyncNotifs)
 export const syncNotifs = Workflows.syncNotifs
 
 const TOTAL_FETCHES_PER_CALL = 10
