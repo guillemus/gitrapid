@@ -33,8 +33,10 @@ const search = z.object({
 
 export const Route = createFileRoute('/_app/settings')({
     validateSearch: (s) => search.parse(s),
-    loader: () => {
-        void qcPersistent.prefetchQuery(convexQuery(api.public.settings.get, {}))
+    loader: (opts) => {
+        if (opts.preload) {
+            void qcPersistent.prefetchQuery(convexQuery(api.public.settings.get, {}))
+        }
     },
     component: SettingsPage,
 })
