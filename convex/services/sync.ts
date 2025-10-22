@@ -1,12 +1,12 @@
 import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, internalMutation } from '@convex/_generated/server'
+import { internalAction, internalMutation, type MutationCtx } from '@convex/_generated/server'
 import type { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
 import { assertOk, err, ok, unwrap } from '@convex/shared'
-import { logger } from '@convex/utils'
+import { logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -21,71 +21,223 @@ let fns = internal.services.sync
 // https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#list-matching-references
 // https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28&search-overlay-input=heads#list-repository-issues
 
-export const cronRepoIssues = internalMutation({
-    args: {
-        paginationOpts: paginationOptsValidator,
-    },
-    async handler(ctx, args) {
-        let repos = await ctx.db.query('repos').paginate(args.paginationOpts)
+export namespace Crons {
+    export const repoIssues = {
+        args: {
+            paginationOpts: paginationOptsValidator,
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let repos = await ctx.db.query('repos').paginate(args.paginationOpts)
 
-        for (let repo of repos.page) {
-            let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: repo._id })
-            if (!shouldSync) continue
+            for (let repo of repos.page) {
+                let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: repo._id })
+                if (!shouldSync) continue
 
-            let userRepos = await ctx.db
-                .query('userRepos')
-                .withIndex('by_repoId', (r) => r.eq('repoId', repo._id))
-                .collect()
-            let userIds = userRepos.map((r) => r.userId)
+                let userRepos = await ctx.db
+                    .query('userRepos')
+                    .withIndex('by_repoId', (r) => r.eq('repoId', repo._id))
+                    .collect()
+                let userIds = userRepos.map((r) => r.userId)
 
-            // for a moreless fair distribution of token usage
-            let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]
-            if (!randomUserId) {
-                logger.warn({ repoId: repo._id }, 'no users found for repo')
-                continue
+                // for a moreless fair distribution of token usage
+                let randomUserId = userIds[Math.floor(Math.random() * userIds.length)]
+                if (!randomUserId) {
+                    logger.warn({ repoId: repo._id }, 'no users found for repo')
+                    continue
+                }
+
+                await ctx.scheduler.runAfter(0, fns.startSyncRepoIssues, {
+                    repoId: repo._id,
+                    userId: randomUserId,
+                })
             }
 
-            await ctx.scheduler.runAfter(0, fns.startSyncRepoIssues, {
-                repoId: repo._id,
-                userId: randomUserId,
-            })
-        }
+            if (!repos.isDone) {
+                // allow mutation to finish so that it releases function resources.
+                // Mutations shall not last more than 1s.
+                await ctx.scheduler.runAfter(0, fns.cronRepoIssues, {
+                    paginationOpts: {
+                        ...args.paginationOpts,
+                        cursor: repos.continueCursor,
+                    },
+                })
+            }
+        },
+    }
 
-        if (!repos.isDone) {
-            // allow mutation to finish so that it releases function resources.
-            // Mutations shall not last more than 1s.
-            await ctx.scheduler.runAfter(0, fns.cronRepoIssues, {
-                paginationOpts: {
-                    ...args.paginationOpts,
-                    cursor: repos.continueCursor,
+    export const userNotifs = {
+        args: {
+            paginationOpts: paginationOptsValidator,
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let users = await ctx.db.query('users').paginate(args.paginationOpts)
+            for (let user of users.page) {
+                await ctx.scheduler.runAfter(0, fns.startSyncNotifs, {
+                    userId: user._id,
+                })
+            }
+
+            if (!users.isDone) {
+                await ctx.scheduler.runAfter(0, fns.cronUserNotifications, {
+                    paginationOpts: {
+                        ...args.paginationOpts,
+                        cursor: users.continueCursor,
+                    },
+                })
+            }
+        },
+    }
+}
+
+export const cronRepoIssues = internalMutation(Crons.repoIssues)
+export const cronUserNotifications = internalMutation(Crons.userNotifs)
+
+export namespace Workflows {
+    export const startSyncRepoIssues = {
+        args: {
+            userId: v.id('users'),
+            repoId: v.id('repos'),
+        },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: args.repoId })
+            if (!shouldSync) {
+                logger.debug({ userId: args.userId, repoId: args.repoId }, 'skipping sync issues')
+                return
+            }
+
+            let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
+
+            let startSyncAt = repoWorkflow?.issues.nextSyncAt ?? null
+            let nextSyncAt = newNextSyncAt(new Date())
+
+            let workflowId = await workflow.start(
+                ctx,
+                internal.services.sync.syncIssues,
+                { userId: args.userId, repoId: args.repoId, startSyncAt, nextSyncAt },
+                { startAsync: true },
+            )
+
+            await Repos.saveIssuesWorkflow.handler(ctx, {
+                repoId: args.repoId,
+                workflow: {
+                    workflowId,
+                    nextSyncAt: null,
                 },
             })
-        }
-    },
-})
+        },
+    }
 
-export const cronUserNotifications = internalMutation({
-    args: {
-        paginationOpts: paginationOptsValidator,
-    },
-    async handler(ctx, args) {
-        let users = await ctx.db.query('users').paginate(args.paginationOpts)
-        for (let user of users.page) {
-            await ctx.scheduler.runAfter(0, fns.startSyncNotifsMutation, {
-                userId: user._id,
+    export const syncRepoIssues = workflow.define({
+        args: {
+            userId: v.id('users'),
+            repoId: v.id('repos'),
+            startSyncAt: v_nullable(v_nextSyncAt),
+            nextSyncAt: v_nextSyncAt,
+        },
+        async handler(step, args): Promise<void> {
+            let hasNewIssues = await step.runAction(fns.hasRepoNewIssues, {
+                userId: args.userId,
+                repoId: args.repoId,
+                startSyncAt: args.startSyncAt,
             })
-        }
+            assertOk(hasNewIssues)
 
-        if (!users.isDone) {
-            await ctx.scheduler.runAfter(0, fns.cronUserNotifications, {
-                paginationOpts: {
-                    ...args.paginationOpts,
-                    cursor: users.continueCursor,
-                },
+            if (!hasNewIssues.val) {
+                logger.debug({ userId: args.userId, repoId: args.repoId }, 'no new issues found')
+                return
+            }
+
+            let cursor: string | undefined
+            while (true) {
+                let next = await step.runAction(
+                    fns.downloadRepoPage,
+                    {
+                        userId: args.userId,
+                        repoId: args.repoId,
+                        lastSyncedAt: args.startSyncAt,
+                        cursor,
+                    },
+                    { retry: { initialBackoffMs: 4000, base: 2, maxAttempts: 5 } },
+                )
+                assertOk(next)
+
+                if (!next.val.nextCursor) break
+                cursor = next.val.nextCursor
+            }
+
+            await step.runMutation(internal.models.repos.saveIssuesWorkflow, {
+                repoId: args.repoId,
+                workflow: { workflowId: step.workflowId, nextSyncAt: args.nextSyncAt },
             })
-        }
-    },
-})
+        },
+    })
+
+    export const startSyncNotifs = {
+        args: { userId: v.id('users') },
+        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+            let userId = args.userId
+
+            let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
+            if (!shouldSync) {
+                logger.debug({ userId }, 'skipping sync notifs')
+                return
+            }
+
+            let userWorkflows = await Users.getWorkflows.handler(ctx, { userId })
+
+            // startSyncAt is the moment from where we start syncing. If undefined,
+            // we do a backfill of notifications
+            let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
+
+            // nextSyncAt is the moment from where we will start the next sync.
+            let nextSyncAt = newNextSyncAt(new Date())
+
+            let workflowId = await workflow.start(
+                ctx,
+                internal.services.sync.syncNotifs,
+                { userId, startSyncAt, nextSyncAt },
+                { startAsync: true },
+            )
+
+            await Users.saveNotifWorkflow.handler(ctx, { userId, workflowId, nextSyncAt: null })
+        },
+    }
+
+    export const syncNotifs = workflow.define({
+        args: {
+            userId: v.id('users'),
+            startSyncAt: v.optional(v_nextSyncAt),
+            nextSyncAt: v_nextSyncAt,
+        },
+        async handler(step, args) {
+            let result = await step.runAction(internal.services.sync.downloadNotifications, {
+                userId: args.userId,
+                since: args.startSyncAt,
+            })
+            if (result.isErr) {
+                if (result.err.type === 'not-modified') {
+                    console.debug(`no new notifications found for userId ${args.userId}`)
+                    return
+                }
+
+                // notify workflow that this failed for some reason
+                unwrap(result)
+                return
+            }
+
+            await step.runMutation(internal.models.users.saveNotifWorkflow, {
+                userId: args.userId,
+                workflowId: step.workflowId,
+                nextSyncAt: args.nextSyncAt,
+            })
+        },
+    })
+}
+
+export const startSyncRepoIssues = internalMutation(Workflows.startSyncRepoIssues)
+export const syncIssues = Workflows.syncRepoIssues
+export const startSyncNotifs = internalMutation(Workflows.startSyncNotifs)
+export const syncNotifs = Workflows.syncNotifs
 
 const TOTAL_FETCHES_PER_CALL = 10
 
@@ -157,64 +309,6 @@ export const downloadRepoPage = internalAction({
 
 const NOTIFS_BATCH_SIZE = 100
 
-export const startSyncNotifsMutation = internalMutation({
-    args: { userId: v.id('users') },
-    async handler(ctx, args) {
-        let userId = args.userId
-
-        let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
-        if (!shouldSync) return
-
-        let userWorkflows = await Users.getWorkflows.handler(ctx, { userId })
-
-        // startSyncAt is the moment from where we start syncing. If undefined,
-        // we do a backfill of notifications
-        let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
-
-        // nextSyncAt is the moment from where we will start the next sync.
-        let nextSyncAt = newNextSyncAt(new Date())
-
-        let workflowId = await workflow.start(
-            ctx,
-            internal.services.sync.syncNotifs,
-            { userId, startSyncAt, nextSyncAt },
-            { startAsync: true },
-        )
-
-        await Users.saveNotifWorkflow.handler(ctx, { userId, workflowId, nextSyncAt: null })
-    },
-})
-
-export const syncNotifs = workflow.define({
-    args: {
-        userId: v.id('users'),
-        startSyncAt: v.optional(v_nextSyncAt),
-        nextSyncAt: v_nextSyncAt,
-    },
-    async handler(step, args) {
-        let result = await step.runAction(internal.services.sync.downloadNotifications, {
-            userId: args.userId,
-            since: args.startSyncAt,
-        })
-        if (result.isErr) {
-            if (result.err.type === 'not-modified') {
-                console.debug(`no new notifications found for userId ${args.userId}`)
-                return
-            }
-
-            // notify workflow that this failed for some reason
-            unwrap(result)
-            return
-        }
-
-        await step.runMutation(internal.models.users.saveNotifWorkflow, {
-            userId: args.userId,
-            workflowId: step.workflowId,
-            nextSyncAt: args.nextSyncAt,
-        })
-    },
-})
-
 export const downloadNotifications = internalAction({
     args: {
         userId: v.id('users'),
@@ -269,85 +363,6 @@ export const downloadNotifications = internalAction({
         }
 
         return ok({ totalFound: notifs.val.length })
-    },
-})
-
-export const startSyncRepoIssues = internalMutation({
-    args: {
-        userId: v.id('users'),
-        repoId: v.id('repos'),
-    },
-    async handler(ctx, args) {
-        let shouldSync = await Repos.shouldSyncIssues.handler(ctx, { repoId: args.repoId })
-        if (!shouldSync) {
-            logger.warn({ userId: args.userId, repoId: args.repoId }, 'repo issues already synced')
-            return
-        }
-
-        let repoWorkflow = await Repos.getWorkflow.handler(ctx, { repoId: args.repoId })
-
-        let startSyncAt = repoWorkflow?.issues.nextSyncAt ?? null
-        let nextSyncAt = newNextSyncAt(new Date())
-
-        let workflowId = await workflow.start(
-            ctx,
-            internal.services.sync.syncIssues,
-            { userId: args.userId, repoId: args.repoId, startSyncAt, nextSyncAt },
-            { startAsync: true },
-        )
-
-        await Repos.saveIssuesWorkflow.handler(ctx, {
-            repoId: args.repoId,
-            workflow: {
-                workflowId,
-                nextSyncAt: null,
-            },
-        })
-    },
-})
-
-export const syncIssues = workflow.define({
-    args: {
-        userId: v.id('users'),
-        repoId: v.id('repos'),
-        startSyncAt: v_nullable(v_nextSyncAt),
-        nextSyncAt: v_nextSyncAt,
-    },
-    async handler(step, args): Promise<void> {
-        let hasNewIssues = await step.runAction(fns.hasRepoNewIssues, {
-            userId: args.userId,
-            repoId: args.repoId,
-            startSyncAt: args.startSyncAt,
-        })
-        assertOk(hasNewIssues)
-
-        if (!hasNewIssues.val) {
-            logger.debug({ userId: args.userId, repoId: args.repoId }, 'no new issues found')
-            return
-        }
-
-        let cursor: string | undefined
-        while (true) {
-            let next = await step.runAction(
-                fns.downloadRepoPage,
-                {
-                    userId: args.userId,
-                    repoId: args.repoId,
-                    lastSyncedAt: args.startSyncAt,
-                    cursor,
-                },
-                { retry: { initialBackoffMs: 4000, base: 2, maxAttempts: 5 } },
-            )
-            assertOk(next)
-
-            if (!next.val.nextCursor) break
-            cursor = next.val.nextCursor
-        }
-
-        await step.runMutation(internal.models.repos.saveIssuesWorkflow, {
-            repoId: args.repoId,
-            workflow: { workflowId: step.workflowId, nextSyncAt: args.nextSyncAt },
-        })
     },
 })
 
