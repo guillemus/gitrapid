@@ -299,44 +299,26 @@ export namespace Github {
         'team_mention',
     ])
 
-    export async function listAllNotifications(
+    export async function listNotifications(
         octo: Octokit,
-        args?: {
+        args: {
+            page: number
             since?: string
         },
     ) {
-        // the 'if-modified-since' doesn't seem to work, so we can't use it to do
-        // efficient polling.
+        let page = await octoCatch(
+            octo.rest.activity.listNotificationsForAuthenticatedUser({
+                since: args?.since,
+                all: true,
+                per_page: 100,
+                page: args.page,
+            }),
+        )
+        if (page.isErr) return octoWrap('failed to fetch notifications page', page)
 
-        let pageNum = 0
-        let allNotifs = []
-        while (true) {
-            let page = await octoCatch(
-                octo.rest.activity.listNotificationsForAuthenticatedUser({
-                    since: args?.since,
-                    all: true,
-                    per_page: 100,
-                    page: pageNum,
-                }),
-            )
-            if (page.isErr) {
-                return page
-            }
-
-            if (page.val.length === 0) {
-                break
-            }
-
-            allNotifs.push(...page.val)
-            pageNum++
-        }
-
-        let mapped = []
-        for (let notif of allNotifs) {
+        let mapped: Notifications.UpsertBatchNotif[] = []
+        for (let notif of page.val) {
             let resourceUrl = notif.subject.url
-            // https://api.github.com/repos/facebook/react/pulls/34828 -> 34828
-            // https://api.github.com/repos/sst/opencode/issues/3154 -> 3154
-
             let url = new URL(resourceUrl)
             let resourceNumber = url.pathname.split('/').pop()
             if (!resourceNumber) {
@@ -372,21 +354,49 @@ export namespace Github {
                 type: notifType,
                 title: notif.subject.title,
                 repo: {
-                    id: notif.repository.id,
                     owner: notif.repository.owner.login,
-                    name: notif.repository.name,
+                    repo: notif.repository.name,
                     private: notif.repository.private,
                 },
                 githubId: notif.id,
                 resourceNumber: resourceNumberInt,
                 reason: reason.data,
                 updatedAt: notif.updated_at,
-                lastReadAt: notif.last_read_at,
+                lastReadAt: notif.last_read_at ?? undefined,
                 unread: notif.unread,
             })
         }
 
         return ok(mapped)
+    }
+
+    export async function listAllNotifications(
+        octo: Octokit,
+        args?: {
+            since?: string
+        },
+    ) {
+        // the 'if-modified-since' doesn't seem to work, so we can't use it to do
+        // efficient polling.
+
+        let pageNum = 0
+        let allNotifs = []
+        while (true) {
+            let page = await listNotifications(octo, {
+                page: pageNum,
+                since: args?.since,
+            })
+            if (page.isErr) return wrap('failed to fetch notifications page', page)
+
+            if (page.val.length === 0) {
+                break
+            }
+
+            allNotifs.push(...page.val)
+            pageNum++
+        }
+
+        return ok(allNotifs)
     }
 }
 
@@ -558,6 +568,7 @@ import type { ActionCtx } from '@convex/_generated/server'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
 import z from 'zod'
+import type { Notifications } from '@convex/models/notifications'
 
 export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }

@@ -1,16 +1,20 @@
 import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
-import { internalAction, internalMutation, type MutationCtx } from '@convex/_generated/server'
-import type { Notifications } from '@convex/models/notifications'
+import {
+    internalAction,
+    internalMutation,
+    type ActionCtx,
+    type MutationCtx,
+} from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
-import { assertOk, err, ok, unwrap } from '@convex/shared'
+import { assertOk, err, O, ok } from '@convex/shared'
 import { devOnlyMutation, logger, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
+import type { Octokit } from 'octokit'
 import { Github, newOctokit, octoFromUserId } from './github'
 import { Graphql } from './graphql'
 
@@ -59,35 +63,10 @@ export namespace Crons {
             }
         },
     }
-
-    export const userNotifs = {
-        args: {
-            paginationOpts: paginationOptsValidator,
-        },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
-            let users = await ctx.db.query('users').paginate(args.paginationOpts)
-            for (let user of users.page) {
-                await ctx.scheduler.runAfter(0, fns.startSyncNotifs, {
-                    userId: user._id,
-                })
-            }
-
-            if (!users.isDone) {
-                await ctx.scheduler.runAfter(0, fns.cronUserNotifications, {
-                    paginationOpts: {
-                        ...args.paginationOpts,
-                        cursor: users.continueCursor,
-                    },
-                })
-            }
-        },
-    }
 }
-
 export const cronRepoIssues = internalMutation(Crons.repoIssues)
-export const cronUserNotifications = internalMutation(Crons.userNotifs)
 
-export namespace Workflows {
+export namespace Issues {
     export const startSyncRepoIssues = {
         args: {
             userId: v.id('users'),
@@ -166,76 +145,11 @@ export namespace Workflows {
             })
         },
     })
-
-    export const startSyncNotifs = {
-        args: { userId: v.id('users') },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
-            let userId = args.userId
-
-            let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
-            if (shouldSync.isErr) {
-                logger.debug({ userId, error: shouldSync.err }, 'skipping sync notifs')
-                return
-            }
-
-            let userWorkflows = await Users.getWorkflows.handler(ctx, { userId })
-
-            // startSyncAt is the moment from where we start syncing. If undefined,
-            // we do a backfill of notifications
-            let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
-
-            // nextSyncAt is the moment from where we will start the next sync.
-            let nextSyncAt = newNextSyncAt(new Date())
-
-            let workflowId = await workflow.start(
-                ctx,
-                internal.services.sync.syncNotifs,
-                { userId, startSyncAt, nextSyncAt },
-                { startAsync: true },
-            )
-
-            await Users.saveNotifWorkflow.handler(ctx, { userId, workflowId, nextSyncAt: null })
-        },
-    }
-
-    export const syncNotifs = workflow.define({
-        args: {
-            userId: v.id('users'),
-            startSyncAt: v.optional(v_nextSyncAt),
-            nextSyncAt: v_nextSyncAt,
-        },
-        async handler(step, args) {
-            let result = await step.runAction(internal.services.sync.downloadNotifications, {
-                userId: args.userId,
-                since: args.startSyncAt,
-            })
-            if (result.isErr) {
-                if (result.err.type === 'not-modified') {
-                    console.info(`no new notifications found for userId ${args.userId}`)
-                    return
-                }
-
-                // notify workflow that this failed for some reason
-                unwrap(result)
-                return
-            }
-
-            await step.runMutation(internal.models.users.saveNotifWorkflow, {
-                userId: args.userId,
-                workflowId: step.workflowId,
-                nextSyncAt: args.nextSyncAt,
-            })
-        },
-    })
 }
 
-export const startSyncRepoIssues = internalMutation(Workflows.startSyncRepoIssues)
-export const startSyncRepoIssuesDev = devOnlyMutation(Workflows.startSyncRepoIssues)
-export const syncIssues = Workflows.syncRepoIssues
-
-export const startSyncNotifs = internalMutation(Workflows.startSyncNotifs)
-export const startSyncNotifsDev = devOnlyMutation(Workflows.startSyncNotifs)
-export const syncNotifs = Workflows.syncNotifs
+export const startSyncRepoIssues = internalMutation(Issues.startSyncRepoIssues)
+export const startSyncRepoIssuesDev = devOnlyMutation(Issues.startSyncRepoIssues)
+export const syncIssues = Issues.syncRepoIssues
 
 const TOTAL_FETCHES_PER_CALL = 10
 
@@ -305,65 +219,6 @@ export const downloadRepoPage = internalAction({
     },
 })
 
-const NOTIFS_BATCH_SIZE = 100
-
-export const downloadNotifications = internalAction({
-    args: {
-        userId: v.id('users'),
-        since: v.optional(v.string()),
-    },
-    async handler(ctx, args) {
-        let pat = await ctx.runQuery(internal.models.pats.getByUserId, { userId: args.userId })
-        assert(pat, 'user token not found')
-
-        let octo = newOctokit(pat)
-
-        let notifs = await Github.listAllNotifications(octo, {
-            since: args.since,
-        })
-        if (notifs.isErr) {
-            return notifs
-        }
-
-        let upsertedRepos = new Map<number, Id<'repos'>>()
-        for (let i = 0; i < notifs.val.length; i += NOTIFS_BATCH_SIZE) {
-            let batch = notifs.val.slice(i, i + NOTIFS_BATCH_SIZE)
-            let toUpsert: Notifications.UpsertBatchArgs['notifs'] = []
-            for (let notif of batch) {
-                let repoId = upsertedRepos.get(notif.repo.id)
-                if (!repoId) {
-                    repoId = await ctx.runMutation(internal.models.repos.upsertRepoForUser, {
-                        userId: args.userId,
-                        owner: notif.repo.owner,
-                        repo: notif.repo.name,
-                        private: notif.repo.private,
-                    })
-                    upsertedRepos.set(notif.repo.id, repoId)
-                }
-
-                toUpsert.push({
-                    repoId: repoId,
-                    type: notif.type,
-                    githubId: notif.githubId,
-                    title: notif.title,
-                    updatedAt: notif.updatedAt,
-                    reason: notif.reason,
-                    resourceNumber: notif.resourceNumber,
-                    unread: notif.unread,
-                    lastReadAt: notif.lastReadAt ?? undefined,
-                })
-            }
-
-            await ctx.runMutation(internal.models.notifications.upsertBatch, {
-                userId: args.userId,
-                notifs: toUpsert,
-            })
-        }
-
-        return ok({ totalFound: notifs.val.length })
-    },
-})
-
 export const hasRepoNewIssues = internalAction({
     args: { userId: v.id('users'), repoId: v.id('repos'), startSyncAt: v_nullable(v_nextSyncAt) },
     async handler(ctx, args) {
@@ -397,5 +252,149 @@ export const hasRepoNewIssues = internalAction({
         }
 
         return ok(issueUpdates.val.hasUpdates)
+    },
+})
+
+const NotifsArgs = {
+    userId: v.id('users'),
+    currPage: v.number(),
+    nextSyncAt: v_nullable(v_nextSyncAt),
+    since: v.optional(v.string()),
+}
+type NotifsArgs = FnArgs<{ args: typeof NotifsArgs }>
+
+async function getOcto(ctx: ActionCtx, args: NotifsArgs): Promise<Octokit> {
+    let res = await ctx.runQuery(internal.models.users.get, { userId: args.userId })
+    let token = res?.accessToken
+    assert(token, 'user access token not found')
+
+    return newOctokit({ token })
+}
+
+export const notifications_checkIfNew = internalAction({
+    args: NotifsArgs,
+    async handler(ctx, args) {
+        let octo = await getOcto(ctx, args)
+
+        let notifications = await Github.listNotifications(octo, {
+            page: args.currPage,
+            since: args.since,
+        })
+        assertOk(notifications)
+
+        return notifications.val.length === 0
+    },
+})
+
+export const notifications_download = internalAction({
+    args: NotifsArgs,
+    async handler(ctx, args): Promise<O<NotifsArgs>> {
+        let octo = await getOcto(ctx, args)
+
+        for (let i = args.currPage; i < 10; i++) {
+            let notifications = await Github.listNotifications(octo, {
+                page: i,
+                since: args.since,
+            })
+            assertOk(notifications)
+
+            if (notifications.val.length === 0) {
+                return O.none()
+            }
+
+            await ctx.runMutation(internal.models.notifications.upsertBatch, {
+                userId: args.userId,
+                notifs: notifications.val,
+            })
+
+            args.currPage++
+        }
+
+        return O.some(args)
+    },
+})
+
+export const notifications_startSync = internalMutation({
+    args: { userId: v.id('users') },
+    async handler(ctx, args) {
+        let userId = args.userId
+
+        let shouldSync = await Users.shouldSyncNotifs.handler(ctx, { userId })
+        if (shouldSync.isErr) {
+            logger.debug({ userId, error: shouldSync.err }, 'skipping sync notifs')
+            return
+        }
+
+        let userWorkflows = await Users.getWorkflows.handler(ctx, { userId })
+
+        // startSyncAt is the moment from where we start syncing. If undefined,
+        // we do a backfill of notifications
+        let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
+
+        // nextSyncAt is the moment from where we will start the next sync.
+        let nextSyncAt = newNextSyncAt(new Date())
+
+        let workflowId = await workflow.start(
+            ctx,
+            fns.notifications_syncWorkflow,
+            {
+                currPage: 0,
+                nextSyncAt,
+                since: startSyncAt ?? undefined,
+                userId,
+            },
+            { startAsync: true },
+        )
+
+        await Users.saveNotifWorkflow.handler(ctx, { userId, workflowId, nextSyncAt: null })
+    },
+})
+
+export const notifications_syncWorkflow = workflow.define({
+    args: NotifsArgs,
+    async handler(step, args) {
+        let hasNew = await step.runAction(fns.notifications_checkIfNew, args)
+        if (!hasNew) {
+            console.info(`no new notifications found for userId ${args.userId}`)
+            return
+        }
+
+        while (true) {
+            let newArgs = await step.runAction(fns.notifications_download, args)
+            if (newArgs.isNone) {
+                break
+            }
+
+            args = newArgs.val
+        }
+
+        await step.runMutation(internal.models.users.saveNotifWorkflow, {
+            userId: args.userId,
+            workflowId: step.workflowId,
+            nextSyncAt: args.nextSyncAt,
+        })
+    },
+})
+
+export const notifications_cron = internalMutation({
+    args: {
+        paginationOpts: paginationOptsValidator,
+    },
+    async handler(ctx, args) {
+        let users = await ctx.db.query('users').paginate(args.paginationOpts)
+        for (let user of users.page) {
+            await ctx.scheduler.runAfter(0, fns.notifications_startSync, {
+                userId: user._id,
+            })
+        }
+
+        if (!users.isDone) {
+            await ctx.scheduler.runAfter(0, fns.notifications_cron, {
+                paginationOpts: {
+                    ...args.paginationOpts,
+                    cursor: users.continueCursor,
+                },
+            })
+        }
     },
 })

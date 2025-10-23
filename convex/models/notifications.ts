@@ -2,15 +2,20 @@ import { internalMutation, type MutationCtx } from '@convex/_generated/server'
 import schema from '@convex/schema'
 import type { FnArgs } from '@convex/utils'
 import { v } from 'convex/values'
+import { Repos } from './repos'
 
 export namespace Notifications {
-    export type UpsertBatchArgs = FnArgs<typeof upsertBatch>
+    export type UpsertBatchNotif = FnArgs<typeof upsertBatch>['notifs'][number]
     export const upsertBatch = {
         args: {
             userId: v.id('users'),
             notifs: v.array(
                 v.object({
-                    repoId: v.id('repos'),
+                    repo: v.object({
+                        owner: v.string(),
+                        repo: v.string(),
+                        private: v.boolean(),
+                    }),
                     type: schema.tables.notifications.validator.fields.type,
                     githubId: v.string(),
                     resourceNumber: v.number(),
@@ -24,6 +29,13 @@ export namespace Notifications {
         },
         async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
             for (let notif of args.notifs) {
+                let repoId = await Repos.upsertRepoForUser.handler(ctx, {
+                    userId: args.userId,
+                    owner: notif.repo.owner,
+                    repo: notif.repo.repo,
+                    private: notif.repo.private,
+                })
+
                 let existing = await ctx.db
                     .query('notifications')
                     .withIndex('by_github_id', (q) => q.eq('githubId', notif.githubId))
@@ -39,7 +51,7 @@ export namespace Notifications {
                 } else {
                     await ctx.db.insert('notifications', {
                         userId: args.userId,
-                        repoId: notif.repoId,
+                        repoId: repoId,
                         type: notif.type,
                         githubId: notif.githubId,
                         resourceNumber: notif.resourceNumber,
