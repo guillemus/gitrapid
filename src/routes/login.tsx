@@ -25,8 +25,10 @@ function LoginPage() {
         try {
             await actions.signIn('github', { redirectTo: '/dash' })
         } catch {
-            state.error.set('Failed to sign in with GitHub. Please try again.')
-            state.isLoading.set(false)
+            state.set({
+                isLoading: false,
+                error: 'Failed to sign in with GitHub. Please try again.',
+            })
         }
     }
 

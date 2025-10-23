@@ -276,6 +276,14 @@ const notifications = defineTable({
 
 export default defineSchema({
     ...authTables,
+    users: defineTable({
+        name: v.optional(v.string()),
+        image: v.optional(v.string()),
+        email: v.optional(v.string()),
+        emailVerificationTime: v.optional(v.number()),
+        githubId: v.optional(v.number()),
+        accessToken: v.optional(v.string()),
+    }).index('email', ['email']),
 
     // names aren't shortened so that 'go to definition' is direct. Take this object kind of like an index.
 

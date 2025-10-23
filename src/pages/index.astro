@@ -1,11 +1,8 @@
 ---
-import { RedirectIfLoggedIn } from '@/components/redirectIfLoggedIn'
 import { Landing } from '@/landing'
 import Layout from '@/layout.astro'
 ---
 
 <Layout>
-    <RedirectIfLoggedIn client:only="react">
-        <Landing />
-    </RedirectIfLoggedIn>
+    <Landing />
 </Layout>
