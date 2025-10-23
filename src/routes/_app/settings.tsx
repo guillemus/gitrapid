@@ -464,8 +464,8 @@ function TokenAlreadyConfiguredCard(props: {
 
                 <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Scopes</label>
-                        <div className="flex gap-1 overflow-x-auto">
+                        <div className="text-sm font-medium">Scopes</div>
+                        <div className="flex flex-wrap gap-1">
                             {props.scopes.map((scope) => (
                                 <Badge
                                     key={scope}

@@ -9,8 +9,8 @@ import pino from 'pino'
 import { z } from 'zod'
 import { action, mutation, query } from './_generated/server'
 import { appEnv } from './env'
-import { err, ok, type Result } from './shared'
 import { Auth } from './services/auth'
+import { err, ok, type Result } from './shared'
 
 export const logger = createLogger()
 

@@ -3,12 +3,80 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn, formatRelativeTime, usePaginationState, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { KeyIcon } from '@primer/octicons-react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ChevronLeft, ChevronRight, GitPullRequest, Tag, Zap } from 'lucide-react'
 
 export const Route = createFileRoute('/_app/notifications')({
     component: RouteComponent,
 })
+
+function RouteComponent() {
+    let cursorState = usePaginationState()
+    let notifications = useTanstackQuery(api.public.notifications.list, {
+        paginationOpts: {
+            numItems: 25,
+            cursor: cursorState.currCursor(),
+        },
+    })
+
+    if (notifications === 'PAT_NOT_FOUND') {
+        return <PatNotFoundCard />
+    }
+
+    let isEmpty = !notifications || notifications.page.length === 0
+    let canGoPrev = cursorState.canGoPrev()
+    let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
+
+    return (
+        <div className="min-h-screen bg-white">
+            <div className="mx-auto max-w-4xl px-4 py-8">
+                {/* Notifications List */}
+                {isEmpty ? (
+                    <Card className="border-gray-200 p-12 text-center">
+                        <div className="mb-4 flex justify-center">
+                            <AlertCircle className="h-12 w-12 text-gray-300" />
+                        </div>
+                        <h2 className="mb-1 text-lg font-medium text-gray-900">No notifications</h2>
+                        <p className="text-gray-600">You're all caught up!</p>
+                    </Card>
+                ) : notifications ? (
+                    <>
+                        <div>
+                            {notifications.page.map((n) => (
+                                <NotificationRow key={n._id} notification={n} />
+                            ))}
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => cursorState.goToPrev()}
+                                    disabled={!canGoPrev}
+                                >
+                                    <ChevronLeft className="mr-1 h-4 w-4" />
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => cursorState.goToNext(notifications)}
+                                    disabled={!canGoNext}
+                                >
+                                    Next
+                                    <ChevronRight className="ml-1 h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </>
+                ) : null}
+            </div>
+        </div>
+    )
+}
 
 type NotificationType = 'Issue' | 'PullRequest' | 'Commit' | 'Release'
 type NotificationReason =
@@ -99,7 +167,7 @@ function NotificationRow({
     }
 
     return (
-        <Card
+        <div
             className={cn(
                 'cursor-pointer border border-gray-200 p-4 transition-all hover:border-gray-300 hover:shadow-sm',
                 notification.unread && 'border-blue-200 bg-blue-50',
@@ -138,75 +206,91 @@ function NotificationRow({
                     </div>
                 </div>
             </div>
-        </Card>
+        </div>
     )
 }
 
-function RouteComponent() {
-    let cursorState = usePaginationState()
-    let notifications = useTanstackQuery(api.public.notifications.list, {
-        paginationOpts: {
-            numItems: 25,
-            cursor: cursorState.currCursor(),
-        },
-    })
-
-    let isEmpty = !notifications || notifications.page.length === 0
-    let canGoPrev = cursorState.canGoPrev()
-    let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
-
+function PatNotFoundCard() {
     return (
         <div className="min-h-screen bg-white">
-            <div className="mx-auto max-w-4xl px-4 py-8">
-                {/* Notifications List */}
-                {isEmpty ? (
-                    <Card className="border-gray-200 p-12 text-center">
-                        <div className="mb-4 flex justify-center">
-                            <AlertCircle className="h-12 w-12 text-gray-300" />
-                        </div>
-                        <h2 className="mb-1 text-lg font-medium text-gray-900">No notifications</h2>
-                        <p className="text-gray-600">You're all caught up!</p>
-                    </Card>
-                ) : notifications ? (
-                    <>
-                        <div className="space-y-3">
-                            {notifications.page.map((n) => (
-                                <NotificationRow key={n._id} notification={n} />
-                            ))}
+            <div className="mx-auto max-w-2xl px-4 py-16">
+                <Card className="border border-gray-200 p-8">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                            <KeyIcon className="h-8 w-8 text-gray-600" />
                         </div>
 
-                        {/* Pagination */}
-                        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
-                            <div className="text-sm text-gray-600">
-                                Showing {notifications.page.length} of{' '}
-                                {notifications.isDone
-                                    ? notifications.page.length
-                                    : `${notifications.page.length}+`}{' '}
-                                notifications
+                        <h1 className="mb-2 text-2xl font-bold text-gray-900">
+                            GitHub Token Required
+                        </h1>
+
+                        <p className="mb-6 max-w-md text-gray-700">
+                            To access your GitHub notifications, GitRapid needs a personal access
+                            token. This allows us to securely fetch your notifications from GitHub.
+                        </p>
+
+                        <div className="mb-8 w-full space-y-3 rounded-lg bg-gray-50 p-4">
+                            <div className="flex items-start gap-3 text-left">
+                                <div className="mt-1 flex-shrink-0">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
+                                        1
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900">
+                                        Generate a token on GitHub
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                        Go to GitHub settings and create a new personal access token
+                                    </p>
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => cursorState.goToPrev()}
-                                    disabled={!canGoPrev}
-                                >
-                                    <ChevronLeft className="mr-1 h-4 w-4" />
-                                    Previous
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => cursorState.goToNext(notifications)}
-                                    disabled={!canGoNext}
-                                >
-                                    Next
-                                    <ChevronRight className="ml-1 h-4 w-4" />
-                                </Button>
+
+                            <div className="flex items-start gap-3 text-left">
+                                <div className="mt-1 flex-shrink-0">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
+                                        2
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900">
+                                        Add it to your GitRapid settings
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                        Paste your token in the settings page below
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 text-left">
+                                <div className="mt-1 flex-shrink-0">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
+                                        3
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900">
+                                        Start viewing notifications
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                        Your GitHub notifications will be available immediately
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </>
-                ) : null}
+
+                        <Button asChild className="mb-3 w-full">
+                            <Link to="/settings">
+                                <KeyIcon className="mr-2 h-4 w-4" />
+                                Go to Settings
+                            </Link>
+                        </Button>
+
+                        <Link to="/dash" className="text-sm text-gray-600 hover:text-gray-900">
+                            Back to Dashboard
+                        </Link>
+                    </div>
+                </Card>
             </div>
         </div>
     )
