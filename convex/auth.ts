@@ -1,7 +1,7 @@
 import GitHub from '@auth/core/providers/github'
+import type { User } from '@auth/core/types'
 import { convexAuth } from '@convex-dev/auth/server'
 import { type MutationCtx } from './_generated/server'
-import type { User } from '@auth/core/types'
 import { logger } from './utils'
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
