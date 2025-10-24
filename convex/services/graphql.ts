@@ -183,7 +183,6 @@ export namespace Graphql {
     ): R<Issue, FetchIssuesErrors> {
         let res = await doGraphqlFetchRequest(
             octo,
-            fetchIssue.name,
             getIssueDetailQuery,
             args,
             FetchIssueDetailWithRateLimitResSchema,
@@ -767,7 +766,6 @@ async function fetchIssuesPageGraphQL(
 ): R<FetchIssuesRes['repository']['issues'], FetchIssuesErrors> {
     let res = await doGraphqlFetchRequest(
         octo,
-        fetchIssuesPageGraphQL.name,
         getIssuesWithCommentsQuery,
         args,
         FetchIssuesWithRateLimitResSchema,
@@ -819,7 +817,6 @@ async function fetchIssueLabelsGraphQL(
 ): R<IssueLabelsRes, FetchIssuesErrors> {
     let res = await doGraphqlFetchRequest(
         octo,
-        fetchIssueLabelsGraphQL.name,
         getIssueLabelsQuery,
         args,
         FetchIssueLabelsResSchema,
@@ -877,7 +874,6 @@ async function fetchIssueAssigneesGraphQL(
 ): R<IssueAssigneesRes, FetchIssuesErrors> {
     let res = await doGraphqlFetchRequest(
         octo,
-        fetchIssueAssigneesGraphQL.name,
         getIssueAssigneesQuery,
         args,
         FetchIssueAssigneesResSchema,
@@ -946,7 +942,6 @@ async function fetchIssueCommentsGraphQL(
 ): R<IssueCommentsRes, FetchIssuesErrors> {
     let res = await doGraphqlFetchRequest(
         octo,
-        fetchIssueCommentsGraphQL.name,
         getIssueCommentsQuery,
         args,
         FetchIssueCommentsResSchema,
@@ -1103,7 +1098,6 @@ async function fetchIssueTimelineItemsGraphQL(
 ): R<IssueTimelineItemsRes, FetchIssuesErrors> {
     let res = await doGraphqlFetchRequest(
         octo,
-        fetchIssueTimelineItemsGraphQL.name,
         getIssueTimelineItemsQuery,
         args,
         FetchIssueTimelineItemsResSchema,
@@ -1430,14 +1424,11 @@ async function iterateResource<T, E>(args: {
 
 async function doGraphqlFetchRequest<T>(
     octo: Octokit,
-    label: string,
     query: string,
     args: RequestParameters,
     schema: z.ZodSchema<T>,
 ): R<T, FetchIssuesErrors> {
-    let start = Date.now()
     let res = await octoCatchGql(octo.graphql(query, args))
-    // console.debug(`${label}: ${Date.now() - start}ms`)
 
     if (res.isErr) {
         if (res.err.type === 'rate-limit-error') {

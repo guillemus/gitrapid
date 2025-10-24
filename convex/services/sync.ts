@@ -296,11 +296,7 @@ export const notifications_cancelCurrSyncDev = devOnlyMutation({
         let userWorkflows = await Users.getWorkflows.handler(ctx, { userId: args.userId })
         assert(userWorkflows, 'user workflows not found')
 
-        if (userWorkflows.syncNotifications?.workflowId) {
-            await workflow.cancel(ctx, userWorkflows.syncNotifications.workflowId)
-        } else {
-            console.debug({ userId: args.userId }, 'no current sync found')
-        }
+        await workflow.cancel(ctx, userWorkflows.syncNotifications.workflowId)
     },
 })
 

@@ -521,8 +521,8 @@ import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
-import z from 'zod'
 import { assert } from 'convex-helpers'
+import z from 'zod'
 
 export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }

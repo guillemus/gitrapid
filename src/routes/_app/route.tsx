@@ -1,6 +1,6 @@
 import { Header } from '@/components/header'
 import { useAuthToken } from '@convex-dev/auth/react'
-import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
+import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
 import React, { useEffect } from 'react'

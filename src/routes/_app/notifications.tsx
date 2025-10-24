@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn, formatRelativeTime, usePaginationState, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
-import { KeyIcon } from '@primer/octicons-react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ChevronLeft, ChevronRight, GitPullRequest, Tag, Zap } from 'lucide-react'
 
 export const Route = createFileRoute('/_app/notifications')({
