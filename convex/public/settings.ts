@@ -51,11 +51,9 @@ export const handleCorrectPATAddition = internalMutation({
             expiresAt: args.token.expiresAt,
         })
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncNotifs, {
+        await ctx.scheduler.runAfter(0, internal.services.sync.notifications_startSync, {
             userId: args.userId,
         })
-
-        return ok()
     },
 })
 
@@ -83,7 +81,7 @@ export const savePAT = publicAction({
             expiresAt: res.val.expiration.toISOString(),
         })
 
-        await ctx.scheduler.runAfter(0, internal.services.sync.startSyncNotifs, {
+        await ctx.scheduler.runAfter(0, internal.services.sync.notifications_startSync, {
             userId: ctx.userId,
         })
 

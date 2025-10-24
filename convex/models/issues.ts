@@ -6,7 +6,7 @@ import {
     type QueryCtx,
 } from '@convex/_generated/server'
 import { assertNever } from '@convex/shared'
-import { logger, type FnArgs } from '@convex/utils'
+import { type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
 import type { PaginationResult } from 'convex/server'
 import { v } from 'convex/values'
@@ -31,7 +31,7 @@ export namespace Issues {
             let issue = await getByRepoAndNumber.handler(ctx, args)
             if (!issue) return null
 
-            let issueAuthor = await fetchGithubUser(ctx, logger, issue.author)
+            let issueAuthor = await fetchGithubUser(ctx, issue.author)
 
             return {
                 ...issue,
@@ -129,7 +129,7 @@ export namespace Issues {
             let mapped = await asyncMap(issuesPagination.page, async (issue) => {
                 let [labels, author] = await Promise.all([
                     getIssueLabels(ctx, repoLabels, issue._id),
-                    fetchGithubUser(ctx, logger, issue.author),
+                    fetchGithubUser(ctx, issue.author),
                 ])
 
                 return {

@@ -1,4 +1,5 @@
-import { logger, parseDate } from '@convex/utils'
+import { parseDate } from '@convex/utils'
+import type { Endpoints } from '@octokit/types'
 import { Octokit, RequestError } from 'octokit'
 import { err, O, ok, tryCatch, wrap, type Err, type Result } from '../shared'
 
@@ -281,7 +282,7 @@ export namespace Github {
         return ok()
     }
 
-    const notificationReason = z.enum([
+    export const notificationReason = z.enum([
         'approval_requested',
         'assign',
         'author',
@@ -299,75 +300,27 @@ export namespace Github {
         'team_mention',
     ])
 
+    export type Notification = Endpoints['GET /notifications']['response']['data'][number]
+
     export async function listNotifications(
         octo: Octokit,
         args: {
             page: number
+            perPage: number
             since?: string
         },
-    ) {
+    ): R<Notification[]> {
         let page = await octoCatch(
             octo.rest.activity.listNotificationsForAuthenticatedUser({
                 since: args?.since,
                 all: true,
-                per_page: 100,
+                per_page: args.perPage,
                 page: args.page,
             }),
         )
         if (page.isErr) return octoWrap('failed to fetch notifications page', page)
 
-        let mapped: Notifications.UpsertBatchNotif[] = []
-        for (let notif of page.val) {
-            let resourceUrl = notif.subject.url
-            let url = new URL(resourceUrl)
-            let resourceNumber = url.pathname.split('/').pop()
-            if (!resourceNumber) {
-                logger.warn(`invalid resource url: ${url.pathname}`)
-                continue
-            }
-            let resourceNumberInt = parseInt(resourceNumber)
-            if (Number.isNaN(resourceNumberInt)) {
-                logger.warn(`invalid resource number: ${resourceNumber}`)
-                continue
-            }
-
-            let notifType: Doc<'notifications'>['type']
-            if (
-                notif.subject.type === 'Issue' ||
-                notif.subject.type === 'PullRequest' ||
-                notif.subject.type === 'Commit' ||
-                notif.subject.type === 'Release'
-            ) {
-                notifType = notif.subject.type
-            } else {
-                logger.warn(`invalid subject type: ${notif.subject.type}`)
-                continue
-            }
-
-            let reason = notificationReason.safeParse(notif.reason)
-            if (!reason.success) {
-                logger.warn(`invalid reason: ${notif.reason}`)
-                continue
-            }
-
-            mapped.push({
-                type: notifType,
-                title: notif.subject.title,
-                repo: {
-                    owner: notif.repository.owner.login,
-                    repo: notif.repository.name,
-                    private: notif.repository.private,
-                },
-                githubId: notif.id,
-                resourceNumber: resourceNumberInt,
-                reason: reason.data,
-                updatedAt: notif.updated_at,
-                lastReadAt: notif.last_read_at ?? undefined,
-                unread: notif.unread,
-            })
-        }
-
-        return ok(mapped)
+        return page
     }
 
     export async function listAllNotifications(
@@ -384,6 +337,7 @@ export namespace Github {
         while (true) {
             let page = await listNotifications(octo, {
                 page: pageNum,
+                perPage: 100,
                 since: args?.since,
             })
             if (page.isErr) return wrap('failed to fetch notifications page', page)
@@ -563,9 +517,8 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
 }
 
 import { internal } from '@convex/_generated/api'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import type { ActionCtx } from '@convex/_generated/server'
-import type { Notifications } from '@convex/models/notifications'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
 import z from 'zod'

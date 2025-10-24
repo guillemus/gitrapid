@@ -2,6 +2,8 @@ import { cronJobs } from 'convex/server'
 
 const crons = cronJobs()
 
+// @ts-expect-error: delete sync repo issues
+
 // crons.interval('sync repo issues', { minutes: 5 }, internal.services.sync.cronRepoIssues, {
 //     paginationOpts: { numItems: 10, cursor: null },
 // })

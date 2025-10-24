@@ -12,7 +12,9 @@ import { appEnv } from './env'
 import { Auth } from './services/auth'
 import { err, ok, type Result } from './shared'
 
-export const logger = createLogger()
+// @ts-expect-error: remove
+
+const logger = createLogger()
 
 function createLogger() {
     if (appEnv.DEBUG_LOGGER) {

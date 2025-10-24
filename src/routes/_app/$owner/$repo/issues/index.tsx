@@ -41,6 +41,8 @@ const search = z.object({
 
 const PAGE_SIZE = 20
 
+// @ts-expect-error: delete this page, we don't need it yet
+
 export const Route = createFileRoute('/_app/$owner/$repo/issues/')({
     validateSearch: search,
     loaderDeps: (s) => {

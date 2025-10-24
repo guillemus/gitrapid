@@ -7,7 +7,7 @@ import { IssueTimelineItems } from '@convex/models/issueTimelineItems'
 import { Auth, canUserCommentOnRepo } from '@convex/services/auth'
 import { Github, newOctokit } from '@convex/services/github'
 import { err, ok, unwrap, wrap } from '@convex/shared'
-import { logger, publicMutation, publicQuery } from '@convex/utils'
+import { publicMutation, publicQuery } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
@@ -178,7 +178,7 @@ export const createAction = internalAction({
 
         let created = await Github.createIssue(octo, args.args)
         if (created.isErr) {
-            logger.error(`octo error: failed to create issue: ${created.err}`)
+            console.error(`octo error: failed to create issue: ${created.err}`)
             await rollback()
             return
         }
@@ -261,7 +261,7 @@ export const addCommentAction = internalAction({
 
         let issueComment = await Github.addCommentToIssue(octo, args.args)
         if (issueComment.isErr) {
-            logger.error(`octo error: failed to add comment: ${issueComment.err}`)
+            console.error(`octo error: failed to add comment: ${issueComment.err}`)
             await rollback()
             return
         }
@@ -336,7 +336,7 @@ export const editTitleAction = internalAction({
             title: args.args.newTitle,
         })
         if (issue.isErr) {
-            logger.error(`octo error: failed to edit issue title: ${issue.err}`)
+            console.error(`octo error: failed to edit issue title: ${issue.err}`)
             await ctx.runMutation(internal.models.issues.updateTitle, {
                 issueId: args.issueId,
                 title: args.prevTitle,

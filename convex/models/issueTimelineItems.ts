@@ -1,8 +1,6 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { logger } from '@convex/utils'
 import { v } from 'convex/values'
-import type { Logger } from 'pino'
 import schema, { type PossibleGithubUser } from '../schema'
 import type { UpsertDoc } from './models'
 
@@ -40,7 +38,6 @@ export type TimelineItemWithRelations = {
 
 export async function fetchGithubUser(
     ctx: QueryCtx,
-    l: Logger,
     user: PossibleGithubUser,
 ): Promise<GithubUserDoc> {
     if (user === 'github-actions') {
@@ -50,7 +47,7 @@ export async function fetchGithubUser(
         if (userDoc) {
             return userDoc
         } else {
-            l.warn(`user ${user} not found`)
+            console.warn(`user ${user} not found`)
         }
     }
 
@@ -64,11 +61,9 @@ export const IssueTimelineItems = {
             .withIndex('by_issueId', (q) => q.eq('issueId', issueId))
             .collect()
 
-        let l = logger.child({ issueId, fn: IssueTimelineItems.listByIssueId.name })
-
         let withRelations: TimelineItemWithRelations[] = []
         for (let item of items) {
-            let itemActor = await fetchGithubUser(ctx, l, item.actor)
+            let itemActor = await fetchGithubUser(ctx, item.actor)
 
             let base = {
                 _id: item._id,
@@ -87,7 +82,7 @@ export const IssueTimelineItems = {
                         item: { type: 'labeled', label: label },
                     })
                 } else {
-                    l.warn(`Label ${item.item.label} not found`)
+                    console.warn(`Label ${item.item.label} not found`)
                 }
             } else if (item.item.type === 'unlabeled') {
                 let label = await ctx.db.get(item.item.label)
@@ -97,16 +92,16 @@ export const IssueTimelineItems = {
                         item: { type: 'labeled', label: label },
                     })
                 } else {
-                    l.warn(`Label ${item.item.label} not found`)
+                    console.warn(`Label ${item.item.label} not found`)
                 }
             } else if (item.item.type === 'assigned') {
-                let assignee = await fetchGithubUser(ctx, l, item.item.assignee)
+                let assignee = await fetchGithubUser(ctx, item.item.assignee)
                 withRelations.push({
                     ...base,
                     item: { type: 'assigned', assignee: assignee },
                 })
             } else if (item.item.type === 'unassigned') {
-                let assignee = await fetchGithubUser(ctx, l, item.item.assignee)
+                let assignee = await fetchGithubUser(ctx, item.item.assignee)
                 withRelations.push({
                     ...base,
                     item: { type: 'unassigned', assignee: assignee },

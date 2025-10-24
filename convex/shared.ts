@@ -102,5 +102,5 @@ export function assertOk<T, E = string>(
     }
 }
 
-// enforces compile time enforcement of never type.
+// noop that enforces never at compile time
 export function assertNever(_: never) {}

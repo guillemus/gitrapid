@@ -1,14 +1,274 @@
 import type { CommentData, IssueData, TimelineItemData, UpsertDoc } from '@convex/models/models'
-import { logger, zodParse } from '@convex/utils'
+import { zodParse } from '@convex/utils'
 import type { RequestParameters } from '@octokit/graphql/types'
 import type { Octokit } from 'octokit'
 import { z } from 'zod'
-import { err, O, ok, wrap, type Result } from '../shared'
+import { assertNever, err, O, ok, wrap, type Result } from '../shared'
 import { octoCatch, octoCatchGql, type GraphqlRateLimitError } from './github'
 
-export const Graphql = {
-    fetchIssuesPage,
-    getNextCursor,
+export namespace Graphql {
+    export function fetchIssuesErrorsToString(err: FetchIssuesErrors): string {
+        switch (err.type) {
+            case 'ERROR':
+                return err.err
+            case 'RATE_LIMIT_ERROR':
+                return `Rate limit error: should retry after ${err.err.retryAfterSecs}s`
+            default:
+                assertNever(err)
+                return 'unknown error'
+        }
+    }
+
+    export async function fetchIssuesPage(
+        octo: Octokit,
+        args: {
+            owner: string
+            repo: string
+            cursor?: string
+            since?: string
+        },
+    ): R<{ issues: Issue[]; pageInfo: PageInfo }, FetchIssuesErrors> {
+        let issuesPage = await fetchIssuesPageGraphQL(octo, {
+            owner: args.owner,
+            repo: args.repo,
+            first: TOTALS_FIRST_FETCH.issues,
+            after: args.cursor,
+            since: args.since,
+        })
+        if (issuesPage.isErr) return issuesPage
+
+        let itemsWithPendingDownloads = buildIssuesWithCommentsBatch(issuesPage.val.nodes)
+
+        let issues: Issue[] = []
+        for (let item of itemsWithPendingDownloads) {
+            let issueLabels = item.pageItem.labels
+            if (item.downloadLabels.isSome) {
+                console.debug('downloading labels')
+
+                let issueNumber = item.downloadLabels.val.issueNumber
+
+                let res = await iterateResource({
+                    resourceName: 'issueLabels',
+                    doFetch: (cursor) =>
+                        fetchIssueLabelsGraphQL(octo, {
+                            owner: args.owner,
+                            repo: args.repo,
+                            number: issueNumber,
+                            first: TOTALS_ITER.labels,
+                            after: cursor,
+                        }),
+                })
+                if (res.isErr) return res
+
+                for (let label of res.val) {
+                    issueLabels.push({
+                        githubId: label.id,
+                        name: label.name,
+                        color: label.color,
+                    })
+                }
+            }
+
+            let issueAssignees = item.pageItem.assignees
+            if (item.downloadAssignees.isSome) {
+                let issueNumber = item.downloadAssignees.val.issueNumber
+                let res = await iterateResource({
+                    resourceName: 'issueAssignees',
+                    doFetch: (cursor) =>
+                        fetchIssueAssigneesGraphQL(octo, {
+                            owner: args.owner,
+                            repo: args.repo,
+                            number: issueNumber,
+                            first: TOTALS_ITER.assignees,
+                            after: cursor,
+                        }),
+                })
+                if (res.isErr) return res
+
+                for (let assignee of res.val) {
+                    issueAssignees.push({
+                        githubId: assignee.databaseId,
+                        login: assignee.login,
+                        avatarUrl: assignee.avatarUrl,
+                    })
+                }
+            }
+
+            let issueComments = item.pageItem.comments
+            if (item.downloadComments.isSome) {
+                let issueNumber = item.downloadComments.val.issueNumber
+                let res = await iterateResource({
+                    resourceName: 'issueComments',
+                    doFetch: (cursor) =>
+                        fetchIssueCommentsGraphQL(octo, {
+                            owner: args.owner,
+                            repo: args.repo,
+                            number: issueNumber,
+                            first: TOTALS_ITER.comments,
+                            after: cursor,
+                        }),
+                })
+                if (res.isErr) return res
+
+                for (let comment of res.val) {
+                    issueComments.push({
+                        githubId: comment.databaseId,
+                        author: gqlGithubUserToDbGithubUser(comment.author),
+                        body: comment.body,
+                        createdAt: comment.createdAt,
+                        updatedAt: comment.updatedAt,
+                    })
+                }
+            }
+
+            let issueTimelineItems = item.pageItem.timelineItems
+            if (!item.downloadTimelineItems.isNone) {
+                let issueNumber = item.downloadTimelineItems.val.issueNumber
+                let res = await iterateResource({
+                    resourceName: 'issueTimelineItems',
+                    doFetch: (cursor) =>
+                        fetchIssueTimelineItemsGraphQL(octo, {
+                            owner: args.owner,
+                            repo: args.repo,
+                            number: issueNumber,
+                            first: TOTALS_ITER.timelineItems,
+                            after: cursor,
+                        }),
+                })
+                if (res.isErr) return res
+
+                for (let timelineItem of res.val) {
+                    let t = parseTimelineItem(timelineItem)
+                    if (t.isErr) {
+                        console.error(
+                            { issueNumber: item.pageItem.issue.number, timelineItem },
+                            `invalid timeline item, skipping. err: ${t.err}`,
+                        )
+                        continue
+                    }
+
+                    issueTimelineItems.push(t.val)
+                }
+            }
+
+            issues.push({
+                issue: item.pageItem.issue,
+                body: item.pageItem.body,
+                comments: item.pageItem.comments,
+                labels: item.pageItem.labels,
+                timelineItems: issueTimelineItems,
+                assignees: issueAssignees,
+            })
+        }
+
+        return ok({ issues, pageInfo: issuesPage.val.pageInfo })
+    }
+    export function getNextCursor(pageInfo: PageInfo): O<{ cursor: string }> {
+        if (pageInfo.hasNextPage) {
+            if (pageInfo.endCursor) {
+                return O.some({ cursor: pageInfo.endCursor })
+            }
+        }
+
+        return O.none()
+    }
+
+    export async function fetchIssue(
+        octo: Octokit,
+        args: {
+            owner: string
+            repo: string
+            number: number
+        },
+    ): R<Issue, FetchIssuesErrors> {
+        let res = await doGraphqlFetchRequest(
+            octo,
+            fetchIssue.name,
+            getIssueDetailQuery,
+            args,
+            FetchIssueDetailWithRateLimitResSchema,
+        )
+        if (res.isErr) return res
+
+        await applyGraphqlBackpressure(res.val.rateLimit)
+
+        let nodeUnknown = res.val.repository.issue
+        let parsed = zodParse(IssueDetailNodeSchema, nodeUnknown)
+        if (parsed.isErr) {
+            return err({ type: 'ERROR', err: `failed to parse issue detail: ${parsed.err}` })
+        }
+        let issueNode = parsed.val
+
+        let issueDoc = issueNodeToIssueDoc(issueNode)
+        if (issueDoc.isErr) {
+            return err({
+                type: 'ERROR',
+                err: `failed to convert issue node to issue doc: ${issueDoc.err}`,
+            })
+        }
+
+        let assignees: Assignee[] = []
+        for (let a of issueNode.assignees.nodes) {
+            if (a !== null && a.avatarUrl && a.databaseId) {
+                assignees.push({
+                    avatarUrl: a.avatarUrl,
+                    githubId: a.databaseId,
+                    login: a.login,
+                })
+            }
+        }
+
+        let labels: Label[] = issueNode.labels.nodes.map((l) => ({
+            githubId: l.id,
+            name: l.name,
+            color: l.color,
+        }))
+
+        let comments: CommentData[] = []
+        for (let unparsedComment of issueNode.comments.nodes) {
+            let comment = zodParse(CommentSchema, unparsedComment)
+            if (comment.isErr) {
+                console.error(
+                    { comment: unparsedComment },
+                    `invalid issue comment, skipping. err: ${comment.err}`,
+                )
+                continue
+            }
+            let author = gqlGithubUserToDbGithubUser(comment.val.author)
+
+            comments.push({
+                githubId: comment.val.databaseId,
+                author,
+                body: comment.val.body,
+                createdAt: comment.val.createdAt,
+                updatedAt: comment.val.updatedAt,
+            })
+        }
+
+        let timelineItems: TimelineItemData[] = []
+        for (let node of issueNode.timelineItems.nodes) {
+            let t = parseTimelineItem(node)
+            if (t.isErr) {
+                console.error(
+                    { issueNumber: issueNode.number, timelineItem: node },
+                    `invalid timeline item, skipping. err: ${t.err}`,
+                )
+                continue
+            }
+            timelineItems.push(t.val)
+        }
+
+        let issue: Issue = {
+            issue: issueDoc.val,
+            body: issueNode.body,
+            labels,
+            assignees,
+            comments,
+            timelineItems,
+        }
+
+        return ok(issue)
+    }
 }
 
 type Issue = {
@@ -30,151 +290,6 @@ type Assignee = {
     login: string
     avatarUrl: string
     githubId: number
-}
-
-async function fetchIssuesPage(
-    octo: Octokit,
-    args: {
-        owner: string
-        repo: string
-        cursor?: string
-        since?: string
-    },
-): R<{ issues: Issue[]; pageInfo: PageInfo }, FetchIssuesErrors> {
-    let issuesPage = await fetchIssuesPageGraphQL(octo, {
-        owner: args.owner,
-        repo: args.repo,
-        first: TOTALS_FIRST_FETCH.issues,
-        after: args.cursor,
-        since: args.since,
-    })
-    if (issuesPage.isErr) return issuesPage
-
-    let itemsWithPendingDownloads = buildIssuesWithCommentsBatch(issuesPage.val.nodes)
-
-    let issues: Issue[] = []
-    for (let item of itemsWithPendingDownloads) {
-        let issueLabels = item.pageItem.labels
-        if (item.downloadLabels.isSome) {
-            logger.debug('downloading labels')
-
-            let issueNumber = item.downloadLabels.val.issueNumber
-
-            let res = await iterateResource({
-                resourceName: 'issueLabels',
-                doFetch: (cursor) =>
-                    fetchIssueLabelsGraphQL(octo, {
-                        owner: args.owner,
-                        repo: args.repo,
-                        number: issueNumber,
-                        first: TOTALS_ITER.labels,
-                        after: cursor,
-                    }),
-            })
-            if (res.isErr) return res
-
-            for (let label of res.val) {
-                issueLabels.push({
-                    githubId: label.id,
-                    name: label.name,
-                    color: label.color,
-                })
-            }
-        }
-
-        let issueAssignees = item.pageItem.assignees
-        if (item.downloadAssignees.isSome) {
-            let issueNumber = item.downloadAssignees.val.issueNumber
-            let res = await iterateResource({
-                resourceName: 'issueAssignees',
-                doFetch: (cursor) =>
-                    fetchIssueAssigneesGraphQL(octo, {
-                        owner: args.owner,
-                        repo: args.repo,
-                        number: issueNumber,
-                        first: TOTALS_ITER.assignees,
-                        after: cursor,
-                    }),
-            })
-            if (res.isErr) return res
-
-            for (let assignee of res.val) {
-                issueAssignees.push({
-                    githubId: assignee.databaseId,
-                    login: assignee.login,
-                    avatarUrl: assignee.avatarUrl,
-                })
-            }
-        }
-
-        let issueComments = item.pageItem.comments
-        if (item.downloadComments.isSome) {
-            let issueNumber = item.downloadComments.val.issueNumber
-            let res = await iterateResource({
-                resourceName: 'issueComments',
-                doFetch: (cursor) =>
-                    fetchIssueCommentsGraphQL(octo, {
-                        owner: args.owner,
-                        repo: args.repo,
-                        number: issueNumber,
-                        first: TOTALS_ITER.comments,
-                        after: cursor,
-                    }),
-            })
-            if (res.isErr) return res
-
-            for (let comment of res.val) {
-                issueComments.push({
-                    githubId: comment.databaseId,
-                    author: gqlGithubUserToDbGithubUser(comment.author),
-                    body: comment.body,
-                    createdAt: comment.createdAt,
-                    updatedAt: comment.updatedAt,
-                })
-            }
-        }
-
-        let issueTimelineItems = item.pageItem.timelineItems
-        if (!item.downloadTimelineItems.isNone) {
-            let issueNumber = item.downloadTimelineItems.val.issueNumber
-            let res = await iterateResource({
-                resourceName: 'issueTimelineItems',
-                doFetch: (cursor) =>
-                    fetchIssueTimelineItemsGraphQL(octo, {
-                        owner: args.owner,
-                        repo: args.repo,
-                        number: issueNumber,
-                        first: TOTALS_ITER.timelineItems,
-                        after: cursor,
-                    }),
-            })
-            if (res.isErr) return res
-
-            for (let timelineItem of res.val) {
-                let t = parseTimelineItem(timelineItem)
-                if (t.isErr) {
-                    logger.error(
-                        { issueNumber: item.pageItem.issue.number, timelineItem },
-                        `invalid timeline item, skipping. err: ${t.err}`,
-                    )
-                    continue
-                }
-
-                issueTimelineItems.push(t.val)
-            }
-        }
-
-        issues.push({
-            issue: item.pageItem.issue,
-            body: item.pageItem.body,
-            comments: item.pageItem.comments,
-            labels: item.pageItem.labels,
-            timelineItems: issueTimelineItems,
-            assignees: issueAssignees,
-        })
-    }
-
-    return ok({ issues, pageInfo: issuesPage.val.pageInfo })
 }
 
 const GqlGithubUserSchema = z
@@ -519,7 +634,6 @@ let getIssuesWithCommentsQuery = `
                                 assignee {
                                     ... on User { login databaseId avatarUrl }
                                     ... on Mannequin { login databaseId avatarUrl }
-                                    ... on Organization { login: name databaseId: databaseId avatarUrl }
                                     ... on Bot { login databaseId avatarUrl }
                                 }
                             }
@@ -530,7 +644,6 @@ let getIssuesWithCommentsQuery = `
                                 assignee {
                                     ... on User { login databaseId avatarUrl }
                                     ... on Mannequin { login databaseId avatarUrl }
-                                    ... on Organization { login: name databaseId: databaseId avatarUrl }
                                     ... on Bot { login databaseId avatarUrl }
                                 }
                             }
@@ -660,16 +773,6 @@ async function fetchIssuesPageGraphQL(
         FetchIssuesWithRateLimitResSchema,
     )
     if (res.isErr) return res
-
-    logger.debug(
-        {
-            cost: res.val.rateLimit.cost,
-            used: res.val.rateLimit.used,
-            remaining: res.val.rateLimit.remaining,
-            limit: res.val.rateLimit.limit,
-        },
-        'graphql rateLimit',
-    )
 
     await applyGraphqlBackpressure(res.val.rateLimit)
 
@@ -908,7 +1011,6 @@ let getIssueTimelineItemsQuery = `
                             assignee {
                                 ... on User { login databaseId avatarUrl }
                                 ... on Mannequin { login databaseId avatarUrl }
-                                ... on Organization { login: name databaseId: databaseId avatarUrl }
                                 ... on Bot { login databaseId avatarUrl }
                             }
                         }
@@ -919,7 +1021,6 @@ let getIssueTimelineItemsQuery = `
                             assignee {
                                 ... on User { login databaseId avatarUrl }
                                 ... on Mannequin { login databaseId avatarUrl }
-                                ... on Organization { login: name databaseId: databaseId avatarUrl }
                                 ... on Bot { login databaseId avatarUrl }
                             }
                         }
@@ -1035,7 +1136,7 @@ function buildIssuesWithCommentsBatch(fetchedIssues: FetchIssueNode[]) {
     for (let nodeUnknown of fetchedIssues) {
         let parsed = zodParse(IssueNodeSchema, nodeUnknown)
         if (parsed.isErr) {
-            logger.error(`invalid issue node, skipping. err: ${parsed.err}`)
+            console.error(`invalid issue node, skipping. err: ${parsed.err}`)
             continue
         }
         let issue = parsed.val
@@ -1061,7 +1162,7 @@ function buildIssuesWithCommentsBatch(fetchedIssues: FetchIssueNode[]) {
 
         let issueDoc = issueNodeToIssueDoc(issue)
         if (issueDoc.isErr) {
-            logger.error(
+            console.error(
                 { issueNumber: issue.number },
                 `failed to convert issue node to issue doc: ${issueDoc.err}`,
             )
@@ -1089,7 +1190,7 @@ function buildIssuesWithCommentsBatch(fetchedIssues: FetchIssueNode[]) {
         for (let node of issue.timelineItems.nodes) {
             let t = parseTimelineItem(node)
             if (t.isErr) {
-                logger.error(
+                console.error(
                     { issueNumber: issue.number, timelineItem: node },
                     `invalid timeline item, skipping. err: ${t.err}`,
                 )
@@ -1158,7 +1259,7 @@ function issueNodeToCommentsForInsert(issue: IssueNode): CommentData[] {
     for (let unparsedComment of issue.comments.nodes) {
         let comment = zodParse(CommentSchema, unparsedComment)
         if (comment.isErr) {
-            logger.error(
+            console.error(
                 { comment: unparsedComment },
                 `invalid issue comment, skipping. err: ${comment.err}`,
             )
@@ -1281,7 +1382,7 @@ function parseTimelineItem(data: unknown): Result<TimelineItemData> {
             },
         }
     } else {
-        let _ = t.val satisfies never
+        assertNever(t.val)
         return err(`unknown timeline item type`)
     }
 
@@ -1301,16 +1402,6 @@ function parseTimelineItem(data: unknown): Result<TimelineItemData> {
     })
 }
 
-function getNextCursor(pageInfo: PageInfo): O<{ cursor: string }> {
-    if (pageInfo.hasNextPage) {
-        if (pageInfo.endCursor) {
-            return O.some({ cursor: pageInfo.endCursor })
-        }
-    }
-
-    return O.none()
-}
-
 async function iterateResource<T, E>(args: {
     resourceName: string
     doFetch: (cursor?: string) => R<{ nodes: T[]; pageInfo: z.Infer<typeof PageInfoSchema> }, E>
@@ -1322,11 +1413,11 @@ async function iterateResource<T, E>(args: {
         let res = await args.doFetch(cursor)
         if (res.isErr) return res
 
-        logger.debug({ cursor }, args.resourceName)
+        console.debug({ cursor }, args.resourceName)
 
         nodes.push(...res.val.nodes)
 
-        let nextCursor = getNextCursor(res.val.pageInfo)
+        let nextCursor = Graphql.getNextCursor(res.val.pageInfo)
         if (nextCursor.isNone) {
             break
         }
@@ -1346,7 +1437,7 @@ async function doGraphqlFetchRequest<T>(
 ): R<T, FetchIssuesErrors> {
     let start = Date.now()
     let res = await octoCatchGql(octo.graphql(query, args))
-    logger.debug(`${label}: ${Date.now() - start}ms`)
+    // console.debug(`${label}: ${Date.now() - start}ms`)
 
     if (res.isErr) {
         if (res.err.type === 'rate-limit-error') {
@@ -1363,3 +1454,215 @@ async function doGraphqlFetchRequest<T>(
 
     return ok(parsed.val)
 }
+
+const IssueDetailNodeSchema = z.object({
+    databaseId: z.number(),
+    number: z.number(),
+    title: z.string(),
+    state: z.enum(['OPEN', 'CLOSED']),
+    stateReason: z.enum(['COMPLETED', 'NOT_PLANNED', 'DUPLICATE', 'REOPENED']).nullish(),
+    body: z
+        .string()
+        .nullish()
+        .transform((v) => v ?? ''),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    closedAt: z.string().nullish(),
+    author: GqlGithubUserSchema,
+    labels: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(GqlLabelSchema),
+    }),
+    assignees: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(GqlGithubUserSchema),
+    }),
+    comments: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(toBeLaterParsed),
+    }),
+    timelineItems: z.object({
+        pageInfo: PageInfoSchema,
+        nodes: z.array(toBeLaterParsed),
+    }),
+})
+
+let getIssueDetailQuery = `
+    query GetIssueDetail($owner: String!, $repo: String!, $number: Int!) {
+        rateLimit { limit cost used remaining resetAt }
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                databaseId
+                number
+                title
+                state
+                stateReason
+                body
+                createdAt
+                updatedAt
+                closedAt
+                author { login ... on User { databaseId avatarUrl } }
+                labels(first: ${TOTALS_FIRST_FETCH.labels}) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes { id name color }
+                }
+                assignees(first: ${TOTALS_FIRST_FETCH.assignees}) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes { databaseId login avatarUrl }
+                }
+                comments(first: ${TOTALS_FIRST_FETCH.comments}) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                        databaseId
+                        author { login avatarUrl ... on User { databaseId } }
+                        body
+                        createdAt
+                        updatedAt
+                    }
+                }
+                timelineItems(
+                    first: ${TOTALS_FIRST_FETCH.timelineItems},
+                    itemTypes: [
+                        ASSIGNED_EVENT,
+                        UNASSIGNED_EVENT,
+                        LABELED_EVENT,
+                        UNLABELED_EVENT,
+                        MILESTONED_EVENT,
+                        DEMILESTONED_EVENT,
+                        CLOSED_EVENT,
+                        REOPENED_EVENT,
+                        RENAMED_TITLE_EVENT,
+                        REFERENCED_EVENT,
+                        CROSS_REFERENCED_EVENT,
+                        LOCKED_EVENT,
+                        UNLOCKED_EVENT,
+                        PINNED_EVENT,
+                        UNPINNED_EVENT,
+                        TRANSFERRED_EVENT
+                    ]
+                ) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                        __typename
+                        ... on AssignedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            assignee {
+                                ... on User { login databaseId avatarUrl }
+                                ... on Mannequin { login databaseId avatarUrl }
+                                ... on Bot { login databaseId avatarUrl }
+                            }
+                        }
+                        ... on UnassignedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            assignee {
+                                ... on User { login databaseId avatarUrl }
+                                ... on Mannequin { login databaseId avatarUrl }
+                                ... on Bot { login databaseId avatarUrl }
+                            }
+                        }
+                        ... on LabeledEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            label { id name color }
+                        }
+                        ... on UnlabeledEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            label { id name color }
+                        }
+                        ... on MilestonedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            milestoneTitle
+                        }
+                        ... on DemilestonedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            milestoneTitle
+                        }
+                        ... on ClosedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                        }
+                        ... on ReopenedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                        }
+                        ... on RenamedTitleEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            previousTitle
+                            currentTitle
+                        }
+                        ... on ReferencedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            commit { oid url }
+                        }
+                        ... on CrossReferencedEvent {
+                            id
+                            createdAt
+                            actor { login avatarUrl ... on User { databaseId } }
+                            source {
+                                __typename
+                                ... on Issue { number repository { name owner { login } } }
+                                ... on PullRequest { number repository { name owner { login } } }
+                            }
+                        }
+                        ... on LockedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on UnlockedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on PinnedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on UnpinnedEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } }
+                        ... on TransferredEvent { id createdAt actor { login avatarUrl ... on User { databaseId } } fromRepository { name owner { login } } }
+                    }
+                }
+            }
+        }
+    }
+`
+
+let FetchIssueDetailWithRateLimitResSchema = z.object({
+    rateLimit: RateLimitSchema,
+    repository: z.object({
+        issue: z.object({
+            databaseId: z.number(),
+            number: z.number(),
+            title: z.string(),
+            state: z.enum(['OPEN', 'CLOSED']),
+            stateReason: z.enum(['COMPLETED', 'NOT_PLANNED', 'DUPLICATE', 'REOPENED']).nullish(),
+            body: z.string().nullish(),
+            createdAt: z.string(),
+            updatedAt: z.string(),
+            closedAt: z.string().nullish(),
+            author: GqlGithubUserSchema,
+            labels: z.object({
+                pageInfo: PageInfoSchema,
+                nodes: z.array(GqlLabelSchema),
+            }),
+            assignees: z.object({
+                pageInfo: PageInfoSchema,
+                nodes: z.array(GqlGithubUserSchema),
+            }),
+            comments: z.object({
+                pageInfo: PageInfoSchema,
+                nodes: z.array(toBeLaterParsed),
+            }),
+            timelineItems: z.object({
+                pageInfo: PageInfoSchema,
+                nodes: z.array(toBeLaterParsed),
+            }),
+        }),
+    }),
+})

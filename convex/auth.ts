@@ -2,7 +2,6 @@ import GitHub from '@auth/core/providers/github'
 import type { User } from '@auth/core/types'
 import { convexAuth } from '@convex-dev/auth/server'
 import { type MutationCtx } from './_generated/server'
-import { logger } from './utils'
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     providers: [
@@ -21,15 +20,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                     accessToken: tokenset.access_token,
                 }
 
-                logger.debug({ githubProfile, tokenset, usedProfile: p }, 'called profile fn')
+                console.debug({ githubProfile, tokenset, usedProfile: p }, 'called profile fn')
 
                 return p
             },
         }),
     ],
     callbacks: {
+        // @ts-ignore
         async createOrUpdateUser(ctx: MutationCtx, args) {
-            logger.debug('calling createOrUpdateUser')
+            console.debug('calling createOrUpdateUser')
 
             let accessToken = args.profile.accessToken as string
 
@@ -38,7 +38,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                 if (user) {
                     await ctx.db.patch(args.existingUserId, { accessToken })
 
-                    logger.debug({ userId: args.existingUserId }, 'existing user id')
+                    console.debug({ userId: args.existingUserId }, 'existing user id')
                     return args.existingUserId
                 }
             }
@@ -50,11 +50,11 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             if (user) {
                 await ctx.db.patch(user._id, { accessToken })
 
-                logger.debug({ userId: user._id }, 'user already exists')
+                console.debug({ userId: user._id }, 'user already exists')
                 return user._id
             }
 
-            logger.debug({ name: args.profile.name }, 'creating user')
+            console.debug({ name: args.profile.name }, 'creating user')
 
             return await ctx.db.insert('users', {
                 name: args.profile.name as string,

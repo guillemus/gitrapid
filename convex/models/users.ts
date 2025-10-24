@@ -9,8 +9,8 @@ import { v_nextSyncAt, v_nullable, type PossibleGithubUser } from '@convex/schem
 import { err, ok } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
+import { assert } from 'convex-helpers'
 import { v, type Infer } from 'convex/values'
-import { PATs } from './pats'
 
 export namespace Users {
     export const get = {
@@ -56,8 +56,8 @@ export namespace Users {
     export const shouldSyncNotifs = {
         args: { userId: v.id('users') },
         async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
-            let pat = await PATs.getByUserId.handler(ctx, { userId: args.userId })
-            if (!pat) return err('pat not found')
+            let user = await ctx.db.get(args.userId)
+            assert(user, 'user not found')
 
             let userWorkflow = await ctx.db
                 .query('userWorkflows')

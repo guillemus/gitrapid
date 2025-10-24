@@ -14,6 +14,8 @@ import type { FunctionReturnType } from 'convex/server'
 import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 
+// @ts-expect-error: delete this dashboard, notifications will be the main page
+
 export const Route = createFileRoute('/_app/dash')({
     loader: (opts) => {
         if (opts.preload) {

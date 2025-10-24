@@ -234,7 +234,7 @@ const pats = defineTable({
 }).index('by_user_id', ['userId'])
 
 // more info at https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#about-notification-reasons
-const notificationReasons = v.union(
+export const notificationReasons = v.union(
     v.literal('approval_requested'),
     v.literal('assign'),
     v.literal('author'),
@@ -282,7 +282,7 @@ export default defineSchema({
         email: v.optional(v.string()),
         emailVerificationTime: v.optional(v.number()),
         githubId: v.optional(v.number()),
-        accessToken: v.optional(v.string()),
+        accessToken: v.string(),
     }).index('email', ['email']),
 
     // names aren't shortened so that 'go to definition' is direct. Take this object kind of like an index.
@@ -301,10 +301,12 @@ export default defineSchema({
 
     labels: labels,
 
+    // @ts-expect-error: should delete this
     pats: pats,
 
     notifications: notifications,
 
     userWorkflows: userWorkflows,
+    // @ts-expect-error: should be deleted
     repoWorkflows: repoWorkflows,
 })

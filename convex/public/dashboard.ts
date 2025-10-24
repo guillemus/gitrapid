@@ -5,7 +5,7 @@ import { UserRepos } from '@convex/models/userRepos'
 import { getTokenFromUserId } from '@convex/services/auth'
 import { newOctokit, octoCatch, parseGithubUrl } from '@convex/services/github'
 import { err, ok, wrap } from '@convex/shared'
-import { logger, publicAction, publicMutation, publicQuery } from '@convex/utils'
+import { publicAction, publicMutation, publicQuery } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
@@ -36,7 +36,7 @@ export const addRepo = publicAction({
     async handler(ctx, args): R {
         let token = await getTokenFromUserId(ctx, ctx.userId)
         if (token.isErr) {
-            logger.error(`failed to get token for user ${ctx.userId}: ${token.err}`)
+            console.error(`failed to get token for user ${ctx.userId}: ${token.err}`)
             return err('failed to get token')
         }
 
@@ -44,7 +44,7 @@ export const addRepo = publicAction({
 
         let parsed = parseGithubUrl(args.githubUrl)
         if (parsed.isErr) {
-            logger.error(`failed to parse github url for user ${ctx.userId}: ${parsed.err}`)
+            console.error(`failed to parse github url for user ${ctx.userId}: ${parsed.err}`)
             return wrap('failed to parse github url', parsed)
         }
 
@@ -53,7 +53,7 @@ export const addRepo = publicAction({
         let repoData = await octoCatch(octo.rest.repos.get({ owner, repo }))
         if (repoData.isErr) {
             let errmsg = octoCatch.errToString(repoData)
-            logger.error(`failed to get repo data for user ${ctx.userId}: ${errmsg}`)
+            console.error(`failed to get repo data for user ${ctx.userId}: ${errmsg}`)
             return err('failed to get repo data')
         }
 

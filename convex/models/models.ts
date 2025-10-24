@@ -1,7 +1,7 @@
 import type { Doc, TableNames } from '@convex/_generated/dataModel'
-import { internalMutation, type MutationCtx } from '@convex/_generated/server'
+import { type MutationCtx } from '@convex/_generated/server'
 import { assertNever } from '@convex/shared'
-import { logger, type FnArgs } from '@convex/utils'
+import { type FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import type { WithoutSystemFields } from 'convex/server'
 import { v, type Infer } from 'convex/values'
@@ -179,16 +179,10 @@ const UpsertLabel = {
     },
 }
 
-const issueDataForInsert = v.object({
+export const issueDataForInsert = v.object({
     issue: issueData,
     body: v.string(),
-    labels: v.array(
-        v.object({
-            githubId: v.string(),
-            name: v.string(),
-            color: v.string(),
-        }),
-    ),
+    labels: v.array(v.object({ githubId: v.string(), name: v.string(), color: v.string() })),
     assignees: v.array(v.object(schema.tables.githubUsers.validator.fields)),
     timelineItems: v.array(timelineItem),
     comments: v.array(comment),
@@ -196,176 +190,173 @@ const issueDataForInsert = v.object({
 
 export type IssueData = Infer<typeof issueData>
 
-export const insertIssuesWithCommentsBatch = internalMutation({
+export const insertIssuesWithCommentsBatch = {
     args: {
         repoId: v.id('repos'),
-        items: v.array(issueDataForInsert),
+        item: issueDataForInsert,
     },
-    handler: async (ctx, { repoId, items }) => {
-        for (let item of items) {
-            let author = await getOrCreatePossibleGithubUser(ctx, item.issue.author)
+    async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
+        let item = args.item
+        let author = await getOrCreatePossibleGithubUser(ctx, item.issue.author)
 
-            let issueDoc = await IssuesUtils.upsertIssue(ctx, {
-                repoId,
-                author,
-                githubId: item.issue.githubId,
-                number: item.issue.number,
-                title: item.issue.title,
-                state: item.issue.state,
-                createdAt: item.issue.createdAt,
-                updatedAt: item.issue.updatedAt,
+        let issueDoc = await IssuesUtils.upsertIssue(ctx, {
+            repoId: args.repoId,
+            author,
+            githubId: item.issue.githubId,
+            number: item.issue.number,
+            title: item.issue.title,
+            state: item.issue.state,
+            createdAt: item.issue.createdAt,
+            updatedAt: item.issue.updatedAt,
+        })
+        assert(issueDoc, 'issue doc not found')
+
+        if (item.body) {
+            await IssuesUtils.upsertIssueBody(ctx, {
+                repoId: issueDoc.repoId,
+                issueId: issueDoc._id,
+                body: item.body,
             })
-            assert(issueDoc, 'issue doc not found')
+        }
 
-            if (item.body) {
-                await IssuesUtils.upsertIssueBody(ctx, {
+        if (item.labels.length > 0) {
+            for (let l of item.labels) {
+                await AssignLabelToIssue.handler(ctx, {
                     repoId: issueDoc.repoId,
                     issueId: issueDoc._id,
-                    body: item.body,
+                    githubId: l.githubId,
+                    name: l.name,
+                    color: l.color,
                 })
-            }
-
-            if (item.labels.length > 0) {
-                for (let l of item.labels) {
-                    await AssignLabelToIssue.handler(ctx, {
-                        repoId: issueDoc.repoId,
-                        issueId: issueDoc._id,
-                        githubId: l.githubId,
-                        name: l.name,
-                        color: l.color,
-                    })
-                }
-            }
-
-            if (item.assignees.length) {
-                for (let a of item.assignees) {
-                    await AssignUserToIssue.handler(ctx, {
-                        issueId: issueDoc._id,
-                        githubId: a.githubId,
-                        login: a.login,
-                        avatarUrl: a.avatarUrl,
-                    })
-                }
-            }
-
-            if (item.timelineItems.length > 0) {
-                let docs: UpsertDoc<'issueTimelineItems'>[] = []
-                for (let t of item.timelineItems) {
-                    let actor = await getOrCreatePossibleGithubUser(ctx, t.actor)
-
-                    let item: UpsertDoc<'issueTimelineItems'>['item']
-                    if (t.item.type === 'assigned') {
-                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
-
-                        item = { type: 'assigned', assignee }
-                    } else if (t.item.type === 'unassigned') {
-                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
-
-                        item = { type: 'unassigned', assignee }
-                    } else if (t.item.type === 'labeled') {
-                        let labelId = await UpsertLabel.handler(ctx, {
-                            repoId: issueDoc.repoId,
-                            githubId: t.item.label.githubId,
-                            name: t.item.label.name,
-                            color: t.item.label.color,
-                        })
-
-                        item = { type: 'labeled', label: labelId }
-                    } else if (t.item.type === 'unlabeled') {
-                        let labelId = await UpsertLabel.handler(ctx, {
-                            repoId: issueDoc.repoId,
-                            githubId: t.item.label.githubId,
-                            name: t.item.label.name,
-                            color: t.item.label.color,
-                        })
-
-                        item = { type: 'unlabeled', label: labelId }
-                    } else if (t.item.type === 'milestoned') {
-                        item = { type: 'milestoned', milestoneTitle: t.item.milestoneTitle }
-                    } else if (t.item.type === 'demilestoned') {
-                        item = { type: 'demilestoned', milestoneTitle: t.item.milestoneTitle }
-                    } else if (t.item.type === 'locked') {
-                        item = { type: 'locked' }
-                    } else if (t.item.type === 'unlocked') {
-                        item = { type: 'unlocked' }
-                    } else if (t.item.type === 'pinned') {
-                        item = { type: 'pinned' }
-                    } else if (t.item.type === 'unpinned') {
-                        item = { type: 'unpinned' }
-                    } else if (t.item.type === 'closed') {
-                        item = { type: 'closed' }
-                    } else if (t.item.type === 'reopened') {
-                        item = { type: 'reopened' }
-                    } else if (t.item.type === 'renamed') {
-                        item = {
-                            type: 'renamed',
-                            previousTitle: t.item.previousTitle,
-                            currentTitle: t.item.currentTitle,
-                        }
-                    } else if (t.item.type === 'referenced') {
-                        item = {
-                            type: 'referenced',
-                            commit: t.item.commit
-                                ? { oid: t.item.commit.oid, url: t.item.commit.url }
-                                : undefined,
-                        }
-                    } else if (t.item.type === 'cross_referenced') {
-                        item = {
-                            type: 'cross_referenced',
-                            source: {
-                                type: t.item.source.type,
-                                owner: t.item.source.owner,
-                                name: t.item.source.name,
-                                number: t.item.source.number,
-                            },
-                        }
-                    } else if (t.item.type === 'transferred') {
-                        item = {
-                            type: 'transferred',
-                            fromRepository: {
-                                owner: t.item.fromRepository.owner,
-                                name: t.item.fromRepository.name,
-                            },
-                        }
-                    } else {
-                        assertNever(t.item)
-                        logger.error({ item: t.item }, `unknown timeline item`)
-                        continue
-                    }
-
-                    docs.push({
-                        actor,
-                        createdAt: t.createdAt,
-                        issueId: issueDoc._id,
-                        repoId: issueDoc.repoId,
-                        item,
-                    })
-                }
-
-                await IssueTimelineItems.deleteByIssueId(ctx, issueDoc._id)
-                await IssueTimelineItems.insertMany(ctx, docs)
-            }
-
-            if (item.comments.length > 0) {
-                let docs: UpsertDoc<'issueComments'>[] = []
-                for (let c of item.comments) {
-                    let author = await getOrCreatePossibleGithubUser(ctx, c.author)
-
-                    docs.push({
-                        issueId: issueDoc._id,
-                        repoId: issueDoc.repoId,
-                        githubId: c.githubId,
-                        author,
-                        body: c.body,
-                        createdAt: c.createdAt,
-                        updatedAt: c.updatedAt,
-                    })
-                }
-                await IssueComments.deleteByIssueId(ctx, issueDoc._id)
-                await IssueComments.insertMany(ctx, docs)
             }
         }
 
-        return null
+        if (item.assignees.length) {
+            for (let a of item.assignees) {
+                await AssignUserToIssue.handler(ctx, {
+                    issueId: issueDoc._id,
+                    githubId: a.githubId,
+                    login: a.login,
+                    avatarUrl: a.avatarUrl,
+                })
+            }
+        }
+
+        if (item.timelineItems.length > 0) {
+            let docs: UpsertDoc<'issueTimelineItems'>[] = []
+            for (let t of item.timelineItems) {
+                let actor = await getOrCreatePossibleGithubUser(ctx, t.actor)
+
+                let item: UpsertDoc<'issueTimelineItems'>['item']
+                if (t.item.type === 'assigned') {
+                    let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
+
+                    item = { type: 'assigned', assignee }
+                } else if (t.item.type === 'unassigned') {
+                    let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
+
+                    item = { type: 'unassigned', assignee }
+                } else if (t.item.type === 'labeled') {
+                    let labelId = await UpsertLabel.handler(ctx, {
+                        repoId: issueDoc.repoId,
+                        githubId: t.item.label.githubId,
+                        name: t.item.label.name,
+                        color: t.item.label.color,
+                    })
+
+                    item = { type: 'labeled', label: labelId }
+                } else if (t.item.type === 'unlabeled') {
+                    let labelId = await UpsertLabel.handler(ctx, {
+                        repoId: issueDoc.repoId,
+                        githubId: t.item.label.githubId,
+                        name: t.item.label.name,
+                        color: t.item.label.color,
+                    })
+
+                    item = { type: 'unlabeled', label: labelId }
+                } else if (t.item.type === 'milestoned') {
+                    item = { type: 'milestoned', milestoneTitle: t.item.milestoneTitle }
+                } else if (t.item.type === 'demilestoned') {
+                    item = { type: 'demilestoned', milestoneTitle: t.item.milestoneTitle }
+                } else if (t.item.type === 'locked') {
+                    item = { type: 'locked' }
+                } else if (t.item.type === 'unlocked') {
+                    item = { type: 'unlocked' }
+                } else if (t.item.type === 'pinned') {
+                    item = { type: 'pinned' }
+                } else if (t.item.type === 'unpinned') {
+                    item = { type: 'unpinned' }
+                } else if (t.item.type === 'closed') {
+                    item = { type: 'closed' }
+                } else if (t.item.type === 'reopened') {
+                    item = { type: 'reopened' }
+                } else if (t.item.type === 'renamed') {
+                    item = {
+                        type: 'renamed',
+                        previousTitle: t.item.previousTitle,
+                        currentTitle: t.item.currentTitle,
+                    }
+                } else if (t.item.type === 'referenced') {
+                    item = {
+                        type: 'referenced',
+                        commit: t.item.commit
+                            ? { oid: t.item.commit.oid, url: t.item.commit.url }
+                            : undefined,
+                    }
+                } else if (t.item.type === 'cross_referenced') {
+                    item = {
+                        type: 'cross_referenced',
+                        source: {
+                            type: t.item.source.type,
+                            owner: t.item.source.owner,
+                            name: t.item.source.name,
+                            number: t.item.source.number,
+                        },
+                    }
+                } else if (t.item.type === 'transferred') {
+                    item = {
+                        type: 'transferred',
+                        fromRepository: {
+                            owner: t.item.fromRepository.owner,
+                            name: t.item.fromRepository.name,
+                        },
+                    }
+                } else {
+                    assertNever(t.item)
+                    console.error({ item: t.item }, `unknown timeline item`)
+                    continue
+                }
+
+                docs.push({
+                    actor,
+                    createdAt: t.createdAt,
+                    issueId: issueDoc._id,
+                    repoId: issueDoc.repoId,
+                    item,
+                })
+            }
+
+            await IssueTimelineItems.deleteByIssueId(ctx, issueDoc._id)
+            await IssueTimelineItems.insertMany(ctx, docs)
+        }
+
+        if (item.comments.length > 0) {
+            let docs: UpsertDoc<'issueComments'>[] = []
+            for (let c of item.comments) {
+                let author = await getOrCreatePossibleGithubUser(ctx, c.author)
+
+                docs.push({
+                    issueId: issueDoc._id,
+                    repoId: issueDoc.repoId,
+                    githubId: c.githubId,
+                    author,
+                    body: c.body,
+                    createdAt: c.createdAt,
+                    updatedAt: c.updatedAt,
+                })
+            }
+            await IssueComments.deleteByIssueId(ctx, issueDoc._id)
+            await IssueComments.insertMany(ctx, docs)
+        }
     },
-})
+}

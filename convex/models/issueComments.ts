@@ -1,6 +1,5 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { logger } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
 import schema from '../schema'
@@ -23,7 +22,7 @@ export const IssueComments = {
         let comments = await this.listByIssueId(ctx, issueId)
         let commentsWithRelations: CommentWithRelations[] = []
         for (let comment of comments) {
-            let commentAuthor = await fetchGithubUser(ctx, logger, comment.author)
+            let commentAuthor = await fetchGithubUser(ctx, comment.author)
 
             commentsWithRelations.push({
                 ...comment,
