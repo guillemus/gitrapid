@@ -20,10 +20,6 @@ function RouteComponent() {
         },
     })
 
-    if (notifications === 'PAT_NOT_FOUND') {
-        return <PatNotFoundCard />
-    }
-
     let isEmpty = !notifications || notifications.page.length === 0
     let canGoPrev = cursorState.canGoPrev()
     let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
@@ -205,92 +201,6 @@ function NotificationRow({
                         </span>
                     </div>
                 </div>
-            </div>
-        </div>
-    )
-}
-
-function PatNotFoundCard() {
-    return (
-        <div className="min-h-screen bg-white">
-            <div className="mx-auto max-w-2xl px-4 py-16">
-                <Card className="border border-gray-200 p-8">
-                    <div className="flex flex-col items-center text-center">
-                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                            <KeyIcon className="h-8 w-8 text-gray-600" />
-                        </div>
-
-                        <h1 className="mb-2 text-2xl font-bold text-gray-900">
-                            GitHub Token Required
-                        </h1>
-
-                        <p className="mb-6 max-w-md text-gray-700">
-                            To access your GitHub notifications, GitRapid needs a personal access
-                            token. This allows us to securely fetch your notifications from GitHub.
-                        </p>
-
-                        <div className="mb-8 w-full space-y-3 rounded-lg bg-gray-50 p-4">
-                            <div className="flex items-start gap-3 text-left">
-                                <div className="mt-1 flex-shrink-0">
-                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
-                                        1
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-gray-900">
-                                        Generate a token on GitHub
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        Go to GitHub settings and create a new personal access token
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3 text-left">
-                                <div className="mt-1 flex-shrink-0">
-                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
-                                        2
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-gray-900">
-                                        Add it to your GitRapid settings
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        Paste your token in the settings page below
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-start gap-3 text-left">
-                                <div className="mt-1 flex-shrink-0">
-                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
-                                        3
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="font-medium text-gray-900">
-                                        Start viewing notifications
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        Your GitHub notifications will be available immediately
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <Button asChild className="mb-3 w-full">
-                            <Link to="/settings">
-                                <KeyIcon className="mr-2 h-4 w-4" />
-                                Go to Settings
-                            </Link>
-                        </Button>
-
-                        <Link to="/dash" className="text-sm text-gray-600 hover:text-gray-900">
-                            Back to Dashboard
-                        </Link>
-                    </div>
-                </Card>
             </div>
         </div>
     )

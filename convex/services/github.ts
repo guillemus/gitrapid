@@ -522,6 +522,7 @@ import type { ActionCtx } from '@convex/_generated/server'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
 import z from 'zod'
+import { assert } from 'convex-helpers'
 
 export type OctoCatchGqlErrors =
     | { type: 'gql-error'; err: GraphqlResponseError<unknown> }
@@ -611,11 +612,11 @@ function includesRateLimitMessage(message: string): boolean {
 }
 
 export async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
-    let userToken = await ctx.runQuery(internal.models.pats.getByUserId, {
+    let user = await ctx.runQuery(internal.models.users.get, {
         userId,
     })
-    if (!userToken) return err('user token not found')
+    assert(user, 'user not found')
 
-    let octo = newOctokit(userToken)
-    return ok(octo)
+    let octo = newOctokit({ token: user.accessToken })
+    return octo
 }

@@ -1,15 +1,10 @@
 import { GhLabel, GhUser } from '@/components/github'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { qcPersistent } from '@/lib/queryClient'
 import { formatRelativeTime, renderMarkdownToHtml, useTanstackQuery } from '@/lib/utils'
 import { convexQuery } from '@convex-dev/react-query'
 import { api } from '@convex/_generated/api'
 import type { GithubUserDoc } from '@convex/models/issueTimelineItems'
-import { useHookstate } from '@hookstate/core'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { createFileRoute } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
 import {
     AlertCircle,
@@ -19,7 +14,6 @@ import {
     MoveRight,
     Pin,
     PinOff,
-    Plus,
     RotateCcw,
     Tag,
     Unlock,
@@ -28,7 +22,6 @@ import {
     UserPlus,
 } from 'lucide-react'
 import { useMemo } from 'react'
-import { toast } from 'sonner'
 import z from 'zod'
 
 const paramsSchema = z.object({
@@ -119,8 +112,6 @@ function SingleIssuesPage() {
                                     )
                                 }
                             })}
-
-                            <AddCommentBox />
                         </div>
                     </div>
                 </div>
@@ -170,82 +161,15 @@ function SingleIssuesPage() {
 }
 
 function IssueHeader(props: { issue: Data['issue'] }) {
-    let { owner, repo } = Route.useParams()
-    let editTitle = useMutation(api.public.issues.editTitle)
-    let state = useHookstate({
-        editing: false,
-        saving: false,
-        titleDraft: props.issue.title,
-    })
-
-    if (!state.editing.get() && state.titleDraft.get() !== props.issue.title) {
-        state.titleDraft.set(props.issue.title)
-    }
-
-    function startEditing() {
-        state.titleDraft.set(props.issue.title)
-        state.editing.set(true)
-    }
-
-    function cancelEditing() {
-        state.editing.set(false)
-        state.titleDraft.set(props.issue.title)
-    }
-
-    async function saveTitle() {
-        let nextTitle = state.titleDraft.get().trim()
-        if (!nextTitle) {
-            toast.error('Issue title cannot be empty')
-            return
-        }
-        if (nextTitle === props.issue.title) {
-            state.editing.set(false)
-            return
-        }
-
-        state.saving.set(true)
-
-        try {
-            await editTitle({
-                owner,
-                repo,
-                issueNumber: props.issue.number,
-                newTitle: nextTitle,
-            })
-            state.editing.set(false)
-        } catch (error) {
-            let message = error instanceof Error ? error.message : 'Failed to update title'
-            toast.error(message)
-        }
-
-        state.saving.set(false)
-    }
-
     return (
         <div className="flex items-start justify-between gap-2.5">
             <div className="min-w-0 flex-1">
-                {state.editing.get() ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Input
-                            value={state.titleDraft.get()}
-                            onChange={(event) => state.titleDraft.set(event.target.value)}
-                            onEnter={saveTitle}
-                            autoFocus
-                            disabled={state.saving.get()}
-                            className="text-foreground text-3xl font-semibold"
-                        />
-                        <span className="text-muted-foreground text-3xl font-normal">
-                            #{props.issue.number}
-                        </span>
-                    </div>
-                ) : (
-                    <h1 className="text-foreground text-4xl">
-                        {props.issue.title}
-                        <span className="text-muted-foreground ml-2 font-normal">
-                            #{props.issue.number}
-                        </span>
-                    </h1>
-                )}
+                <h1 className="text-foreground text-4xl">
+                    {props.issue.title}
+                    <span className="text-muted-foreground ml-2 font-normal">
+                        #{props.issue.number}
+                    </span>
+                </h1>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-normal">
                     <span
                         className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
@@ -258,32 +182,6 @@ function IssueHeader(props: { issue: Data['issue'] }) {
                         {props.issue.state === 'open' ? 'Open' : 'Closed'}
                     </span>
                 </div>
-            </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
-                {state.editing.get() ? (
-                    <>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={cancelEditing}
-                            disabled={state.saving.get()}
-                        >
-                            Cancel
-                        </Button>
-                        <Button size="sm" onClick={saveTitle} disabled={state.saving.get()}>
-                            {state.saving.get() ? 'Saving...' : 'Save title'}
-                        </Button>
-                    </>
-                ) : (
-                    <>
-                        <Button size="sm" variant="outline" onClick={startEditing}>
-                            Edit
-                        </Button>
-                        <Button size="sm" className="gap-2">
-                            New issue
-                        </Button>
-                    </>
-                )}
             </div>
         </div>
     )
@@ -551,86 +449,4 @@ function TimelineEventDescription(props: { event: TimelineItem }) {
                 </span>
             )
     }
-}
-
-function AddCommentBox() {
-    let { owner, repo, issue: number } = Route.useParams()
-    let addComment = useMutation(api.public.issues.addComment)
-
-    let state = useHookstate({
-        addingComment: false,
-        comment: '',
-    })
-
-    async function handleAddComment(e: { preventDefault: () => void }) {
-        e.preventDefault()
-
-        state.addingComment.set(true)
-        let res = await addComment({
-            owner,
-            repo,
-            issueNumber: number,
-            comment: state.comment.get(),
-        })
-        state.addingComment.set(false)
-        state.comment.set('')
-
-        if (res.isErr) {
-            if (res.err.type === 'INSUFFICIENT_SCOPES') {
-                toast.error(`The current token doesn't have enough scopes`, {
-                    position: 'bottom-center',
-                    description: (
-                        <p>
-                            Go to{' '}
-                            <Link
-                                className="underline"
-                                to={`/settings`}
-                                search={{ scope: res.err.requiredScope }}
-                            >
-                                settings
-                            </Link>{' '}
-                            to add a token with{' '}
-                            <Badge variant="outline">{res.err.requiredScope}</Badge> scope
-                        </p>
-                    ),
-                })
-            }
-        }
-    }
-
-    return (
-        <div className="mt-6 rounded-md border">
-            <form className="p-4" onSubmit={handleAddComment}>
-                <div className="mb-2 text-sm font-medium">Add a comment</div>
-                <div className="rounded-md border">
-                    <textarea
-                        rows={5}
-                        onChange={(e) => state.comment.set(e.target.value)}
-                        onKeyDown={async (e) => {
-                            if (e.key === 'Enter') {
-                                await handleAddComment(e)
-                            }
-                        }}
-                        value={state.comment.get()}
-                        className="bg-background placeholder:text-muted-foreground w-full resize-none rounded-md p-3 text-sm outline-none"
-                        placeholder="Write a comment..."
-                    />
-                </div>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" className="bg-transparent">
-                        Preview
-                    </Button>
-                    <Button
-                        type="submit"
-                        size="sm"
-                        className="gap-2"
-                        disabled={state.addingComment.get()}
-                    >
-                        <Plus className="h-4 w-4" />
-                        {state.addingComment.get() ? 'Adding...' : 'Comment'}
-                    </Button>
-                </div>
-            </form>
-        </div>
-    )
 }

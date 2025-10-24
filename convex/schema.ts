@@ -54,15 +54,6 @@ const userWorkflows = defineTable({
     }),
 }).index('by_userId', ['userId'])
 
-const repoWorkflows = defineTable({
-    repoId: v.id('repos'),
-    issues: v.object({
-        workflowId: vWorkflowId,
-        nextSyncAt: v.optional(v_nextSyncAt),
-        etag: v.optional(v_etag),
-    }),
-}).index('by_repoId', ['repoId'])
-
 const githubUsers = defineTable({
     githubId: v.number(),
     login: v.string(),
@@ -217,22 +208,6 @@ export const v_tokenScopes = v.array(
     ),
 )
 
-const pats = defineTable({
-    githubUser: v.id('githubUsers'),
-    userId: v.id('users'),
-    token: v.string(),
-    scopes: v_tokenScopes,
-    expiresAt: v.string(),
-
-    rateLimit: v.optional(
-        v.object({
-            limit: v.optional(v.string()),
-            remaining: v.optional(v.string()),
-            reset: v.optional(v.string()),
-        }),
-    ),
-}).index('by_user_id', ['userId'])
-
 // more info at https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#about-notification-reasons
 export const notificationReasons = v.union(
     v.literal('approval_requested'),
@@ -301,12 +276,7 @@ export default defineSchema({
 
     labels: labels,
 
-    // @ts-expect-error: should delete this
-    pats: pats,
-
     notifications: notifications,
 
     userWorkflows: userWorkflows,
-    // @ts-expect-error: should be deleted
-    repoWorkflows: repoWorkflows,
 })

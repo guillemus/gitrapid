@@ -3,7 +3,7 @@ import { useAuthToken } from '@convex-dev/auth/react'
 import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
 import { AlertCircle } from 'lucide-react'
-import React from 'react'
+import React, { useEffect } from 'react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,14 @@ function AuthenticatedWithToken(props: { children: React.ReactNode }) {
     return null
 }
 
+function RedirectToHome() {
+    useEffect(() => {
+        window.location.href = '/'
+    }, [])
+
+    return null
+}
+
 function AppLayout() {
     return (
         <ErrorBoundary>
@@ -39,7 +47,7 @@ function AppLayout() {
                     </div>
                 </AuthenticatedWithToken>
                 <Unauthenticated>
-                    <Navigate to="/login" />
+                    <RedirectToHome />
                 </Unauthenticated>
             </div>
         </ErrorBoundary>

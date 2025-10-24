@@ -5,33 +5,11 @@ import type {
     FunctionReference,
 } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
-import pino from 'pino'
 import { z } from 'zod'
 import { action, mutation, query } from './_generated/server'
 import { appEnv } from './env'
 import { Auth } from './services/auth'
 import { err, ok, type Result } from './shared'
-
-// @ts-expect-error: remove
-
-const logger = createLogger()
-
-function createLogger() {
-    if (appEnv.DEBUG_LOGGER) {
-        return pino({
-            level: 'debug',
-            transport: {
-                target: 'pino-pretty',
-                options: {
-                    colorize: true,
-                    ignore: 'pid,hostname,time',
-                },
-            },
-        })
-    }
-
-    return pino({ level: 'info' })
-}
 
 export function parseDate(date: string): Result<Date> {
     let d = new Date(date)

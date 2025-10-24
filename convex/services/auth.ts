@@ -1,10 +1,10 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { internal } from '@convex/_generated/api'
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated/server'
-import { PATs } from '@convex/models/pats'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
+import { Users } from '@convex/models/users'
 import { err, ok } from '@convex/shared'
 import type { FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
@@ -46,34 +46,23 @@ export namespace Auth {
         owner: string,
         repo: string,
     ) {
-        let pat = await PATs.getByUserId.handler(ctx, { userId })
-        if (!pat) return err('PAT_NOT_FOUND')
-        if (new Date(pat.expiresAt) < new Date()) return err('PAT_EXPIRED')
+        let user = await Users.get.handler(ctx, { userId })
+        assert(user, 'user not found')
 
         let userRepo = await getUserAssociatedRepo.handler(ctx, { userId, owner, repo })
         if (userRepo.isErr) return userRepo
 
-        return ok({ userId, pat, userRepo: userRepo.val })
+        return ok({ userId, user, userRepo: userRepo.val })
     }
 }
 
 export const getUserAssociatedRepo = internalQuery(Auth.getUserAssociatedRepo)
 
-export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>): R<Doc<'pats'>> {
-    let token = await ctx.runQuery(internal.models.pats.getByUserId, {
+export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
+    let user = await ctx.runQuery(internal.models.users.get, {
         userId,
     })
-    if (!token) return err('No PAT found')
+    assert(user, 'user not found')
 
-    return ok(token)
-}
-
-export function canUserCommentOnRepo(repo: Doc<'repos'>, token: Doc<'pats'>) {
-    if (token.scopes.includes('repo')) return true
-
-    if (token.scopes.includes('public_repo')) {
-        return !repo.private
-    }
-
-    return false
+    return user.accessToken
 }

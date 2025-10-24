@@ -28,7 +28,7 @@ export function Landing() {
 
                 <div className="mt-6 flex items-center justify-center gap-3">
                     <Button asChild variant="outline" size="lg">
-                        <a href="/login">
+                        <a href="/">
                             <Github className="mr-2 h-4 w-4" />
                             Continue with GitHub
                         </a>

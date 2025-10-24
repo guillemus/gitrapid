@@ -1,4 +1,3 @@
-import { vWorkflowId } from '@convex-dev/workflow'
 import type { Id } from '@convex/_generated/dataModel'
 import {
     internalMutation,
@@ -6,12 +5,8 @@ import {
     type MutationCtx,
     type QueryCtx,
 } from '@convex/_generated/server'
-import { err, ok } from '@convex/shared'
 import type { FnArgs } from '@convex/utils'
-import { workflow } from '@convex/workflow'
-import { assert } from 'convex-helpers'
 import { v } from 'convex/values'
-import { v_etag, v_nextSyncAt, v_nullable } from '../schema'
 
 export namespace Repos {
     export async function getByIds(ctx: QueryCtx, repoIds: Id<'repos'>[]) {
@@ -64,82 +59,6 @@ export namespace Repos {
         await ctx.db.patch(repoId, { closedIssues: repo.closedIssues + count })
     }
 
-    export const shouldSyncIssues = {
-        args: { repoId: v.id('repos') },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
-            let repoWorkflow = await ctx.db
-                .query('repoWorkflows')
-                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
-                .unique()
-            if (!repoWorkflow) return ok()
-
-            let wStatus = await workflow.status(ctx, repoWorkflow.issues.workflowId)
-            if (wStatus.type === 'inProgress') return err('workflow in progress')
-
-            return ok()
-        },
-    }
-
-    export const getWorkflow = {
-        args: { repoId: v.id('repos') },
-        async handler(ctx: QueryCtx, args: FnArgs<typeof this>) {
-            let repoWorkflow = await ctx.db
-                .query('repoWorkflows')
-                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
-                .unique()
-            return repoWorkflow
-        },
-    }
-
-    export const saveIssuesWorkflow = {
-        args: {
-            repoId: v.id('repos'),
-            workflow: v.object({
-                workflowId: vWorkflowId,
-                nextSyncAt: v_nullable(v_nextSyncAt),
-            }),
-        },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
-            let repoWorkflow = await ctx.db
-                .query('repoWorkflows')
-                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
-                .unique()
-
-            if (repoWorkflow) {
-                // does not override etag
-                repoWorkflow.issues.workflowId = args.workflow.workflowId
-                if (args.workflow.nextSyncAt) {
-                    repoWorkflow.issues.nextSyncAt = args.workflow.nextSyncAt
-                }
-
-                await ctx.db.patch(repoWorkflow._id, repoWorkflow)
-                return
-            }
-
-            await ctx.db.insert('repoWorkflows', {
-                repoId: args.repoId,
-                issues: {
-                    workflowId: args.workflow.workflowId,
-                    nextSyncAt: args.workflow.nextSyncAt ?? undefined,
-                },
-            })
-        },
-    }
-
-    export const setIssuesWorkflowEtag = {
-        args: { repoId: v.id('repos'), etag: v_etag },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
-            let repoWorkflow = await ctx.db
-                .query('repoWorkflows')
-                .withIndex('by_repoId', (x) => x.eq('repoId', args.repoId))
-                .unique()
-            assert(repoWorkflow, 'repo workflow must exist to update issues etag')
-
-            repoWorkflow.issues.etag = args.etag
-            await ctx.db.patch(repoWorkflow._id, repoWorkflow)
-        },
-    }
-
     export const upsertRepoForUser = {
         args: {
             userId: v.id('users'),
@@ -187,10 +106,6 @@ export namespace Repos {
         },
     }
 }
-
-export const setIssuesWorkflowEtag = internalMutation(Repos.setIssuesWorkflowEtag)
-export const getWorkflow = internalQuery(Repos.getWorkflow)
-export const saveIssuesWorkflow = internalMutation(Repos.saveIssuesWorkflow)
 
 export const get = internalQuery({
     args: { repoId: v.id('repos') },

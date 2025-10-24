@@ -74,6 +74,6 @@ export function useLogout() {
 
     return async () => {
         await authActions.signOut()
-        await navigate({ to: '/login' })
+        window.location.href = '/'
     }
 }

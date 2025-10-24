@@ -4,7 +4,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useLogout } from '@/lib/queryClient'
@@ -28,14 +27,6 @@ export function Header() {
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between pt-4 pb-0 font-normal">
                     <div className="flex items-center space-x-2">
-                        <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
-                            <Link to="/dash">
-                                <Code className="h-4 w-4" />
-                            </Link>
-                        </div>
-                        {isNotifications && (
-                            <div className="text-sm font-medium">Notifications</div>
-                        )}
                         {owner && repo && (
                             <>
                                 <div className="flex items-center space-x-1">
@@ -62,10 +53,6 @@ export function Header() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                    <Link to="/settings">Settings</Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     variant="destructive"
                                     onSelect={(e) => {

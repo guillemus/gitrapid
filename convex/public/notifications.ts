@@ -1,4 +1,3 @@
-import { PATs } from '@convex/models/pats'
 import { publicQuery } from '@convex/utils'
 import { asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -8,11 +7,6 @@ export const list = publicQuery({
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
-        let pat = await PATs.getByUserId.handler(ctx, { userId: ctx.userId })
-        if (!pat) {
-            return 'PAT_NOT_FOUND'
-        }
-
         let page = await ctx.db
             .query('notifications')
             .withIndex('by_userId_updatedAt', (q) => q.eq('userId', ctx.userId))
