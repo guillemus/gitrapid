@@ -10,7 +10,7 @@ import { insertIssuesWithCommentsBatch, issueDataForInsert } from '@convex/model
 import { Notifications } from '@convex/models/notifications'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
-import { assertOk, O } from '@convex/shared'
+import { assertNever, assertOk, O } from '@convex/shared'
 import { devOnlyMutation, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
@@ -88,8 +88,6 @@ export const notifications_download = internalAction({
                 let number = notification.resourceNumber
 
                 if (notification.type === 'Issue') {
-                    console.log('fetching', notification.title)
-
                     let issue = await Graphql.fetchIssue(octo, { owner, repo, number })
                     if (issue.isErr) {
                         let err = Graphql.fetchIssuesErrorsToString(issue.err)
@@ -97,7 +95,10 @@ export const notifications_download = internalAction({
                     }
 
                     batch.push({ issue: issue.val, notification })
-                }
+                } else if (notification.type === 'PullRequest') {
+                } else if (notification.type === 'Commit') {
+                } else if (notification.type === 'Release') {
+                } else assertNever(notification.type)
             }
 
             console.debug('inserting', batch.length, 'notifications in batch')

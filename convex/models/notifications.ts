@@ -73,7 +73,7 @@ export namespace Notifications {
         const foundRepos = new Set<Id<'repos'>>()
         let doc = await ctx.db
             .query('notifications')
-            .withIndex('by_userId_repoId')
+            .withIndex('by_userId_repoId_updatedAt', (q) => q.eq('userId', userId))
             .order('desc')
             .first()
         while (doc !== null) {
@@ -81,7 +81,9 @@ export namespace Notifications {
             foundRepos.add(repoId)
             doc = await ctx.db
                 .query('notifications')
-                .withIndex('by_userId_repoId', (q) => q.eq('userId', userId).lt('repoId', repoId))
+                .withIndex('by_userId_repoId_updatedAt', (q) =>
+                    q.eq('userId', userId).lt('repoId', repoId),
+                )
                 .order('desc')
                 .first()
         }

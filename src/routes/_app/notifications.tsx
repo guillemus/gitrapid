@@ -3,21 +3,28 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn, formatRelativeTime, usePaginationState, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
 import { AlertCircle, ChevronLeft, ChevronRight, GitPullRequest, Tag, Zap } from 'lucide-react'
+import z from 'zod'
+
+const searchSchema = z.object({
+    ownerRepo: z.string().optional(),
+})
 
 export const Route = createFileRoute('/_app/notifications')({
+    validateSearch: searchSchema.parse,
     component: RouteComponent,
 })
 
 function RouteComponent() {
     return (
         <div className="min-h-screen bg-white">
-            <div className="mx-auto max-w-4xl px-4 py-8">
+            <div className="flex">
                 <Repositories></Repositories>
-
-                <NotificationList></NotificationList>
+                <div className="flex-1">
+                    <NotificationList></NotificationList>
+                </div>
             </div>
         </div>
     )
@@ -33,11 +40,16 @@ function Repositories() {
     }
 
     return (
-        <div className="mb-8">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Repositories</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {repos.map((repo) => (
-                    <RepositoryItem key={repo._id} repo={repo} />
+        <div className="w-48 border-r border-gray-200 p-2">
+            <h2 className="px-1 text-xs font-semibold tracking-wide text-gray-700 uppercase">
+                Repositories
+            </h2>
+            <div className="mt-2"></div>
+            <div>
+                {repos.map((repo, index) => (
+                    <div key={repo._id}>
+                        <RepositoryItem repo={repo} />
+                    </div>
                 ))}
             </div>
         </div>
@@ -45,19 +57,21 @@ function Repositories() {
 }
 
 function RepositoryItem(props: { repo: RepositoriesQuery[number] }) {
-    let navigate = useNavigate()
-
-    async function handleClick() {
-        // Navigate to filtered notifications for this repo
-        await navigate({ to: '/notifications' })
-    }
-
     return (
-        <div className="flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
             <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-medium text-gray-900">
-                    {props.repo.owner}/{props.repo.repo}
-                </h3>
+                <Button
+                    variant="ghost"
+                    className="h-auto px-1 py-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+                    asChild
+                >
+                    <Link
+                        to="/notifications"
+                        search={{ ownerRepo: `${props.repo.owner}/${props.repo.repo}` }}
+                    >
+                        {props.repo.owner}/{props.repo.repo}
+                    </Link>
+                </Button>
             </div>
         </div>
     )
@@ -154,38 +168,47 @@ function NotificationRow({
     return (
         <div
             className={cn(
-                'cursor-pointer border border-gray-200 p-4 transition-all hover:border-gray-300 hover:shadow-sm',
-                notification.unread && 'border-blue-200 bg-blue-50',
+                'cursor-pointer border-b border-gray-200 px-4 py-2 transition-colors hover:bg-gray-50',
+                notification.unread && 'bg-blue-50 hover:bg-blue-100',
             )}
             onClick={handleClick}
         >
-            <div className="flex items-start gap-3">
-                <div className="mt-1 flex-shrink-0 text-gray-400">
+            <div className="flex items-center gap-2">
+                {/* Icon */}
+                <div className="mt-0 flex-shrink-0 text-gray-400">
                     {getNotificationIcon(notification.type)}
                 </div>
 
+                {/* Main content */}
                 <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                            <h3 className="truncate text-sm font-medium text-gray-900">
-                                {notification.title}
-                            </h3>
-                            <p className="mt-1 text-xs text-gray-600">
-                                {notification.repo.owner}/{notification.repo.repo} #
-                                {notification.resourceNumber}
-                            </p>
-                        </div>
+                    {/* Title and unread indicator */}
+                    <div className="flex items-center gap-1">
+                        <h3 className="truncate text-sm font-medium text-gray-900">
+                            {notification.title}
+                        </h3>
                         {notification.unread && (
-                            <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-blue-600" />
+                            <div className="h-2 w-2 flex-shrink-0 rounded-full bg-blue-600" />
                         )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={cn(reasonColors.bg, reasonColors.text, 'font-normal')}>
+                    {/* Repo, badges, and time on one line */}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                        <span className="text-xs text-gray-600">
+                            {notification.repo.owner}/{notification.repo.repo} #
+                            {notification.resourceNumber}
+                        </span>
+                        <span className="text-xs text-gray-400">·</span>
+                        <Badge
+                            className={cn(
+                                reasonColors.bg,
+                                reasonColors.text,
+                                'h-5 px-1.5 py-0 text-xs font-normal',
+                            )}
+                        >
                             {formatReason(notification.reason)}
                         </Badge>
-                        <span className="text-xs text-gray-500">{notification.type}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-400">{notification.type}</span>
+                        <span className="text-xs text-gray-500">
                             {formatRelativeTime(notification.updatedAt)}
                         </span>
                     </div>
@@ -197,7 +220,9 @@ function NotificationRow({
 
 function NotificationList() {
     let cursorState = usePaginationState()
+    let search = Route.useSearch()
     let notifications = useTanstackQuery(api.public.notifications.list, {
+        ownerRepo: search.ownerRepo,
         paginationOpts: {
             numItems: 25,
             cursor: cursorState.currCursor(),
@@ -209,31 +234,32 @@ function NotificationList() {
     let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
 
     return isEmpty ? (
-        <Card className="border-gray-200 p-12 text-center">
-            <div className="mb-4 flex justify-center">
-                <AlertCircle className="h-12 w-12 text-gray-300" />
+        <div className="border-t border-gray-200 p-6 text-center">
+            <div className="mb-1 flex justify-center">
+                <AlertCircle className="h-6 w-6 text-gray-300" />
             </div>
-            <h2 className="mb-1 text-lg font-medium text-gray-900">No notifications</h2>
-            <p className="text-gray-600">You're all caught up!</p>
-        </Card>
+            <h2 className="text-xs font-medium text-gray-900">No notifications</h2>
+            <p className="text-xs text-gray-600">You're all caught up!</p>
+        </div>
     ) : notifications ? (
         <>
-            <div>
+            <div className="border-t border-gray-200">
                 {notifications.page.map((n) => (
                     <NotificationRow key={n._id} notification={n} />
                 ))}
             </div>
 
             {/* Pagination */}
-            <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
-                <div className="flex gap-2">
+            <div className="flex items-center justify-between border-t border-gray-200 px-4 py-1.5">
+                <div className="flex gap-1">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => cursorState.goToPrev()}
                         disabled={!canGoPrev}
+                        className="h-7 text-xs"
                     >
-                        <ChevronLeft className="mr-1 h-4 w-4" />
+                        <ChevronLeft className="mr-0.5 h-3 w-3" />
                         Previous
                     </Button>
                     <Button
@@ -241,9 +267,10 @@ function NotificationList() {
                         size="sm"
                         onClick={() => cursorState.goToNext(notifications)}
                         disabled={!canGoNext}
+                        className="h-7 text-xs"
                     >
                         Next
-                        <ChevronRight className="ml-1 h-4 w-4" />
+                        <ChevronRight className="ml-0.5 h-3 w-3" />
                     </Button>
                 </div>
             </div>
