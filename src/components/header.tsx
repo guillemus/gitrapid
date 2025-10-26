@@ -9,7 +9,7 @@ import {
 import { useLogout } from '@/lib/queryClient'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Link, useParams, useRouterState } from '@tanstack/react-router'
-import { Bell, GitPullRequest, Settings } from 'lucide-react'
+import { GitPullRequest, Settings } from 'lucide-react'
 
 export function Header() {
     let pathname = useRouterState({

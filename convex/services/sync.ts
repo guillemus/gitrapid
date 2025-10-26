@@ -236,7 +236,7 @@ export const notifications_cron = internalMutation({
 })
 
 function parseNotifications(notifs: Github.Notification[]) {
-    let mapped: Notifications.UpsertBatchNotif[] = []
+    let mapped: Notifications.Notification[] = []
     for (let notif of notifs) {
         let resourceUrl = notif.subject.url
         let url = new URL(resourceUrl)

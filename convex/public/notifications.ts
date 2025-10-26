@@ -1,6 +1,11 @@
+import { Notifications } from '@convex/models/notifications'
 import { publicQuery } from '@convex/utils'
 import { asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
+
+export const allRepos = publicQuery(async (ctx) => {
+    return Notifications.distinctRepos(ctx, ctx.userId)
+})
 
 export const list = publicQuery({
     args: {
@@ -31,3 +36,6 @@ export const list = publicQuery({
         }
     },
 })
+
+// mark as read
+// mark as read

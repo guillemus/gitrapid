@@ -3,22 +3,14 @@ import { convex } from '@/lib/convex'
 import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
 import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { useConvexAuth } from 'convex/react'
-import { useCallback, useEffect, useEffectEvent, useRef } from 'react'
+import { useEffect } from 'react'
 
 function Inner() {
     let actions = useAuthActions()
     let auth = useConvexAuth()
 
-    let isAfter1SecRef = useRef(false)
-    let isAfter1Sec = isAfter1SecRef.current
     useEffect(() => {
-        setTimeout(() => {
-            isAfter1SecRef.current = true
-        }, 1000)
-    }, [])
-
-    useEffect(() => {
-        if (auth.isAuthenticated && !isAfter1Sec) {
+        if (auth.isAuthenticated) {
             window.location.href = '/notifications'
         }
     }, [auth])

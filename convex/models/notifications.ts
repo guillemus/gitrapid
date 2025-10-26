@@ -1,11 +1,13 @@
-import { type MutationCtx } from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import schema from '@convex/schema'
 import type { FnArgs } from '@convex/utils'
 import { v, type Infer } from 'convex/values'
 import { Repos } from './repos'
+import type { Id } from '@convex/_generated/dataModel'
+import { asyncMap } from 'convex-helpers'
 
 export namespace Notifications {
-    export type UpsertBatchNotif = Infer<typeof vNotification>
+    export type Notification = Infer<typeof vNotification>
 
     export const vNotification = v.object({
         repo: v.object({
@@ -65,5 +67,29 @@ export namespace Notifications {
 
             return repoId
         },
+    }
+
+    export async function distinctRepos(ctx: QueryCtx, userId: Id<'users'>) {
+        const foundRepos = new Set<Id<'repos'>>()
+        let doc = await ctx.db
+            .query('notifications')
+            .withIndex('by_userId_repoId')
+            .order('desc')
+            .first()
+        while (doc !== null) {
+            let repoId = doc.repoId
+            foundRepos.add(repoId)
+            doc = await ctx.db
+                .query('notifications')
+                .withIndex('by_userId_repoId', (q) => q.eq('userId', userId).lt('repoId', repoId))
+                .order('desc')
+                .first()
+        }
+
+        let repos
+        repos = await asyncMap(foundRepos.values(), (r) => ctx.db.get(r))
+        repos = repos.filter((r) => r !== null)
+
+        return repos
     }
 }

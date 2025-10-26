@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card'
 import { cn, formatRelativeTime, usePaginationState, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import type { FunctionReturnType } from 'convex/server'
 import { AlertCircle, ChevronLeft, ChevronRight, GitPullRequest, Tag, Zap } from 'lucide-react'
 
 export const Route = createFileRoute('/_app/notifications')({
@@ -11,63 +12,52 @@ export const Route = createFileRoute('/_app/notifications')({
 })
 
 function RouteComponent() {
-    let cursorState = usePaginationState()
-    let notifications = useTanstackQuery(api.public.notifications.list, {
-        paginationOpts: {
-            numItems: 25,
-            cursor: cursorState.currCursor(),
-        },
-    })
-
-    let isEmpty = !notifications || notifications.page.length === 0
-    let canGoPrev = cursorState.canGoPrev()
-    let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
-
     return (
         <div className="min-h-screen bg-white">
             <div className="mx-auto max-w-4xl px-4 py-8">
-                {/* Notifications List */}
-                {isEmpty ? (
-                    <Card className="border-gray-200 p-12 text-center">
-                        <div className="mb-4 flex justify-center">
-                            <AlertCircle className="h-12 w-12 text-gray-300" />
-                        </div>
-                        <h2 className="mb-1 text-lg font-medium text-gray-900">No notifications</h2>
-                        <p className="text-gray-600">You're all caught up!</p>
-                    </Card>
-                ) : notifications ? (
-                    <>
-                        <div>
-                            {notifications.page.map((n) => (
-                                <NotificationRow key={n._id} notification={n} />
-                            ))}
-                        </div>
+                <Repositories></Repositories>
 
-                        {/* Pagination */}
-                        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => cursorState.goToPrev()}
-                                    disabled={!canGoPrev}
-                                >
-                                    <ChevronLeft className="mr-1 h-4 w-4" />
-                                    Previous
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => cursorState.goToNext(notifications)}
-                                    disabled={!canGoNext}
-                                >
-                                    Next
-                                    <ChevronRight className="ml-1 h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </>
-                ) : null}
+                <NotificationList></NotificationList>
+            </div>
+        </div>
+    )
+}
+
+type RepositoriesQuery = FunctionReturnType<typeof api.public.notifications.allRepos>
+
+function Repositories() {
+    let repos = useTanstackQuery(api.public.notifications.allRepos, {})
+
+    if (!repos || repos.length === 0) {
+        return null
+    }
+
+    return (
+        <div className="mb-8">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Repositories</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {repos.map((repo) => (
+                    <RepositoryItem key={repo._id} repo={repo} />
+                ))}
+            </div>
+        </div>
+    )
+}
+
+function RepositoryItem(props: { repo: RepositoriesQuery[number] }) {
+    let navigate = useNavigate()
+
+    async function handleClick() {
+        // Navigate to filtered notifications for this repo
+        await navigate({ to: '/notifications' })
+    }
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-medium text-gray-900">
+                    {props.repo.owner}/{props.repo.repo}
+                </h3>
             </div>
         </div>
     )
@@ -94,14 +84,14 @@ type NotificationReason =
 function getNotificationIcon(type: NotificationType) {
     switch (type) {
         case 'PullRequest':
-            return <GitPullRequest className="h-4 w-4" />
+            return <GitPullRequest className="h-4 w-4 text-red-400" />
         case 'Release':
             return <Tag className="h-4 w-4" />
         case 'Commit':
             return <Zap className="h-4 w-4" />
         case 'Issue':
         default:
-            return <AlertCircle className="h-4 w-4" />
+            return <AlertCircle className="h-4 w-4 text-purple-600" />
     }
 }
 
@@ -203,4 +193,60 @@ function NotificationRow({
             </div>
         </div>
     )
+}
+
+function NotificationList() {
+    let cursorState = usePaginationState()
+    let notifications = useTanstackQuery(api.public.notifications.list, {
+        paginationOpts: {
+            numItems: 25,
+            cursor: cursorState.currCursor(),
+        },
+    })
+
+    let isEmpty = !notifications || notifications.page.length === 0
+    let canGoPrev = cursorState.canGoPrev()
+    let canGoNext = notifications ? cursorState.canGoNext(notifications) : false
+
+    return isEmpty ? (
+        <Card className="border-gray-200 p-12 text-center">
+            <div className="mb-4 flex justify-center">
+                <AlertCircle className="h-12 w-12 text-gray-300" />
+            </div>
+            <h2 className="mb-1 text-lg font-medium text-gray-900">No notifications</h2>
+            <p className="text-gray-600">You're all caught up!</p>
+        </Card>
+    ) : notifications ? (
+        <>
+            <div>
+                {notifications.page.map((n) => (
+                    <NotificationRow key={n._id} notification={n} />
+                ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-4">
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cursorState.goToPrev()}
+                        disabled={!canGoPrev}
+                    >
+                        <ChevronLeft className="mr-1 h-4 w-4" />
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cursorState.goToNext(notifications)}
+                        disabled={!canGoNext}
+                    >
+                        Next
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </>
+    ) : null
 }

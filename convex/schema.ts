@@ -246,6 +246,7 @@ const notifications = defineTable({
     unread: v.boolean(),
     title: v.string(),
 })
+    .index('by_userId_repoId', ['userId', 'repoId'])
     .index('by_github_id', ['githubId'])
     .index('by_userId_updatedAt', ['userId', 'updatedAt'])
 

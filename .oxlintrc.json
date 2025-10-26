@@ -6,6 +6,6 @@
     "src/**.astro"
   ],
   "rules": {
-    "import/no-cycle": "error"
+    "typescript/strict-boolean-expressions": "error"
   }
 }
