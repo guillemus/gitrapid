@@ -1,8 +1,11 @@
 ---
+import { LoginButton } from '@/components/loginButton'
 import { Landing } from '@/landing'
 import Layout from '@/layout.astro'
 ---
 
 <Layout>
-    <Landing />
+    <Landing>
+        <LoginButton client:load />
+    </Landing>
 </Layout>

@@ -3,9 +3,8 @@ import { ConvexQueryClient } from '@convex-dev/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { ConvexHttpClient } from 'convex/browser'
 import { ConvexReactClient } from 'convex/react'
+import { convex } from './convex'
 import { persistQueryClient } from './queryPersister'
-
-export const convex = new ConvexReactClient(import.meta.env.PUBLIC_CONVEX_URL!)
 
 export function useConvexHttp() {
     const token = useAuthToken()

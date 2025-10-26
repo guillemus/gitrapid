@@ -1,9 +1,7 @@
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { MarkGithubIcon as Github } from '@primer/octicons-react'
 import { Zap } from 'lucide-react'
 
-export function Landing() {
+export function Landing(props: { children: React.ReactNode }) {
     return (
         <div className="bg-background flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-3xl text-center">
@@ -26,14 +24,7 @@ export function Landing() {
                 </h2>
                 <p className="text-muted-foreground mt-4">The fastest github ui on earth.</p>
 
-                <div className="mt-6 flex items-center justify-center gap-3">
-                    <Button asChild variant="outline" size="lg">
-                        <a href="/">
-                            <Github className="mr-2 h-4 w-4" />
-                            Continue with GitHub
-                        </a>
-                    </Button>
-                </div>
+                <div className="mt-6 flex items-center justify-center gap-3">{props.children}</div>
             </div>
         </div>
     )

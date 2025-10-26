@@ -40,11 +40,6 @@ export function Header() {
                     </div>
 
                     <div className="flex items-center space-x-4">
-                        <Button variant="ghost" size="icon" asChild aria-label="Notifications">
-                            <Link to="/notifications">
-                                <Bell className="h-5 w-5" />
-                            </Link>
-                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" aria-label="Open menu">
