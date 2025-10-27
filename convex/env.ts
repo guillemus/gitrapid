@@ -12,7 +12,6 @@ const boolFromString = z
 
 const envSchema = z.object({
     DEV: boolFromString,
-    DEBUG_LOGGER: boolFromString,
     CONVEX_SITE_URL: z.string().optional().default(''),
 })
 
