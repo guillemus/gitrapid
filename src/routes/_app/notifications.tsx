@@ -39,7 +39,7 @@ function Repositories() {
     }
 
     return (
-        <div className="border-r border-gray-200 p-2">
+        <div className="p-2">
             <h2 className="px-1 text-xs font-semibold tracking-wide text-gray-700 uppercase">
                 Repositories
             </h2>
@@ -94,17 +94,20 @@ type NotificationReason =
     | 'subscribed'
     | 'team_mention'
 
-function getNotificationIcon(type: NotificationType) {
-    switch (type) {
+function NotificationIcon(props: { type: NotificationType; open: boolean; className?: string }) {
+    let color = props.open ? 'text-purple-600' : 'text-gray-400'
+    let className = cn('h-4 w-4', color, props.className)
+
+    switch (props.type) {
         case 'PullRequest':
-            return <GitPullRequest className="h-4 w-4 text-red-400" />
+            return <GitPullRequest className={className} />
         case 'Release':
-            return <Tag className="h-4 w-4" />
+            return <Tag className={className} />
         case 'Commit':
-            return <Zap className="h-4 w-4" />
+            return <Zap className={className} />
         case 'Issue':
         default:
-            return <AlertCircle className="h-4 w-4 text-purple-600" />
+            return <AlertCircle className={className} />
     }
 }
 
@@ -174,7 +177,7 @@ function NotificationRow({
         >
             <div className="flex items-center gap-2">
                 <div className="mt-0 flex-shrink-0 text-gray-400">
-                    {getNotificationIcon(notification.type)}
+                    <NotificationIcon type={notification.type} open={notification.unread} />
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -222,12 +225,18 @@ function AppliedFilters(props: { ownerRepo: string }) {
     }
 
     return (
-        <div className="flex items-center gap-2">
-            <Badge variant="outline">{props.ownerRepo}</Badge>
-            <Button variant="outline" onClick={reset}>
-                {' '}
-                Reset Filters
-            </Button>
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
+            <span className="text-xs font-medium text-gray-600">Filtered by:</span>
+            <Badge variant="outline" className="flex items-center gap-1">
+                {props.ownerRepo}
+                <button
+                    onClick={reset}
+                    className="ml-1 h-6 w-6 rounded-full p-1 hover:bg-gray-200"
+                    aria-label="Remove filter"
+                >
+                    ✕
+                </button>
+            </Badge>
         </div>
     )
 }

@@ -1,7 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { internalQuery, type ActionCtx, type QueryCtx } from '@convex/_generated/server'
+import { internalQuery, type QueryCtx } from '@convex/_generated/server'
 import { Repos } from '@convex/models/repos'
 import { UserRepos } from '@convex/models/userRepos'
 import { Users } from '@convex/models/users'

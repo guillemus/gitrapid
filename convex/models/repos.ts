@@ -1,10 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import type { FnArgs } from '@convex/utils'
 import { v } from 'convex/values'
 

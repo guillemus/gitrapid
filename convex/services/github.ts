@@ -516,12 +516,8 @@ export async function octoCatchFull<T>(promise: Promise<T>): R<T, OctoCatchError
     }
 }
 
-import { internal } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
-import type { ActionCtx } from '@convex/_generated/server'
 import type { Etag } from '@convex/schema'
 import { GraphqlResponseError } from '@octokit/graphql'
-import { assert } from 'convex-helpers'
 import z from 'zod'
 
 export type OctoCatchGqlErrors =
