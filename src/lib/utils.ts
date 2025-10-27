@@ -209,6 +209,10 @@ export function usePaginationState() {
         }
     }
 
+    function shouldShowPagination(pag?: PaginationResult<unknown>) {
+        return canGoPrev() || canGoNext(pag)
+    }
+
     return {
         currCursor,
         resetCursors,
@@ -216,5 +220,6 @@ export function usePaginationState() {
         goToPrev,
         canGoNext,
         goToNext,
+        shouldShowPagination,
     }
 }

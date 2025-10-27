@@ -1,7 +1,6 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import { internalMutation, type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { v } from 'convex/values'
-import schema, { type PossibleGithubUser } from '../schema'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
+import { type PossibleGithubUser } from '../schema'
 import type { UpsertDoc } from './models'
 
 export type GithubUserDoc = null | 'github-actions' | Doc<'githubUsers'>
@@ -136,11 +135,3 @@ export const IssueTimelineItems = {
         return deletedIds
     },
 }
-
-export const insertMany = internalMutation({
-    args: {
-        issueId: v.id('issues'),
-        timelineItems: v.array(v.object(schema.tables.issueTimelineItems.validator.fields)),
-    },
-    handler: (ctx, args) => IssueTimelineItems.insertMany(ctx, args.timelineItems),
-})

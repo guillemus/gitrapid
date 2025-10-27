@@ -2,6 +2,7 @@ import GitHub from '@auth/core/providers/github'
 import type { User } from '@auth/core/types'
 import { convexAuth } from '@convex-dev/auth/server'
 import { type MutationCtx } from './_generated/server'
+import { internal } from './_generated/api'
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     providers: [
@@ -56,7 +57,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
             console.debug({ name: args.profile.name }, 'creating user')
 
-            return await ctx.db.insert('users', {
+            let userId = await ctx.db.insert('users', {
                 name: args.profile.name as string,
                 image: args.profile.image as string,
                 email: args.profile.email,
@@ -65,6 +66,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                 githubId: args.profile.id as number,
                 accessToken: args.profile.accessToken as string,
             })
+
+            await ctx.scheduler.runAfter(0, internal.services.sync.notifications_startSync, {
+                userId,
+            })
+
+            return userId
         },
     },
 })

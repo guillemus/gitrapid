@@ -1,5 +1,4 @@
-import { internalQuery, type QueryCtx } from '@convex/_generated/server'
-import { v } from 'convex/values'
+import { type QueryCtx } from '@convex/_generated/server'
 
 export const AuthAccounts = {
     async getByProviderAndAccountId(ctx: QueryCtx, providerAccountId: string) {
@@ -11,9 +10,3 @@ export const AuthAccounts = {
             .unique()
     },
 }
-
-export const getByProviderAndAccountId = internalQuery({
-    args: { githubUserId: v.number() },
-    handler: (ctx, { githubUserId }) =>
-        AuthAccounts.getByProviderAndAccountId(ctx, githubUserId.toString()),
-})

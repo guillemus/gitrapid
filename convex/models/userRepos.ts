@@ -1,10 +1,5 @@
 import type { Id } from '@convex/_generated/dataModel'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import type { FnArgs } from '@convex/utils'
 import { v } from 'convex/values'
 
@@ -52,15 +47,3 @@ export namespace UserRepos {
         }
     }
 }
-
-export const getByUserId = internalQuery({
-    args: { userId: v.id('users') },
-    handler: (ctx, { userId }) => UserRepos.getUserRepoIds(ctx, userId),
-})
-
-export const insertIfNotExists = internalMutation(UserRepos.insertIfNotExists)
-
-export const deleteByRepoId = internalMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => UserRepos.deleteByRepoId(ctx, repoId),
-})

@@ -106,17 +106,3 @@ export namespace Repos {
         },
     }
 }
-
-export const get = internalQuery({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => ctx.db.get(repoId),
-})
-
-export const upsertRepoForUser = internalMutation(Repos.upsertRepoForUser)
-
-export const getByOwnerAndRepo = internalQuery(Repos.getByOwnerAndRepo)
-
-export const deleteById = internalMutation({
-    args: { repoId: v.id('repos') },
-    handler: (ctx, { repoId }) => Repos.deleteById(ctx, repoId),
-})

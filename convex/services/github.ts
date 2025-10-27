@@ -610,13 +610,3 @@ function includesRateLimitMessage(message: string): boolean {
         lower.includes('retry-after')
     )
 }
-
-export async function octoFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
-    let user = await ctx.runQuery(internal.models.users.get, {
-        userId,
-    })
-    assert(user, 'user not found')
-
-    let octo = newOctokit({ token: user.accessToken })
-    return octo
-}

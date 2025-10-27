@@ -1,10 +1,5 @@
 import { vWorkflowId } from '@convex-dev/workflow'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { v_nextSyncAt, v_nullable, type PossibleGithubUser } from '@convex/schema'
 import { err, ok } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
@@ -107,11 +102,6 @@ export namespace Users {
         },
     }
 }
-
-export const list = internalQuery(Users.list)
-export const get = internalQuery(Users.get)
-export const getOrCreateGithubUser = internalMutation(Users.getOrCreateGithubUser)
-export const saveNotifWorkflow = internalMutation(Users.saveNotifWorkflow)
 
 export const possibleGithubUserData = v.union(
     v.null(),

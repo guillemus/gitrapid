@@ -57,12 +57,3 @@ export namespace Auth {
 }
 
 export const getUserAssociatedRepo = internalQuery(Auth.getUserAssociatedRepo)
-
-export async function getTokenFromUserId(ctx: ActionCtx, userId: Id<'users'>) {
-    let user = await ctx.runQuery(internal.models.users.get, {
-        userId,
-    })
-    assert(user, 'user not found')
-
-    return user.accessToken
-}

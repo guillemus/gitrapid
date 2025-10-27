@@ -3,6 +3,7 @@ import type { Doc } from '@convex/_generated/dataModel'
 import {
     internalAction,
     internalMutation,
+    internalQuery,
     type ActionCtx,
     type MutationCtx,
 } from '@convex/_generated/server'
@@ -31,7 +32,7 @@ const NotifsArgs = {
 type NotifsArgs = FnArgs<{ args: typeof NotifsArgs }>
 
 async function getOcto(ctx: ActionCtx, args: NotifsArgs): Promise<Octokit> {
-    let res = await ctx.runQuery(internal.models.users.get, { userId: args.userId })
+    let res = await ctx.runQuery(self.getUser, { userId: args.userId })
     let token = res?.accessToken
     assert(token, 'user access token not found')
 
@@ -178,7 +179,7 @@ export const notifications_syncWorkflow = workflow.define({
             throw new Error('max attempts reached')
         }
 
-        await step.runMutation(internal.models.users.saveNotifWorkflow, {
+        await step.runMutation(self.saveNotifWorkflow, {
             userId: args.userId,
             workflowId: step.workflowId,
             nextSyncAt: args.nextSyncAt,
@@ -324,3 +325,12 @@ export const notifications_resetSinceAndClearNotifs = devOnlyMutation({
         }
     },
 })
+
+export const getUser = internalQuery({
+    args: { userId: v.id('users') },
+    handler: async (ctx, args) => {
+        return ctx.db.get(args.userId)
+    },
+})
+
+export const saveNotifWorkflow = internalMutation(Users.saveNotifWorkflow)

@@ -1,10 +1,5 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
-import {
-    internalMutation,
-    internalQuery,
-    type MutationCtx,
-    type QueryCtx,
-} from '@convex/_generated/server'
+import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { assertNever } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
@@ -258,13 +253,6 @@ export namespace Issues {
     }
 }
 
-export const getByRepoAndNumber = internalQuery(Issues.getByRepoAndNumber)
-export const listByRepo = internalQuery(Issues.listByRepo)
-export const updateTitle = internalMutation(Issues.updateTitle)
-export const update = internalMutation(Issues.updateIssue)
-export const doDelete = internalMutation(Issues.doDelete)
-export const deleteComment = internalMutation(Issues.deleteComment)
-
 async function getIssueLabels(ctx: QueryCtx, repoLabels: Doc<'labels'>[], issueId: Id<'issues'>) {
     let issueLabels = await ctx.db
         .query('issueLabels')
@@ -281,8 +269,6 @@ async function getIssueLabels(ctx: QueryCtx, repoLabels: Doc<'labels'>[], issueI
 
     return labels
 }
-
-export const insertOpenUserIssueWithBody = internalMutation(Issues.insertOpenUserIssueWithBody)
 
 export const AssignUserToIssue = {
     args: {
