@@ -9,10 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Page3RouteImport } from './routes/page3'
+import { Route as Page2RouteImport } from './routes/page2'
+import { Route as Page1RouteImport } from './routes/page1'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owner/$repo/issues/$issue'
 
+const Page3Route = Page3RouteImport.update({
+  id: '/page3',
+  path: '/page3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Page2Route = Page2RouteImport.update({
+  id: '/page2',
+  path: '/page2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Page1Route = Page1RouteImport.update({
+  id: '/page1',
+  path: '/page1',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -29,37 +47,83 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/page1': typeof Page1Route
+  '/page2': typeof Page2Route
+  '/page3': typeof Page3Route
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRoutesByTo {
+  '/page1': typeof Page1Route
+  '/page2': typeof Page2Route
+  '/page3': typeof Page3Route
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
+  '/page1': typeof Page1Route
+  '/page2': typeof Page2Route
+  '/page3': typeof Page3Route
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/notifications' | '/$owner/$repo/issues/$issue'
+  fullPaths:
+    | '/page1'
+    | '/page2'
+    | '/page3'
+    | '/notifications'
+    | '/$owner/$repo/issues/$issue'
   fileRoutesByTo: FileRoutesByTo
-  to: '/notifications' | '/$owner/$repo/issues/$issue'
+  to:
+    | '/page1'
+    | '/page2'
+    | '/page3'
+    | '/notifications'
+    | '/$owner/$repo/issues/$issue'
   id:
     | '__root__'
     | '/_app'
+    | '/page1'
+    | '/page2'
+    | '/page3'
     | '/_app/notifications'
     | '/_app/$owner/$repo/issues/$issue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  Page1Route: typeof Page1Route
+  Page2Route: typeof Page2Route
+  Page3Route: typeof Page3Route
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/page3': {
+      id: '/page3'
+      path: '/page3'
+      fullPath: '/page3'
+      preLoaderRoute: typeof Page3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/page2': {
+      id: '/page2'
+      path: '/page2'
+      fullPath: '/page2'
+      preLoaderRoute: typeof Page2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/page1': {
+      id: '/page1'
+      path: '/page1'
+      fullPath: '/page1'
+      preLoaderRoute: typeof Page1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -100,6 +164,9 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
+  Page1Route: Page1Route,
+  Page2Route: Page2Route,
+  Page3Route: Page3Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
