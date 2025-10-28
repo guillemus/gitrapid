@@ -1,4 +1,3 @@
-import { Header } from '@/components/header'
 import { useAuthToken } from '@convex-dev/auth/react'
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { Unauthenticated, useConvexAuth } from 'convex/react'
@@ -36,15 +35,13 @@ function AppLayout() {
     return (
         <ErrorBoundary>
             <div className="bg-background flex h-screen flex-col">
-                <div className="flex-shrink-0">
-                    <Header />
-                </div>
                 <AuthenticatedWithToken>
-                    <div className="scrollbar-gutter-stable flex-1 overflow-y-auto">
+                    <Outlet />
+                    {/* <div className="scrollbar-gutter-stable flex-1 overflow-y-auto">
                         <div className="container mx-auto px-4 py-6">
                             <Outlet />
                         </div>
-                    </div>
+                    </div> */}
                 </AuthenticatedWithToken>
                 <Unauthenticated>
                     <RedirectToHome />

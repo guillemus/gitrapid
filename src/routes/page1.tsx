@@ -24,8 +24,8 @@ type NotificationTab = 'all' | 'saved' | 'done'
 
 interface Notification {
     id: string
-    repository: string
-    repositoryOwner: string
+    repo: string
+    owner: string
     title: string
     type: NotificationType
     read: boolean
@@ -33,15 +33,14 @@ interface Notification {
     pinned: boolean
     done: boolean
     createdAt: Date
-    description?: string
 }
 
 function getMockNotifications(): Notification[] {
     let notifications: Notification[] = [
         {
             id: '1',
-            repository: 'gitrapid',
-            repositoryOwner: 'guillem',
+            repo: 'gitrapid',
+            owner: 'guillem',
             title: 'Fix: Improve performance of notifications filter',
             type: 'mention',
             read: false,
@@ -49,12 +48,11 @@ function getMockNotifications(): Notification[] {
             pinned: false,
             done: false,
             createdAt: new Date(Date.now() - 1000 * 60 * 5),
-            description: 'You were mentioned in PR #124',
         },
         {
             id: '2',
-            repository: 'react-query',
-            repositoryOwner: 'tannerlinsley',
+            repo: 'react-query',
+            owner: 'tannerlinsley',
             title: 'Bump version to 5.0.0',
             type: 'review',
             read: true,
@@ -62,12 +60,11 @@ function getMockNotifications(): Notification[] {
             pinned: true,
             done: false,
             createdAt: new Date(Date.now() - 1000 * 60 * 15),
-            description: 'Your review was requested',
         },
         {
             id: '3',
-            repository: 'shadcn-ui',
-            repositoryOwner: 'shadcn',
+            repo: 'shadcn-ui',
+            owner: 'shadcn',
             title: 'Add new Button component variants',
             type: 'comment',
             read: false,
@@ -75,12 +72,11 @@ function getMockNotifications(): Notification[] {
             pinned: false,
             done: false,
             createdAt: new Date(Date.now() - 1000 * 60 * 30),
-            description: 'Someone commented on issue #456',
         },
         {
             id: '4',
-            repository: 'gitrapid',
-            repositoryOwner: 'guillem',
+            repo: 'gitrapid',
+            owner: 'guillem',
             title: 'Assign you to: Implement webhook sync',
             type: 'assign',
             read: true,
@@ -88,12 +84,11 @@ function getMockNotifications(): Notification[] {
             pinned: false,
             done: false,
             createdAt: new Date(Date.now() - 1000 * 60 * 60),
-            description: 'You were assigned to issue #89',
         },
         {
             id: '5',
-            repository: 'convex-backend',
-            repositoryOwner: 'guillem',
+            repo: 'convex-backend',
+            owner: 'guillem',
             title: 'Security Alert: Dependency vulnerability detected',
             type: 'alert',
             read: false,
@@ -101,12 +96,11 @@ function getMockNotifications(): Notification[] {
             pinned: false,
             done: false,
             createdAt: new Date(Date.now() - 1000 * 60 * 120),
-            description: 'High severity: Update lodash to v4.17.21',
         },
         {
             id: '6',
-            repository: 'gitrapid',
-            repositoryOwner: 'guillem',
+            repo: 'gitrapid',
+            owner: 'guillem',
             title: 'Review: Refactor database schema',
             type: 'review',
             read: true,
@@ -114,7 +108,6 @@ function getMockNotifications(): Notification[] {
             pinned: false,
             done: true,
             createdAt: new Date(Date.now() - 1000 * 60 * 240),
-            description: 'PR #112 review completed',
         },
     ]
 
@@ -222,11 +215,8 @@ function NotificationRow({
 
                     <div className="ml-6 flex items-center gap-2 text-xs text-gray-500">
                         <span className="inline-block rounded py-1 text-gray-700">
-                            {notification.repositoryOwner}/{notification.repository}
+                            {notification.owner}/{notification.repo}
                         </span>
-                        {notification.description && (
-                            <span className="truncate">{notification.description}</span>
-                        )}
                     </div>
                 </div>
 
@@ -327,7 +317,7 @@ function PinnedNotificationCard({
                                 {notification.title}
                             </p>
                             <div className="mt-0.5 text-xs text-gray-500">
-                                {notification.repositoryOwner}/{notification.repository}
+                                {notification.owner}/{notification.repo}
                             </div>
                         </div>
                     </div>
@@ -380,7 +370,7 @@ function RouteComponent(): React.ReactElement {
     // Get unique repositories for filter sidebar
     let repositories = useMemo(
         function getRepositories(): string[] {
-            let repoSet = new Set(notifications.map((n) => n.repository))
+            let repoSet = new Set(notifications.map((n) => n.repo))
             return Array.from(repoSet).sort()
         },
         [notifications],
@@ -401,7 +391,7 @@ function RouteComponent(): React.ReactElement {
 
             filtered = filtered.filter(function filterByRepo(n) {
                 if (filterRepo === null) return true
-                return n.repository === filterRepo
+                return n.repo === filterRepo
             })
 
             filtered = filtered.filter(function filterByRead(n) {
@@ -411,10 +401,7 @@ function RouteComponent(): React.ReactElement {
 
             filtered = filtered.filter(function filterBySearch(n) {
                 if (!searchQuery) return true
-                return (
-                    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    n.description?.toLowerCase().includes(searchQuery.toLowerCase())
-                )
+                return n.title.toLowerCase().includes(searchQuery.toLowerCase())
             })
 
             // Sort: pinned first, then by creation time descending
@@ -727,9 +714,176 @@ function RouteComponent(): React.ReactElement {
                                 <>
                                     {pinnedNotifications.length > 0 && (
                                         <div className="sticky top-12 z-10 border-b border-gray-200 bg-gray-100 px-4 py-2">
-                                            <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
-                                                Other ({unpinnedNotifications.length})
-                                            </p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        checked={unpinnedNotifications.every((n) =>
+                                                            selectedIds.has(n.id),
+                                                        )}
+                                                        onCheckedChange={() => {
+                                                            let newSelected = new Set(selectedIds)
+                                                            const allUnpinnedSelected =
+                                                                unpinnedNotifications.every((n) =>
+                                                                    selectedIds.has(n.id),
+                                                                )
+                                                            if (allUnpinnedSelected) {
+                                                                // Deselect all unpinned
+                                                                unpinnedNotifications.forEach(
+                                                                    (n) => {
+                                                                        newSelected.delete(n.id)
+                                                                    },
+                                                                )
+                                                            } else {
+                                                                // Select all unpinned
+                                                                unpinnedNotifications.forEach(
+                                                                    (n) => {
+                                                                        newSelected.add(n.id)
+                                                                    },
+                                                                )
+                                                            }
+                                                            setSelectedIds(newSelected)
+                                                        }}
+                                                    />
+                                                    <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                                                        Other ({unpinnedNotifications.length})
+                                                    </p>
+                                                </div>
+                                                {unpinnedNotifications.every((n) =>
+                                                    selectedIds.has(n.id),
+                                                ) && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2"
+                                                            onClick={() => {
+                                                                let updated = notifications.map(
+                                                                    function markIfSelected(n) {
+                                                                        if (selectedIds.has(n.id)) {
+                                                                            return {
+                                                                                ...n,
+                                                                                read: true,
+                                                                            }
+                                                                        }
+                                                                        return n
+                                                                    },
+                                                                )
+                                                                setNotifications(updated)
+                                                            }}
+                                                        >
+                                                            <Check className="h-4 w-4 text-gray-400" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2"
+                                                            onClick={() => {
+                                                                let updated = notifications.map(
+                                                                    function markIfSelected(n) {
+                                                                        if (selectedIds.has(n.id)) {
+                                                                            return {
+                                                                                ...n,
+                                                                                done: !n.done,
+                                                                            }
+                                                                        }
+                                                                        return n
+                                                                    },
+                                                                )
+                                                                setNotifications(updated)
+                                                            }}
+                                                        >
+                                                            <Archive className="h-4 w-4 text-gray-400" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {!pinnedNotifications.length && (
+                                        <div className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100 px-4 py-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        checked={unpinnedNotifications.every((n) =>
+                                                            selectedIds.has(n.id),
+                                                        )}
+                                                        onCheckedChange={() => {
+                                                            let newSelected = new Set(selectedIds)
+                                                            const allUnpinnedSelected =
+                                                                unpinnedNotifications.every((n) =>
+                                                                    selectedIds.has(n.id),
+                                                                )
+                                                            if (allUnpinnedSelected) {
+                                                                // Deselect all unpinned
+                                                                unpinnedNotifications.forEach(
+                                                                    (n) => {
+                                                                        newSelected.delete(n.id)
+                                                                    },
+                                                                )
+                                                            } else {
+                                                                // Select all unpinned
+                                                                unpinnedNotifications.forEach(
+                                                                    (n) => {
+                                                                        newSelected.add(n.id)
+                                                                    },
+                                                                )
+                                                            }
+                                                            setSelectedIds(newSelected)
+                                                        }}
+                                                    />
+                                                    <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                                                        Other ({unpinnedNotifications.length})
+                                                    </p>
+                                                </div>
+                                                {unpinnedNotifications.every((n) =>
+                                                    selectedIds.has(n.id),
+                                                ) && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2"
+                                                            onClick={() => {
+                                                                let updated = notifications.map(
+                                                                    function markIfSelected(n) {
+                                                                        if (selectedIds.has(n.id)) {
+                                                                            return {
+                                                                                ...n,
+                                                                                read: true,
+                                                                            }
+                                                                        }
+                                                                        return n
+                                                                    },
+                                                                )
+                                                                setNotifications(updated)
+                                                            }}
+                                                        >
+                                                            <Check className="h-4 w-4 text-gray-400" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 px-2"
+                                                            onClick={() => {
+                                                                let updated = notifications.map(
+                                                                    function markIfSelected(n) {
+                                                                        if (selectedIds.has(n.id)) {
+                                                                            return {
+                                                                                ...n,
+                                                                                done: !n.done,
+                                                                            }
+                                                                        }
+                                                                        return n
+                                                                    },
+                                                                )
+                                                                setNotifications(updated)
+                                                            }}
+                                                        >
+                                                            <Archive className="h-4 w-4 text-gray-400" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     {unpinnedNotifications.map(
@@ -758,36 +912,7 @@ function RouteComponent(): React.ReactElement {
                     )}
                 </div>
 
-                {/* Footer Selection Bar */}
-                {selectedIds.size > 0 && (
-                    <div className="sticky bottom-0 flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4">
-                        <div className="flex items-center gap-4">
-                            <Checkbox
-                                checked={selectedIds.size === filteredNotifications.length}
-                                onCheckedChange={toggleSelectAll}
-                            />
-                            <span className="text-sm text-gray-600">
-                                {selectedIds.size} selected
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            {hasUnreadSelected && (
-                                <Button onClick={markAllAsRead} className="gap-2" size="sm">
-                                    <Check className="h-4 w-4" />
-                                    Mark all as read
-                                </Button>
-                            )}
-                            <Button
-                                variant="outline"
-                                onClick={() => setSelectedIds(new Set())}
-                                size="sm"
-                            >
-                                Clear
-                            </Button>
-                        </div>
-                    </div>
-                )}
+                {/* Footer Selection Bar - Hidden */}
             </div>
         </div>
     )

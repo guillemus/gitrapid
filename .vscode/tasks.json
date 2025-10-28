@@ -11,6 +11,24 @@
             "label": "tsc: build - tsconfig.json"
         },
         {
+            "type": "shell",
+            "command": "bun",
+            "args": ["tsgo"],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": true,
+            },
+            "label": "tsgo: check - tsconfig.json"
+        },
+        {
             "label": "run scripts",
             "type": "shell",
             "command": "bun scripts/scripts.ts",

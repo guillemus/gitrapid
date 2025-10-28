@@ -53,6 +53,9 @@ export namespace Notifications {
             } else {
                 await ctx.db.insert('notifications', {
                     userId: args.userId,
+                    unread: args.notif.unread,
+                    done: false,
+                    saved: false,
                     repoId: repoId,
                     type: args.notif.type,
                     githubId: args.notif.githubId,
@@ -60,7 +63,6 @@ export namespace Notifications {
                     reason: args.notif.reason,
                     updatedAt: args.notif.updatedAt,
                     lastReadAt: args.notif.lastReadAt,
-                    unread: args.notif.unread,
                     title: args.notif.title,
                 })
             }

@@ -230,12 +230,16 @@ export const notificationReasons = v.union(
 const notifications = defineTable({
     userId: v.id('users'),
     repoId: v.id('repos'),
+    title: v.string(),
     type: v.union(
         v.literal('Issue'),
         v.literal('PullRequest'),
         v.literal('Commit'),
         v.literal('Release'),
     ),
+    unread: v.boolean(),
+    saved: v.boolean(),
+    done: v.boolean(),
     // github id corresponds to the notification.id field
     githubId: v.string(),
     // for either issue or pr, this is the number field
@@ -243,9 +247,10 @@ const notifications = defineTable({
     reason: notificationReasons,
     updatedAt: v.string(),
     lastReadAt: v.optional(v.string()),
-    unread: v.boolean(),
-    title: v.string(),
 })
+    .index('by_userId_unread', ['userId', 'unread', 'updatedAt'])
+    .index('by_userId_saved', ['userId', 'saved', 'updatedAt'])
+    .index('by_userId_done', ['userId', 'done', 'updatedAt'])
     .index('by_userId_repoId_updatedAt', ['userId', 'repoId', 'updatedAt'])
     .index('by_github_id', ['githubId'])
     .index('by_userId_updatedAt', ['userId', 'updatedAt'])

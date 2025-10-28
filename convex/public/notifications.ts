@@ -11,16 +11,16 @@ export const allRepos = publicQuery(async (ctx) => {
 
 export const list = publicQuery({
     args: {
-        ownerRepo: v.optional(v.string()),
+        repo: v.optional(v.string()),
         paginationOpts: paginationOptsValidator,
     },
     async handler(ctx, args) {
         let page
 
-        if (args.ownerRepo) {
-            let [owner, repo] = args.ownerRepo.split('/')
+        if (args.repo) {
+            let [owner, repo] = args.repo.split('/')
             if (!owner || !repo) {
-                throw new Error(`Invalid owner/repo format, given ${args.ownerRepo}`)
+                throw new Error(`Invalid owner/repo format, given ${args.repo}`)
             }
 
             let savedRepo = await Repos.getByOwnerAndRepo.handler(ctx, { owner, repo })
