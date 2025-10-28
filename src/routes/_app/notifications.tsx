@@ -7,9 +7,10 @@ import { assertNever } from '@convex/shared'
 import { useHookstate } from '@hookstate/core'
 import { GitCommitIcon, GitPullRequestIcon, IssueOpenedIcon, TagIcon } from '@primer/octicons-react'
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
+import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
-import { Archive, Bell, Check, Pin, Search, Star } from 'lucide-react'
+import { Archive, Bookmark, Bell, Check, Pin, Search, Star } from 'lucide-react'
 import { createContext, use } from 'react'
 import z from 'zod'
 
@@ -272,10 +273,21 @@ function FilteredHeader() {
 }
 
 function FilteredNotification(props: { notification: FilteredNotification }) {
-    function onMarkRead() {}
-    function onSave() {}
-    function onPin() {}
-    function onDone() {}
+    let updateNotification = useMutation(api.public.notifications.updateNotification)
+
+    let id = props.notification._id
+    async function onMarkRead() {
+        await updateNotification({ id, updates: { unread: !props.notification.unread } })
+    }
+    async function onSave() {
+        await updateNotification({ id, updates: { saved: !props.notification.saved } })
+    }
+    async function onPin() {
+        await updateNotification({ id, updates: { pinned: !props.notification.pinned } })
+    }
+    async function onDone() {
+        await updateNotification({ id, updates: { done: !props.notification.done } })
+    }
 
     let isSelected = useHookstate(false)
 
@@ -323,16 +335,14 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </span>
 
                     <div>
-                        {props.notification.unread && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 text-xs"
-                                onClick={onMarkRead}
-                            >
-                                <Check className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            onClick={onDone}
+                        >
+                            <Check className="h-4 w-4" />
+                        </Button>
                     </div>
 
                     <div>
@@ -360,11 +370,9 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
 
                     <div>
-                        {!props.notification.done && (
-                            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onDone}>
-                                <Archive className="h-4 w-4 text-gray-400" />
-                            </Button>
-                        )}
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
+                            <Bookmark className="h-4 w-4 text-gray-400" />
+                        </Button>
                     </div>
                 </div>
             </div>

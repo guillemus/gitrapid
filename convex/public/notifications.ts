@@ -3,7 +3,7 @@ import type { QueryCtx } from '@convex/_generated/server'
 import { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
 import { assertNever } from '@convex/shared'
-import { publicQuery, type FnArgs } from '@convex/utils'
+import { publicMutation, publicQuery, type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
@@ -134,60 +134,36 @@ export const list = publicQuery({
     },
 })
 
-export const list_ = publicQuery({
+export const updateNotification = publicMutation({
     args: {
-        tab: v.optional(
-            v.union(v.literal('saved'), v.literal('done'), v.literal('unread'), v.literal('all')),
-        ),
-        repo: v.optional(v.string()),
-        paginationOpts: paginationOptsValidator,
+        id: v.id('notifications'),
+        updates: v.object({
+            unread: v.optional(v.boolean()),
+            saved: v.optional(v.boolean()),
+            pinned: v.optional(v.boolean()),
+            done: v.optional(v.boolean()),
+        }),
     },
     async handler(ctx, args) {
-        let page
+        let notification = await ctx.db.get(args.id)
+        assert(
+            notification && ctx.userId === notification?.userId,
+            'You are not allowed to update this notification',
+        )
 
-        if (args.repo) {
-            let [owner, repo] = args.repo.split('/')
-            if (!owner || !repo) {
-                throw new Error(`Invalid owner/repo format, given ${args.repo}`)
-            }
-
-            let savedRepo = await Repos.getByOwnerAndRepo.handler(ctx, { owner, repo })
-            if (!savedRepo) {
-                throw new Error(`Repo not found: ${owner}/${repo}`)
-            }
-
-            let repoId = savedRepo._id
-
-            page = await ctx.db
-                .query('notifications')
-                .withIndex('by_userId_repoId_updatedAt', (x) =>
-                    x.eq('userId', ctx.userId).eq('repoId', repoId),
-                )
-                .order('desc')
-                .paginate(args.paginationOpts)
-        } else {
-            page = await ctx.db
-                .query('notifications')
-                .withIndex('by_userId_updatedAt', (q) => q.eq('userId', ctx.userId))
-                .order('desc')
-                .paginate(args.paginationOpts)
+        if (args.updates.unread !== undefined) {
+            notification.unread = args.updates.unread
+        }
+        if (args.updates.saved !== undefined) {
+            notification.saved = args.updates.saved
+        }
+        if (args.updates.pinned !== undefined) {
+            notification.pinned = args.updates.pinned
+        }
+        if (args.updates.done !== undefined) {
+            notification.done = args.updates.done
         }
 
-        let mapped
-        mapped = await asyncMap(page.page, async (notification) => {
-            let repo = await ctx.db.get(notification.repoId)
-            if (!repo) return null
-
-            return {
-                ...notification,
-                repo: repo,
-            }
-        })
-        mapped = mapped.filter((x) => x !== null)
-
-        return {
-            ...page,
-            page: mapped,
-        }
+        await ctx.db.patch(args.id, notification)
     },
 })
