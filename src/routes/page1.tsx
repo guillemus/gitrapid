@@ -1,14 +1,6 @@
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { createFileRoute } from '@tanstack/react-router'
 import {
     AlertCircle,
@@ -16,7 +8,6 @@ import {
     Bell,
     Check,
     CheckCircle2,
-    ChevronDown,
     MessageSquare,
     Pin,
     Search,
@@ -208,7 +199,7 @@ function NotificationRow({
 }): React.ReactElement {
     return (
         <div
-            className={`border-b px-4 py-3 transition-colors hover:bg-gray-50 ${
+            className={`border-b px-4 py-2 transition-colors hover:bg-gray-50 ${
                 !notification.read ? 'bg-blue-50' : ''
             }`}
         >
@@ -216,7 +207,7 @@ function NotificationRow({
                 <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="mt-1" />
 
                 <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-start gap-2">
+                    <div className="flex items-center gap-2">
                         {getTypeIcon(notification.type)}
                         <div className="min-w-0 flex-1">
                             <p
@@ -229,8 +220,8 @@ function NotificationRow({
                         </div>
                     </div>
 
-                    <div className="mb-2 ml-6 flex items-center gap-2 text-xs text-gray-500">
-                        <span className="inline-block rounded bg-gray-100 px-2 py-1 text-gray-700">
+                    <div className="ml-6 flex items-center gap-2 text-xs text-gray-500">
+                        <span className="inline-block rounded py-1 text-gray-700">
                             {notification.repositoryOwner}/{notification.repository}
                         </span>
                         {notification.description && (
@@ -239,74 +230,59 @@ function NotificationRow({
                     </div>
                 </div>
 
-                <div className="ml-2 flex flex-shrink-0 items-center gap-2">
-                    <Badge variant="outline" className="text-xs whitespace-nowrap">
+                <div className="ml-2 grid w-80 grid-cols-8 items-center gap-2">
+                    <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getTypeLabel(notification.type)}
-                    </Badge>
+                    </div>
 
-                    <span className="text-xs whitespace-nowrap text-gray-400">
+                    <span className="inline-flex h-8 items-center justify-end text-xs leading-none whitespace-nowrap text-gray-400">
                         {formatTimeAgo(notification.createdAt)}
                     </span>
 
-                    {!notification.read && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                            onClick={onMarkRead}
-                        >
-                            <Check className="h-4 w-4" />
-                        </Button>
-                    )}
-
-                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onSave}>
-                        <Star
-                            className={`h-4 w-4 ${
-                                notification.saved
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'text-gray-400'
-                            }`}
-                        />
-                    </Button>
-
-                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
-                        <Pin
-                            className={`h-4 w-4 ${
-                                notification.pinned ? 'fill-current text-gray-700' : 'text-gray-400'
-                            }`}
-                        />
-                    </Button>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 px-2">
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                    <div>
+                        {!notification.read && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={onMarkRead}
+                            >
+                                <Check className="h-4 w-4" />
                             </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            {!notification.read && (
-                                <DropdownMenuItem onClick={onMarkRead}>
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Mark as read
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={onSave}>
-                                <Star className="mr-2 h-4 w-4" />
-                                {notification.saved ? 'Remove from saved' : 'Save'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={onPin}>
-                                <Pin className="mr-2 h-4 w-4" />
-                                {notification.pinned ? 'Unpin' : 'Pin'}
-                            </DropdownMenuItem>
-                            <Separator className="my-1" />
-                            {!notification.done && (
-                                <DropdownMenuItem onClick={onDone}>
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    Mark as done
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        )}
+                    </div>
+
+                    <div>
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onSave}>
+                            <Star
+                                className={`h-4 w-4 ${
+                                    notification.saved
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-gray-400'
+                                }`}
+                            />
+                        </Button>
+                    </div>
+
+                    <div>
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
+                            <Pin
+                                className={`h-4 w-4 ${
+                                    notification.pinned
+                                        ? 'fill-current text-gray-700'
+                                        : 'text-gray-400'
+                                }`}
+                            />
+                        </Button>
+                    </div>
+
+                    <div>
+                        {!notification.done && (
+                            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onDone}>
+                                <Archive className="h-4 w-4 text-gray-400" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -331,35 +307,40 @@ function PinnedNotificationCard({
     onDone: () => void
 }): React.ReactElement {
     return (
-        <div className="inline-block w-1/4 p-2">
+        <div className="inline-block w-1/3 p-2">
             <div
-                className={`flex h-full flex-col rounded-lg border p-3 transition-colors hover:bg-gray-50 ${
+                className={`flex items-start gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-gray-50 ${
                     !notification.read ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
                 }`}
             >
-                <div className="mb-2 flex items-start gap-2">
-                    <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={onToggleSelect}
-                        className="mt-0.5"
-                    />
-                    <div className="min-w-0 flex-1">{getTypeIcon(notification.type)}</div>
+                <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="mt-1" />
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                        {getTypeIcon(notification.type)}
+                        <div className="min-w-0 flex-1">
+                            <p
+                                className={`truncate text-sm font-medium ${
+                                    !notification.read ? 'text-gray-900' : 'text-gray-600'
+                                }`}
+                            >
+                                {notification.title}
+                            </p>
+                            <div className="mt-0.5 text-xs text-gray-500">
+                                {notification.repositoryOwner}/{notification.repository}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <p
-                    className={`mb-2 line-clamp-2 truncate text-sm font-medium ${
-                        !notification.read ? 'text-gray-900' : 'text-gray-600'
-                    }`}
-                >
-                    {notification.title}
-                </p>
+                <div className="ml-2 flex flex-shrink-0 items-center gap-1">
+                    {!notification.read && (
+                        <Button variant="ghost" size="sm" className="h-6" onClick={onMarkRead}>
+                            <Check className="h-3 w-3 text-gray-400" />
+                        </Button>
+                    )}
 
-                <div className="mb-2 line-clamp-1 text-xs text-gray-500">
-                    {notification.repositoryOwner}/{notification.repository}
-                </div>
-
-                <div className="mt-auto flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-6 flex-1 px-1" onClick={onSave}>
+                    <Button variant="ghost" size="sm" className="h-6" onClick={onSave}>
                         <Star
                             className={`h-3 w-3 ${
                                 notification.saved
@@ -369,7 +350,7 @@ function PinnedNotificationCard({
                         />
                     </Button>
 
-                    <Button variant="ghost" size="sm" className="h-6 flex-1 px-1" onClick={onPin}>
+                    <Button variant="ghost" size="sm" className="h-6" onClick={onPin}>
                         <Pin
                             className={`h-3 w-3 ${
                                 notification.pinned ? 'fill-current text-gray-700' : 'text-gray-400'
@@ -377,36 +358,11 @@ function PinnedNotificationCard({
                         />
                     </Button>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 flex-1 px-1">
-                                <ChevronDown className="h-3 w-3 text-gray-400" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            {!notification.read && (
-                                <DropdownMenuItem onClick={onMarkRead}>
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Mark as read
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={onSave}>
-                                <Star className="mr-2 h-4 w-4" />
-                                {notification.saved ? 'Remove from saved' : 'Save'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={onPin}>
-                                <Pin className="mr-2 h-4 w-4" />
-                                {notification.pinned ? 'Unpin' : 'Pin'}
-                            </DropdownMenuItem>
-                            <Separator className="my-1" />
-                            {!notification.done && (
-                                <DropdownMenuItem onClick={onDone}>
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    Mark as done
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {!notification.done && (
+                        <Button variant="ghost" size="sm" className="h-6" onClick={onDone}>
+                            <Archive className="h-3 w-3 text-gray-400" />
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>
@@ -584,19 +540,6 @@ function RouteComponent(): React.ReactElement {
                     </div>
                 </div>
 
-                {/* Search */}
-                <div className="border-b border-gray-200 px-4 py-3">
-                    <div className="relative">
-                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                        <Input
-                            placeholder="Search notifications..."
-                            className="pl-9 text-sm"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                        />
-                    </div>
-                </div>
-
                 {/* Tabs */}
                 <div className="space-y-2 border-b border-gray-200 px-4 py-3">
                     <button
@@ -606,7 +549,7 @@ function RouteComponent(): React.ReactElement {
                         }}
                         className={`w-full rounded px-3 py-2 text-left text-sm font-medium transition-colors ${
                             activeTab === 'all'
-                                ? 'bg-white text-gray-900'
+                                ? 'bg-blue-100 font-medium text-blue-900'
                                 : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
@@ -622,7 +565,7 @@ function RouteComponent(): React.ReactElement {
                         onClick={() => setActiveTab('saved')}
                         className={`w-full rounded px-3 py-2 text-left text-sm font-medium transition-colors ${
                             activeTab === 'saved'
-                                ? 'bg-white text-gray-900'
+                                ? 'bg-blue-100 font-medium text-blue-900'
                                 : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
@@ -638,7 +581,7 @@ function RouteComponent(): React.ReactElement {
                         onClick={() => setActiveTab('done')}
                         className={`w-full rounded px-3 py-2 text-left text-sm font-medium transition-colors ${
                             activeTab === 'done'
-                                ? 'bg-white text-gray-900'
+                                ? 'bg-blue-100 font-medium text-blue-900'
                                 : 'text-gray-600 hover:text-gray-900'
                         }`}
                     >
@@ -700,7 +643,7 @@ function RouteComponent(): React.ReactElement {
             {/* Main Content */}
             <div className="flex flex-1 flex-col">
                 {/* Toolbar */}
-                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-4">
+                <div className="flex items-center gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4">
                     <div className="text-sm text-gray-600">
                         {totalNotifications === 0
                             ? 'No notifications'
@@ -709,6 +652,15 @@ function RouteComponent(): React.ReactElement {
                     {selectedIds.size > 0 && (
                         <div className="text-sm text-gray-600">{selectedIds.size} selected</div>
                     )}
+                    <div className="relative flex-1">
+                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Input
+                            placeholder="Search notifications..."
+                            className="pl-9 text-sm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                        />
+                    </div>
                 </div>
 
                 {/* Notifications Feed */}

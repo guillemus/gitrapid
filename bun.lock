@@ -195,7 +195,7 @@
 
     "@convex-dev/workflow": ["@convex-dev/workflow@0.2.7", "", { "dependencies": { "async-channel": "^0.2.0" }, "peerDependencies": { "@convex-dev/workpool": "^0.2.18", "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.99" } }, "sha512-BUVJBKSMEuHNztFBlcmCdlsRwdPqLn2iv72teTrHlkMVKvQj1EhBIflT7asjWBrVy3JUgWiVdUbl58xv5+kXSQ=="],
 
-    "@convex-dev/workpool": ["@convex-dev/workpool@0.2.18", "", { "peerDependencies": { "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.94" } }, "sha512-tfRfBCukaRiybxwy4/W3rLWpIRhPivFH9tC5++d0XE1sV627vw2mAwOM9SnpY1k+BWVoNrHrHrxBheklSbuAag=="],
+    "@convex-dev/workpool": ["@convex-dev/workpool@0.2.19", "", { "peerDependencies": { "convex": ">=1.25.0 <1.35.0", "convex-helpers": "^0.1.94" } }, "sha512-U2KwYnsKILyxW1baWEhDv+ZtnL5FZbYFxBT5owQ0Lw/kseiudMZraA4clH+/6gowHSahWpkq4wndhcOfpfhuOA=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
