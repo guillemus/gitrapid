@@ -1,13 +1,20 @@
-import { usePaginationState, useTanstackQuery } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { usePaginationState, useTanstackQuery, type PaginationState } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
-import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router'
+import { useHookstate } from '@hookstate/core'
+import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
-import { Bell } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { Archive, Bell, Check, Pin, Search, Star } from 'lucide-react'
+import { createContext, use } from 'react'
 import z from 'zod'
 
 const searchSchema = z.object({
     repo: z.string().optional(),
     tab: z.enum(['saved', 'done', 'unread']).optional(),
+    q: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_app/notifications')({
@@ -17,22 +24,33 @@ export const Route = createFileRoute('/_app/notifications')({
 
 type RepositoriesQuery = FunctionReturnType<typeof api.public.notifications.allRepos>
 
+let PageContext = createContext<PaginationState>(null!)
+
 function RouteComponent() {
-    let cursorState = usePaginationState()
+    let pageState = usePaginationState()
+    return (
+        <PageContext.Provider value={pageState}>
+            <div className="flex">
+                <Sidebar></Sidebar>
+                <Notifications></Notifications>
+            </div>
+        </PageContext.Provider>
+    )
+}
+
+function usePage() {
     let search = Route.useSearch()
+    let pagState = use(PageContext)
     let notifications = useTanstackQuery(api.public.notifications.list, {
         repo: search.repo,
+        tab: search.tab,
         paginationOpts: {
             numItems: 25,
-            cursor: cursorState.currCursor(),
+            cursor: pagState.currCursor(),
         },
     })
 
-    return (
-        <div className="flex">
-            <Sidebar />
-        </div>
-    )
+    return notifications
 }
 
 function Sidebar() {
@@ -139,4 +157,265 @@ function Filters() {
             </div>
         </div>
     )
+}
+
+function Notifications() {
+    let navigate = useNavigate()
+
+    async function onSearch(q: string) {
+        await navigate({
+            to: '/notifications',
+            search: (s) => ({ ...s, q }),
+        })
+    }
+
+    return (
+        <div className="flex flex-1 flex-col">
+            {/* Toolbar */}
+            <div className="flex items-center gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4">
+                <div className="relative flex-1">
+                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                        placeholder="Search notifications..."
+                        className="pl-9 text-sm"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                let value = (e.target as HTMLInputElement).value
+                                onSearch(value)
+                            }
+                        }}
+                    />
+                </div>
+            </div>
+
+            {/* Notifications Feed */}
+            <div className="flex-1 overflow-y-auto">
+                <NoNotificationsFound></NoNotificationsFound>
+            </div>
+        </div>
+    )
+}
+
+function NoNotificationsFound() {
+    return (
+        <div className="flex h-full flex-col items-center justify-center text-center">
+            <Bell className="mb-4 h-12 w-12 text-gray-300" />
+            <h3 className="mb-2 text-lg font-semibold text-gray-600">No notifications found</h3>
+            <p className="max-w-xs text-sm text-gray-500">You have no new notifications.</p>
+        </div>
+    )
+}
+
+function Pinned() {
+    let page = usePage()
+
+    return (
+        <div>
+            {page?.pinned.map((n) => (
+                <PinnedNotification key={n._id} notification={n} />
+            ))}
+            {/* {page?.notifications.map((n) => (
+                <FilteredNotification></FilteredNotification>
+            ))} */}
+        </div>
+    )
+}
+
+type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
+
+type PinnedNotification = ListQuery['pinned'][number]
+type FilteredNotification = ListQuery['filtered'][number]
+
+function getReasonLabel(reason: FilteredNotification['reason']): string {
+    switch (reason) {
+        case 'mention':
+            return 'Mention'
+        case 'comment':
+            return 'Comment'
+        case 'review':
+            return 'Review'
+        case 'assign':
+            return 'Assigned'
+        case 'alert':
+            return 'Alert'
+        default:
+            return 'Notification'
+    }
+}
+
+function FilteredNotification(props: { notification: FilteredNotification }) {
+    function onMarkRead() {}
+    function onSave() {}
+    function onPin() {}
+    function onDone() {}
+
+    let isSelected = useHookstate(false)
+
+    return (
+        <div
+            className={`border-b px-4 py-2 transition-colors hover:bg-gray-50 ${
+                props.notification.unread ? 'bg-blue-50' : ''
+            }`}
+        >
+            <div className="flex items-start gap-3">
+                <Checkbox
+                    checked={isSelected.get()}
+                    onCheckedChange={() => isSelected.set((s) => !s)}
+                    className="mt-1"
+                />
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <NotificationIcon type={props.notification.type} />
+                        <div className="min-w-0 flex-1">
+                            <p
+                                className={`truncate text-sm font-medium ${
+                                    props.notification.unread ? 'text-gray-900' : 'text-gray-600'
+                                }`}
+                            >
+                                {props.notification.title}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="ml-6 flex items-center gap-2 text-xs text-gray-500">
+                        <span className="inline-block rounded py-1 text-gray-700">
+                            {props.notification.repo.owner}/{props.notification.repo.repo}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="ml-2 grid w-80 grid-cols-8 items-center gap-2">
+                    <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
+                        {getReasonLabel(props.notification.reason)}
+                    </div>
+
+                    <span className="inline-flex h-8 items-center justify-end text-xs leading-none whitespace-nowrap text-gray-400">
+                        {formatDistanceToNow(props.notification.updatedAt)}
+                    </span>
+
+                    <div>
+                        {props.notification.unread && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={onMarkRead}
+                            >
+                                <Check className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+
+                    <div>
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onSave}>
+                            <Star
+                                className={`h-4 w-4 ${
+                                    props.notification.saved
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-gray-400'
+                                }`}
+                            />
+                        </Button>
+                    </div>
+
+                    <div>
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
+                            <Pin
+                                className={`h-4 w-4 ${
+                                    props.notification.pinned
+                                        ? 'fill-current text-gray-700'
+                                        : 'text-gray-400'
+                                }`}
+                            />
+                        </Button>
+                    </div>
+
+                    <div>
+                        {!props.notification.done && (
+                            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onDone}>
+                                <Archive className="h-4 w-4 text-gray-400" />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function PinnedNotification(props: { notification: PinnedNotification }): React.ReactElement {
+    function onMarkRead() {}
+    function onSave() {}
+    function onPin() {}
+    function onDone() {}
+
+    return (
+        <div className="inline-block w-1/3 p-2">
+            <div
+                className={`flex items-start gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-gray-50 ${
+                    props.notification.unread
+                        ? 'border-blue-200 bg-blue-50'
+                        : 'border-gray-200 bg-white'
+                }`}
+            >
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                        <NotificationIcon type={props.notification.type} />
+                        <div className="min-w-0 flex-1">
+                            <p
+                                className={`truncate text-sm font-medium ${
+                                    props.notification.unread ? 'text-gray-900' : 'text-gray-600'
+                                }`}
+                            >
+                                {props.notification.title}
+                            </p>
+                            <div className="mt-0.5 text-xs text-gray-500">
+                                {props.notification.repo.owner}/{props.notification.repo.repo}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="ml-2 flex flex-shrink-0 items-center gap-1">
+                    {props.notification.unread && (
+                        <Button variant="ghost" size="sm" className="h-6" onClick={onMarkRead}>
+                            <Check className="h-3 w-3 text-gray-400" />
+                        </Button>
+                    )}
+
+                    <Button variant="ghost" size="sm" className="h-6" onClick={onSave}>
+                        <Star
+                            className={`h-3 w-3 ${
+                                props.notification.saved
+                                    ? 'fill-yellow-400 text-yellow-400'
+                                    : 'text-gray-400'
+                            }`}
+                        />
+                    </Button>
+
+                    <Button variant="ghost" size="sm" className="h-6" onClick={onPin}>
+                        <Pin
+                            className={`h-3 w-3 ${
+                                props.notification.pinned
+                                    ? 'fill-current text-gray-700'
+                                    : 'text-gray-400'
+                            }`}
+                        />
+                    </Button>
+
+                    {!props.notification.done && (
+                        <Button variant="ghost" size="sm" className="h-6" onClick={onDone}>
+                            <Archive className="h-3 w-3 text-gray-400" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function NotificationIcon(props: { type: PinnedNotification['type'] }) {
+    // @ts-expect-error: missing
+    return <p>icon</p>
 }

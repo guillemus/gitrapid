@@ -237,6 +237,7 @@ const notifications = defineTable({
         v.literal('Commit'),
         v.literal('Release'),
     ),
+    pinned: v.boolean(),
     unread: v.boolean(),
     saved: v.boolean(),
     done: v.boolean(),
@@ -249,6 +250,7 @@ const notifications = defineTable({
     lastReadAt: v.optional(v.string()),
 })
     .index('by_userId_unread', ['userId', 'unread', 'updatedAt'])
+    .index('by_userId_pinned', ['userId', 'pinned', 'updatedAt'])
     .index('by_userId_saved', ['userId', 'saved', 'updatedAt'])
     .index('by_userId_done', ['userId', 'done', 'updatedAt'])
     .index('by_userId_repoId_updatedAt', ['userId', 'repoId', 'updatedAt'])

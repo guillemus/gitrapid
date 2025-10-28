@@ -303,8 +303,6 @@ function PinnedNotificationCard({
                     !notification.read ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
                 }`}
             >
-                <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="mt-1" />
-
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
                         {getTypeIcon(notification.type)}
@@ -681,30 +679,20 @@ function RouteComponent(): React.ReactElement {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap px-2 py-2">
-                                        {pinnedNotifications.map(
-                                            function renderPinned(notification) {
-                                                return (
-                                                    <PinnedNotificationCard
-                                                        key={notification.id}
-                                                        notification={notification}
-                                                        isSelected={selectedIds.has(
-                                                            notification.id,
-                                                        )}
-                                                        onToggleSelect={() =>
-                                                            toggleSelectNotification(
-                                                                notification.id,
-                                                            )
-                                                        }
-                                                        onMarkRead={() =>
-                                                            handleMarkRead(notification.id)
-                                                        }
-                                                        onSave={() => handleSave(notification.id)}
-                                                        onPin={() => handlePin(notification.id)}
-                                                        onDone={() => handleDone(notification.id)}
-                                                    />
-                                                )
-                                            },
-                                        )}
+                                        {pinnedNotifications.map((notification) => (
+                                            <PinnedNotificationCard
+                                                key={notification.id}
+                                                notification={notification}
+                                                isSelected={selectedIds.has(notification.id)}
+                                                onToggleSelect={() =>
+                                                    toggleSelectNotification(notification.id)
+                                                }
+                                                onMarkRead={() => handleMarkRead(notification.id)}
+                                                onSave={() => handleSave(notification.id)}
+                                                onPin={() => handlePin(notification.id)}
+                                                onDone={() => handleDone(notification.id)}
+                                            />
+                                        ))}
                                     </div>
                                 </>
                             )}

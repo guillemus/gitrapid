@@ -15,6 +15,10 @@ export const run = migrations.runner()
 export const runIt = migrations.runner(internal.migrations.main)
 
 export const main = migrations.define({
-    table: 'repos',
-    migrateOne: async (_ctx, _doc) => {},
+    table: 'notifications',
+    migrateOne: async (_ctx, _doc) => {
+        return {
+            pinned: false,
+        }
+    },
 })
