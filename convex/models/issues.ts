@@ -1,4 +1,4 @@
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import { type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
@@ -153,23 +153,6 @@ export namespace Issues {
             await ctx.db.delete(args.commentId)
         },
     }
-}
-
-async function getIssueLabels(ctx: QueryCtx, repoLabels: Doc<'labels'>[], issueId: Id<'issues'>) {
-    let issueLabels = await ctx.db
-        .query('issueLabels')
-        .withIndex('by_issue_id', (q) => q.eq('issueId', issueId))
-        .collect()
-
-    let labels = []
-    for (let issueLabel of issueLabels) {
-        let label = repoLabels.find((l) => l._id === issueLabel.labelId)
-        if (label) {
-            labels.push(label)
-        }
-    }
-
-    return labels
 }
 
 export const AssignUserToIssue = {

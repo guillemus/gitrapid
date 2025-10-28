@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { qcMem } from '@/lib/queryClient'
 import { usePaginationState, useTanstackQuery, type PaginationState } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import { assertNever } from '@convex/shared'
@@ -10,7 +11,7 @@ import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/re
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
-import { Archive, Bookmark, Bell, Check, Pin, Search, Star } from 'lucide-react'
+import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
 import { createContext, use } from 'react'
 import z from 'zod'
 
@@ -27,11 +28,23 @@ export const Route = createFileRoute('/_app/notifications')({
 
 let PageContext = createContext<PaginationState>(null!)
 
+function useNotificationUpdates(notification: FilteredNotification) {
+    let doUpdate = useMutation(api.public.notifications.updateNotification)
+    let id = notification._id
+
+    return {
+        markAsRead: () => doUpdate({ id, updates: { unread: false } }),
+        onSave: () => doUpdate({ id, updates: { saved: !notification.saved } }),
+        onPin: () => doUpdate({ id, updates: { pinned: !notification.pinned } }),
+        onDone: () => doUpdate({ id, updates: { done: !notification.done } }),
+    }
+}
+
 function RouteComponent() {
     let pageState = usePaginationState()
     return (
         <PageContext.Provider value={pageState}>
-            <div className="flex">
+            <div className="flex h-screen overflow-hidden">
                 <Sidebar></Sidebar>
                 <Notifications></Notifications>
             </div>
@@ -42,14 +55,18 @@ function RouteComponent() {
 function usePage() {
     let search = Route.useSearch()
     let pagState = use(PageContext)
-    let notifications = useTanstackQuery(api.public.notifications.list, {
-        repo: search.repo,
-        tab: search.tab,
-        paginationOpts: {
-            numItems: 25,
-            cursor: pagState.currCursor(),
+    let notifications = useTanstackQuery(
+        api.public.notifications.list,
+        {
+            repo: search.repo,
+            tab: search.tab,
+            paginationOpts: {
+                numItems: 25,
+                cursor: pagState.currCursor(),
+            },
         },
-    })
+        qcMem,
+    )
 
     return notifications
 }
@@ -128,7 +145,15 @@ function Navlink(props: {
 }
 function Filters() {
     let search = Route.useSearch()
-    let repositories = useTanstackQuery(api.public.notifications.allRepos, {})
+    let repositories
+    repositories = useTanstackQuery(api.public.notifications.allRepos, {})
+    if (repositories) {
+        repositories = repositories.toSorted((a, b) => {
+            let ownerCompare = a.owner.localeCompare(b.owner)
+            if (ownerCompare !== 0) return ownerCompare
+            return a.repo.localeCompare(b.repo)
+        })
+    }
 
     return (
         <div className="px-4 py-3">
@@ -173,7 +198,7 @@ function Notifications() {
     }
 
     return (
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
             {/* Toolbar */}
             <div className="flex items-center gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4">
                 <div className="relative flex-1">
@@ -181,10 +206,10 @@ function Notifications() {
                     <Input
                         placeholder="Search notifications..."
                         className="pl-9 text-sm"
-                        onKeyDown={(e) => {
+                        onKeyDown={async (e) => {
                             if (e.key === 'Enter') {
                                 let value = (e.target as HTMLInputElement).value
-                                onSearch(value)
+                                await onSearch(value)
                             }
                         }}
                     />
@@ -192,18 +217,42 @@ function Notifications() {
             </div>
 
             {/* Notifications Feed */}
-            <div className="flex-1 overflow-y-auto">
-                {page?.pinned.map((n) => (
-                    <PinnedNotification key={n._id} notification={n} />
-                ))}
 
-                {page?.filtered.length === 0 && <NoNotificationsFound></NoNotificationsFound>}
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {page?.pinned?.length !== 0 && (
+                    <>
+                        <div className="sticky top-0 z-10 border-b border-gray-200 bg-yellow-50 px-4 py-2">
+                            <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                                📌 Pinned ({page?.pinned?.length ?? 0})
+                            </p>
+                        </div>
 
-                <FilteredHeader></FilteredHeader>
+                        <div className="p-2">
+                            {page?.pinned.map((n) => (
+                                <PinnedNotification key={n._id} notification={n} />
+                            ))}
+                        </div>
+                    </>
+                )}
 
-                {page?.filtered.map((n) => (
-                    <FilteredNotification key={n._id} notification={n}></FilteredNotification>
-                ))}
+                {page?.filtered.length === 0 && (
+                    <div className="flex flex-1 items-center justify-center">
+                        <NoNotificationsFound></NoNotificationsFound>
+                    </div>
+                )}
+                {page?.filtered.length !== 0 && (
+                    <div className="flex flex-1 flex-col overflow-hidden">
+                        <FilteredHeader></FilteredHeader>
+                        <div className="flex-1 overflow-y-auto">
+                            {page?.filtered.map((n) => (
+                                <FilteredNotification
+                                    key={n._id}
+                                    notification={n}
+                                ></FilteredNotification>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -211,7 +260,7 @@ function Notifications() {
 
 function NoNotificationsFound() {
     return (
-        <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="flex flex-col items-center justify-center text-center">
             <Bell className="mb-4 h-12 w-12 text-gray-300" />
             <h3 className="mb-2 text-lg font-semibold text-gray-600">No notifications found</h3>
             <p className="max-w-xs text-sm text-gray-500">You have no new notifications.</p>
@@ -273,22 +322,7 @@ function FilteredHeader() {
 }
 
 function FilteredNotification(props: { notification: FilteredNotification }) {
-    let updateNotification = useMutation(api.public.notifications.updateNotification)
-
-    let id = props.notification._id
-    async function onMarkRead() {
-        await updateNotification({ id, updates: { unread: !props.notification.unread } })
-    }
-    async function onSave() {
-        await updateNotification({ id, updates: { saved: !props.notification.saved } })
-    }
-    async function onPin() {
-        await updateNotification({ id, updates: { pinned: !props.notification.pinned } })
-    }
-    async function onDone() {
-        await updateNotification({ id, updates: { done: !props.notification.done } })
-    }
-
+    let updates = useNotificationUpdates(props.notification)
     let isSelected = useHookstate(false)
 
     return (
@@ -325,7 +359,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
                 </div>
 
-                <div className="ml-2 grid w-100 grid-cols-9 items-center gap-2">
+                <div className="ml-2 grid w-100 grid-cols-8 items-center gap-2">
                     <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getReasonLabel(props.notification.reason)}
                     </div>
@@ -339,26 +373,19 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                             variant="ghost"
                             size="sm"
                             className="h-8 px-2 text-xs"
-                            onClick={onDone}
+                            onClick={updates.onDone}
                         >
                             <Check className="h-4 w-4" />
                         </Button>
                     </div>
 
                     <div>
-                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onSave}>
-                            <Star
-                                className={`h-4 w-4 ${
-                                    props.notification.saved
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'text-gray-400'
-                                }`}
-                            />
-                        </Button>
-                    </div>
-
-                    <div>
-                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={updates.onPin}
+                        >
                             <Pin
                                 className={`h-4 w-4 ${
                                     props.notification.pinned
@@ -370,8 +397,19 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
 
                     <div>
-                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onPin}>
-                            <Bookmark className="h-4 w-4 text-gray-400" />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={updates.onSave}
+                        >
+                            <Bookmark
+                                className={`h-4 w-4 ${
+                                    props.notification.saved
+                                        ? 'fill-current text-gray-700'
+                                        : 'text-gray-400'
+                                }`}
+                            />
                         </Button>
                     </div>
                 </div>
