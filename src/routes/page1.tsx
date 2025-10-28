@@ -899,8 +899,6 @@ function RouteComponent(): React.ReactElement {
                         </div>
                     )}
                 </div>
-
-                {/* Footer Selection Bar - Hidden */}
             </div>
         </div>
     )

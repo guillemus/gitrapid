@@ -1,11 +1,9 @@
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
-import { assertNever } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
-import type { PaginationResult } from 'convex/server'
 import { v } from 'convex/values'
-import { fetchGithubUser, type GithubUserDoc } from './issueTimelineItems'
+import { fetchGithubUser } from './issueTimelineItems'
 
 export namespace Issues {
     export const getByRepoAndNumber = {

@@ -162,6 +162,7 @@ function Filters() {
 
 function Notifications() {
     let navigate = useNavigate()
+    let page = usePage()
 
     async function onSearch(q: string) {
         await navigate({
@@ -191,7 +192,17 @@ function Notifications() {
 
             {/* Notifications Feed */}
             <div className="flex-1 overflow-y-auto">
-                <NoNotificationsFound></NoNotificationsFound>
+                {page?.pinned.map((n) => (
+                    <PinnedNotification key={n._id} notification={n} />
+                ))}
+
+                {page?.filtered.length === 0 && <NoNotificationsFound></NoNotificationsFound>}
+
+                <FilteredHeader></FilteredHeader>
+
+                {page?.filtered.map((n) => (
+                    <FilteredNotification key={n._id} notification={n}></FilteredNotification>
+                ))}
             </div>
         </div>
     )
@@ -203,21 +214,6 @@ function NoNotificationsFound() {
             <Bell className="mb-4 h-12 w-12 text-gray-300" />
             <h3 className="mb-2 text-lg font-semibold text-gray-600">No notifications found</h3>
             <p className="max-w-xs text-sm text-gray-500">You have no new notifications.</p>
-        </div>
-    )
-}
-
-function Pinned() {
-    let page = usePage()
-
-    return (
-        <div>
-            {page?.pinned.map((n) => (
-                <PinnedNotification key={n._id} notification={n} />
-            ))}
-            {page?.filtered.map((n) => (
-                <FilteredNotification key={n._id} notification={n}></FilteredNotification>
-            ))}
         </div>
     )
 }
@@ -262,6 +258,19 @@ function getReasonLabel(reason: FilteredNotification['reason']): string {
     }
 }
 
+function FilteredHeader() {
+    return (
+        <div className="border-b border-gray-200 bg-gray-100 px-4 py-2">
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Checkbox checked={false} onCheckedChange={() => {}} className="mt-1" />
+                    <span className="text-sm font-semibold text-gray-700">Select all</span>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function FilteredNotification(props: { notification: FilteredNotification }) {
     function onMarkRead() {}
     function onSave() {}
@@ -304,12 +313,12 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
                 </div>
 
-                <div className="ml-2 grid w-80 grid-cols-8 items-center gap-2">
+                <div className="ml-2 grid w-100 grid-cols-9 items-center gap-2">
                     <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getReasonLabel(props.notification.reason)}
                     </div>
 
-                    <span className="inline-flex h-8 items-center justify-end text-xs leading-none whitespace-nowrap text-gray-400">
+                    <span className="col-span-2 inline-flex h-8 items-center justify-end text-xs leading-none whitespace-nowrap text-gray-400">
                         {formatDistanceToNow(props.notification.updatedAt)}
                     </span>
 
