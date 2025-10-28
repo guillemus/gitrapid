@@ -3,7 +3,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { usePaginationState, useTanstackQuery, type PaginationState } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
+import { assertNever } from '@convex/shared'
 import { useHookstate } from '@hookstate/core'
+import { GitCommitIcon, GitPullRequestIcon, IssueOpenedIcon, TagIcon } from '@primer/octicons-react'
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
@@ -21,8 +23,6 @@ export const Route = createFileRoute('/_app/notifications')({
     validateSearch: searchSchema,
     component: RouteComponent,
 })
-
-type RepositoriesQuery = FunctionReturnType<typeof api.public.notifications.allRepos>
 
 let PageContext = createContext<PaginationState>(null!)
 
@@ -146,6 +146,7 @@ function Filters() {
                     let slug = `${repo.owner}/${repo.repo}`
                     return (
                         <Navlink
+                            key={slug}
                             active={search.repo === slug}
                             to={'/notifications'}
                             search={(s) => ({ ...s, repo: slug })}
@@ -214,9 +215,9 @@ function Pinned() {
             {page?.pinned.map((n) => (
                 <PinnedNotification key={n._id} notification={n} />
             ))}
-            {/* {page?.notifications.map((n) => (
-                <FilteredNotification></FilteredNotification>
-            ))} */}
+            {page?.filtered.map((n) => (
+                <FilteredNotification key={n._id} notification={n}></FilteredNotification>
+            ))}
         </div>
     )
 }
@@ -232,14 +233,32 @@ function getReasonLabel(reason: FilteredNotification['reason']): string {
             return 'Mention'
         case 'comment':
             return 'Comment'
-        case 'review':
+        case 'author':
             return 'Review'
         case 'assign':
             return 'Assigned'
-        case 'alert':
+        case 'approval_requested':
             return 'Alert'
-        default:
-            return 'Notification'
+        case 'review_requested':
+            return 'Review Requested'
+        case 'security_advisory_credit':
+            return 'Security Advisory Credit'
+        case 'security_alert':
+            return 'Security Alert'
+        case 'state_change':
+            return 'State Change'
+        case 'subscribed':
+            return 'Subscribed'
+        case 'ci_activity':
+            return 'CI Activity'
+        case 'member_feature_requested':
+            return 'Member Feature Requested'
+        case 'team_mention':
+            return 'Team Mention'
+        case 'invitation':
+            return 'Invitation'
+        case 'manual':
+            return 'Manual'
     }
 }
 
@@ -416,6 +435,13 @@ function PinnedNotification(props: { notification: PinnedNotification }): React.
 }
 
 function NotificationIcon(props: { type: PinnedNotification['type'] }) {
-    // @ts-expect-error: missing
-    return <p>icon</p>
+    if (props.type === 'Commit') {
+        return <GitCommitIcon size={16} className="text-gray-500" />
+    } else if (props.type === 'PullRequest') {
+        return <GitPullRequestIcon size={16} className="text-gray-500" />
+    } else if (props.type === 'Issue') {
+        return <IssueOpenedIcon size={16} className="text-gray-500" />
+    } else if (props.type === 'Release') {
+        return <TagIcon size={16} className="text-gray-500" />
+    } else assertNever(props.type)
 }

@@ -6,6 +6,7 @@
     "src/**.astro"
   ],
   "rules": {
+    "typescript/switch-exhaustiveness-check": "error",
     "typescript/strict-boolean-expressions": "error"
   }
 }

@@ -79,20 +79,7 @@ const issues = defineTable({
     updatedAt: v.string(),
     closedAt: v.optional(v.string()),
     comments: v.optional(v.number()),
-})
-    .searchIndex('search_issues', {
-        searchField: 'title',
-        filterFields: ['repoId', 'state'],
-    })
-    .index('by_repo_and_number', ['repoId', 'number'])
-    .index('by_github_id', ['githubId'])
-    .index('by_repo_state_number', ['repoId', 'state', 'number'])
-    .index('by_repo_createdAt', ['repoId', 'createdAt'])
-    .index('by_repo_updatedAt', ['repoId', 'updatedAt'])
-    .index('by_repo_comments', ['repoId', 'comments'])
-    .index('by_repo_state_createdAt', ['repoId', 'state', 'createdAt'])
-    .index('by_repo_state_updatedAt', ['repoId', 'state', 'updatedAt'])
-    .index('by_repo_state_comments', ['repoId', 'state', 'comments'])
+}).index('by_repo_and_number', ['repoId', 'number'])
 
 const issueLabels = defineTable({
     issueId: v.id('issues'),
@@ -249,6 +236,10 @@ const notifications = defineTable({
     updatedAt: v.string(),
     lastReadAt: v.optional(v.string()),
 })
+    .searchIndex('search_notifications', {
+        searchField: 'title',
+        filterFields: ['repoId', 'done', 'saved', 'unread'],
+    })
     .index('by_userId_unread', ['userId', 'unread', 'updatedAt'])
     .index('by_userId_pinned', ['userId', 'pinned', 'updatedAt'])
     .index('by_userId_saved', ['userId', 'saved', 'updatedAt'])

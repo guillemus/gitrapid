@@ -54,6 +54,7 @@ export namespace Notifications {
                 await ctx.db.insert('notifications', {
                     userId: args.userId,
                     unread: args.notif.unread,
+                    pinned: false,
                     done: false,
                     saved: false,
                     repoId: repoId,
