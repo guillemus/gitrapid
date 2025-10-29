@@ -52,12 +52,13 @@ function RouteComponent() {
     )
 }
 
-function usePage() {
+function useFiltered() {
     let search = Route.useSearch()
     let pagState = use(PageContext)
     let notifications = useTanstackQuery(
         api.public.notifications.list,
         {
+            q: search.q,
             repo: search.repo,
             tab: search.tab,
             paginationOpts: {
@@ -84,6 +85,7 @@ function Sidebar() {
             <Tabs />
 
             <div className="border-b border-gray-200"></div>
+
             <Filters />
         </div>
     )
@@ -94,7 +96,7 @@ function Tabs() {
     let isAll = !search.tab
 
     return (
-        <div className="space-y-1 border-b border-gray-200 px-2 py-3">
+        <div className="space-y-1 px-2 py-3">
             <Navlink active={isAll} to={'/notifications'}>
                 All Notifications
             </Navlink>
@@ -143,6 +145,7 @@ function Navlink(props: {
         </button>
     )
 }
+
 function Filters() {
     let search = Route.useSearch()
     let repositories
@@ -186,9 +189,8 @@ function Filters() {
     )
 }
 
-function Notifications() {
+function NotificationsToolbar() {
     let navigate = useNavigate()
-    let page = usePage()
 
     async function onSearch(q: string) {
         await navigate({
@@ -198,80 +200,66 @@ function Notifications() {
     }
 
     return (
-        <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Toolbar */}
-            <div className="flex items-center gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4">
-                <div className="relative flex-1">
-                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                        placeholder="Search notifications..."
-                        className="pl-9 text-sm"
-                        onKeyDown={async (e) => {
-                            if (e.key === 'Enter') {
-                                let value = (e.target as HTMLInputElement).value
-                                await onSearch(value)
-                            }
-                        }}
-                    />
-                </div>
-            </div>
-
-            {/* Notifications Feed */}
-
-            <div className="flex flex-1 flex-col overflow-hidden">
-                {page?.pinned?.length !== 0 && (
-                    <>
-                        <div className="sticky top-0 z-10 border-b border-gray-200 bg-yellow-50 px-4 py-2">
-                            <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
-                                📌 Pinned ({page?.pinned?.length ?? 0})
-                            </p>
-                        </div>
-
-                        <div className="p-2">
-                            {page?.pinned.map((n) => (
-                                <PinnedNotification key={n._id} notification={n} />
-                            ))}
-                        </div>
-                    </>
-                )}
-
-                {page?.filtered.length === 0 && (
-                    <div className="flex flex-1 items-center justify-center">
-                        <NoNotificationsFound></NoNotificationsFound>
-                    </div>
-                )}
-                {page?.filtered.length !== 0 && (
-                    <div className="flex flex-1 flex-col overflow-hidden">
-                        <FilteredHeader></FilteredHeader>
-                        <div className="flex-1 overflow-y-auto">
-                            {page?.filtered.map((n) => (
-                                <FilteredNotification
-                                    key={n._id}
-                                    notification={n}
-                                ></FilteredNotification>
-                            ))}
-                        </div>
-                    </div>
-                )}
+        <div className="flex items-center gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4">
+            <div className="relative flex-1">
+                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                    placeholder="Search notifications..."
+                    className="pl-9 text-sm"
+                    onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                            let value = (e.target as HTMLInputElement).value
+                            await onSearch(value)
+                        }
+                    }}
+                />
             </div>
         </div>
     )
 }
 
-function NoNotificationsFound() {
+function FilteredNotifications() {
+    let filtered = useFiltered()
+
+    if (!filtered) return null
+
+    if (filtered.length === 0) {
+        return (
+            <div className="flex flex-1 items-center justify-center">
+                <NoNotificationsFound></NoNotificationsFound>
+            </div>
+        )
+    }
+
     return (
-        <div className="flex flex-col items-center justify-center text-center">
-            <Bell className="mb-4 h-12 w-12 text-gray-300" />
-            <h3 className="mb-2 text-lg font-semibold text-gray-600">No notifications found</h3>
-            <p className="max-w-xs text-sm text-gray-500">You have no new notifications.</p>
+        <div className="flex flex-1 flex-col overflow-hidden">
+            <FilteredHeader></FilteredHeader>
+            <div className="flex-1 overflow-y-auto">
+                {filtered.map((n) => (
+                    <FilteredNotification key={n._id} notification={n}></FilteredNotification>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+function Notifications() {
+    return (
+        <div className="flex flex-1 flex-col overflow-hidden">
+            <NotificationsToolbar></NotificationsToolbar>
+
+            <PinnedNotifications></PinnedNotifications>
+
+            <FilteredNotifications></FilteredNotifications>
         </div>
     )
 }
 
 type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
+type ListPinnedQuery = FunctionReturnType<typeof api.public.notifications.listPinned>
 
-type PinnedNotification = ListQuery['pinned'][number]
-type FilteredNotification = ListQuery['filtered'][number]
+type PinnedNotification = ListPinnedQuery[number]
+type FilteredNotification = ListQuery[number]
 
 function getReasonLabel(reason: FilteredNotification['reason']): string {
     switch (reason) {
@@ -418,6 +406,29 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
     )
 }
 
+function PinnedNotifications() {
+    let pinned = useTanstackQuery(api.public.notifications.listPinned, {})
+
+    if (!pinned) return null
+
+    return (
+        <div>
+            <div className="border-b border-gray-200 bg-yellow-50 px-4 py-2">
+                <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
+                    📌 Pinned ({pinned?.length ?? 0})
+                </p>
+            </div>
+
+            <div className="p-2">
+                {pinned.map((n) => (
+                    <PinnedNotification key={n._id} notification={n} />
+                ))}
+            </div>
+            <div className="border-b border-gray-200"></div>
+        </div>
+    )
+}
+
 function PinnedNotification(props: { notification: PinnedNotification }): React.ReactElement {
     function onMarkRead() {}
     function onSave() {}
@@ -499,4 +510,83 @@ function NotificationIcon(props: { type: PinnedNotification['type'] }) {
     } else if (props.type === 'Release') {
         return <TagIcon size={16} className="text-gray-500" />
     } else assertNever(props.type)
+}
+
+type SearchParams = z.infer<typeof searchSchema>
+
+function getEmptyStateMessage(search: SearchParams): { title: string; description: string } {
+    const hasQuery = !!search.q
+    const hasTab = !!search.tab
+    const hasRepo = !!search.repo
+
+    // All filters active
+    if (hasQuery && hasTab && hasRepo) {
+        return {
+            title: 'No results found',
+            description: `No ${search.tab} notifications matching "${search.q}" in ${search.repo}.`,
+        }
+    }
+
+    // Query + Tab
+    if (hasQuery && hasTab) {
+        return {
+            title: 'No results found',
+            description: `No ${search.tab} notifications matching "${search.q}".`,
+        }
+    }
+
+    // Query + Repo
+    if (hasQuery && hasRepo) {
+        return {
+            title: 'No results found',
+            description: `No notifications matching "${search.q}" in ${search.repo}.`,
+        }
+    }
+
+    // Tab + Repo
+    if (hasTab && hasRepo) {
+        return {
+            title: `No ${search.tab} notifications`,
+            description: `You have no ${search.tab} notifications in ${search.repo}.`,
+        }
+    }
+
+    // Query only
+    if (hasQuery) {
+        return {
+            title: 'No results found',
+            description: `No notifications matching "${search.q}". Try a different search term.`,
+        }
+    }
+
+    // Tab only
+    if (hasTab) {
+        return {
+            title: `No ${search.tab} notifications`,
+            description: `You have no ${search.tab} notifications yet.`,
+        }
+    }
+
+    // Repo only
+    if (hasRepo) {
+        return {
+            title: 'No notifications',
+            description: `You have no notifications from ${search.repo}.`,
+        }
+    }
+
+    return { title: 'All caught up!', description: 'You have no notifications.' }
+}
+
+function NoNotificationsFound() {
+    let search = Route.useSearch()
+    let emptyMessage = getEmptyStateMessage(search)
+
+    return (
+        <div className="flex flex-col items-center justify-center text-center">
+            <Bell className="mb-4 h-12 w-12 text-gray-300" />
+            <h3 className="mb-2 text-lg font-semibold text-gray-600">{emptyMessage.title}</h3>
+            <p className="max-w-xs text-sm text-gray-500">{emptyMessage.description}</p>
+        </div>
+    )
 }

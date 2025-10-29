@@ -12,6 +12,27 @@ export const allRepos = publicQuery(async (ctx) => {
     return Notifications.distinctRepos(ctx, ctx.userId)
 })
 
+export const listPinned = publicQuery(async (ctx) => {
+    let pinned
+    pinned = await ctx.db
+        .query('notifications')
+        .withIndex('by_userId_pinned', (q) => q.eq('userId', ctx.userId).eq('pinned', true))
+        .order('desc')
+        .collect()
+
+    pinned = await asyncMap(pinned, async (notification) => {
+        let repo = await ctx.db.get(notification.repoId)
+        assert(repo)
+
+        return {
+            ...notification,
+            repo: repo,
+        }
+    })
+
+    return pinned
+})
+
 let listArgs = {
     q: v.optional(v.string()),
     tab: v.optional(
@@ -111,26 +132,9 @@ async function applyFilters(
 export const list = publicQuery({
     args: listArgs,
     async handler(ctx, args) {
-        let pinned
-        pinned = await ctx.db
-            .query('notifications')
-            .withIndex('by_userId_pinned', (q) => q.eq('userId', ctx.userId).eq('pinned', true))
-            .order('desc')
-            .collect()
-
-        pinned = await asyncMap(pinned, async (notification) => {
-            let repo = await ctx.db.get(notification.repoId)
-            assert(repo)
-
-            return {
-                ...notification,
-                repo: repo,
-            }
-        })
-
         let filtered = await applyFilters(ctx, ctx.userId, args)
 
-        return { pinned, filtered }
+        return filtered
     },
 })
 

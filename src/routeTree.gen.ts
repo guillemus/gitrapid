@@ -9,14 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as Page1RouteImport } from './routes/page1'
+import { Route as SingleNotificationMockRouteImport } from './routes/single-notification-mock'
+import { Route as NotificationsMockRouteImport } from './routes/notifications-mock'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owner/$repo/issues/$issue'
 
-const Page1Route = Page1RouteImport.update({
-  id: '/page1',
-  path: '/page1',
+const SingleNotificationMockRoute = SingleNotificationMockRouteImport.update({
+  id: '/single-notification-mock',
+  path: '/single-notification-mock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsMockRoute = NotificationsMockRouteImport.update({
+  id: '/notifications-mock',
+  path: '/notifications-mock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -35,47 +41,67 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/page1': typeof Page1Route
+  '/notifications-mock': typeof NotificationsMockRoute
+  '/single-notification-mock': typeof SingleNotificationMockRoute
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRoutesByTo {
-  '/page1': typeof Page1Route
+  '/notifications-mock': typeof NotificationsMockRoute
+  '/single-notification-mock': typeof SingleNotificationMockRoute
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
-  '/page1': typeof Page1Route
+  '/notifications-mock': typeof NotificationsMockRoute
+  '/single-notification-mock': typeof SingleNotificationMockRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/page1' | '/notifications' | '/$owner/$repo/issues/$issue'
+  fullPaths:
+    | '/notifications-mock'
+    | '/single-notification-mock'
+    | '/notifications'
+    | '/$owner/$repo/issues/$issue'
   fileRoutesByTo: FileRoutesByTo
-  to: '/page1' | '/notifications' | '/$owner/$repo/issues/$issue'
+  to:
+    | '/notifications-mock'
+    | '/single-notification-mock'
+    | '/notifications'
+    | '/$owner/$repo/issues/$issue'
   id:
     | '__root__'
     | '/_app'
-    | '/page1'
+    | '/notifications-mock'
+    | '/single-notification-mock'
     | '/_app/notifications'
     | '/_app/$owner/$repo/issues/$issue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  Page1Route: typeof Page1Route
+  NotificationsMockRoute: typeof NotificationsMockRoute
+  SingleNotificationMockRoute: typeof SingleNotificationMockRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/page1': {
-      id: '/page1'
-      path: '/page1'
-      fullPath: '/page1'
-      preLoaderRoute: typeof Page1RouteImport
+    '/single-notification-mock': {
+      id: '/single-notification-mock'
+      path: '/single-notification-mock'
+      fullPath: '/single-notification-mock'
+      preLoaderRoute: typeof SingleNotificationMockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications-mock': {
+      id: '/notifications-mock'
+      path: '/notifications-mock'
+      fullPath: '/notifications-mock'
+      preLoaderRoute: typeof NotificationsMockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -118,7 +144,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  Page1Route: Page1Route,
+  NotificationsMockRoute: NotificationsMockRoute,
+  SingleNotificationMockRoute: SingleNotificationMockRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

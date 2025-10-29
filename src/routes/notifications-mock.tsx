@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-export const Route = createFileRoute('/page1')({
+export const Route = createFileRoute('/notifications-mock')({
     component: RouteComponent,
 })
 

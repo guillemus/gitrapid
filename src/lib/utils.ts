@@ -1,6 +1,6 @@
 import { convexQuery } from '@convex-dev/react-query'
 import { useHookstate } from '@hookstate/core'
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { clsx, type ClassValue } from 'clsx'
 import { type FunctionArgs, type FunctionReference, type PaginationResult } from 'convex/server'
 import { formatDistanceToNow } from 'date-fns'
