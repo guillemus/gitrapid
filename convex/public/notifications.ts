@@ -8,8 +8,34 @@ import { assert, asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
-export const allRepos = publicQuery(async (ctx) => {
-    return Notifications.distinctRepos(ctx, ctx.userId)
+export const allRepos = publicQuery({
+    args: {
+        tab: v.optional(
+            v.union(v.literal('saved'), v.literal('done'), v.literal('unread'), v.literal('all')),
+        ),
+    },
+    async handler(ctx, args) {
+        let repos = await Notifications.distinctRepos(ctx, ctx.userId)
+
+        let reposWithCounts = await asyncMap(repos, async (repo) => {
+            let query = buildQueryForTab(ctx, ctx.userId, repo._id, args.tab)
+            let notifications = await query.take(51)
+
+            let count: number | '50+'
+            if (notifications.length === 51) {
+                count = '50+'
+            } else {
+                count = notifications.length
+            }
+
+            return {
+                ...repo,
+                count,
+            }
+        })
+
+        return reposWithCounts
+    },
 })
 
 export const listPinned = publicQuery(async (ctx) => {
@@ -42,14 +68,50 @@ let listArgs = {
     paginationOpts: paginationOptsValidator,
 }
 
+type TabType = 'saved' | 'done' | 'unread' | 'all' | undefined
+
+function buildQueryForTab(
+    ctx: QueryCtx,
+    userId: Id<'users'>,
+    repoId: Id<'repos'> | undefined,
+    tab: TabType,
+) {
+    let query
+    if (tab === 'all' || tab === undefined) {
+        query = ctx.db
+            .query('notifications')
+            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+    } else if (tab === 'saved') {
+        query = ctx.db
+            .query('notifications')
+            .withIndex('by_userId_saved', (q) => q.eq('userId', userId).eq('saved', true))
+    } else if (tab === 'done') {
+        query = ctx.db
+            .query('notifications')
+            .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', true))
+    } else if (tab === 'unread') {
+        query = ctx.db
+            .query('notifications')
+            .withIndex('by_userId_unread', (q) => q.eq('userId', userId).eq('unread', true))
+    } else {
+        assertNever(tab)
+        query = ctx.db
+            .query('notifications')
+            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+    }
+
+    if (repoId) {
+        query = query.filter((x) => x.eq(x.field('repoId'), repoId))
+    }
+
+    return query.order('desc')
+}
+
 async function applyFilters(
     ctx: QueryCtx,
     userId: Id<'users'>,
     args: FnArgs<{ args: typeof listArgs }>,
 ) {
-    let query
-    query = ctx.db.query('notifications')
-
     let repoId: Id<'repos'> | undefined
     if (args.repo) {
         let [owner, repo] = args.repo.split('/')
@@ -63,10 +125,11 @@ async function applyFilters(
         repoId = savedRepo._id
     }
 
+    let paginationResult
     if (args.q) {
         let search = args.q
 
-        query = query.withSearchIndex('search_notifications', (q) => {
+        let query = ctx.db.query('notifications').withSearchIndex('search_notifications', (q) => {
             let x
             x = q.search('title', search)
 
@@ -85,33 +148,13 @@ async function applyFilters(
             return x
         })
 
-        query = await query.paginate(args.paginationOpts)
+        paginationResult = await query.paginate(args.paginationOpts)
     } else {
-        if (args.tab === 'all' || args.tab === undefined) {
-            query = query.withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
-        } else if (args.tab === 'saved') {
-            query = query.withIndex('by_userId_saved', (q) =>
-                q.eq('userId', userId).eq('saved', true),
-            )
-        } else if (args.tab === 'done') {
-            query = query.withIndex('by_userId_done', (q) =>
-                q.eq('userId', userId).eq('done', true),
-            )
-        } else if (args.tab === 'unread') {
-            query = query.withIndex('by_userId_unread', (q) =>
-                q.eq('userId', userId).eq('unread', true),
-            )
-        } else assertNever(args.tab)
-
-        if (repoId) {
-            query = query.filter((x) => x.eq(x.field('repoId'), repoId))
-        }
-
-        query = query.order('desc')
-        query = await query.paginate(args.paginationOpts)
+        let query = buildQueryForTab(ctx, userId, repoId, args.tab)
+        paginationResult = await query.paginate(args.paginationOpts)
     }
 
-    let mapped = await asyncMap(query.page, async (notification) => {
+    let mapped = await asyncMap(paginationResult.page, async (notification) => {
         let repo = await ctx.db.get(notification.repoId)
         assert(repo)
 
@@ -121,7 +164,11 @@ async function applyFilters(
         }
     })
 
-    return mapped
+    return {
+        page: mapped,
+        isDone: paginationResult.isDone,
+        continueCursor: paginationResult.continueCursor,
+    }
 }
 
 export const list = publicQuery({

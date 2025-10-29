@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -62,7 +63,7 @@ function RouteComponent() {
 function useFiltered() {
     let search = Route.useSearch()
     let pagState = use(PageContext)
-    let notifications = useTanstackQuery(
+    let result = useTanstackQuery(
         api.public.notifications.list,
         {
             q: search.q,
@@ -76,7 +77,7 @@ function useFiltered() {
         qcMem,
     )
 
-    return notifications
+    return result
 }
 
 function Sidebar() {
@@ -138,6 +139,8 @@ function Navlink(props: {
     to: LinkProps['to']
     search?: LinkProps['search']
 }) {
+    let pagState = use(PageContext)
+
     return (
         <button
             className={`w-full rounded text-left text-sm font-medium transition-colors ${
@@ -146,7 +149,13 @@ function Navlink(props: {
                     : 'text-gray-600 hover:text-gray-900'
             }`}
         >
-            <Link to={props.to} search={props.search}>
+            <Link
+                to={props.to}
+                search={props.search}
+                onClick={() => {
+                    pagState.resetCursors()
+                }}
+            >
                 <p className="px-3 py-2">{props.children}</p>
             </Link>
         </button>
@@ -156,7 +165,9 @@ function Navlink(props: {
 function Filters() {
     let search = Route.useSearch()
     let repositories
-    repositories = useTanstackQuery(api.public.notifications.allRepos, {})
+    repositories = useTanstackQuery(api.public.notifications.allRepos, {
+        tab: search.tab,
+    })
     if (repositories) {
         repositories = repositories.toSorted((a, b) => {
             let ownerCompare = a.owner.localeCompare(b.owner)
@@ -187,7 +198,12 @@ function Filters() {
                             to={'/notifications'}
                             search={(s) => ({ ...s, repo: slug })}
                         >
-                            {repo.owner}/{repo.repo}
+                            <div className="flex items-center justify-between">
+                                <span>
+                                    {repo.owner}/{repo.repo}
+                                </span>
+                                <Badge variant="secondary">{repo.count}</Badge>
+                            </div>
                         </Navlink>
                     )
                 })}
@@ -198,8 +214,10 @@ function Filters() {
 
 function NotificationsToolbar() {
     let navigate = useNavigate()
+    let pagState = use(PageContext)
 
     async function onSearch(q: string) {
+        pagState.resetCursors()
         await navigate({
             to: '/notifications',
             search: (s) => ({ ...s, q }),
@@ -227,10 +245,11 @@ function NotificationsToolbar() {
 
 function FilteredNotifications() {
     let filtered = useFiltered()
+    let pagState = use(PageContext)
 
     if (!filtered) return null
 
-    if (filtered.length === 0) {
+    if (filtered.page.length === 0) {
         return (
             <div className="flex flex-1 items-center justify-center">
                 <NoNotificationsFound></NoNotificationsFound>
@@ -240,9 +259,9 @@ function FilteredNotifications() {
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
-            <FilteredHeader></FilteredHeader>
+            <FilteredHeader paginationResult={filtered}></FilteredHeader>
             <div className="flex-1 overflow-y-auto">
-                {filtered.map((n) => (
+                {filtered.page.map((n) => (
                     <FilteredNotification key={n._id} notification={n}></FilteredNotification>
                 ))}
             </div>
@@ -266,7 +285,7 @@ type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
 type ListPinnedQuery = FunctionReturnType<typeof api.public.notifications.listPinned>
 
 type PinnedNotification = ListPinnedQuery[number]
-type FilteredNotification = ListQuery[number]
+type FilteredNotification = ListQuery['page'][number]
 
 function getReasonLabel(reason: FilteredNotification['reason']): string {
     switch (reason) {
@@ -303,7 +322,9 @@ function getReasonLabel(reason: FilteredNotification['reason']): string {
     }
 }
 
-function FilteredHeader() {
+function FilteredHeader(props: { paginationResult: ListQuery }) {
+    let pagState = use(PageContext)
+
     return (
         <div className="border-b border-gray-200 bg-gray-100 px-4 py-2">
             <div className="flex items-center justify-between gap-2">
@@ -311,6 +332,26 @@ function FilteredHeader() {
                     <Checkbox checked={false} onCheckedChange={() => {}} className="mt-1" />
                     <span className="text-sm font-semibold text-gray-700">Select all</span>
                 </div>
+                {pagState.shouldShowPagination(props.paginationResult) && (
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!pagState.canGoPrev()}
+                            onClick={pagState.goToPrev}
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!pagState.canGoNext(props.paginationResult)}
+                            onClick={() => pagState.goToNext(props.paginationResult)}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -419,7 +460,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
 function PinnedNotifications() {
     let pinned = useTanstackQuery(api.public.notifications.listPinned, {})
 
-    if (!pinned) return null
+    if (!pinned || pinned.length === 0) return null
 
     return (
         <div>
