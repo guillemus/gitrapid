@@ -111,22 +111,17 @@ async function applyFilters(
         query = await query.paginate(args.paginationOpts)
     }
 
-    let page = []
-    let fetched = new Map<Id<'repos'>, Doc<'repos'>>()
-    for (let notification of query.page) {
-        let repo = fetched.get(notification.repoId)
-        if (!repo) {
-            let savedRepo = await ctx.db.get(notification.repoId)
-            assert(savedRepo)
+    let mapped = await asyncMap(query.page, async (notification) => {
+        let repo = await ctx.db.get(notification.repoId)
+        assert(repo)
 
-            fetched.set(notification.repoId, savedRepo)
-            repo = savedRepo
+        return {
+            ...notification,
+            repo: repo,
         }
+    })
 
-        page.push({ ...notification, repo })
-    }
-
-    return page
+    return mapped
 }
 
 export const list = publicQuery({

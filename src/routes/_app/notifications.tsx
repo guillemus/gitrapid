@@ -6,7 +6,14 @@ import { usePaginationState, useTanstackQuery, type PaginationState } from '@/li
 import { api } from '@convex/_generated/api'
 import { assertNever } from '@convex/shared'
 import { useHookstate } from '@hookstate/core'
-import { GitCommitIcon, GitPullRequestIcon, IssueOpenedIcon, TagIcon } from '@primer/octicons-react'
+import {
+    GitCommitIcon,
+    GitPullRequestClosedIcon,
+    GitPullRequestIcon,
+    IssueClosedIcon,
+    IssueOpenedIcon,
+    TagIcon,
+} from '@primer/octicons-react'
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
@@ -320,12 +327,14 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
             }`}
         >
             <div className="flex items-start gap-3">
+                {/* select notification */}
                 <Checkbox
                     checked={isSelected.get()}
                     onCheckedChange={() => isSelected.set((s) => !s)}
                     className="mt-1"
                 />
 
+                {/* notification details */}
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         <NotificationIcon type={props.notification.type} />
@@ -347,6 +356,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
                 </div>
 
+                {/* notification properties */}
                 <div className="ml-2 grid w-100 grid-cols-8 items-center gap-2">
                     <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getReasonLabel(props.notification.reason)}
@@ -501,15 +511,39 @@ function PinnedNotification(props: { notification: PinnedNotification }): React.
 }
 
 function NotificationIcon(props: { type: PinnedNotification['type'] }) {
-    if (props.type === 'Commit') {
+    if (props.type.tag === 'commits') {
         return <GitCommitIcon size={16} className="text-gray-500" />
-    } else if (props.type === 'PullRequest') {
-        return <GitPullRequestIcon size={16} className="text-gray-500" />
-    } else if (props.type === 'Issue') {
-        return <IssueOpenedIcon size={16} className="text-gray-500" />
-    } else if (props.type === 'Release') {
-        return <TagIcon size={16} className="text-gray-500" />
-    } else assertNever(props.type)
+    }
+
+    if (props.type.tag === 'prs') {
+        if (props.type.state === 'open') {
+            return <GitPullRequestIcon size={16} className="text-green-500" />
+        }
+        if (props.type.state === 'closed') {
+            return <GitPullRequestClosedIcon size={16} className="text-red-500" />
+        }
+        if (props.type.state === 'merged') {
+            return <GitPullRequestIcon size={16} className="text-purple-600" />
+        }
+        assertNever(props.type.state)
+        return null
+    }
+
+    if (props.type.tag === 'issues') {
+        if (props.type.state === 'closed') {
+            return <IssueClosedIcon size={16} className="text-purple-600" />
+        }
+        if (props.type.state === 'open') {
+            return <IssueOpenedIcon size={16} className="text-green-500" />
+        }
+        assertNever(props.type.state)
+        return null
+    }
+
+    if (props.type.tag === 'releases') {
+        return <TagIcon size={16} className="text-amber-500" />
+    }
+    assertNever(props.type)
 }
 
 type SearchParams = z.infer<typeof searchSchema>

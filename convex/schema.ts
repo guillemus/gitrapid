@@ -219,10 +219,21 @@ const notifications = defineTable({
     repoId: v.id('repos'),
     title: v.string(),
     type: v.union(
-        v.literal('Issue'),
-        v.literal('PullRequest'),
-        v.literal('Commit'),
-        v.literal('Release'),
+        v.object({
+            tag: v.literal('issues'),
+            state: v.union(v.literal('open'), v.literal('closed')),
+        }),
+        v.object({
+            tag: v.literal('prs'),
+            state: v.union(
+                v.literal('open'),
+                v.literal('closed'),
+                v.literal('merged'),
+                v.literal('closed'),
+            ),
+        }),
+        v.object({ tag: v.literal('commits') }),
+        v.object({ tag: v.literal('releases') }),
     ),
     pinned: v.boolean(),
     unread: v.boolean(),

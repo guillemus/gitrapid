@@ -11,15 +11,15 @@ import { insertIssuesWithCommentsBatch, issueDataForInsert } from '@convex/model
 import { Notifications } from '@convex/models/notifications'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
-import { assertNever, assertOk, O } from '@convex/shared'
+import { assertOk, O } from '@convex/shared'
 import { devOnlyMutation, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
+import type { Infer } from 'convex/values'
 import { v } from 'convex/values'
 import type { Octokit } from 'octokit'
-import { Github, newOctokit } from './github'
-import { Graphql } from './graphql'
+import { Github, newOctokit, octoCatch } from './github'
 
 let self = internal.services.sync
 
@@ -80,33 +80,12 @@ export const notifications_download = internalAction({
                 return O.none()
             }
 
-            let parsedNotifs = parseNotifications(notifications.val)
-
-            let batch = []
-            for (let notification of parsedNotifs) {
-                let owner = notification.repo.owner
-                let repo = notification.repo.repo
-                let number = notification.resourceNumber
-
-                if (notification.type === 'Issue') {
-                    let issue = await Graphql.fetchIssue(octo, { owner, repo, number })
-                    if (issue.isErr) {
-                        let err = Graphql.fetchIssuesErrorsToString(issue.err)
-                        throw new Error(err)
-                    }
-
-                    batch.push({ issue: issue.val, notification })
-                } else if (notification.type === 'PullRequest') {
-                } else if (notification.type === 'Commit') {
-                } else if (notification.type === 'Release') {
-                } else assertNever(notification.type)
-            }
-
-            console.debug('inserting', batch.length, 'notifications in batch')
+            let parsedNotifs = await fetchNotificationContents(octo, notifications.val)
+            console.debug('inserting', parsedNotifs.length, 'notifications in batch')
 
             await ctx.runMutation(self.notifications_upsertBatch, {
                 userId: args.userId,
-                batch,
+                batch: parsedNotifs,
             })
         }
 
@@ -195,21 +174,12 @@ export const notifications_upsertBatch = internalMutation({
         batch: v.array(
             v.object({
                 notification: Notifications.vNotification,
-                issue: issueDataForInsert,
             }),
         ),
     },
     async handler(ctx, args) {
         for (let notif of args.batch) {
-            let repoId = await Notifications.upsertNotification.handler(ctx, {
-                userId: args.userId,
-                notif: notif.notification,
-            })
-
-            await insertIssuesWithCommentsBatch.handler(ctx, {
-                repoId,
-                item: notif.issue,
-            })
+            await Notifications.upsertNotification(ctx, args.userId, notif.notification)
         }
     },
 })
@@ -237,8 +207,8 @@ export const notifications_cron = internalMutation({
     },
 })
 
-function parseNotifications(notifs: Github.Notification[]) {
-    let mapped: Notifications.Notification[] = []
+async function fetchNotificationContents(octo: Octokit, notifs: Github.Notification[]) {
+    let mapped: { notification: Notifications.Notification }[] = []
     for (let notif of notifs) {
         let resourceUrl = notif.subject.url
         let url = new URL(resourceUrl)
@@ -254,13 +224,62 @@ function parseNotifications(notifs: Github.Notification[]) {
         }
 
         let notifType: Doc<'notifications'>['type']
-        if (
-            notif.subject.type === 'Issue' ||
-            notif.subject.type === 'PullRequest' ||
-            notif.subject.type === 'Commit' ||
-            notif.subject.type === 'Release'
-        ) {
-            notifType = notif.subject.type
+        if (notif.subject.type === 'Issue') {
+            let issue = await octoCatch(
+                octo.rest.issues.get({
+                    owner: notif.repository.owner.login,
+                    repo: notif.repository.name,
+                    issue_number: resourceNumberInt,
+                }),
+            )
+
+            if (issue.isErr) {
+                console.warn(`failed to fetch issue: ${issue.err}`)
+                continue
+            }
+
+            let state
+            if (issue.val.state === 'open') {
+                state = 'open' as const
+            } else if (issue.val.state === 'closed') {
+                state = 'closed' as const
+            } else {
+                console.warn(`invalid issue state: ${state}`)
+                continue
+            }
+
+            notifType = { tag: 'issues', state }
+        } else if (notif.subject.type === 'PullRequest') {
+            let pr = await octoCatch(
+                octo.rest.pulls.get({
+                    owner: notif.repository.owner.login,
+                    repo: notif.repository.name,
+                    pull_number: resourceNumberInt,
+                }),
+            )
+
+            if (pr.isErr) {
+                console.warn(`failed to fetch pull request: ${pr.err}`)
+                continue
+            }
+
+            let state
+            if (pr.val.state === 'open') {
+                state = 'open' as const
+            } else if (pr.val.state === 'closed') {
+                state = 'closed' as const
+            } else if (pr.val.state === 'merged') {
+                state = 'merged' as const
+            } else {
+                console.warn(`invalid pull request state: ${pr.val.state}`)
+                continue
+            }
+
+            notifType = { tag: 'prs', state }
+        } else if (notif.subject.type === 'Commit') {
+            notifType = { tag: 'commits' }
+        } else if (notif.subject.type === 'Release') {
+            notifType = { tag: 'releases' }
         } else {
             console.warn(`invalid subject type: ${notif.subject.type}`)
             continue
@@ -272,7 +291,7 @@ function parseNotifications(notifs: Github.Notification[]) {
             continue
         }
 
-        mapped.push({
+        let notification: Notifications.Notification = {
             type: notifType,
             title: notif.subject.title,
             repo: {
@@ -286,7 +305,9 @@ function parseNotifications(notifs: Github.Notification[]) {
             updatedAt: notif.updated_at,
             lastReadAt: notif.last_read_at ?? undefined,
             unread: notif.unread,
-        })
+        }
+
+        mapped.push({ notification })
     }
 
     return mapped

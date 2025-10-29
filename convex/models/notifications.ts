@@ -1,7 +1,6 @@
 import type { Id } from '@convex/_generated/dataModel'
 import { type MutationCtx, type QueryCtx } from '@convex/_generated/server'
 import schema from '@convex/schema'
-import type { FnArgs } from '@convex/utils'
 import { asyncMap } from 'convex-helpers'
 import { v, type Infer } from 'convex/values'
 import { Repos } from './repos'
@@ -25,51 +24,49 @@ export namespace Notifications {
         title: v.string(),
     })
 
-    export const upsertNotification = {
-        args: {
-            userId: v.id('users'),
-            notif: vNotification,
-        },
-        async handler(ctx: MutationCtx, args: FnArgs<typeof this>) {
-            let repoId = await Repos.upsertRepoForUser.handler(ctx, {
-                userId: args.userId,
-                owner: args.notif.repo.owner,
-                repo: args.notif.repo.repo,
-                private: args.notif.repo.private,
+    export async function upsertNotification(
+        ctx: MutationCtx,
+        userId: Id<'users'>,
+        notif: Notification,
+    ) {
+        let repoId = await Repos.upsertRepoForUser.handler(ctx, {
+            userId,
+            owner: notif.repo.owner,
+            repo: notif.repo.repo,
+            private: notif.repo.private,
+        })
+
+        let existing = await ctx.db
+            .query('notifications')
+            .withIndex('by_github_id', (q) => q.eq('githubId', notif.githubId))
+            .unique()
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                lastReadAt: notif.lastReadAt,
+                unread: notif.unread,
+                updatedAt: notif.updatedAt,
+                title: notif.title,
+                reason: notif.reason,
             })
+        } else {
+            await ctx.db.insert('notifications', {
+                userId,
+                unread: notif.unread,
+                pinned: false,
+                done: false,
+                saved: false,
+                repoId: repoId,
+                type: notif.type,
+                githubId: notif.githubId,
+                resourceNumber: notif.resourceNumber,
+                reason: notif.reason,
+                updatedAt: notif.updatedAt,
+                lastReadAt: notif.lastReadAt,
+                title: notif.title,
+            })
+        }
 
-            let existing = await ctx.db
-                .query('notifications')
-                .withIndex('by_github_id', (q) => q.eq('githubId', args.notif.githubId))
-                .unique()
-            if (existing) {
-                await ctx.db.patch(existing._id, {
-                    lastReadAt: args.notif.lastReadAt,
-                    unread: args.notif.unread,
-                    updatedAt: args.notif.updatedAt,
-                    title: args.notif.title,
-                    reason: args.notif.reason,
-                })
-            } else {
-                await ctx.db.insert('notifications', {
-                    userId: args.userId,
-                    unread: args.notif.unread,
-                    pinned: false,
-                    done: false,
-                    saved: false,
-                    repoId: repoId,
-                    type: args.notif.type,
-                    githubId: args.notif.githubId,
-                    resourceNumber: args.notif.resourceNumber,
-                    reason: args.notif.reason,
-                    updatedAt: args.notif.updatedAt,
-                    lastReadAt: args.notif.lastReadAt,
-                    title: args.notif.title,
-                })
-            }
-
-            return repoId
-        },
+        return repoId
     }
 
     export async function distinctRepos(ctx: QueryCtx, userId: Id<'users'>) {
