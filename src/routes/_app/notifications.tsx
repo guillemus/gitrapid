@@ -83,11 +83,9 @@ function useFiltered() {
 function Sidebar() {
     return (
         <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-gray-50">
-            <div className="border-b border-gray-200 px-4 py-4">
-                <div className="mb-4 flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-gray-700" />
-                    <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
-                </div>
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-5">
+                <Bell className="h-5 w-5 text-gray-700" />
+                <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
             </div>
 
             <Tabs />
