@@ -3,7 +3,7 @@ import { useHookstate } from '@hookstate/core'
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { clsx, type ClassValue } from 'clsx'
 import { type FunctionArgs, type FunctionReference, type PaginationResult } from 'convex/server'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, isYesterday, differenceInMinutes } from 'date-fns'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { gfmHeadingId } from 'marked-gfm-heading-id'
@@ -156,6 +156,32 @@ export type GithubParams = {
 export function formatRelativeTime(date: string | number | Date): string {
     try {
         return formatDistanceToNow(new Date(date), { addSuffix: true })
+    } catch {
+        // Fallback to locale date string if parsing fails
+        return new Date(date).toLocaleDateString()
+    }
+}
+
+/**
+ * Formats a date in GitHub's style (e.g., "just now", "yesterday", "5 minutes ago", "2 hours ago")
+ */
+export function formatGitHubTime(date: string | number | Date): string {
+    try {
+        let dateObj = new Date(date)
+        let minutesDiff = differenceInMinutes(new Date(), dateObj)
+
+        // "just now" for items < 1 minute old
+        if (minutesDiff < 1) {
+            return 'just now'
+        }
+
+        // "yesterday" for items from yesterday
+        if (isYesterday(dateObj)) {
+            return 'yesterday'
+        }
+
+        // Use formatDistanceToNow with addSuffix for other cases
+        return formatDistanceToNow(dateObj, { addSuffix: true })
     } catch {
         // Fallback to locale date string if parsing fails
         return new Date(date).toLocaleDateString()

@@ -18,7 +18,7 @@ import {
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { formatDistanceToNow } from 'date-fns'
+import { formatGitHubTime } from '@/lib/utils'
 import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
 import { createContext, use } from 'react'
 import z from 'zod'
@@ -404,7 +404,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     </div>
 
                     <span className="col-span-2 inline-flex h-8 items-center justify-end text-xs leading-none whitespace-nowrap text-gray-400">
-                        {formatDistanceToNow(props.notification.updatedAt)}
+                        {formatGitHubTime(props.notification.updatedAt)}
                     </span>
 
                     <div>
