@@ -209,3 +209,33 @@ export const updateNotification = publicMutation({
         await ctx.db.patch(args.id, notification)
     },
 })
+
+export const updateBatch = publicMutation({
+    args: {
+        all: v.boolean(),
+        selected: v.array(v.id('notifications')),
+
+        updates: v.object({
+            unread: v.optional(v.boolean()),
+            saved: v.optional(v.boolean()),
+            pinned: v.optional(v.boolean()),
+            done: v.optional(v.boolean()),
+        }),
+    },
+    async handler(ctx, args) {
+        if (args.all) {
+            let allNotifications = await ctx.db
+                .query('notifications')
+                .withIndex('by_userId_done', (q) => q.eq('userId', ctx.userId))
+                .take(1000)
+
+            for (let notification of allNotifications) {
+                await ctx.db.patch(notification._id, args.updates)
+            }
+        } else {
+            for (let id of args.selected) {
+                await ctx.db.patch(id, args.updates)
+            }
+        }
+    },
+})

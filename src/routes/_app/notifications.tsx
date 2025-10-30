@@ -4,7 +4,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { qcMem } from '@/lib/queryClient'
-import { formatGitHubTime, usePagination, useTanstackQuery } from '@/lib/utils'
+import {
+    formatGitHubTime,
+    objectEntries,
+    objectKeys,
+    usePagination,
+    useTanstackQuery,
+} from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { assertNever } from '@convex/shared'
@@ -19,7 +25,7 @@ import {
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { Bell, Bookmark, Check, Pin, Search, Undo } from 'lucide-react'
+import { Bell, Bookmark, Check, Circle, CircleDot, Pin, Search, Undo } from 'lucide-react'
 import z from 'zod'
 import { create } from 'zustand'
 
@@ -43,11 +49,16 @@ type Notification = ListPinnedQuery[number]
 
 type SelectedState = {
     selected: Record<Id<'notifications'>, boolean>
+    allSelected: boolean
+
+    setAllSelected(status: boolean): void
     check(id: Id<'notifications'>, checked: boolean): void
 }
 
 const useSelected = create<SelectedState>((set) => ({
     selected: {},
+    allSelected: false,
+    setAllSelected: (status) => set((state) => ({ ...state, allSelected: status })),
     check: (id, checked) => set((state) => ({ selected: { ...state.selected, [id]: checked } })),
 }))
 
@@ -275,7 +286,7 @@ function FilteredNotifications() {
         <div className="flex flex-1 flex-col overflow-hidden">
             <FilteredHeader
                 paginationResult={filtered}
-                allIds={filtered.page.map((n) => n._id)}
+                visibleIds={filtered.page.map((n) => n._id)}
             ></FilteredHeader>
             <div className="flex-1 overflow-y-scroll">
                 {filtered.page.map((n) => (
@@ -333,15 +344,111 @@ function getReasonLabel(reason: Notification['reason']): string {
     }
 }
 
-function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifications'>[] }) {
+function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'notifications'>[] }) {
     let pageState = usePagination()
 
-    let check = useSelected((x) => x.check)
+    let selected = useSelected()
 
-    function selectAll(checked: boolean) {
-        for (let id of props.allIds) {
-            check(id, checked)
+    let ids: Id<'notifications'>[] = []
+    for (let [id, checked] of objectEntries(selected.selected)) {
+        if (checked) ids.push(id)
+    }
+
+    let selectAllText = 'Select all'
+    if (ids.length !== 0) {
+        if (selected.allSelected) {
+            selectAllText = `${ids.length}+ selected`
+        } else {
+            selectAllText = `${ids.length} selected`
         }
+    }
+
+    let selectAllChecked = !!ids.length
+
+    function selectAll() {
+        selected.setAllSelected(true)
+        selectAllVisible(true)
+    }
+    function deselectAll() {
+        selected.setAllSelected(false)
+        selectAllVisible(false)
+    }
+
+    function selectAllVisible(status: boolean) {
+        for (let id of props.visibleIds) {
+            selected.check(id, status)
+        }
+    }
+
+    function toggleSelectAll(checked: boolean) {
+        if (checked) {
+            selectAllVisible(true)
+        } else {
+            selectAllVisible(false)
+            selected.setAllSelected(false)
+        }
+    }
+
+    let selectTotalBtn = (
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={selectAll}>
+            <span> Select all notifications</span>
+        </Button>
+    )
+
+    if (selected.allSelected) {
+        selectTotalBtn = (
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={deselectAll}>
+                <span>{selected.allSelected ? 'Clear selection' : 'Select all notifications'}</span>
+            </Button>
+        )
+    }
+
+    let updateBatch = useMutation(self.updateBatch)
+
+    async function markAsRead() {
+        await updateBatch({
+            all: selected.allSelected,
+            selected: ids,
+            updates: { unread: false },
+        })
+    }
+
+    let markAsReadText = 'Mark as read'
+    if (selected.allSelected) {
+        markAsReadText = 'Mark all as read'
+    }
+
+    async function markAsUnread() {
+        await updateBatch({
+            all: selected.allSelected,
+            selected: ids,
+            updates: { unread: true },
+        })
+    }
+    let markAsUnreadText = 'Mark as unread'
+    if (selected.allSelected) {
+        markAsUnreadText = 'Mark all as unread'
+    }
+    async function markAsDone() {
+        await updateBatch({
+            all: selected.allSelected,
+            selected: ids,
+            updates: { done: true },
+        })
+    }
+    let markAsDoneText = 'Mark as done'
+    if (selected.allSelected) {
+        markAsDoneText = 'Mark all as done'
+    }
+
+    function goNext() {
+        pageState.goToNext(props.paginationResult)
+        deselectAll()
+    }
+
+    function goPrev() {
+        pageState.goToPrev()
+        deselectAll()
     }
 
     return (
@@ -349,10 +456,47 @@ function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifi
             <div className="flex h-full items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <label className="flex cursor-pointer items-center gap-2">
-                        {/* <Checkbox className="mt-1" /> */}
-                        <Checkbox onCheckedChange={selectAll} className="mt-1" />
-                        <span className="text-sm font-semibold text-gray-700">Select all</span>
+                        <Checkbox
+                            checked={selectAllChecked}
+                            onCheckedChange={toggleSelectAll}
+                            className="mt-1"
+                        />
+                        <span className="text-sm font-semibold text-gray-700">{selectAllText}</span>
                     </label>
+
+                    {ids.length > 0 && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={markAsDone}
+                            >
+                                <Check className="h-4 w-4" />
+                                <span>{markAsDoneText}</span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1 text-xs"
+                                onClick={markAsRead}
+                            >
+                                <Circle className="!h-4 !w-4" />
+                                <span>{markAsReadText}</span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={markAsUnread}
+                            >
+                                <CircleDot className="!h-4 !w-4" />
+                                <span>{markAsUnreadText}</span>
+                            </Button>
+
+                            {selectTotalBtn}
+                        </>
+                    )}
                 </div>
                 {pageState.shouldShowPagination(props.paginationResult) && (
                     <div className="flex items-center gap-2">
@@ -360,7 +504,7 @@ function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifi
                             variant="outline"
                             size="sm"
                             disabled={!pageState.canGoPrev()}
-                            onClick={pageState.goToPrev}
+                            onClick={goPrev}
                         >
                             Previous
                         </Button>
@@ -368,7 +512,7 @@ function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifi
                             variant="outline"
                             size="sm"
                             disabled={!pageState.canGoNext(props.paginationResult)}
-                            onClick={() => pageState.goToNext(props.paginationResult)}
+                            onClick={goNext}
                         >
                             Next
                         </Button>

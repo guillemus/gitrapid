@@ -225,3 +225,11 @@ export const usePagination = create<Pagination>((set, get) => ({
         return state.canGoPrev() || state.canGoNext(pag)
     },
 }))
+
+export function objectKeys<T extends string>(obj: Record<T, unknown>): T[] {
+    return Object.keys(obj) as T[]
+}
+
+export function objectEntries<T extends string, Q>(obj: Record<T, Q>): [T, Q][] {
+    return Object.entries(obj) as [T, Q][]
+}
