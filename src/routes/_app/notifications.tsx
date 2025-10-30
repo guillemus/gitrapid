@@ -20,6 +20,7 @@ import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/re
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { Bell, Bookmark, Check, Circle, CircleDot, Pin, Search, Undo } from 'lucide-react'
+import { useEffect, useEffectEvent } from 'react'
 import z from 'zod'
 import { create } from 'zustand'
 
@@ -434,6 +435,11 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
     if (selected.allSelected) {
         markAsDoneText = 'Mark all as done'
     }
+
+    let search = Route.useSearch()
+
+    let deselectEvent = useEffectEvent(deselectAll)
+    useEffect(() => deselectEvent, [search])
 
     function goNext() {
         pageState.goToNext(props.paginationResult)
