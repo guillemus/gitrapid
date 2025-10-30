@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { qcMem } from '@/lib/queryClient'
 import {
     formatGitHubTime,
@@ -373,7 +374,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                 props.notification.unread ? 'bg-blue-50' : ''
             }`}
         >
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
                 {/* select notification */}
                 <Checkbox
                     checked={isSelected.get()}
@@ -404,7 +405,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                 </div>
 
                 {/* notification properties */}
-                <div className="ml-2 grid w-100 grid-cols-8 items-center">
+                <div className="ml-2 grid w-100 grid-cols-8 items-center justify-center">
                     <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getReasonLabel(props.notification.reason)}
                     </div>
@@ -416,44 +417,57 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                     <div className="col-span-1"></div>
 
                     <div className="col-span-2 flex items-center justify-end">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                            onClick={updates.onDone}
-                        >
-                            <Check className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={updates.onPin}
-                        >
-                            <Pin
-                                className={`h-4 w-4 ${
-                                    props.notification.pinned
-                                        ? 'fill-current text-gray-700'
-                                        : 'text-gray-400'
-                                }`}
-                            />
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={updates.onSave}
-                        >
-                            <Bookmark
-                                className={`h-4 w-4 ${
-                                    props.notification.saved
-                                        ? 'fill-current text-gray-700'
-                                        : 'text-gray-400'
-                                }`}
-                            />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2 text-xs"
+                                    onClick={updates.onDone}
+                                >
+                                    <Check className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={-10}>Mark as done</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
+                                    onClick={updates.onPin}
+                                >
+                                    <Pin
+                                        className={`h-4 w-4 ${
+                                            props.notification.pinned
+                                                ? 'fill-current text-gray-700'
+                                                : 'text-gray-400'
+                                        }`}
+                                    />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={-10}>Pin notification</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
+                                    onClick={updates.onSave}
+                                >
+                                    <Bookmark
+                                        className={`h-4 w-4 ${
+                                            props.notification.saved
+                                                ? 'fill-current text-gray-700'
+                                                : 'text-gray-400'
+                                        }`}
+                                    />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={-10}>Set as saved</TooltipContent>
+                        </Tooltip>
                     </div>
                 </div>
             </div>
@@ -519,35 +533,60 @@ function PinnedNotification(props: { notification: PinnedNotification }): React.
 
                 <div className="ml-2 flex flex-shrink-0 items-center gap-1">
                     {props.notification.unread && (
-                        <Button variant="ghost" size="sm" className="h-6" onClick={onMarkRead}>
-                            <Check className="h-3 w-3 text-gray-400" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6"
+                                    onClick={onMarkRead}
+                                >
+                                    <Check className="h-3 w-3 text-gray-400" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={-10}>Mark as read</TooltipContent>
+                        </Tooltip>
                     )}
 
-                    <Button variant="ghost" size="sm" className="h-6" onClick={onSave}>
-                        <Star
-                            className={`h-3 w-3 ${
-                                props.notification.saved
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'text-gray-400'
-                            }`}
-                        />
-                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6" onClick={onSave}>
+                                <Star
+                                    className={`h-3 w-3 ${
+                                        props.notification.saved
+                                            ? 'fill-yellow-400 text-yellow-400'
+                                            : 'text-gray-400'
+                                    }`}
+                                />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Set as saved</TooltipContent>
+                    </Tooltip>
 
-                    <Button variant="ghost" size="sm" className="h-6" onClick={onPin}>
-                        <Pin
-                            className={`h-3 w-3 ${
-                                props.notification.pinned
-                                    ? 'fill-current text-gray-700'
-                                    : 'text-gray-400'
-                            }`}
-                        />
-                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6" onClick={onPin}>
+                                <Pin
+                                    className={`h-3 w-3 ${
+                                        props.notification.pinned
+                                            ? 'fill-current text-gray-700'
+                                            : 'text-gray-400'
+                                    }`}
+                                />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Pin notification</TooltipContent>
+                    </Tooltip>
 
                     {!props.notification.done && (
-                        <Button variant="ghost" size="sm" className="h-6" onClick={onDone}>
-                            <Archive className="h-3 w-3 text-gray-400" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6" onClick={onDone}>
+                                    <Archive className="h-3 w-3 text-gray-400" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={-10}>Mark as done</TooltipContent>
+                        </Tooltip>
                     )}
                 </div>
             </div>
