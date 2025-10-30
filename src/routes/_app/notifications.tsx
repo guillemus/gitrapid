@@ -23,6 +23,8 @@ import { Bell, Bookmark, Check, Pin, Search, Undo } from 'lucide-react'
 import z from 'zod'
 import { create } from 'zustand'
 
+let self = api.public.notifications
+
 const searchSchema = z.object({
     repo: z.string().optional(),
     tab: z.enum(['saved', 'done', 'unread']).optional(),
@@ -34,8 +36,8 @@ export const Route = createFileRoute('/_app/notifications')({
     component: RouteComponent,
 })
 
-type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
-type ListPinnedQuery = FunctionReturnType<typeof api.public.notifications.listPinned>
+type ListQuery = FunctionReturnType<typeof self.list>
+type ListPinnedQuery = FunctionReturnType<typeof self.listPinned>
 
 type Notification = ListPinnedQuery[number]
 
@@ -50,7 +52,7 @@ const useSelected = create<SelectedState>((set) => ({
 }))
 
 function useNotificationUpdates(notification: Notification) {
-    let doUpdate = useMutation(api.public.notifications.updateNotification)
+    let doUpdate = useMutation(self.updateNotification)
     let id = notification._id
 
     return {
@@ -74,7 +76,7 @@ function useFiltered() {
     let search = Route.useSearch()
     let pageState = usePagination()
     let result = useTanstackQuery(
-        api.public.notifications.list,
+        self.list,
         {
             q: search.q,
             repo: search.repo,
@@ -173,7 +175,7 @@ function Navlink(props: {
 function Filters() {
     let search = Route.useSearch()
     let repositories
-    repositories = useTanstackQuery(api.public.notifications.allRepos, {
+    repositories = useTanstackQuery(self.allRepos, {
         tab: search.tab,
     })
     if (repositories) {
@@ -498,7 +500,7 @@ function FilteredNotification(props: { notification: Notification }) {
 }
 
 function PinnedNotifications() {
-    let pinned = useTanstackQuery(api.public.notifications.listPinned, {})
+    let pinned = useTanstackQuery(self.listPinned, {})
 
     if (!pinned || pinned.length === 0) return null
 
