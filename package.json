@@ -60,7 +60,6 @@
     "dompurify": "3.2.7",
     "dotenv": "17.2.3",
     "idb-keyval": "6.2.2",
-    "immer": "^10.2.0",
     "lucide-react": "^0.544.0",
     "marked": "16.3.0",
     "marked-gfm-heading-id": "^4.1.2",

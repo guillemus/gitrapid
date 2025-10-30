@@ -73,7 +73,7 @@ function buildQueryForTab(
     if (tab === 'all' || tab === undefined) {
         query = ctx.db
             .query('notifications')
-            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+            .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', false))
     } else if (tab === 'saved') {
         query = ctx.db
             .query('notifications')
@@ -136,6 +136,9 @@ async function applyFilters(
                 x = x.eq('saved', true)
             } else if (args.tab === 'unread') {
                 x = x.eq('unread', true)
+            } else {
+                // inbox: show only notifications that are not done
+                x = x.eq('done', false)
             }
 
             return x

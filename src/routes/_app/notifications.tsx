@@ -19,10 +19,9 @@ import {
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
+import { Bell, Bookmark, Check, Pin, Search, Undo } from 'lucide-react'
 import z from 'zod'
 import { create } from 'zustand'
-import { immer } from 'zustand/middleware/immer'
 
 const searchSchema = z.object({
     repo: z.string().optional(),
@@ -35,19 +34,22 @@ export const Route = createFileRoute('/_app/notifications')({
     component: RouteComponent,
 })
 
+type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
+type ListPinnedQuery = FunctionReturnType<typeof api.public.notifications.listPinned>
+
+type Notification = ListPinnedQuery[number]
+
 type SelectedState = {
     selected: Record<Id<'notifications'>, boolean>
     check(id: Id<'notifications'>, checked: boolean): void
 }
 
-const useSelected = create<SelectedState>()(
-    immer((set) => ({
-        selected: {},
-        check: (id, checked) => set((state) => (state.selected[id] = checked)),
-    })),
-)
+const useSelected = create<SelectedState>((set) => ({
+    selected: {},
+    check: (id, checked) => set((state) => ({ selected: { ...state.selected, [id]: checked } })),
+}))
 
-function useNotificationUpdates(notification: FilteredNotification) {
+function useNotificationUpdates(notification: Notification) {
     let doUpdate = useMutation(api.public.notifications.updateNotification)
     let id = notification._id
 
@@ -107,12 +109,12 @@ function Sidebar() {
 
 function Tabs() {
     let search = Route.useSearch()
-    let isAll = !search.tab
+    let isInbox = !search.tab
 
     return (
         <div className="space-y-1 px-2 py-3">
-            <Navlink active={isAll} to={'/notifications'}>
-                All Notifications
+            <Navlink active={isInbox} to={'/notifications'}>
+                Inbox
             </Navlink>
             <Navlink
                 active={search.tab === 'saved'}
@@ -294,13 +296,7 @@ function Notifications() {
     )
 }
 
-type ListQuery = FunctionReturnType<typeof api.public.notifications.list>
-type ListPinnedQuery = FunctionReturnType<typeof api.public.notifications.listPinned>
-
-type PinnedNotification = ListPinnedQuery[number]
-type FilteredNotification = ListQuery['page'][number]
-
-function getReasonLabel(reason: FilteredNotification['reason']): string {
+function getReasonLabel(reason: Notification['reason']): string {
     switch (reason) {
         case 'mention':
             return 'Mention'
@@ -381,7 +377,7 @@ function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifi
     )
 }
 
-function FilteredNotification(props: { notification: FilteredNotification }) {
+function FilteredNotification(props: { notification: Notification }) {
     let updates = useNotificationUpdates(props.notification)
     let notifId = props.notification._id
 
@@ -445,10 +441,16 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                                     className="h-8 px-2 text-xs"
                                     onClick={updates.onDone}
                                 >
-                                    <Check className="h-4 w-4" />
+                                    {props.notification.done ? (
+                                        <Undo className="h-4 w-4" />
+                                    ) : (
+                                        <Check className="h-4 w-4" />
+                                    )}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent sideOffset={-10}>Mark as done</TooltipContent>
+                            <TooltipContent sideOffset={-10}>
+                                {props.notification.done ? 'Undo' : 'Mark as done'}
+                            </TooltipContent>
                         </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -518,14 +520,11 @@ function PinnedNotifications() {
     )
 }
 
-function PinnedNotification(props: { notification: PinnedNotification }): React.ReactElement {
-    function onMarkRead() {}
-    function onSave() {}
-    function onPin() {}
-    function onDone() {}
+function PinnedNotification(props: { notification: Notification }): React.ReactElement {
+    let updates = useNotificationUpdates(props.notification)
 
     return (
-        <div className="inline-block w-1/3 p-2">
+        <div className="inline-block w-full p-2 lg:w-1/3">
             <div
                 className={`flex items-start gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-gray-50 ${
                     props.notification.unread
@@ -552,40 +551,33 @@ function PinnedNotification(props: { notification: PinnedNotification }): React.
                 </div>
 
                 <div className="ml-2 flex flex-shrink-0 items-center gap-1">
-                    {props.notification.unread && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6"
-                                    onClick={onMarkRead}
-                                >
-                                    <Check className="h-3 w-3 text-gray-400" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={-10}>Mark as read</TooltipContent>
-                        </Tooltip>
-                    )}
-
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6" onClick={onSave}>
-                                <Star
-                                    className={`h-3 w-3 ${
-                                        props.notification.saved
-                                            ? 'fill-yellow-400 text-yellow-400'
-                                            : 'text-gray-400'
-                                    }`}
-                                />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={updates.onDone}
+                            >
+                                {props.notification.done ? (
+                                    <Undo className="h-3 w-3" />
+                                ) : (
+                                    <Check className="h-3 w-3" />
+                                )}
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Set as saved</TooltipContent>
+                        <TooltipContent sideOffset={-10}>
+                            {props.notification.done ? 'Undo' : 'Mark as done'}
+                        </TooltipContent>
                     </Tooltip>
-
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6" onClick={onPin}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={updates.onPin}
+                            >
                                 <Pin
                                     className={`h-3 w-3 ${
                                         props.notification.pinned
@@ -595,26 +587,34 @@ function PinnedNotification(props: { notification: PinnedNotification }): React.
                                 />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Pin notification</TooltipContent>
+                        <TooltipContent sideOffset={-10}>Pin notification</TooltipContent>
                     </Tooltip>
-
-                    {!props.notification.done && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-6" onClick={onDone}>
-                                    <Archive className="h-3 w-3 text-gray-400" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={-10}>Mark as done</TooltipContent>
-                        </Tooltip>
-                    )}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={updates.onSave}
+                            >
+                                <Bookmark
+                                    className={`h-3 w-3 ${
+                                        props.notification.saved
+                                            ? 'fill-current text-gray-700'
+                                            : 'text-gray-400'
+                                    }`}
+                                />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={-10}>Set as saved</TooltipContent>
+                    </Tooltip>
                 </div>
             </div>
         </div>
     )
 }
 
-function NotificationIcon(props: { type: PinnedNotification['type'] }) {
+function NotificationIcon(props: { type: Notification['type'] }) {
     if (props.type.tag === 'commits') {
         return <GitCommitIcon size={16} className="text-gray-500" />
     }

@@ -9,7 +9,6 @@ import { gfmHeadingId } from 'marked-gfm-heading-id'
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { create } from 'zustand'
-import { immer } from 'zustand/middleware/immer'
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -194,37 +193,35 @@ type Pagination = {
     shouldShowPagination: (pag?: PaginationResult<unknown>) => boolean
 }
 
-export const usePagination = create<Pagination>()(
-    immer((set, get) => ({
-        index: 0,
-        cursors: [null],
+export const usePagination = create<Pagination>((set, get) => ({
+    index: 0,
+    cursors: [null],
 
-        resetCursors: () => set({ index: 0, cursors: [null] }),
+    resetCursors: () => set({ index: 0, cursors: [null] }),
 
-        currCursor: () => {
-            const state = get()
-            return state.cursors[state.index] ?? null
-        },
+    currCursor: () => {
+        const state = get()
+        return state.cursors[state.index] ?? null
+    },
 
-        canGoPrev: () => get().index > 0,
-        goToPrev: () => set((state) => ({ index: Math.max(state.index - 1, 0) })),
-        canGoNext: (pag) => (!pag ? false : !pag.isDone),
+    canGoPrev: () => get().index > 0,
+    goToPrev: () => set((state) => ({ index: Math.max(state.index - 1, 0) })),
+    canGoNext: (pag) => (!pag ? false : !pag.isDone),
 
-        goToNext: (pag?) => {
-            if (!pag) return
-            if (pag.isDone) return
+    goToNext: (pag?) => {
+        if (!pag) return
+        if (pag.isDone) return
 
-            set((s) => ({ index: s.index + 1 }))
+        set((s) => ({ index: s.index + 1 }))
 
-            const state = get()
-            if (state.currCursor() === null) {
-                set((state) => state.cursors.push(pag.continueCursor))
-            }
-        },
+        const state = get()
+        if (state.currCursor() === null) {
+            set((s) => ({ cursors: [...s.cursors, pag.continueCursor] }))
+        }
+    },
 
-        shouldShowPagination: (pag?) => {
-            const state = get()
-            return state.canGoPrev() || state.canGoNext(pag)
-        },
-    })),
-)
+    shouldShowPagination: (pag?) => {
+        const state = get()
+        return state.canGoPrev() || state.canGoNext(pag)
+    },
+}))
