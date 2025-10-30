@@ -108,7 +108,7 @@ function Tab(props: {
         >
             <props.icon className="h-4 w-4" />
             <span className="leading-none">{props.label}</span>
-            {props.count && (
+            {props.count !== undefined && props.count !== 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
                     {props.count}
                 </Badge>

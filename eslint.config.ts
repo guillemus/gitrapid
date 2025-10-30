@@ -28,7 +28,6 @@ export default defineConfig([
                 {
                     allowNullableBoolean: true,
                     allowNullableString: true,
-                    allowNullableNumber: true,
                 },
             ],
         },

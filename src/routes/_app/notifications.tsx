@@ -530,7 +530,7 @@ function SelectedCheckbox(props: { id: Id<'notifications'> }): React.ReactElemen
     return (
         <Checkbox
             checked={isSelected}
-            onCheckedChange={(checked) => check(props.id, !!checked)}
+            onCheckedChange={(checked) => check(props.id, checked === true)}
             className="mt-1"
         />
     )

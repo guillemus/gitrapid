@@ -268,6 +268,7 @@ export default defineSchema({
         emailVerificationTime: v.optional(v.number()),
         githubId: v.optional(v.number()),
         accessToken: v.string(),
+        newVersion: v.optional(v.boolean()),
     }).index('email', ['email']),
 
     // names aren't shortened so that 'go to definition' is direct. Take this object kind of like an index.

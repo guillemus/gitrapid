@@ -208,7 +208,7 @@ export namespace Graphql {
 
         let assignees: Assignee[] = []
         for (let a of issueNode.assignees.nodes) {
-            if (a !== null && a.avatarUrl && a.databaseId) {
+            if (a !== null && a.avatarUrl && typeof a.databaseId === 'number') {
                 assignees.push({
                     avatarUrl: a.avatarUrl,
                     githubId: a.databaseId,
@@ -308,7 +308,7 @@ function gqlGithubUserToDbGithubUser(
     let dbuser
     if (!gqlUser) {
         dbuser = null
-    } else if (!gqlUser.databaseId || !gqlUser.avatarUrl) {
+    } else if (typeof gqlUser.databaseId !== 'number' || !gqlUser.avatarUrl) {
         dbuser = 'github-actions' as const
     } else {
         dbuser = {
@@ -1165,7 +1165,7 @@ function buildIssuesWithCommentsBatch(fetchedIssues: FetchIssueNode[]) {
 
         let assignees: Assignee[] = []
         for (let a of issue.assignees.nodes) {
-            if (a !== null && a.avatarUrl && a.databaseId) {
+            if (a !== null && a.avatarUrl && typeof a.databaseId === 'number') {
                 assignees.push({
                     avatarUrl: a.avatarUrl,
                     githubId: a.databaseId,

@@ -7,7 +7,6 @@
   ],
   "rules": {
     "typescript/unbound-method": "allow",
-    "typescript/switch-exhaustiveness-check": "error",
-    "typescript/strict-boolean-expressions": "error"
+    "typescript/switch-exhaustiveness-check": "error"
   }
 }
