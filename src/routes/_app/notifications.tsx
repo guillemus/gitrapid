@@ -644,15 +644,37 @@ function FilteredNotification(props: { notification: Notification }) {
 
 function PinnedNotifications() {
     let pinned = useTanstackQuery(self.listPinned, {})
+    let updateBatch = useMutation(self.updateBatch)
 
     if (!pinned || pinned.length === 0) return null
+
+    async function clearPinned() {
+        if (!pinned || pinned.length === 0) return
+
+        let pinnedIds = pinned.map((n) => n._id)
+        await updateBatch({
+            all: false,
+            selected: pinnedIds,
+            updates: { pinned: false },
+        })
+    }
 
     return (
         <div>
             <div className="border-b border-gray-200 bg-yellow-50 px-4 py-2">
-                <p className="text-xs font-semibold tracking-wide text-gray-600 uppercase">
-                    📌 Pinned ({pinned?.length ?? 0})
-                </p>
+                <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold tracking-wide text-gray-600">
+                        📌 Pinned ({pinned?.length ?? 0})
+                    </p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={clearPinned}
+                    >
+                        Clear
+                    </Button>
+                </div>
             </div>
 
             <div className="p-2">
