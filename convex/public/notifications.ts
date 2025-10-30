@@ -21,16 +21,9 @@ export const allRepos = publicQuery({
             let query = buildQueryForTab(ctx, ctx.userId, repo._id, args.tab)
             let notifications = await query.take(51)
 
-            let count: number | '50+'
-            if (notifications.length === 51) {
-                count = '50+'
-            } else {
-                count = notifications.length
-            }
-
             return {
                 ...repo,
-                count,
+                count: notifications.length,
             }
         })
 

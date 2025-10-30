@@ -154,7 +154,7 @@ function Navlink(props: {
                     pagState.resetCursors()
                 }}
             >
-                <p className="px-3 py-2">{props.children}</p>
+                <span className="flex h-10 items-center px-3 py-2">{props.children}</span>
             </Link>
         </button>
     )
@@ -189,6 +189,10 @@ function Filters() {
                 </Navlink>
                 {repositories?.map(function renderRepo(repo) {
                     let slug = `${repo.owner}/${repo.repo}`
+                    let showBadge = repo.count > 0
+                    let show50p = showBadge && repo.count > 50
+                    let showCount = showBadge && repo.count <= 50
+
                     return (
                         <Navlink
                             key={slug}
@@ -196,11 +200,12 @@ function Filters() {
                             to={'/notifications'}
                             search={(s) => ({ ...s, repo: slug })}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex w-full items-center justify-between">
                                 <span>
                                     {repo.owner}/{repo.repo}
                                 </span>
-                                <Badge variant="secondary">{repo.count}</Badge>
+                                {showCount && <Badge variant="secondary">{repo.count}</Badge>}
+                                {show50p && <Badge variant="secondary">50+</Badge>}
                             </div>
                         </Navlink>
                     )
@@ -258,7 +263,7 @@ function FilteredNotifications() {
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
             <FilteredHeader paginationResult={filtered}></FilteredHeader>
-            <div className="flex-1 overflow-y-auto">
+            <div className="gutter flex-1 overflow-y-auto">
                 {filtered.page.map((n) => (
                     <FilteredNotification key={n._id} notification={n}></FilteredNotification>
                 ))}
@@ -324,8 +329,8 @@ function FilteredHeader(props: { paginationResult: ListQuery }) {
     let pagState = use(PageContext)
 
     return (
-        <div className="border-b border-gray-200 bg-gray-100 px-4 py-2">
-            <div className="flex items-center justify-between gap-2">
+        <div className="h-12 border-b border-gray-200 bg-gray-100 px-4 py-2">
+            <div className="flex h-full items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Checkbox checked={false} onCheckedChange={() => {}} className="mt-1" />
                     <span className="text-sm font-semibold text-gray-700">Select all</span>
@@ -396,7 +401,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                 </div>
 
                 {/* notification properties */}
-                <div className="ml-2 grid w-100 grid-cols-8 items-center gap-2">
+                <div className="ml-2 grid w-100 grid-cols-8 items-center">
                     <div className="col-span-3 inline-flex h-8 items-center justify-center px-3 py-0 text-xs leading-none font-medium whitespace-nowrap">
                         {getReasonLabel(props.notification.reason)}
                     </div>
@@ -405,7 +410,9 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                         {formatGitHubTime(props.notification.updatedAt)}
                     </span>
 
-                    <div>
+                    <div className="col-span-1"></div>
+
+                    <div className="col-span-2 flex items-center justify-end">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -414,9 +421,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                         >
                             <Check className="h-4 w-4" />
                         </Button>
-                    </div>
 
-                    <div>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -431,9 +436,7 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
                                 }`}
                             />
                         </Button>
-                    </div>
 
-                    <div>
                         <Button
                             variant="ghost"
                             size="sm"

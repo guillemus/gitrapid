@@ -3,7 +3,7 @@ import { useHookstate } from '@hookstate/core'
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { clsx, type ClassValue } from 'clsx'
 import { type FunctionArgs, type FunctionReference, type PaginationResult } from 'convex/server'
-import { formatDistanceToNow, isYesterday, differenceInMinutes } from 'date-fns'
+import { differenceInMinutes, formatDistanceToNow, isYesterday } from 'date-fns'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { gfmHeadingId } from 'marked-gfm-heading-id'
@@ -126,13 +126,6 @@ export function useClickOutside(onclickOutside: () => void) {
 
     return containerRef
 }
-
-// export function useMutable<T extends object>(initial: T): T {
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
-//     let c = useMemo(() => proxy(initial), [])
-//     useSnapshot(c)
-//     return c
-// }
 
 export function useDefined<T>(t?: T) {
     let ref = useRef(t)
