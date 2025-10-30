@@ -34,7 +34,6 @@
     "@convex-dev/workpool": "^0.2.18",
     "@edge-runtime/vm": "^5.0.0",
     "@fontsource/geist-sans": "5.2.5",
-    "@hookstate/core": "^4.0.2",
     "@octokit/graphql": "^9.0.2",
     "@primer/octicons-react": "^19.18.0",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -82,7 +81,8 @@
     "tailwindcss": "^4.1.14",
     "typescript": "5.9.3",
     "valtio": "2.1.8",
-    "zod": "4.1.11"
+    "zod": "4.1.11",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",

@@ -4,15 +4,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { qcMem } from '@/lib/queryClient'
-import {
-    formatGitHubTime,
-    usePaginationState,
-    useTanstackQuery,
-    type PaginationState,
-} from '@/lib/utils'
+import { formatGitHubTime, usePagination, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
+import type { Id } from '@convex/_generated/dataModel'
 import { assertNever } from '@convex/shared'
-import { useHookstate } from '@hookstate/core'
 import {
     GitCommitIcon,
     GitPullRequestClosedIcon,
@@ -25,8 +20,8 @@ import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/re
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
-import { createContext, use } from 'react'
 import z from 'zod'
+import { create } from 'zustand'
 
 const searchSchema = z.object({
     repo: z.string().optional(),
@@ -39,7 +34,15 @@ export const Route = createFileRoute('/_app/notifications')({
     component: RouteComponent,
 })
 
-let PageContext = createContext<PaginationState>(null!)
+type SelectedState = {
+    selected: Record<Id<'notifications'>, boolean>
+    check(id: Id<'notifications'>, checked: boolean): void
+}
+
+const useSelected = create<SelectedState>((set) => ({
+    selected: {},
+    check: (id, checked) => set((state) => ({ selected: { ...state.selected, [id]: checked } })),
+}))
 
 function useNotificationUpdates(notification: FilteredNotification) {
     let doUpdate = useMutation(api.public.notifications.updateNotification)
@@ -54,20 +57,17 @@ function useNotificationUpdates(notification: FilteredNotification) {
 }
 
 function RouteComponent() {
-    let pageState = usePaginationState()
     return (
-        <PageContext.Provider value={pageState}>
-            <div className="flex h-screen overflow-hidden">
-                <Sidebar></Sidebar>
-                <Notifications></Notifications>
-            </div>
-        </PageContext.Provider>
+        <div className="flex h-screen overflow-hidden">
+            <Sidebar></Sidebar>
+            <Notifications></Notifications>
+        </div>
     )
 }
 
 function useFiltered() {
     let search = Route.useSearch()
-    let pagState = use(PageContext)
+    let pageState = usePagination()
     let result = useTanstackQuery(
         api.public.notifications.list,
         {
@@ -76,7 +76,7 @@ function useFiltered() {
             tab: search.tab,
             paginationOpts: {
                 numItems: 25,
-                cursor: pagState.currCursor(),
+                cursor: pageState.currCursor(),
             },
         },
         qcMem,
@@ -142,7 +142,7 @@ function Navlink(props: {
     to: LinkProps['to']
     search?: LinkProps['search']
 }) {
-    let pagState = use(PageContext)
+    let pageState = usePagination()
 
     return (
         <button
@@ -156,7 +156,7 @@ function Navlink(props: {
                 to={props.to}
                 search={props.search}
                 onClick={() => {
-                    pagState.resetCursors()
+                    pageState.resetCursors()
                 }}
             >
                 <span className="flex h-10 items-center px-3 py-2">{props.children}</span>
@@ -222,10 +222,10 @@ function Filters() {
 
 function NotificationsToolbar() {
     let navigate = useNavigate()
-    let pagState = use(PageContext)
+    let pageState = usePagination()
 
     async function onSearch(q: string) {
-        pagState.resetCursors()
+        pageState.resetCursors()
         await navigate({
             to: '/notifications',
             search: (s) => ({ ...s, q }),
@@ -266,7 +266,10 @@ function FilteredNotifications() {
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
-            <FilteredHeader paginationResult={filtered}></FilteredHeader>
+            <FilteredHeader
+                paginationResult={filtered}
+                allIds={filtered.page.map((n) => n._id)}
+            ></FilteredHeader>
             <div className="flex-1 overflow-y-scroll">
                 {filtered.page.map((n) => (
                     <FilteredNotification key={n._id} notification={n}></FilteredNotification>
@@ -329,31 +332,42 @@ function getReasonLabel(reason: FilteredNotification['reason']): string {
     }
 }
 
-function FilteredHeader(props: { paginationResult: ListQuery }) {
-    let pagState = use(PageContext)
+function FilteredHeader(props: { paginationResult: ListQuery; allIds: Id<'notifications'>[] }) {
+    let pageState = usePagination()
+
+    let check = useSelected((x) => x.check)
+
+    function selectAll(checked: boolean) {
+        for (let id of props.allIds) {
+            check(id, checked)
+        }
+    }
 
     return (
         <div className="h-12 border-b border-gray-200 bg-gray-100 px-4 py-2">
             <div className="flex h-full items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <Checkbox checked={false} onCheckedChange={() => {}} className="mt-1" />
-                    <span className="text-sm font-semibold text-gray-700">Select all</span>
+                    <label className="flex cursor-pointer items-center gap-2">
+                        {/* <Checkbox className="mt-1" /> */}
+                        <Checkbox onCheckedChange={selectAll} className="mt-1" />
+                        <span className="text-sm font-semibold text-gray-700">Select all</span>
+                    </label>
                 </div>
-                {pagState.shouldShowPagination(props.paginationResult) && (
+                {pageState.shouldShowPagination(props.paginationResult) && (
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={!pagState.canGoPrev()}
-                            onClick={pagState.goToPrev}
+                            disabled={!pageState.canGoPrev()}
+                            onClick={pageState.goToPrev}
                         >
                             Previous
                         </Button>
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={!pagState.canGoNext(props.paginationResult)}
-                            onClick={() => pagState.goToNext(props.paginationResult)}
+                            disabled={!pageState.canGoNext(props.paginationResult)}
+                            onClick={() => pageState.goToNext(props.paginationResult)}
                         >
                             Next
                         </Button>
@@ -366,7 +380,10 @@ function FilteredHeader(props: { paginationResult: ListQuery }) {
 
 function FilteredNotification(props: { notification: FilteredNotification }) {
     let updates = useNotificationUpdates(props.notification)
-    let isSelected = useHookstate(false)
+    let notifId = props.notification._id
+
+    let check = useSelected((x) => x.check)
+    let isSelected = useSelected((x) => x.selected[notifId] ?? false)
 
     return (
         <div
@@ -377,8 +394,8 @@ function FilteredNotification(props: { notification: FilteredNotification }) {
             <div className="flex items-center gap-3">
                 {/* select notification */}
                 <Checkbox
-                    checked={isSelected.get()}
-                    onCheckedChange={() => isSelected.set((s) => !s)}
+                    checked={isSelected}
+                    onCheckedChange={(checked) => check(notifId, !!checked)}
                     className="mt-1"
                 />
 

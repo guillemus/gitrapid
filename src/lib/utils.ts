@@ -1,5 +1,4 @@
 import { convexQuery } from '@convex-dev/react-query'
-import { useHookstate } from '@hookstate/core'
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { clsx, type ClassValue } from 'clsx'
 import { type FunctionArgs, type FunctionReference, type PaginationResult } from 'convex/server'
@@ -9,6 +8,7 @@ import { marked } from 'marked'
 import { gfmHeadingId } from 'marked-gfm-heading-id'
 import { useEffect, useEffectEvent, useRef } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { create } from 'zustand'
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -181,64 +181,49 @@ export function formatGitHubTime(date: string | number | Date): string {
     }
 }
 
-export type PaginationState = ReturnType<typeof usePaginationState>
-
-export function usePaginationState() {
-    let state = useHookstate({
-        index: 0,
-        cursors: [null] as (string | null)[],
-    })
-
-    function resetCursors() {
-        state.set({ index: 0, cursors: [null] })
-    }
-
-    function currCursor() {
-        let index = state.index.get()
-        let curr = state.cursors[index]?.get()
-
-        return curr ?? null
-    }
-
-    function canGoPrev() {
-        return state.index.get() > 0
-    }
-
-    function goToPrev() {
-        if (state.index.get() > 0) {
-            state.index.set((x) => x - 1)
-        }
-    }
-
-    function canGoNext(pag?: PaginationResult<unknown>) {
-        if (!pag) return false
-
-        return !pag.isDone
-    }
-
-    function goToNext(pag?: PaginationResult<unknown>) {
-        if (!pag) return
-        if (!canGoNext(pag)) return
-
-        let nextCursor = pag.continueCursor
-
-        state.index.set((x) => x + 1)
-        if (currCursor() === null) {
-            state.cursors[state.cursors.length]?.set(nextCursor)
-        }
-    }
-
-    function shouldShowPagination(pag?: PaginationResult<unknown>) {
-        return canGoPrev() || canGoNext(pag)
-    }
-
-    return {
-        currCursor,
-        resetCursors,
-        canGoPrev,
-        goToPrev,
-        canGoNext,
-        goToNext,
-        shouldShowPagination,
-    }
+type Pagination = {
+    index: number
+    cursors: (string | null)[]
+    resetCursors: () => void
+    currCursor: () => string | null
+    canGoPrev: () => boolean
+    goToPrev: () => void
+    canGoNext: (pag?: PaginationResult<unknown>) => boolean
+    goToNext: (pag?: PaginationResult<unknown>) => void
+    shouldShowPagination: (pag?: PaginationResult<unknown>) => boolean
 }
+
+export const usePagination = create<Pagination>((set, get) => ({
+    index: 0,
+    cursors: [null],
+
+    resetCursors: () => set({ index: 0, cursors: [null] }),
+
+    currCursor: () => {
+        const state = get()
+        return state.cursors[state.index] ?? null
+    },
+
+    canGoPrev: () => get().index > 0,
+    goToPrev: () => set((state) => ({ index: Math.max(state.index - 1, 0) })),
+    canGoNext: (pag) => (!pag ? false : !pag.isDone),
+
+    goToNext: (pag?) => {
+        if (!pag) return
+        if (pag.isDone) return
+
+        set((s) => ({ index: s.index + 1 }))
+
+        const state = get()
+        if (state.currCursor() === null) {
+            set((s) => ({
+                cursors: [...s.cursors, pag.continueCursor],
+            }))
+        }
+    },
+
+    shouldShowPagination: (pag?) => {
+        const state = get()
+        return state.canGoPrev() || state.canGoNext(pag)
+    },
+}))
