@@ -4,13 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { qcMem } from '@/lib/queryClient'
-import {
-    formatGitHubTime,
-    objectEntries,
-    objectKeys,
-    usePagination,
-    useTanstackQuery,
-} from '@/lib/utils'
+import { formatGitHubTime, objectEntries, usePagination, useTanstackQuery } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { assertNever } from '@convex/shared'
@@ -523,12 +517,22 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
     )
 }
 
+function SelectedCheckbox(props: { id: Id<'notifications'> }): React.ReactElement {
+    let check = useSelected((x) => x.check)
+    let isSelected = useSelected((x) => x.selected[props.id] ?? false)
+
+    return (
+        <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => check(props.id, !!checked)}
+            className="mt-1"
+        />
+    )
+}
+
 function FilteredNotification(props: { notification: Notification }) {
     let updates = useNotificationUpdates(props.notification)
     let notifId = props.notification._id
-
-    let check = useSelected((x) => x.check)
-    let isSelected = useSelected((x) => x.selected[notifId] ?? false)
 
     return (
         <div
@@ -537,12 +541,7 @@ function FilteredNotification(props: { notification: Notification }) {
             }`}
         >
             <div className="flex items-center gap-3">
-                {/* select notification */}
-                <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={(checked) => check(notifId, !!checked)}
-                    className="mt-1"
-                />
+                <SelectedCheckbox id={notifId} />
 
                 {/* notification details */}
                 <div className="min-w-0 flex-1">

@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SingleNotificationMockRouteImport } from './routes/single-notification-mock'
-import { Route as NotificationsMockRouteImport } from './routes/notifications-mock'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owner/$repo/issues/$issue'
@@ -18,11 +17,6 @@ import { Route as AppOwnerRepoIssuesIssueRouteImport } from './routes/_app/$owne
 const SingleNotificationMockRoute = SingleNotificationMockRouteImport.update({
   id: '/single-notification-mock',
   path: '/single-notification-mock',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsMockRoute = NotificationsMockRouteImport.update({
-  id: '/notifications-mock',
-  path: '/notifications-mock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -41,13 +35,11 @@ const AppOwnerRepoIssuesIssueRoute = AppOwnerRepoIssuesIssueRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/notifications-mock': typeof NotificationsMockRoute
   '/single-notification-mock': typeof SingleNotificationMockRoute
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
 }
 export interface FileRoutesByTo {
-  '/notifications-mock': typeof NotificationsMockRoute
   '/single-notification-mock': typeof SingleNotificationMockRoute
   '/notifications': typeof AppNotificationsRoute
   '/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
@@ -55,7 +47,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
-  '/notifications-mock': typeof NotificationsMockRoute
   '/single-notification-mock': typeof SingleNotificationMockRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/$owner/$repo/issues/$issue': typeof AppOwnerRepoIssuesIssueRoute
@@ -63,20 +54,17 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/notifications-mock'
     | '/single-notification-mock'
     | '/notifications'
     | '/$owner/$repo/issues/$issue'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/notifications-mock'
     | '/single-notification-mock'
     | '/notifications'
     | '/$owner/$repo/issues/$issue'
   id:
     | '__root__'
     | '/_app'
-    | '/notifications-mock'
     | '/single-notification-mock'
     | '/_app/notifications'
     | '/_app/$owner/$repo/issues/$issue'
@@ -84,7 +72,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  NotificationsMockRoute: typeof NotificationsMockRoute
   SingleNotificationMockRoute: typeof SingleNotificationMockRoute
 }
 
@@ -95,13 +82,6 @@ declare module '@tanstack/react-router' {
       path: '/single-notification-mock'
       fullPath: '/single-notification-mock'
       preLoaderRoute: typeof SingleNotificationMockRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications-mock': {
-      id: '/notifications-mock'
-      path: '/notifications-mock'
-      fullPath: '/notifications-mock'
-      preLoaderRoute: typeof NotificationsMockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -144,7 +124,6 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  NotificationsMockRoute: NotificationsMockRoute,
   SingleNotificationMockRoute: SingleNotificationMockRoute,
 }
 export const routeTree = rootRouteImport
