@@ -263,7 +263,7 @@ function FilteredNotifications() {
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
             <FilteredHeader paginationResult={filtered}></FilteredHeader>
-            <div className="gutter flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-scroll">
                 {filtered.page.map((n) => (
                     <FilteredNotification key={n._id} notification={n}></FilteredNotification>
                 ))}

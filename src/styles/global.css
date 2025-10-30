@@ -118,7 +118,4 @@
         background-color: var(--color-background);
         color: var(--color-foreground);
     }
-    .scrollbar-gutter-stable {
-        scrollbar-gutter: stable;
-    }
 }
