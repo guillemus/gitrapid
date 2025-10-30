@@ -1,4 +1,4 @@
-import type { Doc, Id } from '@convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'

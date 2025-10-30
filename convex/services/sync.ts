@@ -7,7 +7,6 @@ import {
     type ActionCtx,
     type MutationCtx,
 } from '@convex/_generated/server'
-import { insertIssuesWithCommentsBatch, issueDataForInsert } from '@convex/models/models'
 import { Notifications } from '@convex/models/notifications'
 import { Users } from '@convex/models/users'
 import { newNextSyncAt, v_nextSyncAt, v_nullable } from '@convex/schema'
@@ -16,7 +15,6 @@ import { devOnlyMutation, type FnArgs } from '@convex/utils'
 import { workflow } from '@convex/workflow'
 import { assert } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
-import type { Infer } from 'convex/values'
 import { v } from 'convex/values'
 import type { Octokit } from 'octokit'
 import { Github, newOctokit, octoCatch } from './github'
@@ -234,7 +232,8 @@ async function fetchNotificationContents(octo: Octokit, notifs: Github.Notificat
             )
 
             if (issue.isErr) {
-                console.warn(`failed to fetch issue: ${issue.err}`)
+                let err = octoCatch.errToString(issue)
+                console.warn(`failed to fetch issue: ${err}`)
                 continue
             }
 
@@ -259,7 +258,8 @@ async function fetchNotificationContents(octo: Octokit, notifs: Github.Notificat
             )
 
             if (pr.isErr) {
-                console.warn(`failed to fetch pull request: ${pr.err}`)
+                let err = octoCatch.errToString(pr)
+                console.warn(`failed to fetch pull request: ${err}`)
                 continue
             }
 
@@ -271,7 +271,7 @@ async function fetchNotificationContents(octo: Octokit, notifs: Github.Notificat
             } else if (pr.val.state === 'merged') {
                 state = 'merged' as const
             } else {
-                console.warn(`invalid pull request state: ${pr.val.state}`)
+                console.warn(`invalid pull request state: ${state}`)
                 continue
             }
 

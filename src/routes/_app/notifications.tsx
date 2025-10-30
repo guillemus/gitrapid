@@ -3,7 +3,12 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { qcMem } from '@/lib/queryClient'
-import { usePaginationState, useTanstackQuery, type PaginationState } from '@/lib/utils'
+import {
+    formatGitHubTime,
+    usePaginationState,
+    useTanstackQuery,
+    type PaginationState,
+} from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import { assertNever } from '@convex/shared'
 import { useHookstate } from '@hookstate/core'
@@ -18,7 +23,6 @@ import {
 import { createFileRoute, Link, useNavigate, type LinkProps } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { formatGitHubTime } from '@/lib/utils'
 import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
 import { createContext, use } from 'react'
 import z from 'zod'
@@ -248,7 +252,6 @@ function NotificationsToolbar() {
 
 function FilteredNotifications() {
     let filtered = useFiltered()
-    let pagState = use(PageContext)
 
     if (!filtered) return null
 
