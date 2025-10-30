@@ -22,6 +22,7 @@ import type { FunctionReturnType } from 'convex/server'
 import { Archive, Bell, Bookmark, Check, Pin, Search, Star } from 'lucide-react'
 import z from 'zod'
 import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
 
 const searchSchema = z.object({
     repo: z.string().optional(),
@@ -39,10 +40,12 @@ type SelectedState = {
     check(id: Id<'notifications'>, checked: boolean): void
 }
 
-const useSelected = create<SelectedState>((set) => ({
-    selected: {},
-    check: (id, checked) => set((state) => ({ selected: { ...state.selected, [id]: checked } })),
-}))
+const useSelected = create<SelectedState>()(
+    immer((set) => ({
+        selected: {},
+        check: (id, checked) => set((state) => (state.selected[id] = checked)),
+    })),
+)
 
 function useNotificationUpdates(notification: FilteredNotification) {
     let doUpdate = useMutation(api.public.notifications.updateNotification)
