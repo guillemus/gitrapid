@@ -64,7 +64,8 @@ export const qcPersistent = createQueryClient(convex, {
 // very dynamic (filtering issues).
 export const qcMem = createQueryClient(convex, { persisted: false })
 
-export const defaultQc = qcPersistent
+// export const defaultQc = qcPersistent
+export const defaultQc = qcMem
 
 export function useLogout() {
     const authActions = useAuthActions()

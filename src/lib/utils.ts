@@ -219,11 +219,12 @@ export const usePagination = create<Pagination>((set, get) => ({
         if (!pag) return
         if (pag.isDone) return
 
-        set((s) => ({ index: s.index + 1 }))
+        let state = get()
 
-        const state = get()
+        set({ index: state.index + 1 })
+
         if (state.currCursor() === null) {
-            set((s) => ({ cursors: [...s.cursors, pag.continueCursor] }))
+            set({ cursors: [...state.cursors, pag.continueCursor] })
         }
     },
 

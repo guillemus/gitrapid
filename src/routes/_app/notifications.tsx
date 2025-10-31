@@ -464,6 +464,22 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
     let deselectEvent = useEffectEvent(deselectAll)
     useEffect(() => deselectEvent, [search])
 
+    function prefetchNext() {
+        // return
+        let nextCursor = props.paginationResult.continueCursor
+        if (nextCursor) {
+            prefetchQuery(qcMem, self.list, {
+                q: search.q,
+                repo: search.repo,
+                tab: search.tab,
+                paginationOpts: {
+                    numItems: 25,
+                    cursor: nextCursor,
+                },
+            })
+        }
+    }
+
     function goNext() {
         pageState.goToNext(props.paginationResult)
         deselectAll()
@@ -535,6 +551,8 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
                             variant="outline"
                             size="sm"
                             disabled={!pageState.canGoNext(props.paginationResult)}
+                            onMouseOver={prefetchNext}
+                            onMouseDown={prefetchNext}
                             onClick={goNext}
                         >
                             Next
