@@ -29,7 +29,7 @@ import { useEffect, useEffectEvent } from 'react'
 import z from 'zod'
 import { create } from 'zustand'
 
-const TOTAL_PAGE_ITEMS = 3
+const TOTAL_PAGE_ITEMS = 25
 
 let self = api.public.notifications
 
@@ -361,10 +361,13 @@ function NotificationsToolbar() {
 function FilteredNotifications() {
     let filteredArgs = useFilteredArgs()
     let filtered = useTanstackQuery(self.list, filteredArgs, qcMem)
+    let pageState = usePagination()
 
     if (!filtered) return null
 
-    if (filtered.page.length === 0) {
+    let showPagination = pageState.shouldShowPagination(filtered)
+
+    if (filtered.page.length === 0 && !showPagination) {
         return (
             <div className="flex flex-1 items-center justify-center">
                 <NoNotificationsFound></NoNotificationsFound>

@@ -101,6 +101,3 @@ export function assertOk<T, E = string>(
         throw result.err
     }
 }
-
-// noop that enforces never at compile time
-export function assertNever(_: never) {}

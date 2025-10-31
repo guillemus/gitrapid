@@ -3,7 +3,7 @@ import { zodParse } from '@convex/utils'
 import type { RequestParameters } from '@octokit/graphql/types'
 import type { Octokit } from 'octokit'
 import { z } from 'zod'
-import { assertNever, err, O, ok, wrap, type Result } from '../shared'
+import { err, O, ok, wrap, type Result } from '../shared'
 import { octoCatch, octoCatchGql, type GraphqlRateLimitError } from './github'
 
 export namespace Graphql {
@@ -13,9 +13,6 @@ export namespace Graphql {
                 return err.err
             case 'RATE_LIMIT_ERROR':
                 return `Rate limit error: should retry after ${err.err.retryAfterSecs}s`
-            default:
-                assertNever(err)
-                return 'unknown error'
         }
     }
 
