@@ -45,7 +45,7 @@ export const Route = createFileRoute('/_app/notifications')({
     async loader(ctx) {
         if (ctx.preload) {
             let search = ctx.deps.search
-            prefetchQuery(defaultQc, self.list, {
+            void prefetchQuery(defaultQc, self.list, {
                 q: search.q,
                 repo: search.repo,
                 tab: search.tab,
@@ -81,7 +81,66 @@ const useSelected = create<SelectedState>((set) => ({
 }))
 
 function useNotificationUpdates(notification: Notification) {
-    let doUpdate = useMutation(self.updateNotification)
+    let filteredArgs = useFilteredArgs()
+    let doUpdate = useMutation(self.updateNotification).withOptimisticUpdate((ls, args) => {
+        let currFiltered = ls.getQuery(self.list, filteredArgs)
+        let newPinned = []
+        if (currFiltered) {
+            let newPage = []
+            for (let n of currFiltered.page) {
+                let newNotification = { ...n }
+                if (n._id === args.id) {
+                    if (args.updates.done !== undefined) {
+                        newNotification.done = args.updates.done
+                    }
+                    if (args.updates.pinned !== undefined) {
+                        newNotification.pinned = args.updates.pinned
+                        if (args.updates.pinned) {
+                            newPinned.push(newNotification)
+                        }
+                    }
+                    if (args.updates.saved !== undefined) {
+                        newNotification.saved = args.updates.saved
+                    }
+                    if (args.updates.unread !== undefined) {
+                        newNotification.unread = args.updates.unread
+                    }
+                }
+                newPage.push(newNotification)
+            }
+
+            ls.setQuery(self.list, filteredArgs, {
+                ...currFiltered,
+                page: newPage,
+            })
+        }
+
+        let currPinned = ls.getQuery(self.listPinned, {})
+        if (currPinned) {
+            for (let pinned of currPinned) {
+                let newPinnedNotification = { ...pinned }
+                if (pinned._id === args.id) {
+                    if (args.updates.done !== undefined) {
+                        newPinnedNotification.done = args.updates.done
+                    }
+                    if (args.updates.pinned !== undefined) {
+                        newPinnedNotification.pinned = args.updates.pinned
+                    }
+                    if (args.updates.saved !== undefined) {
+                        newPinnedNotification.saved = args.updates.saved
+                    }
+                    if (args.updates.unread !== undefined) {
+                        newPinnedNotification.unread = args.updates.unread
+                    }
+                }
+
+                if (newPinnedNotification.pinned) {
+                    newPinned.push(newPinnedNotification)
+                }
+            }
+            ls.setQuery(self.listPinned, {}, newPinned)
+        }
+    })
     let id = notification._id
 
     return {
@@ -101,24 +160,19 @@ function RouteComponent() {
     )
 }
 
-function useFiltered() {
+function useFilteredArgs() {
     let search = Route.useSearch()
     let pageState = usePagination()
-    let result = useTanstackQuery(
-        self.list,
-        {
-            q: search.q,
-            repo: search.repo,
-            tab: search.tab,
-            paginationOpts: {
-                numItems: 25,
-                cursor: pageState.currCursor(),
-            },
-        },
-        qcMem,
-    )
 
-    return result
+    return {
+        q: search.q,
+        repo: search.repo,
+        tab: search.tab,
+        paginationOpts: {
+            numItems: 25,
+            cursor: pageState.currCursor(),
+        },
+    }
 }
 
 function Sidebar() {
@@ -288,7 +342,8 @@ function NotificationsToolbar() {
 }
 
 function FilteredNotifications() {
-    let filtered = useFiltered()
+    let filteredArgs = useFilteredArgs()
+    let filtered = useTanstackQuery(self.list, filteredArgs, qcMem)
 
     if (!filtered) return null
 
@@ -465,10 +520,9 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
     useEffect(() => deselectEvent, [search])
 
     function prefetchNext() {
-        // return
         let nextCursor = props.paginationResult.continueCursor
         if (nextCursor) {
-            prefetchQuery(qcMem, self.list, {
+            void prefetchQuery(qcMem, self.list, {
                 q: search.q,
                 repo: search.repo,
                 tab: search.tab,
@@ -691,20 +745,39 @@ function FilteredNotification(props: { notification: Notification }) {
 
 function PinnedNotifications() {
     let pinned = useTanstackQuery(self.listPinned, {})
-    let updateBatch = useMutation(self.updateBatch)
+    let pinnedIds = pinned?.map((n) => n._id) ?? []
+    let doClearPinned = useMutation(self.updateBatch).withOptimisticUpdate((ls, _args) => {
+        ls.setQuery(self.listPinned, {}, [])
+        let queries = ls.getAllQueries(self.list)
+
+        for (let query of queries) {
+            if (query.value) {
+                let hasPinned = query.value.page.some((n) => n.pinned)
+                if (hasPinned) {
+                    let newQueryValue = {
+                        ...query.value,
+                        page: query.value.page.map((n) => ({ ...n, pinned: false })),
+                    }
+
+                    ls.setQuery(self.list, query.args, newQueryValue)
+                }
+            }
+        }
+    })
 
     if (!pinned || pinned.length === 0) return null
 
     async function clearPinned() {
         if (!pinned || pinned.length === 0) return
 
-        let pinnedIds = pinned.map((n) => n._id)
-        await updateBatch({
+        await doClearPinned({
             all: false,
             selected: pinnedIds,
             updates: { pinned: false },
         })
     }
+
+    pinned = pinned.toSorted((a, b) => a.title.localeCompare(b.title))
 
     return (
         <div>

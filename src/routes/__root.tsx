@@ -1,6 +1,6 @@
+import { NewVersionToast } from '@/components/newVersionToast'
 import { Toaster } from '@/components/ui/sonner'
 import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { NewVersionToast } from '@/components/newVersionToast'
 
 function RootOutlet() {
     return (

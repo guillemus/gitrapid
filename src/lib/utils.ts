@@ -241,3 +241,37 @@ export function objectKeys<T extends string>(obj: Record<T, unknown>): T[] {
 export function objectEntries<T extends string, Q>(obj: Record<T, Q>): [T, Q][] {
     return Object.entries(obj) as [T, Q][]
 }
+
+export function useProximityPrefetch(
+    ref: React.RefObject<HTMLElement | null>,
+    onProximity: () => void,
+    options = { threshold: 100, once: true },
+) {
+    let prefetched = useRef(false)
+
+    let trigger = useEffectEvent(onProximity)
+
+    useEffect(() => {
+        if (!ref.current) return
+        let el = ref.current
+
+        function handleMouseMove(e: MouseEvent) {
+            if (options.once && prefetched.current) return
+
+            let rect = el.getBoundingClientRect()
+
+            let distance = Math.max(
+                Math.max(rect.top - e.clientY, e.clientY - rect.bottom),
+                Math.max(rect.left - e.clientX, e.clientX - rect.right),
+            )
+
+            if (distance < options.threshold && distance >= 0) {
+                prefetched.current = true
+                trigger()
+            }
+        }
+
+        document.addEventListener('mousemove', handleMouseMove, { passive: true })
+        return () => document.removeEventListener('mousemove', handleMouseMove)
+    }, [ref, options.threshold, options.once])
+}
