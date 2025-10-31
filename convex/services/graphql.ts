@@ -1280,104 +1280,136 @@ function parseTimelineItem(data: unknown): Result<TimelineItemData> {
     }
 
     let item: TimelineItemData['item']
-
-    if (t.val.__typename === 'AssignedEvent') {
-        item = {
-            type: 'assigned',
-            assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+    switch (t.val.__typename) {
+        case 'AssignedEvent': {
+            item = {
+                type: 'assigned',
+                assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+            }
+            break
         }
-    } else if (t.val.__typename === 'UnassignedEvent') {
-        item = {
-            type: 'unassigned',
-            assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+        case 'UnassignedEvent': {
+            item = {
+                type: 'unassigned',
+                assignee: gqlGithubUserToDbGithubUser(t.val.actor),
+            }
+            break
         }
-    } else if (t.val.__typename === 'LabeledEvent') {
-        item = {
-            type: 'labeled',
-            label: {
-                githubId: t.val.label.id,
-                name: t.val.label.name,
-                color: t.val.label.color,
-            },
+        case 'LabeledEvent': {
+            item = {
+                type: 'labeled',
+                label: {
+                    githubId: t.val.label.id,
+                    name: t.val.label.name,
+                    color: t.val.label.color,
+                },
+            }
+            break
         }
-    } else if (t.val.__typename === 'UnlabeledEvent') {
-        item = {
-            type: 'unlabeled',
-            label: {
-                githubId: t.val.label.id,
-                name: t.val.label.name,
-                color: t.val.label.color,
-            },
+        case 'UnlabeledEvent': {
+            item = {
+                type: 'unlabeled',
+                label: {
+                    githubId: t.val.label.id,
+                    name: t.val.label.name,
+                    color: t.val.label.color,
+                },
+            }
+            break
         }
-    } else if (t.val.__typename === 'MilestonedEvent') {
-        item = {
-            type: 'milestoned',
-            milestoneTitle: t.val.milestoneTitle,
+        case 'MilestonedEvent': {
+            item = {
+                type: 'milestoned',
+                milestoneTitle: t.val.milestoneTitle,
+            }
+            break
         }
-    } else if (t.val.__typename === 'DemilestonedEvent') {
-        item = {
-            type: 'demilestoned',
-            milestoneTitle: t.val.milestoneTitle,
+        case 'DemilestonedEvent': {
+            item = {
+                type: 'demilestoned',
+                milestoneTitle: t.val.milestoneTitle,
+            }
+            break
         }
-    } else if (t.val.__typename === 'ClosedEvent') {
-        item = {
-            type: 'closed',
+        case 'ClosedEvent': {
+            item = {
+                type: 'closed',
+            }
+            break
         }
-    } else if (t.val.__typename === 'ReopenedEvent') {
-        item = {
-            type: 'reopened',
+        case 'ReopenedEvent': {
+            item = {
+                type: 'reopened',
+            }
+            break
         }
-    } else if (t.val.__typename === 'RenamedTitleEvent') {
-        item = {
-            type: 'renamed',
-            previousTitle: t.val.previousTitle,
-            currentTitle: t.val.currentTitle,
+        case 'RenamedTitleEvent': {
+            item = {
+                type: 'renamed',
+                previousTitle: t.val.previousTitle,
+                currentTitle: t.val.currentTitle,
+            }
+            break
         }
-    } else if (t.val.__typename === 'ReferencedEvent') {
-        item = {
-            type: 'referenced',
-            commit: {
-                oid: t.val.commit.oid,
-                url: t.val.commit.url,
-            },
+        case 'ReferencedEvent': {
+            item = {
+                type: 'referenced',
+                commit: {
+                    oid: t.val.commit.oid,
+                    url: t.val.commit.url,
+                },
+            }
+            break
         }
-    } else if (t.val.__typename === 'CrossReferencedEvent') {
-        item = {
-            type: 'cross_referenced',
-            source: {
-                type: t.val.source.__typename,
-                owner: t.val.source.repository.owner.login,
-                name: t.val.source.repository.name,
-                number: t.val.source.number,
-            },
+        case 'CrossReferencedEvent': {
+            item = {
+                type: 'cross_referenced',
+                source: {
+                    type: t.val.source.__typename,
+                    owner: t.val.source.repository.owner.login,
+                    name: t.val.source.repository.name,
+                    number: t.val.source.number,
+                },
+            }
+            break
         }
-    } else if (t.val.__typename === 'LockedEvent') {
-        item = {
-            type: 'locked',
+        case 'LockedEvent': {
+            item = {
+                type: 'locked',
+            }
+            break
         }
-    } else if (t.val.__typename === 'UnlockedEvent') {
-        item = {
-            type: 'unlocked',
+        case 'UnlockedEvent': {
+            item = {
+                type: 'unlocked',
+            }
+            break
         }
-    } else if (t.val.__typename === 'PinnedEvent') {
-        item = {
-            type: 'pinned',
+        case 'PinnedEvent': {
+            item = {
+                type: 'pinned',
+            }
+            break
         }
-    } else if (t.val.__typename === 'UnpinnedEvent') {
-        item = {
-            type: 'unpinned',
+        case 'UnpinnedEvent': {
+            item = {
+                type: 'unpinned',
+            }
+            break
         }
-    } else if (t.val.__typename === 'TransferredEvent') {
-        item = {
-            type: 'transferred',
-            fromRepository: {
-                owner: t.val.fromRepository.owner.login,
-                name: t.val.fromRepository.name,
-            },
+        case 'TransferredEvent': {
+            item = {
+                type: 'transferred',
+                fromRepository: {
+                    owner: t.val.fromRepository.owner.login,
+                    name: t.val.fromRepository.name,
+                },
+            }
+            break
         }
-    } else {
-        assertNever(t.val)
-        return err(`unknown timeline item type`)
+        default: {
+            return err(`unknown timeline item type`)
+        }
     }
 
     if (!t.val.id) {
@@ -1403,7 +1435,7 @@ async function iterateResource<T, E>(args: {
     let cursor: string | undefined
     let nodes: T[] = []
 
-    while (true) {
+    for (;;) {
         let res = await args.doFetch(cursor)
         if (res.isErr) return res
 

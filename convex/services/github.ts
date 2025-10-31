@@ -312,7 +312,7 @@ export namespace Github {
     ): R<Notification[]> {
         let page = await octoCatch(
             octo.rest.activity.listNotificationsForAuthenticatedUser({
-                since: args?.since,
+                since: args.since,
                 all: true,
                 per_page: args.perPage,
                 page: args.page,
@@ -321,36 +321,6 @@ export namespace Github {
         if (page.isErr) return octoWrap('failed to fetch notifications page', page)
 
         return page
-    }
-
-    export async function listAllNotifications(
-        octo: Octokit,
-        args?: {
-            since?: string
-        },
-    ) {
-        // the 'if-modified-since' doesn't seem to work, so we can't use it to do
-        // efficient polling.
-
-        let pageNum = 0
-        let allNotifs = []
-        while (true) {
-            let page = await listNotifications(octo, {
-                page: pageNum,
-                perPage: 100,
-                since: args?.since,
-            })
-            if (page.isErr) return wrap('failed to fetch notifications page', page)
-
-            if (page.val.length === 0) {
-                break
-            }
-
-            allNotifs.push(...page.val)
-            pageNum++
-        }
-
-        return ok(allNotifs)
     }
 }
 

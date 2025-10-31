@@ -309,15 +309,14 @@ function getReasonLabel(reason: NotificationReason): string {
 }
 
 function NotificationIcon(props: { type: NotificationType }) {
-    if (props.type === 'Commit') {
-        return <GitCommitIcon size={16} className="text-gray-600" />
-    } else if (props.type === 'PullRequest') {
-        return <GitPullRequestIcon size={16} className="text-gray-600" />
-    } else if (props.type === 'Issue') {
-        return <IssueOpenedIcon size={16} className="text-gray-600" />
-    } else if (props.type === 'Release') {
-        return <TagIcon size={16} className="text-gray-600" />
+    switch (props.type) {
+        case 'Commit':
+            return <GitCommitIcon size={16} className="text-gray-600" />
+        case 'PullRequest':
+            return <GitPullRequestIcon size={16} className="text-gray-600" />
+        case 'Issue':
+            return <IssueOpenedIcon size={16} className="text-gray-600" />
+        case 'Release':
+            return <TagIcon size={16} className="text-gray-600" />
     }
-
-    return null
 }

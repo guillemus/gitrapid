@@ -106,7 +106,7 @@ const notifications_startSyncFn = {
 
         // startSyncAt is the moment from where we start syncing. If undefined,
         // we do a backfill of notifications
-        let startSyncAt = userWorkflows?.syncNotifications?.nextSyncAt
+        let startSyncAt = userWorkflows?.syncNotifications.nextSyncAt
 
         // nextSyncAt is the moment from where we will start the next sync.
         let nextSyncAt = newNextSyncAt(new Date())
@@ -264,15 +264,13 @@ async function fetchNotificationContents(octo: Octokit, notifs: Github.Notificat
             }
 
             let state
-            if (pr.val.state === 'open') {
-                state = 'open' as const
-            } else if (pr.val.state === 'closed') {
-                state = 'closed' as const
-            } else if (pr.val.state === 'merged') {
-                state = 'merged' as const
-            } else {
-                console.warn(`invalid pull request state: ${state}`)
-                continue
+            switch (pr.val.state) {
+                case 'open':
+                    state = 'open' as const
+                    break
+                case 'closed':
+                    state = 'closed' as const
+                    break
             }
 
             notifType = { tag: 'prs', state }

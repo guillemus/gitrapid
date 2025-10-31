@@ -2,7 +2,6 @@ import type { Id } from '@convex/_generated/dataModel'
 import type { QueryCtx } from '@convex/_generated/server'
 import { Notifications } from '@convex/models/notifications'
 import { Repos } from '@convex/models/repos'
-import { assertNever } from '@convex/shared'
 import { publicMutation, publicQuery, type FnArgs } from '@convex/utils'
 import { assert, asyncMap } from 'convex-helpers'
 import { paginationOptsValidator } from 'convex/server'
@@ -70,27 +69,37 @@ function buildQueryForTab(
     tab: TabType,
 ) {
     let query
-    if (tab === 'all' || tab === undefined) {
-        query = ctx.db
-            .query('notifications')
-            .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', false))
-    } else if (tab === 'saved') {
-        query = ctx.db
-            .query('notifications')
-            .withIndex('by_userId_saved', (q) => q.eq('userId', userId).eq('saved', true))
-    } else if (tab === 'done') {
-        query = ctx.db
-            .query('notifications')
-            .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', true))
-    } else if (tab === 'unread') {
-        query = ctx.db
-            .query('notifications')
-            .withIndex('by_userId_unread', (q) => q.eq('userId', userId).eq('unread', true))
-    } else {
-        assertNever(tab)
-        query = ctx.db
-            .query('notifications')
-            .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+    switch (tab) {
+        case 'all':
+        case undefined: {
+            query = ctx.db
+                .query('notifications')
+                .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', false))
+            break
+        }
+        case 'saved': {
+            query = ctx.db
+                .query('notifications')
+                .withIndex('by_userId_saved', (q) => q.eq('userId', userId).eq('saved', true))
+            break
+        }
+        case 'done': {
+            query = ctx.db
+                .query('notifications')
+                .withIndex('by_userId_done', (q) => q.eq('userId', userId).eq('done', true))
+            break
+        }
+        case 'unread': {
+            query = ctx.db
+                .query('notifications')
+                .withIndex('by_userId_unread', (q) => q.eq('userId', userId).eq('unread', true))
+            break
+        }
+        default: {
+            query = ctx.db
+                .query('notifications')
+                .withIndex('by_userId_updatedAt', (q) => q.eq('userId', userId))
+        }
     }
 
     if (repoId) {
@@ -189,7 +198,7 @@ export const updateNotification = publicMutation({
     async handler(ctx, args) {
         let notification = await ctx.db.get(args.id)
         assert(
-            notification && ctx.userId === notification?.userId,
+            notification && ctx.userId === notification.userId,
             'You are not allowed to update this notification',
         )
 

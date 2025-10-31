@@ -1,6 +1,5 @@
 import type { Doc, TableNames } from '@convex/_generated/dataModel'
 import { type MutationCtx } from '@convex/_generated/server'
-import { assertNever } from '@convex/shared'
 import { type FnArgs } from '@convex/utils'
 import { assert } from 'convex-helpers'
 import type { WithoutSystemFields } from 'convex/server'
@@ -248,83 +247,112 @@ export const insertIssuesWithCommentsBatch = {
                 let actor = await getOrCreatePossibleGithubUser(ctx, t.actor)
 
                 let item: UpsertDoc<'issueTimelineItems'>['item']
-                if (t.item.type === 'assigned') {
-                    let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
-
-                    item = { type: 'assigned', assignee }
-                } else if (t.item.type === 'unassigned') {
-                    let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
-
-                    item = { type: 'unassigned', assignee }
-                } else if (t.item.type === 'labeled') {
-                    let labelId = await UpsertLabel.handler(ctx, {
-                        repoId: issueDoc.repoId,
-                        githubId: t.item.label.githubId,
-                        name: t.item.label.name,
-                        color: t.item.label.color,
-                    })
-
-                    item = { type: 'labeled', label: labelId }
-                } else if (t.item.type === 'unlabeled') {
-                    let labelId = await UpsertLabel.handler(ctx, {
-                        repoId: issueDoc.repoId,
-                        githubId: t.item.label.githubId,
-                        name: t.item.label.name,
-                        color: t.item.label.color,
-                    })
-
-                    item = { type: 'unlabeled', label: labelId }
-                } else if (t.item.type === 'milestoned') {
-                    item = { type: 'milestoned', milestoneTitle: t.item.milestoneTitle }
-                } else if (t.item.type === 'demilestoned') {
-                    item = { type: 'demilestoned', milestoneTitle: t.item.milestoneTitle }
-                } else if (t.item.type === 'locked') {
-                    item = { type: 'locked' }
-                } else if (t.item.type === 'unlocked') {
-                    item = { type: 'unlocked' }
-                } else if (t.item.type === 'pinned') {
-                    item = { type: 'pinned' }
-                } else if (t.item.type === 'unpinned') {
-                    item = { type: 'unpinned' }
-                } else if (t.item.type === 'closed') {
-                    item = { type: 'closed' }
-                } else if (t.item.type === 'reopened') {
-                    item = { type: 'reopened' }
-                } else if (t.item.type === 'renamed') {
-                    item = {
-                        type: 'renamed',
-                        previousTitle: t.item.previousTitle,
-                        currentTitle: t.item.currentTitle,
+                switch (t.item.type) {
+                    case 'assigned': {
+                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
+                        item = { type: 'assigned', assignee }
+                        break
                     }
-                } else if (t.item.type === 'referenced') {
-                    item = {
-                        type: 'referenced',
-                        commit: t.item.commit
-                            ? { oid: t.item.commit.oid, url: t.item.commit.url }
-                            : undefined,
+                    case 'unassigned': {
+                        let assignee = await getOrCreatePossibleGithubUser(ctx, t.item.assignee)
+                        item = { type: 'unassigned', assignee }
+                        break
                     }
-                } else if (t.item.type === 'cross_referenced') {
-                    item = {
-                        type: 'cross_referenced',
-                        source: {
-                            type: t.item.source.type,
-                            owner: t.item.source.owner,
-                            name: t.item.source.name,
-                            number: t.item.source.number,
-                        },
+                    case 'labeled': {
+                        let labelId = await UpsertLabel.handler(ctx, {
+                            repoId: issueDoc.repoId,
+                            githubId: t.item.label.githubId,
+                            name: t.item.label.name,
+                            color: t.item.label.color,
+                        })
+                        item = { type: 'labeled', label: labelId }
+                        break
                     }
-                } else if (t.item.type === 'transferred') {
-                    item = {
-                        type: 'transferred',
-                        fromRepository: {
-                            owner: t.item.fromRepository.owner,
-                            name: t.item.fromRepository.name,
-                        },
+                    case 'unlabeled': {
+                        let labelId = await UpsertLabel.handler(ctx, {
+                            repoId: issueDoc.repoId,
+                            githubId: t.item.label.githubId,
+                            name: t.item.label.name,
+                            color: t.item.label.color,
+                        })
+                        item = { type: 'unlabeled', label: labelId }
+                        break
                     }
-                } else {
-                    assertNever(t.item)
-                    console.error({ item: t.item }, `unknown timeline item`)
-                    continue
+                    case 'milestoned': {
+                        item = { type: 'milestoned', milestoneTitle: t.item.milestoneTitle }
+                        break
+                    }
+                    case 'demilestoned': {
+                        item = { type: 'demilestoned', milestoneTitle: t.item.milestoneTitle }
+                        break
+                    }
+                    case 'locked': {
+                        item = { type: 'locked' }
+                        break
+                    }
+                    case 'unlocked': {
+                        item = { type: 'unlocked' }
+                        break
+                    }
+                    case 'pinned': {
+                        item = { type: 'pinned' }
+                        break
+                    }
+                    case 'unpinned': {
+                        item = { type: 'unpinned' }
+                        break
+                    }
+                    case 'closed': {
+                        item = { type: 'closed' }
+                        break
+                    }
+                    case 'reopened': {
+                        item = { type: 'reopened' }
+                        break
+                    }
+                    case 'renamed': {
+                        item = {
+                            type: 'renamed',
+                            previousTitle: t.item.previousTitle,
+                            currentTitle: t.item.currentTitle,
+                        }
+                        break
+                    }
+                    case 'referenced': {
+                        item = {
+                            type: 'referenced',
+                            commit: t.item.commit
+                                ? { oid: t.item.commit.oid, url: t.item.commit.url }
+                                : undefined,
+                        }
+                        break
+                    }
+                    case 'cross_referenced': {
+                        item = {
+                            type: 'cross_referenced',
+                            source: {
+                                type: t.item.source.type,
+                                owner: t.item.source.owner,
+                                name: t.item.source.name,
+                                number: t.item.source.number,
+                            },
+                        }
+                        break
+                    }
+                    case 'transferred': {
+                        item = {
+                            type: 'transferred',
+                            fromRepository: {
+                                owner: t.item.fromRepository.owner,
+                                name: t.item.fromRepository.name,
+                            },
+                        }
+                        break
+                    }
+                    default: {
+                        console.error({ item: t.item }, `unknown timeline item`)
+                        continue
+                    }
                 }
 
                 docs.push({

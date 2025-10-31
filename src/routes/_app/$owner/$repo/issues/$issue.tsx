@@ -122,7 +122,7 @@ function SingleIssuesPage() {
                         {/* Assignees */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Assignees</div>
-                            {(data.assignees?.length ?? 0) > 0 ? (
+                            {data.assignees.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {data.assignees.map((assignee, index) => (
                                         <div key={index} className="flex items-center gap-2">
@@ -142,7 +142,7 @@ function SingleIssuesPage() {
                         {/* Labels */}
                         <div className="mb-4">
                             <div className="mb-2 font-medium">Labels</div>
-                            {(data.labels?.length ?? 0) > 0 ? (
+                            {data.labels.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {data.labels.map((label) => (
                                         <GhLabel key={label._id} label={label} />

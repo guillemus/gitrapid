@@ -13,7 +13,6 @@ import {
 } from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { assertNever } from '@convex/shared'
 import {
     GitCommitIcon,
     GitPullRequestClosedIcon,
@@ -29,6 +28,8 @@ import { Bell, Bookmark, Check, Circle, CircleDot, Pin, Search, Undo } from 'luc
 import { useEffect, useEffectEvent } from 'react'
 import z from 'zod'
 import { create } from 'zustand'
+
+const TOTAL_PAGE_ITEMS = 3
 
 let self = api.public.notifications
 
@@ -101,6 +102,9 @@ function useNotificationUpdates(notification: Notification) {
                         newNotification.done = args.updates.done
 
                         if (filteredArgs.tab === 'done' && !args.updates.done) {
+                            continue
+                        }
+                        if (!filteredArgs.tab) {
                             continue
                         }
                     }
@@ -182,7 +186,7 @@ function useFilteredArgs() {
         repo: search.repo,
         tab: search.tab,
         paginationOpts: {
-            numItems: 25,
+            numItems: TOTAL_PAGE_ITEMS,
             cursor: pageState.currCursor(),
         },
     }
@@ -484,7 +488,7 @@ function FilteredHeader(props: { paginationResult: ListQuery; visibleIds: Id<'no
     if (selected.allSelected) {
         selectTotalBtn = (
             <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={deselectAll}>
-                <span>{selected.allSelected ? 'Clear selection' : 'Select all notifications'}</span>
+                <span>Clear selection</span>
             </Button>
         )
     }
@@ -797,7 +801,7 @@ function PinnedNotifications() {
             <div className="border-b border-gray-200 bg-yellow-50 px-4 py-2">
                 <div className="flex items-center gap-2">
                     <p className="text-xs font-semibold tracking-wide text-gray-600">
-                        📌 Pinned ({pinned?.length ?? 0})
+                        📌 Pinned ({pinned.length})
                     </p>
                     <Button
                         variant="outline"
@@ -915,39 +919,28 @@ function PinnedNotification(props: { notification: Notification }): React.ReactE
 }
 
 function NotificationIcon(props: { type: Notification['type'] }) {
-    if (props.type.tag === 'commits') {
-        return <GitCommitIcon size={16} className="text-gray-500" />
+    switch (props.type.tag) {
+        case 'issues':
+            switch (props.type.state) {
+                case 'open':
+                    return <IssueOpenedIcon size={16} className="text-green-500" />
+                case 'closed':
+                    return <IssueClosedIcon size={16} className="text-red-500" />
+            }
+        case 'prs':
+            switch (props.type.state) {
+                case 'open':
+                    return <GitPullRequestIcon size={16} className="text-green-500" />
+                case 'closed':
+                    return <GitPullRequestClosedIcon size={16} className="text-red-500" />
+                case 'merged':
+                    return <GitPullRequestIcon size={16} className="text-purple-600" />
+            }
+        case 'commits':
+            return <GitCommitIcon size={16} className="text-gray-500" />
+        case 'releases':
+            return <TagIcon size={16} className="text-gray-500" />
     }
-
-    if (props.type.tag === 'prs') {
-        if (props.type.state === 'open') {
-            return <GitPullRequestIcon size={16} className="text-green-500" />
-        }
-        if (props.type.state === 'closed') {
-            return <GitPullRequestClosedIcon size={16} className="text-red-500" />
-        }
-        if (props.type.state === 'merged') {
-            return <GitPullRequestIcon size={16} className="text-purple-600" />
-        }
-        assertNever(props.type.state)
-        return null
-    }
-
-    if (props.type.tag === 'issues') {
-        if (props.type.state === 'closed') {
-            return <IssueClosedIcon size={16} className="text-purple-600" />
-        }
-        if (props.type.state === 'open') {
-            return <IssueOpenedIcon size={16} className="text-green-500" />
-        }
-        assertNever(props.type.state)
-        return null
-    }
-
-    if (props.type.tag === 'releases') {
-        return <TagIcon size={16} className="text-amber-500" />
-    }
-    assertNever(props.type)
 }
 
 type SearchParams = z.infer<typeof searchSchema>
