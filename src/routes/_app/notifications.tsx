@@ -90,20 +90,33 @@ function useNotificationUpdates(notification: Notification) {
             for (let n of currFiltered.page) {
                 let newNotification = { ...n }
                 if (n._id === args.id) {
-                    if (args.updates.done !== undefined) {
-                        newNotification.done = args.updates.done
-                    }
                     if (args.updates.pinned !== undefined) {
                         newNotification.pinned = args.updates.pinned
                         if (args.updates.pinned) {
                             newPinned.push(newNotification)
                         }
                     }
+
+                    if (args.updates.done !== undefined) {
+                        newNotification.done = args.updates.done
+
+                        if (filteredArgs.tab === 'done' && !args.updates.done) {
+                            continue
+                        }
+                    }
                     if (args.updates.saved !== undefined) {
                         newNotification.saved = args.updates.saved
+
+                        if (filteredArgs.tab === 'saved' && !args.updates.saved) {
+                            continue
+                        }
                     }
                     if (args.updates.unread !== undefined) {
                         newNotification.unread = args.updates.unread
+
+                        if (filteredArgs.tab === 'unread' && !args.updates.unread) {
+                            continue
+                        }
                     }
                 }
                 newPage.push(newNotification)
