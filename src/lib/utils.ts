@@ -38,6 +38,13 @@ export function useTanstackQuery<
     return wsQuery.data
 }
 
+export function prefetchQuery<
+    Query extends FunctionReference<'query'>,
+    Args extends FunctionArgs<Query> | 'skip',
+>(queryClient: QueryClient, query: Query, args: Args) {
+    return queryClient.prefetchQuery(convexQuery(query, args))
+}
+
 export function getLanguageFromExtension(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase()
     const languageMap: Record<string, string> = {

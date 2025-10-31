@@ -3,8 +3,14 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { qcMem } from '@/lib/queryClient'
-import { formatGitHubTime, objectEntries, usePagination, useTanstackQuery } from '@/lib/utils'
+import { defaultQc, qcMem } from '@/lib/queryClient'
+import {
+    formatGitHubTime,
+    objectEntries,
+    prefetchQuery,
+    usePagination,
+    useTanstackQuery,
+} from '@/lib/utils'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { assertNever } from '@convex/shared'
@@ -34,6 +40,23 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/_app/notifications')({
     validateSearch: searchSchema,
+    loaderDeps: ({ search }) => ({ search }),
+
+    async loader(ctx) {
+        if (ctx.preload) {
+            let search = ctx.deps.search
+            prefetchQuery(defaultQc, self.list, {
+                q: search.q,
+                repo: search.repo,
+                tab: search.tab,
+                paginationOpts: {
+                    numItems: 25,
+                    cursor: null,
+                },
+            })
+        }
+    },
+
     component: RouteComponent,
 })
 

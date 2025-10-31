@@ -21,7 +21,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                     accessToken: tokenset.access_token,
                 }
 
-                console.debug({ githubProfile, tokenset, usedProfile: p }, 'called profile fn')
+                console.debug({ githubId: p.id, name: p.name }, 'called profile fn')
 
                 return p
             },
