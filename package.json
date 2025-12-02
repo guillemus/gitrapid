@@ -1,26 +1,35 @@
 {
-  "name": "gitpr.fast",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.0.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.0.6",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+    "name": "gitpr.fast",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint"
+    },
+    "dependencies": {
+        "@tanstack/react-query": "^5.90.11",
+        "@tanstack/react-query-persist-client": "^5.90.13",
+        "@upstash/redis": "^1.35.7",
+        "idb-keyval": "^6.2.2",
+        "next": "16.0.6",
+        "octokit": "^5.0.5",
+        "react": "19.2.0",
+        "react-dom": "19.2.0",
+        "shiki": "^3.18.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.17",
+        "@types/node": "^24.10.1",
+        "@types/react": "^19.2.7",
+        "@types/react-dom": "^19.2.3",
+        "daisyui": "^5.5.5",
+        "eslint": "^9.39.1",
+        "eslint-config-next": "16.0.6",
+        "prettier-plugin-organize-imports": "^4.3.0",
+        "tailwindcss": "^4.1.17",
+        "typescript": "^5.9.3"
+    },
+    "browserslist": "> 1%"
 }

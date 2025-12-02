@@ -1,7 +1,12 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+    typescript: {
+        ignoreBuildErrors: true,
+    },
+    cacheComponents: true,
+    /* config options here */
+    allowedDevOrigins: ['dev.test', '*.dev.test'],
+}
 
-export default nextConfig;
+export default nextConfig
