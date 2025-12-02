@@ -12,25 +12,13 @@ export function PRList() {
     let params = useParams<{ owner: string; repo: string }>()
     const prs = useQuery(qcopts.listPRs(params.owner, params.repo))
 
-    if (prs.isLoading) {
-        return <div>Loading...</div>
-    }
-
-    if (prs.error) {
-        return <div>Error: {prs.error.message}</div>
-    }
-
-    if (!prs.data || prs.data.length === 0) {
-        return <div>No pull requests found</div>
-    }
-
     return (
         <div className="min-h-screen p-8 font-sans">
             <h1 className="text-2xl font-bold mb-4">
                 {params.owner}/{params.repo} - Pull Requests
             </h1>
             <div className="space-y-2">
-                {prs.data.map((pr) => (
+                {prs.data?.map((pr) => (
                     <PrefetchLink
                         onPrefetch={() => {
                             qcDefault.prefetchQuery(
@@ -102,7 +90,7 @@ function parseDiff(patch: string): DiffLine[] {
     return result
 }
 
-function DiffViewer(props: { files: { data?: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
+function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
     const [highlightedFiles, setHighlightedFiles] = React.useState<Map<string, string>>(new Map())
 
     React.useEffect(() => {
@@ -250,6 +238,7 @@ export function PRDetail() {
     })
 
     const data = pr.data
+    let loading = pr.isLoading || prFiles.isLoading
 
     return (
         <div>
@@ -262,34 +251,42 @@ export function PRDetail() {
             >
                 &larr; Back to {props.owner}/{props.repo}
             </PrefetchLink>
-            <h1 className="text-2xl font-bold mb-2">
-                #{data?.number} {data?.title}
-            </h1>
-            <div className="flex items-center gap-2 mb-4">
-                <span
-                    className={`text-sm px-2 py-0.5 rounded ${
-                        data?.state === 'open'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                    }`}
-                >
-                    {data?.state}
-                </span>
-                <span className="text-zinc-500">opened by {data?.user?.login}</span>
-            </div>
-            {data?.body && (
-                <div className="border rounded p-4 whitespace-pre-wrap mb-6">{data.body}</div>
+            {!loading && (
+                <>
+                    <h1 className="text-2xl font-bold mb-2">
+                        #{data?.number} {data?.title}
+                    </h1>
+                    <div className="flex items-center gap-2 mb-4">
+                        <span
+                            className={`text-sm px-2 py-0.5 rounded ${
+                                data?.state === 'open'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-purple-100 text-purple-800'
+                            }`}
+                        >
+                            {data?.state}
+                        </span>
+                        <span className="text-zinc-500">opened by {data?.user?.login}</span>
+                    </div>
+                    {data?.body && (
+                        <div className="border rounded p-4 whitespace-pre-wrap mb-6">
+                            {data.body}
+                        </div>
+                    )}
+                </>
             )}
-            <div className="mt-6">
-                <div role="tablist" className="tabs tabs-border">
-                    <button role="tab" className="tab tab-active">
-                        Files ({prFiles.data?.length || 0})
-                    </button>
+            {!loading && prFiles.data && (
+                <div className="mt-6">
+                    <div role="tablist" className="tabs tabs-border">
+                        <button role="tab" className="tab tab-active">
+                            Files ({prFiles.data.length || 0})
+                        </button>
+                    </div>
+                    <div className="pt-4">
+                        <DiffViewer files={{ data: prFiles.data }} />
+                    </div>
                 </div>
-                <div className="pt-4">
-                    <DiffViewer files={{ data: prFiles.data }} />
-                </div>
-            </div>
+            )}
         </div>
     )
 }
