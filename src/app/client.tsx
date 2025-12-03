@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import React, { Suspense, useState } from 'react'
 import { codeToHtml } from 'shiki'
+import { computeInlineHighlights, parseDiff, type DiffLine } from './diff'
 import * as fns from './functions'
 import { qcDefault } from './queryClient'
 
@@ -60,42 +61,108 @@ export function PRList() {
     )
 }
 
-type DiffLine = {
-    type: 'add' | 'remove' | 'context' | 'header'
-    content: string
-    oldLineNumber?: number
-    newLineNumber?: number
-}
-
-function parseDiff(patch: string): DiffLine[] {
-    const lines = patch.split('\n')
-    const result: DiffLine[] = []
-    let oldLine = 0
-    let newLine = 0
-
-    for (const line of lines) {
-        if (line.startsWith('@@')) {
-            const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/)
-            if (match) {
-                oldLine = parseInt(match[1])
-                newLine = parseInt(match[2])
-            }
-            result.push({ type: 'header', content: line })
-        } else if (line.startsWith('+')) {
-            result.push({ type: 'add', content: line.slice(1), newLineNumber: newLine++ })
-        } else if (line.startsWith('-')) {
-            result.push({ type: 'remove', content: line.slice(1), oldLineNumber: oldLine++ })
-        } else if (line.startsWith(' ')) {
-            result.push({
-                type: 'context',
-                content: line.slice(1),
-                oldLineNumber: oldLine++,
-                newLineNumber: newLine++,
-            })
-        }
+function DiffLineRow(props: { line: DiffLine; idx: number }) {
+    let bgColor = 'bg-white'
+    if (props.line.type === 'add') {
+        bgColor = 'bg-green-100'
+    }
+    if (props.line.type === 'remove') {
+        bgColor = 'bg-red-50'
+    }
+    if (props.line.type === 'header') {
+        bgColor = 'bg-blue-50'
     }
 
-    return result
+    let lineNumColor = 'text-zinc-400'
+    if (props.line.type === 'add') {
+        lineNumColor = 'text-green-700'
+    }
+    if (props.line.type === 'remove') {
+        lineNumColor = 'text-red-700'
+    }
+
+    let borderColor = 'border-transparent'
+    if (props.line.type === 'add') {
+        borderColor = 'border-green-400'
+    }
+    if (props.line.type === 'remove') {
+        borderColor = 'border-red-400'
+    }
+
+    let contentElement = <>{props.line.content}</>
+    if (props.line.type === 'header') {
+        contentElement = <span className="text-blue-700">{props.line.content}</span>
+    }
+    if (props.line.segments) {
+        contentElement = (
+            <>
+                {props.line.segments.map((seg, i) => {
+                    let segClass = ''
+                    if (seg.changed) {
+                        if (props.line.type === 'add') {
+                            segClass = 'bg-green-200 box-decoration-clone'
+                        } else {
+                            segClass = 'bg-red-200 box-decoration-clone'
+                        }
+                    }
+                    return (
+                        <span key={i} className={segClass}>
+                            {seg.text}
+                        </span>
+                    )
+                })}
+            </>
+        )
+    }
+
+    return (
+        <div key={props.idx} className={`flex ${bgColor} border-l-2 ${borderColor}`}>
+            <div className={`${lineNumColor} px-2 text-right select-none min-w-12`}>
+                {props.line.oldLineNumber ?? ''}
+            </div>
+            <div className={`${lineNumColor} px-2 text-right select-none min-w-12`}>
+                {props.line.newLineNumber ?? ''}
+            </div>
+            <div className="px-2 flex-1 whitespace-pre">{contentElement}</div>
+        </div>
+    )
+}
+
+function FileChange(props: {
+    file: Awaited<ReturnType<typeof fns.getPRFiles>>[number]
+    highlighted: string | undefined
+}) {
+    let diffLines: DiffLine[] = []
+    if (props.file.patch) {
+        diffLines = computeInlineHighlights(parseDiff(props.file.patch))
+    }
+
+    let diffContent = <div className="p-4 text-zinc-500">Highlighting...</div>
+    if (props.highlighted) {
+        diffContent = (
+            <div className="relative">
+                {diffLines.map((line, idx) => (
+                    <DiffLineRow key={idx} line={line} idx={idx} />
+                ))}
+            </div>
+        )
+    }
+
+    return (
+        <div key={props.file.filename} className="border rounded-lg overflow-hidden">
+            <div className="bg-zinc-100 p-3 font-mono text-sm border-b">
+                <span className="font-semibold">{props.file.filename}</span>
+                <span className="text-zinc-500 ml-4">
+                    +{props.file.additions} -{props.file.deletions}
+                </span>
+            </div>
+            {props.file.patch && (
+                <div className="overflow-x-auto">
+                    <div className="font-mono text-sm">{diffContent}</div>
+                </div>
+            )}
+        </div>
+    )
 }
 
 function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
@@ -152,81 +219,8 @@ function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRF
     return (
         <div className="space-y-6">
             {props.files.data.map((file) => {
-                const diffLines = file.patch ? parseDiff(file.patch) : []
                 const highlighted = highlightedFiles.get(file.filename)
-
-                return (
-                    <div key={file.filename} className="border rounded-lg overflow-hidden">
-                        <div className="bg-zinc-100 p-3 font-mono text-sm border-b">
-                            <span className="font-semibold">{file.filename}</span>
-                            <span className="text-zinc-500 ml-4">
-                                +{file.additions} -{file.deletions}
-                            </span>
-                        </div>
-                        {file.patch && (
-                            <div className="overflow-x-auto">
-                                <div className="font-mono text-sm">
-                                    {highlighted ? (
-                                        <div className="relative">
-                                            {diffLines.map((line, idx) => {
-                                                const bgColor =
-                                                    line.type === 'add'
-                                                        ? 'bg-green-50'
-                                                        : line.type === 'remove'
-                                                          ? 'bg-red-50'
-                                                          : line.type === 'header'
-                                                            ? 'bg-blue-50'
-                                                            : 'bg-white'
-
-                                                const lineNumColor =
-                                                    line.type === 'add'
-                                                        ? 'text-green-700'
-                                                        : line.type === 'remove'
-                                                          ? 'text-red-700'
-                                                          : 'text-zinc-400'
-
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`flex ${bgColor} border-l-2 ${
-                                                            line.type === 'add'
-                                                                ? 'border-green-400'
-                                                                : line.type === 'remove'
-                                                                  ? 'border-red-400'
-                                                                  : 'border-transparent'
-                                                        }`}
-                                                    >
-                                                        <div
-                                                            className={`${lineNumColor} px-2 text-right select-none min-w-12`}
-                                                        >
-                                                            {line.oldLineNumber || ''}
-                                                        </div>
-                                                        <div
-                                                            className={`${lineNumColor} px-2 text-right select-none min-w-12`}
-                                                        >
-                                                            {line.newLineNumber || ''}
-                                                        </div>
-                                                        <div className="px-2 flex-1 whitespace-pre">
-                                                            {line.type === 'header' ? (
-                                                                <span className="text-blue-700">
-                                                                    {line.content}
-                                                                </span>
-                                                            ) : (
-                                                                line.content
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="p-4 text-zinc-500">Highlighting...</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )
+                return <FileChange key={file.filename} file={file} highlighted={highlighted} />
             })}
         </div>
     )

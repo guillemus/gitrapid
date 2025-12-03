@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import Script from 'next/script'
 import { GithubLink } from './client'
 import './globals.css'
 import { qcDefault } from './queryClient'
@@ -28,8 +29,18 @@ export default function RootLayout(
 ) {
     return (
         <html lang="en">
+            <head>
+                {process.env.NODE_ENV === 'development' && (
+                    <Script
+                        src="//unpkg.com/react-grab/dist/index.global.js"
+                        crossOrigin="anonymous"
+                        strategy="beforeInteractive"
+                    />
+                )}
+            </head>
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 {process.env.NODE_ENV === 'development' && <GithubLink />}
+
                 <QueryClientProvider client={qcDefault}>
                     {props.children}
                     <ReactQueryDevtools initialIsOpen={false} />
