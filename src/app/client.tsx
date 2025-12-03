@@ -1,22 +1,30 @@
 'use client'
 
+import { Button } from '@/components/ui/button'
 import { queryOptions, useQueries, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import React from 'react'
+import { useParams, usePathname } from 'next/navigation'
+import React, { Suspense, useState } from 'react'
 import { codeToHtml } from 'shiki'
 import * as fns from './functions'
 import { qcDefault } from './queryClient'
 
 export function PRList() {
     let params = useParams<{ owner: string; repo: string }>()
-    const prs = useQuery(qcopts.listPRs(params.owner, params.repo))
+    let [page, setPage] = useState(1)
+    const prs = useQuery(qcopts.listPRs(params.owner, params.repo, page))
 
     return (
         <div className="min-h-screen p-8 font-sans">
             <h1 className="text-2xl font-bold mb-4">
                 {params.owner}/{params.repo} - Pull Requests
             </h1>
+            <div>
+                <Button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>
+                    prev
+                </Button>
+                <Button onClick={() => setPage((p) => p + 1)}>next</Button>
+            </div>
             <div className="space-y-2">
                 {prs.data?.map((pr) => (
                     <PrefetchLink
@@ -223,6 +231,7 @@ function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRF
         </div>
     )
 }
+
 export function PRDetail() {
     let props = useParams<{
         owner: string
@@ -246,10 +255,10 @@ export function PRDetail() {
                 onPrefetch={() => {
                     qcDefault.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
                 }}
-                href={`/${props.owner}/${props.repo}`}
+                href={`/${props.owner}/${props.repo}/pulls`}
                 className="text-blue-600 hover:underline mb-4 block"
             >
-                &larr; Back to {props.owner}/{props.repo}
+                &larr; Back to {props.owner}/{props.repo}/pulls
             </PrefetchLink>
             {!loading && (
                 <>
@@ -306,10 +315,10 @@ export function ClientOnly(props: React.PropsWithChildren) {
 }
 
 export namespace qcopts {
-    export const listPRs = (owner: string, repo: string) =>
+    export const listPRs = (owner: string, repo: string, page?: number) =>
         queryOptions({
-            queryKey: ['prs', owner, repo],
-            queryFn: () => fns.listPRs(owner, repo),
+            queryKey: ['prs', owner, repo, page],
+            queryFn: () => fns.listPRs(owner, repo, page),
         })
 
     export const getPR = (owner: string, repo: string, number: number) =>
@@ -340,4 +349,24 @@ export function PrefetchLink(props: {
             {props.children}
         </Link>
     )
+}
+
+export function GithubLink() {
+    return (
+        <Suspense>
+            <Inner></Inner>
+        </Suspense>
+    )
+
+    function Inner() {
+        let path = usePathname()
+        console.log(path)
+        return (
+            <div className="absolute top-0 right-0">
+                <a href={`https://github.com${path}`} target="_blank">
+                    go to github
+                </a>
+            </div>
+        )
+    }
 }

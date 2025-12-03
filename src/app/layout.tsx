@@ -1,6 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { GithubLink } from './client'
 import './globals.css'
 import { qcDefault } from './queryClient'
 
@@ -27,7 +29,11 @@ export default function RootLayout(
     return (
         <html lang="en">
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-                <QueryClientProvider client={qcDefault}>{props.children}</QueryClientProvider>
+                {process.env.NODE_ENV === 'development' && <GithubLink />}
+                <QueryClientProvider client={qcDefault}>
+                    {props.children}
+                    <ReactQueryDevtools initialIsOpen={false} />
+                </QueryClientProvider>
             </body>
         </html>
     )

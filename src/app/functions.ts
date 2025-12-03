@@ -9,14 +9,25 @@ type CacheEntry<T> = {
     data: T
 }
 
+let etagCaching = true
+let etagCachedMsg = true
+
 async function cachedRequest<T>(
     cacheKey: string,
     request: (headers: {
         'If-None-Match'?: string
     }) => Promise<{ data: T; headers: { etag?: string } }>,
 ): Promise<T> {
+    if (!etagCaching) {
+        let requestStart = performance.now()
+        const response = await request({})
+        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
+
+        return response.data
+    }
+
     let start = performance.now()
-    console.log(`redis.get: ${performance.now() - start}ms`)
+    console.debug(`redis.get: ${performance.now() - start}ms`)
     const cached = await redis.get<CacheEntry<T>>(cacheKey)
 
     const headers: { 'If-None-Match'?: string } = {}
@@ -24,25 +35,33 @@ async function cachedRequest<T>(
         headers['If-None-Match'] = cached.etag
     }
 
+    let requestStart = performance.now()
     try {
         const response = await request(headers)
+
         const etag = response.headers.etag
         if (etag) {
             let start = performance.now()
             await redis.set(cacheKey, { etag, data: response.data } satisfies CacheEntry<T>)
-            console.log(`redis.set: ${performance.now() - start}ms`)
+            console.debug(`redis.set: ${performance.now() - start}ms`)
         }
+
         return response.data
     } catch (error: unknown) {
         if (cached && error instanceof Error && 'status' in error && error.status === 304) {
+            if (etagCachedMsg) {
+                console.debug('returning cached response')
+            }
+
             return cached.data
         }
         throw error
+    } finally {
+        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
     }
 }
 
 export async function getPR(owner: string, repo: string, number: number) {
-    let start = performance.now()
     const pullRequest = await cachedRequest(`pr:${owner}/${repo}/${number}`, (headers) =>
         octo.rest.pulls.get({
             owner,
@@ -51,27 +70,35 @@ export async function getPR(owner: string, repo: string, number: number) {
             headers,
         }),
     )
-    console.log(`getPR: ${performance.now() - start}ms`)
     return pullRequest
 }
 
-export async function listPRs(owner: string, repo: string) {
-    let start = performance.now()
+export async function listPRs(owner: string, repo: string, page = 1) {
+    if (page !== 1) {
+        let res = await octo.rest.pulls.list({
+            owner,
+            repo,
+            page: page ?? 1,
+            per_page: 10,
+        })
+
+        return res.data
+    }
+
     const pullRequests = await cachedRequest(`prs:${owner}/${repo}`, (headers) =>
         octo.rest.pulls.list({
             owner,
             repo,
-            per_page: 5,
+            page,
+            per_page: 10,
             headers,
         }),
     )
-    console.log(`listPRs: ${performance.now() - start}ms`)
 
     return pullRequests
 }
 
 export async function getPRFiles(owner: string, repo: string, number: number) {
-    let start = performance.now()
     const files = await cachedRequest(`pr-files:${owner}/${repo}/${number}`, (headers) =>
         octo.rest.pulls.listFiles({
             owner,
@@ -80,6 +107,17 @@ export async function getPRFiles(owner: string, repo: string, number: number) {
             headers,
         }),
     )
-    console.log(`getPRFiles: ${performance.now() - start}ms`)
     return files
+}
+
+export async function listIssues(owner: string, repo: string) {
+    const issues = await cachedRequest(`issues:${owner}/${repo}`, (headers) =>
+        octo.rest.issues.listForRepo({
+            owner,
+            repo,
+            headers,
+        }),
+    )
+
+    return issues
 }

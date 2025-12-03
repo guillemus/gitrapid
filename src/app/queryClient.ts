@@ -4,14 +4,26 @@ import { QueryClient } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
 
+// newQueryClient creates the default query client. Useful to set custom
+// behaviour for all queries
+function newQueryClient() {
+    return new QueryClient({
+        defaultOptions: {
+            queries: {
+                staleTime: 10 * 1000,
+            },
+        },
+    })
+}
+
 export const qcPersistent = await createPersistedQueryClient('gitpr')
-export const qcMem = new QueryClient()
+export const qcMem = newQueryClient()
 
 // export const qcDefault = qcMem
 export const qcDefault = qcPersistent
 
 export async function createPersistedQueryClient(dbname: string) {
-    let qc = new QueryClient()
+    let qc = newQueryClient()
     if (typeof window === 'undefined') {
         return qc
     }
