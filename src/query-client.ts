@@ -1,9 +1,9 @@
 'use client'
 
+import * as fns from '@/functions'
 import { QueryClient, queryOptions } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
-import * as fns from '@/functions'
 
 // newQueryClient creates the default query client. Useful to set custom
 // behaviour for all queries

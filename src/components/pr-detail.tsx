@@ -1,7 +1,9 @@
-import { qcDefault, qcopts } from '@/query-client'
+'use client'
+
 import { DiffViewer, FileTreeSidebar } from '@/components/diff-viewer'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { qcDefault, qcopts } from '@/query-client'
 import { useQueries } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 

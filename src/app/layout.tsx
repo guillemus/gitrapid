@@ -1,11 +1,11 @@
+import { GithubLink } from '@/components/github-link'
+import { qcDefault } from '@/query-client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
-import { GithubLink } from '@/components/github-link'
-import { qcDefault } from '@/query-client'
 
 const geistSans = Geist({
     variable: '--font-geist-sans',

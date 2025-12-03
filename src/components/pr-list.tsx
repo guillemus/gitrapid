@@ -1,10 +1,12 @@
+'use client'
+
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 
+import { PrefetchLink } from '@/components/prefetch-link'
+import { Button } from '@/components/ui/button'
 import { qcDefault, qcopts } from '@/query-client'
-import { PrefetchLink } from './prefetch-link'
-import { Button } from './ui/button'
 
 export function PRList() {
     let params = useParams<{ owner: string; repo: string }>()

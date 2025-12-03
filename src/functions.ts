@@ -1,8 +1,8 @@
 'use server'
+import { redis } from '@/app/redis'
 import { appEnv } from '@/lib/app-env'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
-import { redis } from '@/app/redis'
 
 let octo = new Octokit({ auth: appEnv.GITHUB_TOKEN })
 
