@@ -1,12 +1,10 @@
 import { ClientOnly } from '@/components/client-only'
-import { PRDetail } from '@/components/pr-detail'
+import { PRConversation } from '@/components/pr-conversation'
 
 export default function PRPage() {
     return (
-        <div className="min-h-screen p-8 font-sans">
-            <ClientOnly>
-                <PRDetail />
-            </ClientOnly>
-        </div>
+        <ClientOnly>
+            <PRConversation />
+        </ClientOnly>
     )
 }

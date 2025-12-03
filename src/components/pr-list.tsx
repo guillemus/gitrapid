@@ -37,20 +37,55 @@ export function PRList() {
                         }}
                         key={pr.number}
                         href={`/${params.owner}/${params.repo}/pull/${pr.number}`}
-                        className="block p-4 border rounded hover:bg-zinc-100"
+                        className="block p-3 border border-zinc-200 hover:bg-zinc-50"
                     >
-                        <div className="flex items-center gap-2">
-                            <span className="text-zinc-500">#{pr.number}</span>
-                            <span className="font-medium">{pr.title}</span>
-                            <span
-                                className={`text-sm px-2 py-0.5 rounded ${
-                                    pr.state === 'open'
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-purple-100 text-purple-800'
-                                }`}
-                            >
-                                {pr.state}
-                            </span>
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-zinc-500">#{pr.number}</span>
+                                    <span className="font-medium truncate">{pr.title}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-zinc-600">
+                                    <span>
+                                        opened{' '}
+                                        {new Date(pr.created_at).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                        })}{' '}
+                                        by {pr.user?.login}
+                                    </span>
+                                    {pr.milestone && (
+                                        <span className="flex items-center gap-1">
+                                            <span>•</span>
+                                            <span>{pr.milestone.title}</span>
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                                {pr.labels && pr.labels.length > 0 && (
+                                    <div className="flex gap-1">
+                                        {pr.labels.slice(0, 3).map((label) => (
+                                            <span
+                                                key={label.id}
+                                                className="text-xs px-2 py-0.5 rounded-full"
+                                                style={{
+                                                    backgroundColor: `#${label.color}20`,
+                                                    color: `#${label.color}`,
+                                                    border: `1px solid #${label.color}40`,
+                                                }}
+                                            >
+                                                {label.name}
+                                            </span>
+                                        ))}
+                                        {pr.labels.length > 3 && (
+                                            <span className="text-xs text-zinc-500">
+                                                +{pr.labels.length - 3}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </PrefetchLink>
                 ))}
