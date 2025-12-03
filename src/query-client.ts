@@ -1,7 +1,7 @@
 'use client'
 
 import * as fns from '@/functions'
-import { QueryClient, queryOptions } from '@tanstack/react-query'
+import { QueryClient, queryOptions, useQueryClient } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
 
@@ -49,18 +49,53 @@ export async function createPersistedQueryClient(dbname: string) {
     return qc
 }
 
+// Types split into PRCore and PRData because listPRs returns most of the data
+// needed to display a single PR. This lets useGetPROpts use listPRs cache as
+// placeholderData, so that the page transition feels instant.
+export type PRCore = {
+    number: number
+    title: string
+    state: string
+    body: string | null
+    user: { login: string } | null
+    base: { ref: string; repo: { owner: { login: string } } }
+    head: { ref: string; repo: { owner: { login: string } } | null }
+}
+
+// Full PR data includes optional getPR-only fields
+export type PRData = PRCore & {
+    changed_files?: number
+    additions?: number
+    deletions?: number
+}
+
 export namespace qcopts {
+    export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
     export const listPRs = (owner: string, repo: string, page?: number) =>
         queryOptions({
             queryKey: ['prs', owner, repo, page],
             queryFn: () => fns.listPRs(owner, repo, page),
         })
 
-    export const getPR = (owner: string, repo: string, number: number) =>
-        queryOptions({
+    export const useGetPROpts = (owner: string, repo: string, number: number) => {
+        let qc = useQueryClient()
+
+        return queryOptions({
             queryKey: ['pr', owner, repo, number],
             queryFn: () => fns.getPR(owner, repo, number),
+            placeholderData: () => {
+                let page = 1
+                while (true) {
+                    let cached = qc.getQueryData<PRCore[]>(['prs', owner, repo, page])
+                    if (!cached) break
+                    let found = cached.find((pr) => pr.number === number)
+                    if (found) return found as any
+                    page++
+                }
+                return undefined
+            },
         })
+    }
 
     export const getPRFiles = (owner: string, repo: string, number: number) =>
         queryOptions({

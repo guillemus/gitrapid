@@ -16,7 +16,7 @@ export function PRDetail() {
 
     let [pr, prFiles] = useQueries({
         queries: [
-            qcopts.getPR(props.owner, props.repo, Number(props.number)),
+            qcopts.useGetPROpts(props.owner, props.repo, Number(props.number)),
             qcopts.getPRFiles(props.owner, props.repo, Number(props.number)),
         ],
     })

@@ -13,7 +13,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
     }>()
     let pathname = usePathname()
 
-    let pr = useQuery(qcopts.getPR(params.owner, params.repo, Number(params.number)))
+    let pr = useQuery(qcopts.useGetPROpts(params.owner, params.repo, Number(params.number)))
     let data = pr.data
 
     let isFilesTab = pathname.endsWith('/files')

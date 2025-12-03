@@ -27,7 +27,7 @@ export function PRConversation() {
     let repo = params.repo
     let number = Number(params.number)
 
-    let pr = useQuery(qcopts.getPR(owner, repo, number))
+    let pr = useQuery(qcopts.useGetPROpts(owner, repo, number))
 
     let issueComments = useInfiniteQuery({
         queryKey: ['pr-comments', owner, repo, number],
