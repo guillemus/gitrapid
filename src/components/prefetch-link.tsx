@@ -6,14 +6,14 @@ export function PrefetchLink(props: {
     onPrefetch?: () => void
     children: React.ReactNode
 }) {
-    function onMouseEnter() {
+    function onMouseDown() {
         if (props.onPrefetch) {
             props.onPrefetch()
         }
     }
 
     return (
-        <Link href={props.href} onMouseEnter={onMouseEnter} className={props.className}>
+        <Link href={props.href} onMouseDown={onMouseDown} className={props.className}>
             {props.children}
         </Link>
     )
