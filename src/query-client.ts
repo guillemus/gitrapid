@@ -1,8 +1,9 @@
 'use client'
 
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, queryOptions } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
+import * as fns from '@/functions'
 
 // newQueryClient creates the default query client. Useful to set custom
 // behaviour for all queries
@@ -46,4 +47,24 @@ export async function createPersistedQueryClient(dbname: string) {
     await p
 
     return qc
+}
+
+export namespace qcopts {
+    export const listPRs = (owner: string, repo: string, page?: number) =>
+        queryOptions({
+            queryKey: ['prs', owner, repo, page],
+            queryFn: () => fns.listPRs(owner, repo, page),
+        })
+
+    export const getPR = (owner: string, repo: string, number: number) =>
+        queryOptions({
+            queryKey: ['pr', owner, repo, number],
+            queryFn: () => fns.getPR(owner, repo, number),
+        })
+
+    export const getPRFiles = (owner: string, repo: string, number: number) =>
+        queryOptions({
+            queryKey: ['pr-files', owner, repo, number],
+            queryFn: () => fns.getPRFiles(owner, repo, number),
+        })
 }

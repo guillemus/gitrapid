@@ -3,9 +3,9 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
-import { GithubLink } from './client'
 import './globals.css'
-import { qcDefault } from './queryClient'
+import { GithubLink } from '@/components/github-link'
+import { qcDefault } from '@/query-client'
 
 const geistSans = Geist({
     variable: '--font-geist-sans',
@@ -37,6 +37,13 @@ export default function RootLayout(
                         strategy="beforeInteractive"
                     />
                 )}
+                {/*
+                {process.env.NODE_ENV === 'development' && (
+                    <script
+                        crossOrigin="anonymous"
+                        src="//unpkg.com/react-scan/dist/auto.global.js"
+                    />
+                )} */}
             </head>
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 {process.env.NODE_ENV === 'development' && <GithubLink />}

@@ -1,2 +1,2 @@
-- use `bunx tsgo` to check for typescript types. Do not use tsc, use tsgo.
+- use `bun ts` to check for typescript types. Do not use tsc, use tsgo.
 - use `bun format` to format the project

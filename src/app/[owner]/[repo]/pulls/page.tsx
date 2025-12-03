@@ -1,9 +1,12 @@
-import { ClientOnly, PRList } from '@/app/client'
+import { ClientOnly } from '@/components/client-only'
+import { PRList } from '@/components/pr-list'
 
 export default function RepoPage() {
     return (
-        <ClientOnly>
-            <PRList />
-        </ClientOnly>
+        <div className="min-h-screen p-8 font-sans">
+            <ClientOnly>
+                <PRList />
+            </ClientOnly>
+        </div>
     )
 }

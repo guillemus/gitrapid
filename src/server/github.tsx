@@ -1,6 +1,7 @@
+import { appEnv } from '@/lib/app-env'
 import { Octokit } from 'octokit'
 
-let octo = new Octokit({ auth: process.env.GITHUB_TOKEN })
+let octo = new Octokit({ auth: appEnv.GITHUB_TOKEN })
 
 export namespace github {
     export async function getPR(owner: string, repo: string, number: string) {

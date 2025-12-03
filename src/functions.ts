@@ -1,13 +1,17 @@
 'use server'
+import { appEnv } from '@/lib/app-env'
 import { Octokit } from 'octokit'
-import { redis } from './redis'
+import { z } from 'zod'
+import { redis } from '@/app/redis'
 
-let octo = new Octokit({ auth: process.env.GITHUB_TOKEN })
+let octo = new Octokit({ auth: appEnv.GITHUB_TOKEN })
 
-type CacheEntry<T> = {
-    etag: string
-    data: T
-}
+const cacheEntrySchema = z
+    .object({
+        etag: z.string(),
+        data: z.unknown(),
+    })
+    .nullish()
 
 let etagCaching = true
 let etagCachedMsg = true
@@ -28,7 +32,9 @@ async function cachedRequest<T>(
 
     let start = performance.now()
     console.debug(`redis.get: ${performance.now() - start}ms`)
-    const cached = await redis.get<CacheEntry<T>>(cacheKey)
+    let cached
+    cached = await redis.get(cacheKey)
+    cached = cacheEntrySchema.parse(cached)
 
     const headers: { 'If-None-Match'?: string } = {}
     if (cached) {
@@ -42,7 +48,7 @@ async function cachedRequest<T>(
         const etag = response.headers.etag
         if (etag) {
             let start = performance.now()
-            await redis.set(cacheKey, { etag, data: response.data } satisfies CacheEntry<T>)
+            await redis.set(cacheKey, { etag, data: response.data }, { ex: 60 * 60 * 24 })
             console.debug(`redis.set: ${performance.now() - start}ms`)
         }
 
@@ -53,7 +59,7 @@ async function cachedRequest<T>(
                 console.debug('returning cached response')
             }
 
-            return cached.data
+            return cached.data as T
         }
         throw error
     } finally {

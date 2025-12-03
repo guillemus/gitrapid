@@ -1,4 +1,5 @@
-import { ClientOnly, PRDetail } from '@/app/client'
+import { ClientOnly } from '@/components/client-only'
+import { PRDetail } from '@/components/pr-detail'
 
 export default function PRPage() {
     return (
