@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { queryOptions, useQueries, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
@@ -9,6 +10,56 @@ import { codeToHtml } from 'shiki'
 import { computeInlineHighlights, parseDiff, type DiffLine } from './diff'
 import * as fns from './functions'
 import { qcDefault } from './queryClient'
+
+type FileTreeNode = {
+    name: string
+    path: string
+    type: 'file' | 'folder'
+    children?: FileTreeNode[]
+    additions?: number
+    deletions?: number
+}
+
+function buildFileTree(files: Awaited<ReturnType<typeof fns.getPRFiles>>): FileTreeNode {
+    const root: FileTreeNode = { name: '', path: '', type: 'folder', children: [] }
+
+    for (const file of files) {
+        const parts = file.filename.split('/')
+        let currentNode = root
+
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i]
+            const isFile = i === parts.length - 1
+            const path = parts.slice(0, i + 1).join('/')
+
+            if (!currentNode.children) {
+                currentNode.children = []
+            }
+
+            let childNode = currentNode.children.find((n) => n.name === part)
+
+            if (!childNode) {
+                childNode = {
+                    name: part,
+                    path: path,
+                    type: isFile ? 'file' : 'folder',
+                    children: isFile ? undefined : [],
+                }
+
+                if (isFile) {
+                    childNode.additions = file.additions
+                    childNode.deletions = file.deletions
+                }
+
+                currentNode.children.push(childNode)
+            }
+
+            currentNode = childNode
+        }
+    }
+
+    return root
+}
 
 export function PRList() {
     let params = useParams<{ owner: string; repo: string }>()
@@ -100,19 +151,27 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
                     let segClass = ''
                     if (seg.changed) {
                         if (props.line.type === 'add') {
-                            segClass = 'bg-green-200 box-decoration-clone'
+                            segClass = 'bg-green-200 box-decoration-clone border '
                         } else {
                             segClass = 'bg-red-200 box-decoration-clone'
                         }
                     }
                     return (
-                        <span key={i} className={segClass}>
+                        <span key={i} className={segClass + ' rounded'}>
                             {seg.text}
                         </span>
                     )
                 })}
             </>
         )
+    }
+
+    let prefix = ' '
+    if (props.line.type === 'add') {
+        prefix = '+'
+    }
+    if (props.line.type === 'remove') {
+        prefix = '-'
     }
 
     return (
@@ -123,6 +182,7 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
             <div className={`${lineNumColor} px-2 text-right select-none min-w-12`}>
                 {props.line.newLineNumber ?? ''}
             </div>
+            <div className={`${lineNumColor} px-2 select-none`}>{prefix}</div>
             <div className="px-2 flex-1 whitespace-pre">{contentElement}</div>
         </div>
     )
@@ -149,7 +209,11 @@ function FileChange(props: {
     }
 
     return (
-        <div key={props.file.filename} className="border rounded-lg overflow-hidden">
+        <div
+            id={props.file.filename}
+            key={props.file.filename}
+            className="border rounded-lg overflow-hidden"
+        >
             <div className="bg-zinc-100 p-3 font-mono text-sm border-b">
                 <span className="font-semibold">{props.file.filename}</span>
                 <span className="text-zinc-500 ml-4">
@@ -161,6 +225,68 @@ function FileChange(props: {
                     <div className="font-mono text-sm">{diffContent}</div>
                 </div>
             )}
+        </div>
+    )
+}
+
+function FileTreeItem(props: { node: FileTreeNode; depth: number }) {
+    const handleClick = () => {
+        if (props.node.type === 'file') {
+            const element = document.getElementById(props.node.path)
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        }
+    }
+
+    let content = null
+
+    if (props.node.type === 'folder' && props.node.children) {
+        content = (
+            <div>
+                <div
+                    className="py-1 px-2 text-zinc-700 font-medium"
+                    style={{ paddingLeft: `${props.depth * 12}px` }}
+                >
+                    {props.node.name}/
+                </div>
+                {props.node.children.map((child) => (
+                    <FileTreeItem key={child.path} node={child} depth={props.depth + 1} />
+                ))}
+            </div>
+        )
+    }
+
+    if (props.node.type === 'file') {
+        content = (
+            <div
+                className="py-1 px-2 cursor-pointer hover:bg-zinc-100 text-sm"
+                style={{ paddingLeft: `${props.depth * 12}px` }}
+                onClick={handleClick}
+            >
+                <span className="text-zinc-900">{props.node.name}</span>
+                <span className="text-xs ml-2">
+                    <span className="text-green-600">+{props.node.additions}</span>{' '}
+                    <span className="text-red-600">-{props.node.deletions}</span>
+                </span>
+            </div>
+        )
+    }
+
+    return content
+}
+
+function FileTreeSidebar(props: { files: Awaited<ReturnType<typeof fns.getPRFiles>> }) {
+    const tree = buildFileTree(props.files)
+
+    return (
+        <div className="w-64 shrink-0 sticky top-0 h-screen overflow-y-auto border-r bg-white font-mono text-sm">
+            <div className="p-3 border-b font-semibold text-zinc-800">Files</div>
+            <div className="py-2">
+                {tree.children?.map((child) => (
+                    <FileTreeItem key={child.path} node={child} depth={0} />
+                ))}
+            </div>
         </div>
     )
 }
@@ -244,16 +370,18 @@ export function PRDetail() {
     let loading = pr.isLoading || prFiles.isLoading
 
     return (
-        <div>
-            <PrefetchLink
-                onPrefetch={() => {
-                    qcDefault.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
-                }}
-                href={`/${props.owner}/${props.repo}/pulls`}
-                className="text-blue-600 hover:underline mb-4 block"
-            >
-                &larr; Back to {props.owner}/{props.repo}/pulls
-            </PrefetchLink>
+        <>
+            <div className="mb-4">
+                <PrefetchLink
+                    onPrefetch={() => {
+                        qcDefault.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
+                    }}
+                    href={`/${props.owner}/${props.repo}/pulls`}
+                    className="text-blue-600 hover:underline block"
+                >
+                    &larr; Back to {props.owner}/{props.repo}/pulls
+                </PrefetchLink>
+            </div>
             {!loading && (
                 <>
                     <h1 className="text-2xl font-bold mb-2">
@@ -271,26 +399,40 @@ export function PRDetail() {
                         </span>
                         <span className="text-zinc-500">opened by {data?.user?.login}</span>
                     </div>
-                    {data?.body && (
-                        <div className="border rounded p-4 whitespace-pre-wrap mb-6">
-                            {data.body}
-                        </div>
-                    )}
+
+                    <Tabs defaultValue="conversation" className="w-full">
+                        <TabsList className="mb-4">
+                            <TabsTrigger value="conversation">Conversation</TabsTrigger>
+                            <TabsTrigger value="files">
+                                Files changed {prFiles.data ? prFiles.data.length : 0}
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="conversation">
+                            {data?.body && (
+                                <div className="border rounded p-4 whitespace-pre-wrap">
+                                    {data.body}
+                                </div>
+                            )}
+                            {!data?.body && (
+                                <div className="text-zinc-500 italic">No description provided.</div>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="files">
+                            {prFiles.data && (
+                                <div className="flex gap-6">
+                                    <FileTreeSidebar files={prFiles.data} />
+                                    <div className="flex-1 min-w-0">
+                                        <DiffViewer files={{ data: prFiles.data }} />
+                                    </div>
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </>
             )}
-            {!loading && prFiles.data && (
-                <div className="mt-6">
-                    <div role="tablist" className="tabs tabs-border">
-                        <button role="tab" className="tab tab-active">
-                            Files ({prFiles.data.length || 0})
-                        </button>
-                    </div>
-                    <div className="pt-4">
-                        <DiffViewer files={{ data: prFiles.data }} />
-                    </div>
-                </div>
-            )}
-        </div>
+        </>
     )
 }
 
