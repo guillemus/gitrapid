@@ -67,4 +67,21 @@ export namespace qcopts {
             queryKey: ['pr-files', owner, repo, number],
             queryFn: () => fns.getPRFiles(owner, repo, number),
         })
+
+    export const getPRComments = (owner: string, repo: string, number: number, page: number) =>
+        queryOptions({
+            queryKey: ['pr-comments', owner, repo, number, page],
+            queryFn: () => fns.getPRComments(owner, repo, number, page),
+        })
+
+    export const getPRReviewComments = (
+        owner: string,
+        repo: string,
+        number: number,
+        page: number,
+    ) =>
+        queryOptions({
+            queryKey: ['pr-review-comments', owner, repo, number, page],
+            queryFn: () => fns.getPRReviewComments(owner, repo, number, page),
+        })
 }

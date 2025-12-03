@@ -16,6 +16,8 @@ const cacheEntrySchema = z
 let etagCaching = true
 let etagCachedMsg = true
 
+// Only cache page 1 for list requests. If page 1 changes, all subsequent pages
+// are likely invalid due to shifted offsets. Uncached pages stay consistent with current state.
 async function cachedRequest<T>(
     cacheKey: string,
     request: (headers: {
@@ -126,4 +128,58 @@ export async function listIssues(owner: string, repo: string) {
     )
 
     return issues
+}
+
+export async function getPRComments(owner: string, repo: string, number: number, page = 1) {
+    if (page !== 1) {
+        let res = await octo.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: number,
+            per_page: 30,
+            page,
+        })
+
+        return res.data
+    }
+
+    const comments = await cachedRequest(`pr-comments:${owner}/${repo}/${number}`, (headers) =>
+        octo.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: number,
+            per_page: 30,
+            page,
+            headers,
+        }),
+    )
+    return comments
+}
+
+export async function getPRReviewComments(owner: string, repo: string, number: number, page = 1) {
+    if (page !== 1) {
+        let res = await octo.rest.pulls.listReviewComments({
+            owner,
+            repo,
+            pull_number: number,
+            per_page: 30,
+            page,
+        })
+
+        return res.data
+    }
+
+    const comments = await cachedRequest(
+        `pr-review-comments:${owner}/${repo}/${number}`,
+        (headers) =>
+            octo.rest.pulls.listReviewComments({
+                owner,
+                repo,
+                pull_number: number,
+                per_page: 30,
+                page,
+                headers,
+            }),
+    )
+    return comments
 }
