@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useParams } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,6 @@ import { qcopts } from '@/query-client'
 
 export function PRList() {
     let params = useParams({ strict: false }) as { owner: string; repo: string }
-    let qc = useQueryClient()
     let [page, setPage] = useState(1)
     const prs = useQuery(qcopts.listPRs(params.owner, params.repo, page))
 

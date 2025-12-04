@@ -1,20 +1,12 @@
+import { qcDefault } from '@/query-client'
 import { createRouter } from '@tanstack/react-router'
-import { QueryClient } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen'
 
 export function getRouter() {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: {
-                staleTime: 10 * 1000,
-            },
-        },
-    })
-
     const router = createRouter({
         routeTree,
         scrollRestoration: true,
-        context: { queryClient },
+        context: { queryClient: qcDefault },
         defaultPreloadStaleTime: 0,
     })
 

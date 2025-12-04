@@ -1,5 +1,5 @@
-import { redis } from '@/lib/redis'
 import { appEnv } from '@/lib/app-env'
+import { redis } from '@/lib/redis'
 import { createServerFn } from '@tanstack/react-start'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
@@ -32,10 +32,12 @@ async function cachedRequest<T>(
         return response.data
     }
 
-    let start = performance.now()
-    console.debug(`redis.get: ${performance.now() - start}ms`)
     let cached
+
+    let start = performance.now()
     cached = await redis.get(cacheKey)
+    console.debug(`redis.get: ${performance.now() - start}ms`)
+
     cached = cacheEntrySchema.parse(cached)
 
     const headers: { 'If-None-Match'?: string } = {}
@@ -43,18 +45,11 @@ async function cachedRequest<T>(
         headers['If-None-Match'] = cached.etag
     }
 
-    let requestStart = performance.now()
+    let response
     try {
-        const response = await request(headers)
-
-        const etag = response.headers.etag
-        if (etag) {
-            let start = performance.now()
-            await redis.set(cacheKey, { etag, data: response.data }, { ex: 60 * 60 * 24 })
-            console.debug(`redis.set: ${performance.now() - start}ms`)
-        }
-
-        return response.data
+        let requestStart = performance.now()
+        response = await request(headers)
+        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
     } catch (error: unknown) {
         if (cached && error instanceof Error && 'status' in error && error.status === 304) {
             if (etagCachedMsg) {
@@ -64,9 +59,16 @@ async function cachedRequest<T>(
             return cached.data as T
         }
         throw error
-    } finally {
-        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
     }
+
+    const etag = response.headers.etag
+    if (etag) {
+        let start = performance.now()
+        await redis.set(cacheKey, { etag, data: response.data }, { ex: 60 * 60 * 24 })
+        console.debug(`redis.set: ${performance.now() - start}ms`)
+    }
+
+    return response.data
 }
 
 export const getPR = createServerFn({ method: 'GET' })
