@@ -1,5 +1,32 @@
 {
-    "buildCommand": "bun run build",
-    "outputDirectory": ".output",
-    "framework": null
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"
+                }
+            ]
+        },
+        {
+            "source": "/_serverFn/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache, no-store, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache, no-store, must-revalidate"
+                }
+            ]
+        }
+    ]
 }
