@@ -27,10 +27,8 @@ export function PRDetail() {
         <>
             <div className="mb-4">
                 <PrefetchLink
-                    onPrefetch={() => {
-                        qc.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
-                    }}
-                    to={`/${props.owner}/${props.repo}/pulls`}
+                    to={`/$owner/$repo/pulls`}
+                    params={{ owner: props.owner, repo: props.repo }}
                     className="text-blue-600 hover:underline block"
                 >
                     &larr; Back to {props.owner}/{props.repo}/pulls

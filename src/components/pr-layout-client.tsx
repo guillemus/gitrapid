@@ -22,10 +22,8 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
         <div className="min-h-screen p-8 font-sans">
             <div className="mb-4">
                 <PrefetchLink
-                    onPrefetch={() => {
-                        qc.prefetchQuery(qcopts.listPRs(params.owner, params.repo))
-                    }}
-                    to={`/${params.owner}/${params.repo}/pulls`}
+                    to="/$owner/$repo/pulls"
+                    params={{ owner: params.owner, repo: params.repo }}
                     className="text-blue-600 hover:underline block"
                 >
                     &larr; Back to {params.owner}/{params.repo}/pulls
@@ -60,7 +58,8 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                     <div className="border-b mb-4">
                         <div className="flex gap-4">
                             <PrefetchLink
-                                to={`/${params.owner}/${params.repo}/pull/${params.number}`}
+                                to="/$owner/$repo/pull/$number"
+                                params={params}
                                 className={`px-4 py-2 -mb-px ${
                                     !isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'
@@ -70,16 +69,12 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                                 Conversation
                             </PrefetchLink>
                             <PrefetchLink
-                                onPrefetch={() => {
-                                    qc.prefetchQuery(
-                                        qcopts.getPRFiles(
-                                            params.owner,
-                                            params.repo,
-                                            Number(params.number),
-                                        ),
-                                    )
+                                to="/$owner/$repo/pull/$number/files"
+                                params={{
+                                    owner: params.owner,
+                                    repo: params.repo,
+                                    number: params.number,
                                 }}
-                                to={`/${params.owner}/${params.repo}/pull/${params.number}/files`}
                                 className={`px-4 py-2 -mb-px ${
                                     isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'

@@ -17,10 +17,10 @@ export function PRList() {
                 {params.owner}/{params.repo} - Pull Requests
             </h1>
             <div>
-                <Button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>
+                <Button onMouseDown={() => setPage((p) => p - 1)} disabled={page === 1}>
                     prev
                 </Button>
-                <Button onClick={() => setPage((p) => p + 1)}>next</Button>
+                <Button onMouseDown={() => setPage((p) => p + 1)}>next</Button>
             </div>
             <div className="space-y-2">
                 {prs.data?.map((pr) => (
