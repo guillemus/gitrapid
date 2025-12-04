@@ -12,7 +12,7 @@ export default defineConfig({
     plugins: [
         tsConfigPaths(),
         tanstackStart(),
-        nitro(),
+        nitro({ preset: 'vercel' }),
         // React's vite plugin must come after start's vite plugin
         viteReact(),
     ],

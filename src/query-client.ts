@@ -23,7 +23,7 @@ export const qcDefault = qcPersistent
 
 async function createPersistedQueryClient(dbname: string) {
     let qc = newQueryClient()
-    if (typeof window === 'undefined') {
+    if (import.meta.env.SSR) {
         return qc
     }
 

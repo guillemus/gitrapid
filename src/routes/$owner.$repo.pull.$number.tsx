@@ -6,6 +6,7 @@ export const Route = createFileRoute('/$owner/$repo/pull/$number')({
     loader: async ({ context: { queryClient }, params }) => {
         const number = Number(params.number)
         queryClient.prefetchQuery(qcopts.getPR(params.owner, params.repo, number))
+        queryClient.prefetchQuery(qcopts.getPRFiles(params.owner, params.repo, number))
     },
     component: PRPage,
 })

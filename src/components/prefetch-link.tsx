@@ -1,20 +1,26 @@
-import { Link } from '@tanstack/react-router'
+import type { LinkComponent } from '@tanstack/react-router'
+import { createLink, useRouter } from '@tanstack/react-router'
+import * as React from 'react'
 
-export function PrefetchLink(props: {
-    to: string
-    className?: string
-    onPrefetch?: () => void
-    children: React.ReactNode
-}) {
-    function onMouseDown() {
-        if (props.onPrefetch) {
-            props.onPrefetch()
+const PrefetchLinkComponent = React.forwardRef<
+    HTMLAnchorElement,
+    React.AnchorHTMLAttributes<HTMLAnchorElement>
+>((props, ref) => {
+    const router = useRouter()
+
+    function onMouseDown(e: React.MouseEvent<HTMLAnchorElement>) {
+        const href = props.href
+        if (href) {
+            router.preloadRoute({ to: href })
         }
+        props.onMouseDown?.(e)
     }
 
-    return (
-        <Link to={props.to} onMouseDown={onMouseDown} className={props.className}>
-            {props.children}
-        </Link>
-    )
+    return <a ref={ref} {...props} onMouseDown={onMouseDown} />
+})
+
+const CreatedLink = createLink(PrefetchLinkComponent)
+
+export const PrefetchLink: LinkComponent<typeof PrefetchLinkComponent> = (props) => {
+    return <CreatedLink preload={false} {...props} />
 }
