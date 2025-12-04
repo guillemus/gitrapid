@@ -1,32 +1,12 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "headers": [
+    "rewrites": [
+        { "source": "/_serverFn/:path*", "destination": "/_serverFn/:path*" },
+        { "source": "/api/:path*", "destination": "/api/:path*" },
         {
-            "source": "/(.*)",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"
-                }
-            ]
-        },
-        {
-            "source": "/_serverFn/(.*)",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "no-cache, no-store, must-revalidate"
-                }
-            ]
-        },
-        {
-            "source": "/api/(.*)",
-            "headers": [
-                {
-                    "key": "Cache-Control",
-                    "value": "no-cache, no-store, must-revalidate"
-                }
-            ]
+            "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+            "source": "/:path*",
+            "destination": "/_shell.html"
         }
     ]
 }
