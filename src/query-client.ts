@@ -1,13 +1,11 @@
-'use client'
-
-import * as fns from '@/functions'
+import * as fns from '@/server/functions'
 import { QueryClient, queryOptions, useQueryClient } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
 
 // newQueryClient creates the default query client. Useful to set custom
 // behaviour for all queries
-function newQueryClient() {
+export function newQueryClient() {
     return new QueryClient({
         defaultOptions: {
             queries: {
@@ -16,12 +14,6 @@ function newQueryClient() {
         },
     })
 }
-
-export const qcPersistent = await createPersistedQueryClient('gitpr')
-export const qcMem = newQueryClient()
-
-// export const qcDefault = qcMem
-export const qcDefault = qcPersistent
 
 export async function createPersistedQueryClient(dbname: string) {
     let qc = newQueryClient()
@@ -74,15 +66,23 @@ export namespace qcopts {
     export const listPRs = (owner: string, repo: string, page?: number) =>
         queryOptions({
             queryKey: ['prs', owner, repo, page],
-            queryFn: () => fns.listPRs(owner, repo, page),
+            queryFn: () => fns.listPRs({ data: { owner, repo, page } }),
         })
 
+    // For loaders - no placeholderData (can't use hooks outside React)
+    export const getPR = (owner: string, repo: string, number: number) =>
+        queryOptions({
+            queryKey: ['pr', owner, repo, number],
+            queryFn: () => fns.getPR({ data: { owner, repo, number } }),
+        })
+
+    // For components - with placeholderData from listPRs cache
     export const useGetPROpts = (owner: string, repo: string, number: number) => {
         let qc = useQueryClient()
 
         return queryOptions({
             queryKey: ['pr', owner, repo, number],
-            queryFn: () => fns.getPR(owner, repo, number),
+            queryFn: () => fns.getPR({ data: { owner, repo, number } }),
             placeholderData: () => {
                 let page = 1
                 while (true) {
@@ -100,13 +100,13 @@ export namespace qcopts {
     export const getPRFiles = (owner: string, repo: string, number: number) =>
         queryOptions({
             queryKey: ['pr-files', owner, repo, number],
-            queryFn: () => fns.getPRFiles(owner, repo, number),
+            queryFn: () => fns.getPRFiles({ data: { owner, repo, number } }),
         })
 
     export const getPRComments = (owner: string, repo: string, number: number, page: number) =>
         queryOptions({
             queryKey: ['pr-comments', owner, repo, number, page],
-            queryFn: () => fns.getPRComments(owner, repo, number, page),
+            queryFn: () => fns.getPRComments({ data: { owner, repo, number, page } }),
         })
 
     export const getPRReviewComments = (
@@ -117,6 +117,6 @@ export namespace qcopts {
     ) =>
         queryOptions({
             queryKey: ['pr-review-comments', owner, repo, number, page],
-            queryFn: () => fns.getPRReviewComments(owner, repo, number, page),
+            queryFn: () => fns.getPRReviewComments({ data: { owner, repo, number, page } }),
         })
 }

@@ -1,18 +1,17 @@
-'use client'
-
 import { DiffViewer, FileTreeSidebar } from '@/components/diff-viewer'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { qcDefault, qcopts } from '@/query-client'
-import { useQueries } from '@tanstack/react-query'
-import { useParams } from 'next/navigation'
+import { qcopts } from '@/query-client'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useParams } from '@tanstack/react-router'
 
 export function PRDetail() {
-    let props = useParams<{
+    let props = useParams({ strict: false }) as {
         owner: string
         repo: string
         number: string
-    }>()
+    }
+    let qc = useQueryClient()
 
     let [pr, prFiles] = useQueries({
         queries: [
@@ -29,9 +28,9 @@ export function PRDetail() {
             <div className="mb-4">
                 <PrefetchLink
                     onPrefetch={() => {
-                        qcDefault.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
+                        qc.prefetchQuery(qcopts.listPRs(props.owner, props.repo))
                     }}
-                    href={`/${props.owner}/${props.repo}/pulls`}
+                    to={`/${props.owner}/${props.repo}/pulls`}
                     className="text-blue-600 hover:underline block"
                 >
                     &larr; Back to {props.owner}/{props.repo}/pulls

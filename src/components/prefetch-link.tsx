@@ -1,7 +1,7 @@
-import Link from 'next/link'
+import { Link } from '@tanstack/react-router'
 
 export function PrefetchLink(props: {
-    href: string
+    to: string
     className?: string
     onPrefetch?: () => void
     children: React.ReactNode
@@ -13,7 +13,7 @@ export function PrefetchLink(props: {
     }
 
     return (
-        <Link href={props.href} onMouseDown={onMouseDown} className={props.className}>
+        <Link to={props.to} onMouseDown={onMouseDown} className={props.className}>
             {props.children}
         </Link>
     )

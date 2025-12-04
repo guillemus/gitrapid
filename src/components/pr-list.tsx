@@ -1,15 +1,14 @@
-'use client'
-
-import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useParams } from '@tanstack/react-router'
 
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
-import { qcDefault, qcopts } from '@/query-client'
+import { qcopts } from '@/query-client'
 
 export function PRList() {
-    let params = useParams<{ owner: string; repo: string }>()
+    let params = useParams({ strict: false }) as { owner: string; repo: string }
+    let qc = useQueryClient()
     let [page, setPage] = useState(1)
     const prs = useQuery(qcopts.listPRs(params.owner, params.repo, page))
 
@@ -34,15 +33,16 @@ export function PRList() {
 }
 
 function PRListItem(props: { owner: string; repo: string; pr: qcopts.ListPRsData[number] }) {
+    let qc = useQueryClient()
     let prefetchOpts = qcopts.useGetPROpts(props.owner, props.repo, props.pr.number)
 
     return (
         <PrefetchLink
             onPrefetch={() => {
-                qcDefault.prefetchQuery(prefetchOpts)
-                qcDefault.prefetchQuery(qcopts.getPRFiles(props.owner, props.repo, props.pr.number))
+                qc.prefetchQuery(prefetchOpts)
+                qc.prefetchQuery(qcopts.getPRFiles(props.owner, props.repo, props.pr.number))
             }}
-            href={`/${props.owner}/${props.repo}/pull/${props.pr.number}`}
+            to={`/${props.owner}/${props.repo}/pull/${props.pr.number}`}
             className="block p-3 border border-zinc-200 hover:bg-zinc-50"
         >
             <div className="flex items-start justify-between gap-4">

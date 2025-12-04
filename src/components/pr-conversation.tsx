@@ -1,10 +1,8 @@
-'use client'
-
-import * as fns from '@/functions'
+import * as fns from '@/server/functions'
 import { qcopts } from '@/query-client'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { useParams } from 'next/navigation'
+import { useParams } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 
 type CommentType = 'issue' | 'review'
@@ -22,7 +20,7 @@ type UnifiedComment = {
 }
 
 export function PRConversation() {
-    let params = useParams<{ owner: string; repo: string; number: string }>()
+    let params = useParams({ strict: false }) as { owner: string; repo: string; number: string }
     let owner = params.owner
     let repo = params.repo
     let number = Number(params.number)
@@ -31,7 +29,8 @@ export function PRConversation() {
 
     let issueComments = useInfiniteQuery({
         queryKey: ['pr-comments', owner, repo, number],
-        queryFn: ({ pageParam }) => fns.getPRComments(owner, repo, number, pageParam),
+        queryFn: ({ pageParam }) =>
+            fns.getPRComments({ data: { owner, repo, number, page: pageParam } }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, _, lastPageParam) =>
             lastPage.length < 30 ? undefined : lastPageParam + 1,
@@ -39,7 +38,8 @@ export function PRConversation() {
 
     let reviewComments = useInfiniteQuery({
         queryKey: ['pr-review-comments', owner, repo, number],
-        queryFn: ({ pageParam }) => fns.getPRReviewComments(owner, repo, number, pageParam),
+        queryFn: ({ pageParam }) =>
+            fns.getPRReviewComments({ data: { owner, repo, number, page: pageParam } }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, _, lastPageParam) =>
             lastPage.length < 30 ? undefined : lastPageParam + 1,

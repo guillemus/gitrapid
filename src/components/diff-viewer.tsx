@@ -1,5 +1,5 @@
-import { computeInlineHighlights, parseDiff, type DiffLine } from '@/app/diff'
-import * as fns from '@/functions'
+import { computeInlineHighlights, parseDiff, type DiffLine } from '@/lib/diff'
+import * as fns from '@/server/functions'
 import React from 'react'
 import { codeToHtml } from 'shiki'
 

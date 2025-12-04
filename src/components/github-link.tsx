@@ -1,6 +1,4 @@
-'use client'
-
-import { usePathname } from 'next/navigation'
+import { useRouterState } from '@tanstack/react-router'
 import { Suspense } from 'react'
 
 export function GithubLink() {
@@ -11,7 +9,8 @@ export function GithubLink() {
     )
 
     function Inner() {
-        let path = usePathname()
+        let routerState = useRouterState()
+        let path = routerState.location.pathname
         console.log(path)
         return (
             <div className="absolute top-0 right-0">

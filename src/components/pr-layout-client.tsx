@@ -1,17 +1,17 @@
-'use client'
-
 import { PrefetchLink } from '@/components/prefetch-link'
-import { qcDefault, qcopts } from '@/query-client'
-import { useQuery } from '@tanstack/react-query'
-import { useParams, usePathname } from 'next/navigation'
+import { qcopts } from '@/query-client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useParams, useRouterState } from '@tanstack/react-router'
 
 export function PRLayoutClient(props: { children: React.ReactNode }) {
-    let params = useParams<{
+    let params = useParams({ strict: false }) as {
         owner: string
         repo: string
         number: string
-    }>()
-    let pathname = usePathname()
+    }
+    let qc = useQueryClient()
+    let routerState = useRouterState()
+    let pathname = routerState.location.pathname
 
     let pr = useQuery(qcopts.useGetPROpts(params.owner, params.repo, Number(params.number)))
     let data = pr.data
@@ -23,9 +23,9 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
             <div className="mb-4">
                 <PrefetchLink
                     onPrefetch={() => {
-                        qcDefault.prefetchQuery(qcopts.listPRs(params.owner, params.repo))
+                        qc.prefetchQuery(qcopts.listPRs(params.owner, params.repo))
                     }}
-                    href={`/${params.owner}/${params.repo}/pulls`}
+                    to={`/${params.owner}/${params.repo}/pulls`}
                     className="text-blue-600 hover:underline block"
                 >
                     &larr; Back to {params.owner}/{params.repo}/pulls
@@ -60,7 +60,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                     <div className="border-b mb-4">
                         <div className="flex gap-4">
                             <PrefetchLink
-                                href={`/${params.owner}/${params.repo}/pull/${params.number}`}
+                                to={`/${params.owner}/${params.repo}/pull/${params.number}`}
                                 className={`px-4 py-2 -mb-px ${
                                     !isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'
@@ -71,7 +71,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                             </PrefetchLink>
                             <PrefetchLink
                                 onPrefetch={() => {
-                                    qcDefault.prefetchQuery(
+                                    qc.prefetchQuery(
                                         qcopts.getPRFiles(
                                             params.owner,
                                             params.repo,
@@ -79,7 +79,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                                         ),
                                     )
                                 }}
-                                href={`/${params.owner}/${params.repo}/pull/${params.number}/files`}
+                                to={`/${params.owner}/${params.repo}/pull/${params.number}/files`}
                                 className={`px-4 py-2 -mb-px ${
                                     isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'
