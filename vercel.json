@@ -5,6 +5,11 @@
         { "source": "/api/:path*", "destination": "/api/:path*" },
         {
             "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+            "source": "/",
+            "destination": "/_shell.html"
+        },
+        {
+            "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
             "source": "/:path*",
             "destination": "/_shell.html"
         }

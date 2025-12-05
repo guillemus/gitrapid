@@ -11,7 +11,13 @@ export default defineConfig({
     },
     plugins: [
         tsConfigPaths(),
-        tanstackStart({ spa: { enabled: true } }),
+        tanstackStart({
+            spa: { enabled: true },
+            prerender: {
+                enabled: true,
+                autoSubfolderIndex: false,
+            },
+        }),
         nitro({ preset: 'vercel' }),
         // React's vite plugin must come after start's vite plugin
         viteReact(),
