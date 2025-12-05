@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { UserMenu } from '@/components/user-menu'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
     ClientOnly,
     createRootRouteWithContext,
@@ -10,7 +11,6 @@ import {
 } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Toaster } from 'sonner'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import '../globals.css'
 
 interface RouterContext {

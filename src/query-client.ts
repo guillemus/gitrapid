@@ -120,7 +120,7 @@ export namespace qcopts {
                             // should return actually a proper typescript type that
                             // maps the octokit type to what we can easily use in the app.
 
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any:
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             return found as any
                         }
                     }
