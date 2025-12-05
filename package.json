@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite dev",
+        "dev:rg": "bunx @react-grab/opencode@latest && vite dev",
         "build": "vite build",
         "start": "vite preview",
         "format": "prettier --write ./src --plugin prettier-plugin-organize-imports",
@@ -12,6 +13,7 @@
         "lint": "eslint"
     },
     "dependencies": {
+        "@primer/octicons-react": "^19.21.1",
         "@prisma/adapter-pg": "^7.1.0",
         "@prisma/client": "^7.1.0",
         "@radix-ui/react-slot": "^1.2.4",

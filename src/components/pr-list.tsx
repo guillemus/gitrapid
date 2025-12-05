@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
 import { qcopts } from '@/query-client'
+import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 
 export function PRList() {
     let params = useParams({ strict: false }) as { owner: string; repo: string }
@@ -41,6 +42,11 @@ function PRListItem(props: { owner: string; repo: string; pr: qcopts.ListPRsData
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                        {props.pr.state === 'open' ? (
+                            <GitPullRequestIcon size={16} className="text-green-600" />
+                        ) : (
+                            <GitPullRequestClosedIcon size={16} className="text-purple-600" />
+                        )}
                         <span className="text-zinc-500">#{props.pr.number}</span>
                         <span className="font-medium truncate">{props.pr.title}</span>
                     </div>

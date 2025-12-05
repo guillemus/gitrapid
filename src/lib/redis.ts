@@ -9,7 +9,7 @@ const redisClient = new Redis({
 export async function redisGet<T = unknown>(key: string): Promise<T | null> {
     const start = performance.now()
     const result = await redisClient.get<T>(key)
-    console.debug(`redis.get(${key}): ${performance.now() - start}ms`)
+    console.debug(`\x1b[90mredis.get(${key}): ${(performance.now() - start).toFixed(0)}ms\x1b[0m`)
     return result
 }
 
@@ -19,5 +19,5 @@ export async function redisSet<T>(key: string, value: T, opts?: { ex: number }):
         ...opts,
         ex: 60 * 60 * 24,
     })
-    console.debug(`redis.set(${key}): ${performance.now() - start}ms`)
+    console.debug(`\x1b[90mredis.set(${key}): ${(performance.now() - start).toFixed(0)}ms\x1b[0m`)
 }

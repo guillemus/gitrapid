@@ -48,6 +48,13 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
         <html>
             <head>
                 <HeadContent />
+                {/* <script crossOrigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js" ></script> */}
+                {import.meta.env.DEV && (
+                    <>
+                        <script src="//unpkg.com/react-grab/dist/index.global.js"></script>
+                        <script src="//unpkg.com/@react-grab/opencode/dist/client.global.js"></script>
+                    </>
+                )}
             </head>
             <body>
                 <QueryClientProvider client={props.queryClient}>

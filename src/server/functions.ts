@@ -20,10 +20,20 @@ async function timedRequest<T>(
     const start = performance.now()
     try {
         const response = await request(headers)
-        console.log(`${cacheKey}: ${performance.now() - start}ms`)
+        console.log(
+            `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[31m(not cached)\x1b[0m`,
+        )
         return response
     } catch (error) {
-        console.log(`${cacheKey}: ${performance.now() - start}ms (error)`)
+        if (isErrEtagCached(error)) {
+            console.log(
+                `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[32m(etag cached)\x1b[0m`,
+            )
+        } else {
+            console.log(
+                `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[31m(error)\x1b[0m`,
+            )
+        }
         throw error
     }
 }
@@ -52,6 +62,10 @@ async function assertUserToken() {
 
 function newOcto(token: string) {
     return new Octokit({ auth: token })
+}
+
+function isErrEtagCached(error: unknown) {
+    return error instanceof Error && 'status' in error && error.status === 304
 }
 
 // Note: for paging requests, use cachedRequest only for the first page. If page 1 changes, all subsequent pages
@@ -87,8 +101,8 @@ async function cachedRequest<T>(
 
         return response.data
     } catch (error: unknown) {
-        if (cachedData && error instanceof Error && 'status' in error && error.status === 304) {
-            console.debug('returning cached response')
+        if (cachedData && isErrEtagCached(error)) {
+            console.debug('\x1b[36mreturning cached response\x1b[0m')
             return cachedData as T
         }
         throw error

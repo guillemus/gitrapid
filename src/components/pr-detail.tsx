@@ -2,6 +2,7 @@ import { DiffViewer, FileTreeSidebar } from '@/components/diff-viewer'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
+import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 
@@ -40,15 +41,20 @@ export function PRDetail() {
                         #{data?.number} {data?.title}
                     </h1>
                     <div className="flex items-center gap-2 mb-4">
-                        <span
-                            className={`text-sm px-2 py-0.5 rounded ${
+                        <div
+                            className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${
                                 data?.state === 'open'
                                     ? 'bg-green-100 text-green-800'
                                     : 'bg-purple-100 text-purple-800'
                             }`}
                         >
+                            {data?.state === 'open' ? (
+                                <GitPullRequestIcon size={12} />
+                            ) : (
+                                <GitPullRequestClosedIcon size={12} />
+                            )}
                             {data?.state}
-                        </span>
+                        </div>
                         <span className="text-zinc-500">opened by {data?.user?.login}</span>
                     </div>
 
