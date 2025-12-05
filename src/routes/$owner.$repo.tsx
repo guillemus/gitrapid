@@ -35,7 +35,7 @@ function RepoLayout() {
                 </div>
 
                 {/* Nav tabs row */}
-                <div className="px-4 flex items-center gap-6">
+                <div className="px-4 flex items-center gap-2">
                     <RepoNavLink
                         to="/$owner/$repo/code"
                         params={params}

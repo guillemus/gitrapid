@@ -22,15 +22,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
 
     return (
         <PageContainer>
-            <div className="mb-4">
-                <PrefetchLink
-                    to="/$owner/$repo/pulls"
-                    params={{ owner: params.owner, repo: params.repo }}
-                    className="text-blue-600 hover:underline block"
-                >
-                    &larr; Back to {params.owner}/{params.repo}/pulls
-                </PrefetchLink>
-            </div>
+            <div className="mb-4"></div>
             {!pr.isLoading && (
                 <>
                     <h1 className="text-2xl font-bold mb-2">
