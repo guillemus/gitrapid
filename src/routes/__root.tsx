@@ -1,7 +1,15 @@
 /// <reference types="vite/client" />
+import { UserMenu } from '@/components/user-menu'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from '@tanstack/react-router'
+import {
+    ClientOnly,
+    createRootRouteWithContext,
+    HeadContent,
+    Outlet,
+    Scripts,
+} from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { Toaster } from 'sonner'
 import '../globals.css'
 
 interface RouterContext {
@@ -46,6 +54,13 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
                     {props.children}
                 </QueryClientProvider>
                 <Scripts />
+
+                <ClientOnly>
+                    <Toaster position="bottom-center" />
+                </ClientOnly>
+                <ClientOnly>
+                    <UserMenu />
+                </ClientOnly>
             </body>
         </html>
     )

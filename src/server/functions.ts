@@ -1,11 +1,10 @@
-import { redis } from '@/lib/redis'
-import { createServerFn } from '@tanstack/react-start'
-import { Octokit } from 'octokit'
-import { z } from 'zod'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
-import { getWebRequest } from '@tanstack/react-start/server'
-import { UNAUTHORIZED_ERROR } from '@/lib/constants'
+import { redis } from '@/lib/redis'
+import { createServerFn } from '@tanstack/react-start'
+import { getRequest } from '@tanstack/react-start/server'
+import { Octokit } from 'octokit'
+import { z } from 'zod'
 
 const cacheEntrySchema = z
     .object({
@@ -16,6 +15,30 @@ const cacheEntrySchema = z
 
 let etagCaching = true
 let etagCachedMsg = true
+
+export const UNAUTHORIZED_ERROR = 'unauthorized'
+
+async function getGitHubOctokit() {
+    const request = getRequest()
+    const session = await auth.api.getSession({ headers: request.headers })
+
+    if (!session) {
+        throw new Error(UNAUTHORIZED_ERROR)
+    }
+
+    const account = await prisma.account.findFirst({
+        where: {
+            userId: session.user.id,
+            providerId: 'github',
+        },
+    })
+
+    if (!account?.accessToken) {
+        throw new Error(UNAUTHORIZED_ERROR)
+    }
+
+    return new Octokit({ auth: account.accessToken })
+}
 
 // Only cache page 1 for list requests. If page 1 changes, all subsequent pages
 // are likely invalid due to shifted offsets. Uncached pages stay consistent with current state.
@@ -75,6 +98,7 @@ async function cachedRequest<T>(
 export const getPR = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
         const pullRequest = await cachedRequest(
             `pr:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
@@ -91,6 +115,7 @@ export const getPR = createServerFn({ method: 'GET' })
 export const listPRs = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), page: z.number().optional() }))
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
         const page = data.page ?? 1
         if (page !== 1) {
             let res = await octo.rest.pulls.list({
@@ -119,6 +144,7 @@ export const listPRs = createServerFn({ method: 'GET' })
 export const getPRFiles = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
         const files = await cachedRequest(
             `pr-files:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
@@ -135,6 +161,8 @@ export const getPRFiles = createServerFn({ method: 'GET' })
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
+
         const issues = await cachedRequest(`issues:${data.owner}/${data.repo}`, (headers) =>
             octo.rest.issues.listForRepo({
                 owner: data.owner,
@@ -156,6 +184,7 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
         const page = data.page ?? 1
         if (page !== 1) {
             let res = await octo.rest.issues.listComments({
@@ -194,6 +223,8 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
+        const octo = await getGitHubOctokit()
+
         const page = data.page ?? 1
         if (page !== 1) {
             let res = await octo.rest.pulls.listReviewComments({

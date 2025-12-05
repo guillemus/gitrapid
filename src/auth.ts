@@ -1,7 +1,7 @@
 import { appEnv } from '@/lib/app-env'
 import { betterAuth } from 'better-auth'
-import { Pool } from 'pg'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
+import { Pool } from 'pg'
 
 export const auth = betterAuth({
     database: new Pool({

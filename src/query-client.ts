@@ -1,7 +1,8 @@
 import * as fns from '@/server/functions'
-import { QueryClient, queryOptions, useQueryClient } from '@tanstack/react-query'
+import { QueryCache, QueryClient, queryOptions, useQueryClient } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
+import { toast } from 'sonner'
 
 // newQueryClient creates the default query client. Useful to set custom
 // behaviour for all queries
@@ -10,8 +11,24 @@ function newQueryClient() {
         defaultOptions: {
             queries: {
                 staleTime: 10 * 1000,
+                retry: (failureCount, error) => {
+                    if (error?.message === fns.UNAUTHORIZED_ERROR) return false
+                    return failureCount < 3
+                },
             },
         },
+        queryCache: new QueryCache({
+            onError: (error) => {
+                if (error?.message === fns.UNAUTHORIZED_ERROR) {
+                    const callbackURL = window.location.pathname + window.location.search
+                    sessionStorage.setItem('auth_callback', callbackURL)
+
+                    toast.error('Please log in to continue')
+
+                    window.location.href = '/'
+                }
+            },
+        }),
     })
 }
 
