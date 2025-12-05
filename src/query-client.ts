@@ -140,4 +140,10 @@ export namespace qcopts {
             queryKey: ['pr-review-comments', owner, repo, number, page],
             queryFn: () => fns.getPRReviewComments({ data: { owner, repo, number, page } }),
         })
+
+    export const getRepositoryStats = (owner: string, repo: string) =>
+        queryOptions({
+            queryKey: ['repository-stats', owner, repo],
+            queryFn: () => fns.getRepositoryStats({ data: { owner, repo } }),
+        })
 }

@@ -1,43 +1,13 @@
 import { PrefetchLink } from '@/components/prefetch-link'
 import { UserMenu } from '@/components/user-menu'
+import { qcopts } from '@/query-client'
 import { CodeIcon, GitPullRequestIcon, IssueOpenedIcon } from '@primer/octicons-react'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useLocation, useParams } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/$owner/$repo')({
     component: RepoLayout,
 })
-
-function NavbarLink() {
-    const location = useLocation()
-    const { owner, repo } = useParams({ strict: false }) as {
-        owner?: string
-        repo?: string
-    }
-    if (!owner || !repo) {
-        throw new Error('Invalid route params')
-    }
-
-    const getTabClass = (path: string) => {
-        const isActive = location.pathname.includes(path)
-        return {
-            border: isActive ? 'border-b-2 border-orange-500' : 'border-b-2 border-transparent',
-            // text: 'text-zinc-900 ' + (isActive ? 'font-bold' : ''),
-            text: isActive ? 'font-bold' : '',
-        }
-    }
-    return (
-        <div className={`flex flex-col justify-center h-12 ${getTabClass('code').border}`}>
-            <PrefetchLink
-                to="/$owner/$repo/code"
-                params={{ owner, repo }}
-                className={`flex items-center gap-2 px-2 py-1 rounded-md hover:bg-zinc-200 transition-colors ${getTabClass('code').text}`}
-            >
-                <CodeIcon size={16} />
-                <span className="text-sm">Code</span>
-            </PrefetchLink>
-        </div>
-    )
-}
 
 function RepoLayout() {
     const params = useParams({ strict: false }) as {
@@ -46,11 +16,12 @@ function RepoLayout() {
     }
     const location = useLocation()
 
+    const { data: stats } = useQuery(qcopts.getRepositoryStats(params.owner, params.repo))
+
     const getTabClass = (path: string) => {
         const isActive = location.pathname.includes(path)
         return {
             border: isActive ? 'border-b-2 border-orange-500' : 'border-b-2 border-transparent',
-            // text: 'text-zinc-900 ' + (isActive ? 'font-bold' : ''),
             text: isActive ? 'font-bold' : '',
         }
     }
@@ -96,6 +67,11 @@ function RepoLayout() {
                         >
                             <IssueOpenedIcon size={16} />
                             <span className="text-sm">Issues</span>
+                            {stats && (
+                                <span className="ml-1 text-xs bg-zinc-300 text-zinc-700 px-2 py-0.5 rounded-full">
+                                    {stats.openIssues}
+                                </span>
+                            )}
                         </PrefetchLink>
                     </div>
 
@@ -110,9 +86,11 @@ function RepoLayout() {
                         >
                             <GitPullRequestIcon size={16} />
                             <span className="text-sm">Pull requests</span>
-                            <span className="ml-1 text-xs bg-zinc-300 text-zinc-700 px-2 py-0.5 rounded-full">
-                                17
-                            </span>
+                            {stats && (
+                                <span className="ml-1 text-xs bg-zinc-300 text-zinc-700 px-2 py-0.5 rounded-full">
+                                    {stats.openPullRequests}
+                                </span>
+                            )}
                         </PrefetchLink>
                     </div>
                 </div>

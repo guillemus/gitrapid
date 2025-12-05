@@ -412,3 +412,49 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         )
         return z.array(ReviewCommentSchema).parse(comments)
     })
+
+const RepositoryStatsSchema = z.object({
+    repository: z.object({
+        openPullRequestCount: z.object({
+            totalCount: z.number(),
+        }),
+        openIssueCount: z.object({
+            totalCount: z.number(),
+        }),
+    }),
+})
+
+export type RepositoryStats = {
+    openPullRequests: number
+    openIssues: number
+}
+
+export const getRepositoryStats = createServerFn({ method: 'GET' })
+    .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
+    .handler(async ({ data }) => {
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
+        const response = await octo.graphql(
+            `query ($owner: String!, $repo: String!) {
+                repository(owner: $owner, name: $repo) {
+                    openPullRequestCount: pullRequests(states: [OPEN]) {
+                        totalCount
+                    }
+                    openIssueCount: issues(states: [OPEN]) {
+                        totalCount
+                    }
+                }
+            }`,
+            { owner: data.owner, repo: data.repo },
+        )
+
+        const parsed = RepositoryStatsSchema.parse(response)
+
+        const res: RepositoryStats = {
+            openPullRequests: parsed.repository.openPullRequestCount.totalCount,
+            openIssues: parsed.repository.openIssueCount.totalCount,
+        }
+
+        return res
+    })
