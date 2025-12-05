@@ -32,8 +32,9 @@ function newQueryClient() {
     })
 }
 
-export const qcPersistent = await createPersistedQueryClient('gitpr')
 export const qcMem = newQueryClient()
+
+const qcPersistent = await createPersistedQueryClient('gitpr')
 
 // export const qcDefault = qcMem
 export const qcDefault = qcPersistent

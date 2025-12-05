@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Toaster } from 'sonner'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import '../globals.css'
 
 interface RouterContext {
@@ -59,6 +60,7 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
             <body>
                 <QueryClientProvider client={props.queryClient}>
                     {props.children}
+                    {import.meta.env.DEV && <ReactQueryDevtools></ReactQueryDevtools>}
                 </QueryClientProvider>
                 <Scripts />
 

@@ -2,7 +2,7 @@
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
         { "source": "/_serverFn/:path*", "destination": "/_serverFn/:path*" },
-        { "source": "/api/:path*", "destination": "/api/:path*" },
+        { "source": "/api/:path*", "destination": "/__server" },
         {
             "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
             "source": "/",
@@ -10,7 +10,7 @@
         },
         {
             "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
-            "source": "/:path*",
+            "source": "/((?!api|_serverFn).*)",
             "destination": "/_shell.html"
         }
     ]
