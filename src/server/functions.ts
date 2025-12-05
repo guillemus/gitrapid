@@ -109,9 +109,51 @@ async function cachedRequest<T>(
     }
 }
 
+const PRBranch = z.object({
+    ref: z.string(),
+    repo: z.object({
+        owner: z.object({
+            login: z.string(),
+        }),
+        ref: z.string().optional(),
+    }),
+})
+
+const PRSchema = z.object({
+    changedFiles: z.number(),
+    additions: z.number().optional(),
+    deletions: z.number().optional(),
+    state: z.string(),
+    title: z.string(),
+    number: z.number(),
+    body: z.string(),
+    created_at: z.string(),
+    milestone: z
+        .object({
+            title: z.string(),
+        })
+        .nullable(),
+    labels: z.array(
+        z.object({
+            id: z.number(),
+            name: z.string(),
+            color: z.string(),
+        }),
+    ),
+    user: z.object({
+        login: z.string(),
+    }),
+    base: PRBranch,
+    head: PRBranch,
+})
+
+export type PR = z.infer<typeof PRSchema>
+
+const PRListSchema = z.array(PRSchema.omit({ changedFiles: true }))
+
 export const getPR = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
-    .handler(async ({ data }) => {
+    .handler(async ({ data }): Promise<PR> => {
         let userToken = await assertUserToken()
         let octo = newOcto(userToken.token)
 
@@ -126,7 +168,10 @@ export const getPR = createServerFn({ method: 'GET' })
                     headers,
                 }),
         )
-        return pullRequest
+        return PRSchema.parse({
+            ...pullRequest,
+            changedFiles: pullRequest.changed_files,
+        })
     })
 
 export const listPRs = createServerFn({ method: 'GET' })
@@ -168,8 +213,20 @@ export const listPRs = createServerFn({ method: 'GET' })
                 }),
         )
 
-        return pullRequests
+        return PRListSchema.parse(pullRequests)
     })
+
+const PRFileSchema = z.object({
+    filename: z.string(),
+    status: z.string(),
+    additions: z.number(),
+    deletions: z.number(),
+    changes: z.number(),
+    patch: z.string().optional(),
+    blob_url: z.string(),
+    raw_url: z.string(),
+    contents_url: z.string(),
+})
 
 export const getPRFiles = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
@@ -188,8 +245,28 @@ export const getPRFiles = createServerFn({ method: 'GET' })
                     headers,
                 }),
         )
-        return files
+        return z.array(PRFileSchema).parse(files)
     })
+
+const IssueSchema = z.object({
+    id: z.number(),
+    number: z.number(),
+    title: z.string(),
+    body: z.string().nullable(),
+    state: z.string(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    user: z.object({
+        login: z.string(),
+    }),
+    labels: z.array(
+        z.object({
+            id: z.number(),
+            name: z.string(),
+            color: z.string(),
+        }),
+    ),
+})
 
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
@@ -208,8 +285,19 @@ export const listIssues = createServerFn({ method: 'GET' })
                 }),
         )
 
-        return issues
+        return z.array(IssueSchema).parse(issues)
     })
+
+const CommentSchema = z.object({
+    id: z.number(),
+    body: z.string(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    user: z.object({
+        login: z.string(),
+        avatar_url: z.string(),
+    }),
+})
 
 export const getPRComments = createServerFn({ method: 'GET' })
     .inputValidator(
@@ -250,8 +338,26 @@ export const getPRComments = createServerFn({ method: 'GET' })
                     headers,
                 }),
         )
-        return comments
+        return z.array(CommentSchema).parse(comments)
     })
+
+const ReviewCommentSchema = z.object({
+    id: z.number(),
+    body: z.string(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    user: z.object({
+        login: z.string(),
+        avatar_url: z.string(),
+    }),
+    commit_id: z.string(),
+    original_commit_id: z.string(),
+    diff_hunk: z.string(),
+    path: z.string(),
+    position: z.number().nullable(),
+    original_position: z.number().nullable(),
+    line: z.number().nullable(),
+})
 
 export const getPRReviewComments = createServerFn({ method: 'GET' })
     .inputValidator(
@@ -292,5 +398,5 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
                     headers,
                 }),
         )
-        return comments
+        return z.array(ReviewCommentSchema).parse(comments)
     })

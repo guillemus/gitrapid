@@ -50,7 +50,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                             {data?.state}
                         </div>
                         <span className="text-zinc-500">
-                            {data?.user?.login} wants to merge {data?.changed_files} commits into{' '}
+                            {data?.user?.login} wants to merge {data?.changedFiles} commits into{' '}
                             {data?.base.repo.owner.login}:{data?.base.ref} from{' '}
                             {data?.head.repo?.owner.login}:{data?.head.ref}
                         </span>
@@ -86,7 +86,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                                         : 'text-zinc-600 hover:text-zinc-900'
                                 }`}
                             >
-                                Files{data?.changed_files ? ` (${data.changed_files})` : ''}
+                                Files{data?.changedFiles ? ` (${data.changedFiles})` : ''}
                             </PrefetchLink>
                         </div>
                     </div>
