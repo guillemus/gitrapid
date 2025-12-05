@@ -1,24 +1,34 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
-import { redis } from '@/lib/redis'
+import { redisGet, redisSet } from '@/lib/redis'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
 
-const cacheEntrySchema = z
-    .object({
-        etag: z.string(),
-        data: z.unknown(),
-    })
-    .nullish()
-
-let etagCaching = true
-let etagCachedMsg = true
+const ETAG_CACHING = true
 
 export const UNAUTHORIZED_ERROR = 'unauthorized'
 
-async function getGitHubOctokit() {
+async function timedRequest<T>(
+    cacheKey: string,
+    request: (headers: {
+        'If-None-Match'?: string
+    }) => Promise<{ data: T; headers: { etag?: string } }>,
+    headers: { 'If-None-Match'?: string },
+): Promise<{ data: T; headers: { etag?: string } }> {
+    const start = performance.now()
+    try {
+        const response = await request(headers)
+        console.log(`${cacheKey}: ${performance.now() - start}ms`)
+        return response
+    } catch (error) {
+        console.log(`${cacheKey}: ${performance.now() - start}ms (error)`)
+        throw error
+    }
+}
+
+async function assertUserToken() {
     const request = getRequest()
     const session = await auth.api.getSession({ headers: request.headers })
 
@@ -37,69 +47,62 @@ async function getGitHubOctokit() {
         throw new Error(UNAUTHORIZED_ERROR)
     }
 
-    return new Octokit({ auth: account.accessToken })
+    return { userId: session.user.id, token: account.accessToken }
 }
 
-// Only cache page 1 for list requests. If page 1 changes, all subsequent pages
+function newOcto(token: string) {
+    return new Octokit({ auth: token })
+}
+
+// Note: for paging requests, use cachedRequest only for the first page. If page 1 changes, all subsequent pages
 // are likely invalid due to shifted offsets. Uncached pages stay consistent with current state.
 async function cachedRequest<T>(
+    userId: string,
     cacheKey: string,
     request: (headers: {
         'If-None-Match'?: string
     }) => Promise<{ data: T; headers: { etag?: string } }>,
 ): Promise<T> {
-    if (!etagCaching) {
-        let requestStart = performance.now()
-        const response = await request({})
-        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
+    const dataKey = `data:${cacheKey}`
+    const etagKey = `etag:${userId}:${cacheKey}`
 
+    if (!ETAG_CACHING) {
+        const response = await timedRequest(cacheKey, request, {})
         return response.data
     }
 
-    let cached
+    const [cachedData, userEtag] = await Promise.all([redisGet(dataKey), redisGet<string>(etagKey)])
 
-    let start = performance.now()
-    cached = await redis.get(cacheKey)
-    console.debug(`redis.get: ${performance.now() - start}ms`)
+    const headers = typeof userEtag === 'string' ? { 'If-None-Match': userEtag } : {}
 
-    cached = cacheEntrySchema.parse(cached)
-
-    const headers: { 'If-None-Match'?: string } = {}
-    if (cached) {
-        headers['If-None-Match'] = cached.etag
-    }
-
-    let response
     try {
-        let requestStart = performance.now()
-        response = await request(headers)
-        console.log(`${cacheKey}: ${performance.now() - requestStart}ms`)
-    } catch (error: unknown) {
-        if (cached && error instanceof Error && 'status' in error && error.status === 304) {
-            if (etagCachedMsg) {
-                console.debug('returning cached response')
-            }
+        const response = await timedRequest(cacheKey, request, headers)
 
-            return cached.data as T
+        if (response.headers.etag) {
+            await Promise.all([
+                redisSet(dataKey, response.data),
+                redisSet(etagKey, response.headers.etag),
+            ])
+        }
+
+        return response.data
+    } catch (error: unknown) {
+        if (cachedData && error instanceof Error && 'status' in error && error.status === 304) {
+            console.debug('returning cached response')
+            return cachedData as T
         }
         throw error
     }
-
-    const etag = response.headers.etag
-    if (etag) {
-        let start = performance.now()
-        await redis.set(cacheKey, { etag, data: response.data }, { ex: 60 * 60 * 24 })
-        console.debug(`redis.set: ${performance.now() - start}ms`)
-    }
-
-    return response.data
 }
 
 export const getPR = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
         const pullRequest = await cachedRequest(
+            userToken.userId,
             `pr:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.get({
@@ -115,7 +118,9 @@ export const getPR = createServerFn({ method: 'GET' })
 export const listPRs = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), page: z.number().optional() }))
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
         const page = data.page ?? 1
         if (page !== 1) {
             let res = await octo.rest.pulls.list({
@@ -128,14 +133,17 @@ export const listPRs = createServerFn({ method: 'GET' })
             return res.data
         }
 
-        const pullRequests = await cachedRequest(`prs:${data.owner}/${data.repo}`, (headers) =>
-            octo.rest.pulls.list({
-                owner: data.owner,
-                repo: data.repo,
-                page,
-                per_page: 10,
-                headers,
-            }),
+        const pullRequests = await cachedRequest(
+            userToken.userId,
+            `prs:${data.owner}/${data.repo}`,
+            (headers) =>
+                octo.rest.pulls.list({
+                    owner: data.owner,
+                    repo: data.repo,
+                    page,
+                    per_page: 10,
+                    headers,
+                }),
         )
 
         return pullRequests
@@ -144,8 +152,11 @@ export const listPRs = createServerFn({ method: 'GET' })
 export const getPRFiles = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
         const files = await cachedRequest(
+            userToken.userId,
             `pr-files:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.listFiles({
@@ -161,14 +172,18 @@ export const getPRFiles = createServerFn({ method: 'GET' })
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
 
-        const issues = await cachedRequest(`issues:${data.owner}/${data.repo}`, (headers) =>
-            octo.rest.issues.listForRepo({
-                owner: data.owner,
-                repo: data.repo,
-                headers,
-            }),
+        const issues = await cachedRequest(
+            userToken.userId,
+            `issues:${data.owner}/${data.repo}`,
+            (headers) =>
+                octo.rest.issues.listForRepo({
+                    owner: data.owner,
+                    repo: data.repo,
+                    headers,
+                }),
         )
 
         return issues
@@ -184,7 +199,9 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
         const page = data.page ?? 1
         if (page !== 1) {
             let res = await octo.rest.issues.listComments({
@@ -199,6 +216,7 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }
 
         const comments = await cachedRequest(
+            userToken.userId,
             `pr-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.issues.listComments({
@@ -223,7 +241,8 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        const octo = await getGitHubOctokit()
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
 
         const page = data.page ?? 1
         if (page !== 1) {
@@ -239,6 +258,7 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }
 
         const comments = await cachedRequest(
+            userToken.userId,
             `pr-review-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.listReviewComments({
