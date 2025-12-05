@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
@@ -66,12 +67,39 @@ export function PRList() {
                 </div>
 
                 <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">
-                    {prs.data?.map((pr) => (
-                        <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />
-                    ))}
+                    {prs.isLoading ? (
+                        <PRListSkeleton />
+                    ) : (
+                        prs.data?.map((pr) => (
+                            <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />
+                        ))
+                    )}
                 </div>
             </div>
         </div>
+    )
+}
+
+function PRListSkeleton() {
+    return (
+        <>
+            {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="p-3 border-b border-zinc-200 last:border-b-0">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Skeleton className="w-4 h-4 rounded-full" />
+                                <Skeleton className="w-8 h-4" />
+                                <Skeleton className="w-48 h-4" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Skeleton className="w-32 h-3" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </>
     )
 }
 

@@ -86,7 +86,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                                         : 'text-zinc-600 hover:text-zinc-900'
                                 }`}
                             >
-                                Files changed
+                                Files{data?.changed_files ? ` (${data.changed_files})` : ''}
                             </PrefetchLink>
                         </div>
                     </div>

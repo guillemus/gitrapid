@@ -1,3 +1,4 @@
+import { Skeleton } from '@/components/ui/skeleton'
 import { qcopts } from '@/query-client'
 import * as fns from '@/server/functions'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -99,18 +100,30 @@ export function PRConversation() {
         return () => observer.disconnect()
     }, [issueComments, reviewComments])
 
+    let isInitialLoading = issueComments.isLoading || reviewComments.isLoading
+
     return (
         <div className="space-y-4">
             {/* PR body */}
-            {pr.data?.body && (
+            {pr.isLoading ? (
+                <div className="border rounded p-4 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                </div>
+            ) : pr.data?.body ? (
                 <div className="border rounded p-4 whitespace-pre-wrap">{pr.data.body}</div>
+            ) : (
+                <div className="text-zinc-500 italic">No description provided.</div>
             )}
-            {!pr.data?.body && <div className="text-zinc-500 italic">No description provided.</div>}
 
             {/* Comments */}
-            {allComments.map((comment) => (
-                <CommentCard key={`${comment.type}-${comment.id}`} comment={comment} />
-            ))}
+            {isInitialLoading ? (
+                <ConversationSkeleton />
+            ) : (
+                allComments.map((comment) => (
+                    <CommentCard key={`${comment.type}-${comment.id}`} comment={comment} />
+                ))
+            )}
 
             {/* Sentinel for infinite scroll */}
             <div ref={sentinelRef} className="h-1" />
@@ -120,6 +133,24 @@ export function PRConversation() {
                 <div className="text-zinc-500 text-center">Loading more...</div>
             )}
         </div>
+    )
+}
+
+function ConversationSkeleton() {
+    return (
+        <>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border rounded p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Skeleton className="w-6 h-6 rounded-full" />
+                        <Skeleton className="w-24 h-4" />
+                        <Skeleton className="w-16 h-3" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                </div>
+            ))}
+        </>
     )
 }
 
