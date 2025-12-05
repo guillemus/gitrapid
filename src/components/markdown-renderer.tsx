@@ -2,6 +2,9 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 export function MarkdownRenderer(props: { content: string }) {
+    // Strip HTML comments (e.g., <!-- ... -->)
+    let content = props.content.replace(/<!--[\s\S]*?-->/g, '')
+
     return (
         <div className="max-w-none space-y-4 text-sm leading-relaxed">
             <Markdown
@@ -45,12 +48,11 @@ export function MarkdownRenderer(props: { content: string }) {
                         </blockquote>
                     ),
                     code: (props) => {
-                        const { inline, children } = props as any
-                        return inline ? (
-                            <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded text-sm font-mono border border-zinc-200 dark:border-zinc-700">
-                                {children}
+                        return (
+                            <code className={`text-sm font-mono ${props.className ?? ''}`}>
+                                {props.children}
                             </code>
-                        ) : null
+                        )
                     },
                     pre: ({ children }) => (
                         <pre className="bg-zinc-900 dark:bg-black text-zinc-100 p-4 rounded-lg my-4 overflow-x-auto border border-zinc-700">
@@ -99,7 +101,7 @@ export function MarkdownRenderer(props: { content: string }) {
                     em: ({ children }) => <em className="italic">{children}</em>,
                 }}
             >
-                {props.content}
+                {content}
             </Markdown>
         </div>
     )

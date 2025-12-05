@@ -75,7 +75,6 @@ export namespace qcopts {
             queryKey: ['prs', owner, repo, page, state],
             queryFn: () => fns.listPRs({ data: { owner, repo, page, state } }),
         })
-    let pr0 = listPRs('', '', 1, 'open')
 
     // For loaders - no placeholderData (can't use hooks outside React)
     export const getPR = (owner: string, repo: string, number: number) =>

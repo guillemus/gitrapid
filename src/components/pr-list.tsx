@@ -1,3 +1,4 @@
+import { PageContainer } from '@/components/page-container'
 import { qcMem } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
@@ -42,7 +43,7 @@ export function PRList() {
 
     return (
         <div className="min-h-screen p-8 font-sans">
-            <div>
+            <PageContainer>
                 <h1 className="text-2xl font-bold mb-4">
                     {owner}/{repo} - Pull Requests
                 </h1>
@@ -75,7 +76,7 @@ export function PRList() {
                         ))
                     )}
                 </div>
-            </div>
+            </PageContainer>
         </div>
     )
 }
