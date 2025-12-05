@@ -6,7 +6,6 @@ export const appEnv = z
         DATABASE_URL: z.string(),
         GITHUB_CLIENT_ID: z.string(),
         GITHUB_CLIENT_SECRET: z.string(),
-        GITHUB_TOKEN: z.string().optional(),
 
         UPSTASH_REDIS_REST_URL: z.string(),
         UPSTASH_REDIS_REST_TOKEN: z.string(),

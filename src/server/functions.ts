@@ -1,10 +1,11 @@
-import { appEnv } from '@/lib/app-env'
 import { redis } from '@/lib/redis'
 import { createServerFn } from '@tanstack/react-start'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
-
-let octo = new Octokit({ auth: appEnv.GITHUB_TOKEN })
+import { auth } from '@/auth'
+import { prisma } from '@/lib/db'
+import { getWebRequest } from '@tanstack/react-start/server'
+import { UNAUTHORIZED_ERROR } from '@/lib/constants'
 
 const cacheEntrySchema = z
     .object({
