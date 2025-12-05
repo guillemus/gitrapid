@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
+import { useNavigate } from '@tanstack/react-router'
 
 export function UserMenu() {
+    const navigate = useNavigate()
     const { data: session } = authClient.useSession()
 
     if (!session) return null
@@ -22,7 +24,10 @@ export function UserMenu() {
                     <Button
                         variant="ghost"
                         className="w-full justify-start"
-                        onClick={() => authClient.signOut()}
+                        onClick={async () => {
+                            await authClient.signOut()
+                            await navigate({ to: '/' })
+                        }}
                     >
                         Logout
                     </Button>
