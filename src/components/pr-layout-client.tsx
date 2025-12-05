@@ -1,7 +1,7 @@
 import { PrefetchLink } from '@/components/prefetch-link'
 import { qcopts } from '@/query-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
 
 export function PRLayoutClient(props: { children: React.ReactNode }) {
@@ -10,7 +10,6 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
         repo: string
         number: string
     }
-    let qc = useQueryClient()
     let routerState = useRouterState()
     let pathname = routerState.location.pathname
 

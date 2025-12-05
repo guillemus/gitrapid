@@ -130,18 +130,25 @@ export const getPR = createServerFn({ method: 'GET' })
     })
 
 export const listPRs = createServerFn({ method: 'GET' })
-    .inputValidator(z.object({ owner: z.string(), repo: z.string(), page: z.number().optional() }))
+    .inputValidator(
+        z.object({
+            owner: z.string(),
+            repo: z.string(),
+            page: z.number(),
+            state: z.enum(['open', 'closed']),
+        }),
+    )
     .handler(async ({ data }) => {
         let userToken = await assertUserToken()
         let octo = newOcto(userToken.token)
 
-        const page = data.page ?? 1
-        if (page !== 1) {
+        if (data.page !== 1 || data.state !== 'open') {
             let res = await octo.rest.pulls.list({
                 owner: data.owner,
                 repo: data.repo,
-                page,
+                page: data.page,
                 per_page: 10,
+                state: data.state,
             })
 
             return res.data
@@ -154,8 +161,9 @@ export const listPRs = createServerFn({ method: 'GET' })
                 octo.rest.pulls.list({
                     owner: data.owner,
                     repo: data.repo,
-                    page,
+                    page: data.page,
                     per_page: 10,
+                    state: data.state,
                     headers,
                 }),
         )

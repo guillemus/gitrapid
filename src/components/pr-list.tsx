@@ -1,32 +1,75 @@
+import { qcMem } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 
 export function PRList() {
-    let params = useParams({ strict: false }) as { owner: string; repo: string }
-    let [page, setPage] = useState(1)
-    const prs = useQuery(qcopts.listPRs(params.owner, params.repo, page))
+    const { owner, repo } = useParams({ strict: false })
+    if (!owner || !repo) {
+        throw new Error('PRList: owner or repo not provided')
+    }
+
+    const search = useSearch({ from: '/$owner/$repo/pulls' })
+    const navigate = useNavigate({ from: '/$owner/$repo/pulls' })
+
+    const handleStateChange = (newState: string) => {
+        if (newState === 'open' || newState === 'closed') {
+            navigate({ search: (old) => ({ ...old, state: newState, page: 1 }) })
+        }
+    }
+
+    const handlePrevPage = () => {
+        if (search.page > 1) {
+            navigate({ search: (old) => ({ ...old, page: old.page - 1 }) })
+        }
+    }
+
+    const handleNextPage = () => {
+        navigate({ search: (old) => ({ ...old, page: old.page + 1 }) })
+    }
+
+    // Use qcMem for closed state, qcPersistent (router context) for open state
+    const queryClient = search.state === 'closed' ? qcMem : undefined
+
+    const prs = useQuery(qcopts.listPRs(owner, repo, search.page, search.state), queryClient)
+    const hasNext = prs.data?.length === 10
 
     return (
         <div className="min-h-screen p-8 font-sans">
-            <h1 className="text-2xl font-bold mb-4">
-                {params.owner}/{params.repo} - Pull Requests
-            </h1>
             <div>
-                <Button onMouseDown={() => setPage((p) => p - 1)} disabled={page === 1}>
-                    prev
-                </Button>
-                <Button onMouseDown={() => setPage((p) => p + 1)}>next</Button>
-            </div>
-            <div className="space-y-2">
-                {prs.data?.map((pr) => (
-                    <PRListItem key={pr.number} pr={pr} owner={params.owner} repo={params.repo} />
-                ))}
+                <h1 className="text-2xl font-bold mb-4">
+                    {owner}/{repo} - Pull Requests
+                </h1>
+
+                <div className="flex items-center justify-between mb-4">
+                    <Tabs value={search.state} onValueChange={handleStateChange}>
+                        <TabsList>
+                            <TabsTrigger value="open">Open</TabsTrigger>
+                            <TabsTrigger value="closed">Closed</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+
+                    <div className="flex items-center gap-2">
+                        <Button onMouseDown={handlePrevPage} disabled={search.page === 1}>
+                            prev
+                        </Button>
+                        <span className="text-sm text-zinc-600">Page {search.page}</span>
+                        <Button onMouseDown={handleNextPage} disabled={!hasNext}>
+                            next
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">
+                    {prs.data?.map((pr) => (
+                        <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />
+                    ))}
+                </div>
             </div>
         </div>
     )
@@ -37,7 +80,7 @@ function PRListItem(props: { owner: string; repo: string; pr: qcopts.ListPRsData
         <PrefetchLink
             to="/$owner/$repo/pull/$number"
             params={{ owner: props.owner, repo: props.repo, number: String(props.pr.number) }}
-            className="block p-3 border border-zinc-200 hover:bg-zinc-50"
+            className="block p-3 hover:bg-zinc-50 border-b border-zinc-200 last:border-b-0"
         >
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">

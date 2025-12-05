@@ -3,7 +3,7 @@ import { PrefetchLink } from '@/components/prefetch-link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueries } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 
 export function PRDetail() {
@@ -12,7 +12,6 @@ export function PRDetail() {
         repo: string
         number: string
     }
-    let qc = useQueryClient()
 
     let [pr, prFiles] = useQueries({
         queries: [

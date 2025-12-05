@@ -86,10 +86,10 @@ export type PRData = PRCore & {
 
 export namespace qcopts {
     export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
-    export const listPRs = (owner: string, repo: string, page?: number) =>
+    export const listPRs = (owner: string, repo: string, page: number, state: 'open' | 'closed') =>
         queryOptions({
-            queryKey: ['prs', owner, repo, page],
-            queryFn: () => fns.listPRs({ data: { owner, repo, page } }),
+            queryKey: ['prs', owner, repo, page, state],
+            queryFn: () => fns.listPRs({ data: { owner, repo, page, state } }),
         })
 
     // For loaders - no placeholderData (can't use hooks outside React)
@@ -107,13 +107,22 @@ export namespace qcopts {
             queryKey: ['pr', owner, repo, number],
             queryFn: () => fns.getPR({ data: { owner, repo, number } }),
             placeholderData: () => {
-                let page = 1
-                while (true) {
-                    let cached = qc.getQueryData<PRCore[]>(['prs', owner, repo, page])
-                    if (!cached) break
-                    let found = cached.find((pr) => pr.number === number)
-                    if (found) return found as any
-                    page++
+                const cache = qc.getQueryCache()
+                const allQueries = cache.findAll({ queryKey: ['prs', owner, repo] })
+
+                for (const query of allQueries) {
+                    const cached = query.state.data as PRCore[]
+                    if (cached) {
+                        const found = cached.find((pr) => pr.number === number)
+                        if (found) {
+                            // this is horrible, don't get me wrong. At some point the rpc functions
+                            // should return actually a proper typescript type that
+                            // maps the octokit type to what we can easily use in the app.
+
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any:
+                            return found as any
+                        }
+                    }
                 }
                 return undefined
             },

@@ -1,2 +1,3 @@
-- use `bun ts` to check for typescript types. Do not use tsc, use tsgo.
-- use `bun format` to format the project
+- use `bun ts` to run typecheck
+- use `bun lint` to lint the project
+- use `bun format` to format the project. Format after every task is done and project is properly typechecked and linted.
