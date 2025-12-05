@@ -65,33 +65,17 @@ async function createPersistedQueryClient(dbname: string) {
     return qc
 }
 
-// Types split into PRCore and PRData because listPRs returns most of the data
-// needed to display a single PR. This lets useGetPROpts use listPRs cache as
-// placeholderData, so that the page transition feels instant.
-export type PRCore = {
-    number: number
-    title: string
-    state: string
-    body: string | null
-    user: { login: string } | null
-    base: { ref: string; repo: { owner: { login: string } } }
-    head: { ref: string; repo: { owner: { login: string } } | null }
-}
-
-// Full PR data includes optional getPR-only fields
-export type PRData = PRCore & {
-    changed_files?: number
-    additions?: number
-    deletions?: number
-}
+type PRData = fns.PRList[number] & fns.PR
 
 export namespace qcopts {
     export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
+
     export const listPRs = (owner: string, repo: string, page: number, state: 'open' | 'closed') =>
         queryOptions({
             queryKey: ['prs', owner, repo, page, state],
             queryFn: () => fns.listPRs({ data: { owner, repo, page, state } }),
         })
+    let pr0 = listPRs('', '', 1, 'open')
 
     // For loaders - no placeholderData (can't use hooks outside React)
     export const getPR = (owner: string, repo: string, number: number) =>
@@ -107,12 +91,17 @@ export namespace qcopts {
         return queryOptions({
             queryKey: ['pr', owner, repo, number],
             queryFn: () => fns.getPR({ data: { owner, repo, number } }),
+
+            // When fetching the single PR page, we might already have seen data
+            // from the previous list.
+            // This means that we can reuse that data.
+
             placeholderData: () => {
                 const cache = qc.getQueryCache()
                 const allQueries = cache.findAll({ queryKey: ['prs', owner, repo] })
 
                 for (const query of allQueries) {
-                    const cached = query.state.data as PRCore[]
+                    const cached = query.state.data as PRData[]
                     if (cached) {
                         const found = cached.find((pr) => pr.number === number)
                         if (found) {

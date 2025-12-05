@@ -1,3 +1,4 @@
+import { MarkdownRenderer } from '@/components/markdown-renderer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { qcopts } from '@/query-client'
 import * as fns from '@/server/functions'
@@ -111,7 +112,9 @@ export function PRConversation() {
                     <Skeleton className="h-4 w-1/2" />
                 </div>
             ) : pr.data?.body ? (
-                <div className="border rounded p-4 whitespace-pre-wrap">{pr.data.body}</div>
+                <div className="border rounded p-4">
+                    <MarkdownRenderer content={pr.data.body} />
+                </div>
             ) : (
                 <div className="text-zinc-500 italic">No description provided.</div>
             )}
@@ -192,7 +195,7 @@ function CommentCard(props: { comment: UnifiedComment }) {
             )}
 
             {/* Body */}
-            <div className="whitespace-pre-wrap">{comment.body}</div>
+            <MarkdownRenderer content={comment.body} />
         </div>
     )
 }

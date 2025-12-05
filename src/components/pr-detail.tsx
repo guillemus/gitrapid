@@ -1,4 +1,5 @@
 import { DiffViewer, FileTreeSidebar } from '@/components/diff-viewer'
+import { MarkdownRenderer } from '@/components/markdown-renderer'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
@@ -66,12 +67,11 @@ export function PRDetail() {
                         </TabsList>
 
                         <TabsContent value="conversation">
-                            {data?.body && (
-                                <div className="border rounded p-4 whitespace-pre-wrap">
-                                    {data.body}
+                            {data?.body ? (
+                                <div className="border rounded p-4">
+                                    <MarkdownRenderer content={data.body} />
                                 </div>
-                            )}
-                            {!data?.body && (
+                            ) : (
                                 <div className="text-zinc-500 italic">No description provided.</div>
                             )}
                         </TabsContent>

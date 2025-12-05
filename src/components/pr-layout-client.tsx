@@ -3,6 +3,7 @@ import { qcopts } from '@/query-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
+import { formatDistanceToNow } from 'date-fns'
 
 export function PRLayoutClient(props: { children: React.ReactNode }) {
     let params = useParams({ strict: false }) as {
@@ -34,7 +35,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                     <h1 className="text-2xl font-bold mb-2">
                         #{data?.number} {data?.title}
                     </h1>
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-4 flex-wrap">
                         <div
                             className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${
                                 data?.state === 'open'
@@ -49,8 +50,33 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                             )}
                             {data?.state}
                         </div>
+                        <div className="flex items-center gap-2 text-sm">
+                            {data?.user?.avatar_url && (
+                                <img
+                                    src={data.user.avatar_url}
+                                    alt={data.user.login}
+                                    className="w-5 h-5 rounded-full"
+                                />
+                            )}
+                            <span className="text-zinc-500">
+                                <span className="font-medium text-zinc-900">
+                                    {data?.user?.login}
+                                </span>
+                                {data?.created_at && (
+                                    <>
+                                        {' '}
+                                        opened{' '}
+                                        <span className="font-medium">
+                                            {formatDistanceToNow(new Date(data.created_at), {
+                                                addSuffix: true,
+                                            })}
+                                        </span>
+                                    </>
+                                )}
+                            </span>
+                        </div>
                         <span className="text-zinc-500">
-                            {data?.user?.login} wants to merge {data?.changedFiles} commits into{' '}
+                            wants to merge {data?.changedFiles} commits into{' '}
                             {data?.base.repo.owner.login}:{data?.base.ref} from{' '}
                             {data?.head.repo?.owner.login}:{data?.head.ref}
                         </span>
@@ -59,6 +85,33 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                             <span className="text-red-600">-{data?.deletions}</span>
                         </span>
                     </div>
+
+                    {/* Labels and Milestone */}
+                    {(data?.labels && data.labels.length > 0) || data?.milestone ? (
+                        <div className="mb-4 flex gap-3 flex-wrap items-center">
+                            {data?.labels && data.labels.length > 0 && (
+                                <div className="flex gap-2 flex-wrap">
+                                    {data.labels.map((label) => (
+                                        <span
+                                            key={label.id}
+                                            className="text-xs px-2 py-1 rounded"
+                                            style={{
+                                                backgroundColor: `#${label.color}`,
+                                                color: getContrastColor(`#${label.color}`),
+                                            }}
+                                        >
+                                            {label.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {data?.milestone && (
+                                <span className="text-xs px-2 py-1 rounded border border-zinc-300">
+                                    📍 {data.milestone.title}
+                                </span>
+                            )}
+                        </div>
+                    ) : null}
 
                     <div className="border-b mb-4">
                         <div className="flex gap-4">
@@ -96,4 +149,13 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
             )}
         </div>
     )
+}
+
+function getContrastColor(hexColor: string): string {
+    const hex = hexColor.replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 155 ? '#000000' : '#FFFFFF'
 }

@@ -142,14 +142,13 @@ const PRSchema = z.object({
     ),
     user: z.object({
         login: z.string(),
+        avatar_url: z.string(),
     }),
     base: PRBranch,
     head: PRBranch,
 })
 
 export type PR = z.infer<typeof PRSchema>
-
-const PRListSchema = z.array(PRSchema.omit({ changedFiles: true }))
 
 export const getPR = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
@@ -168,11 +167,16 @@ export const getPR = createServerFn({ method: 'GET' })
                     headers,
                 }),
         )
+
         return PRSchema.parse({
             ...pullRequest,
             changedFiles: pullRequest.changed_files,
         })
     })
+
+const PRListSchema = z.array(PRSchema.omit({ changedFiles: true }))
+
+export type PRList = z.infer<typeof PRListSchema>
 
 export const listPRs = createServerFn({ method: 'GET' })
     .inputValidator(
@@ -228,6 +232,8 @@ const PRFileSchema = z.object({
     contents_url: z.string(),
 })
 
+export type PRFile = z.infer<typeof PRFileSchema>
+
 export const getPRFiles = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
@@ -268,6 +274,8 @@ const IssueSchema = z.object({
     ),
 })
 
+export type Issue = z.infer<typeof IssueSchema>
+
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
@@ -298,6 +306,8 @@ const CommentSchema = z.object({
         avatar_url: z.string(),
     }),
 })
+
+export type Comment = z.infer<typeof CommentSchema>
 
 export const getPRComments = createServerFn({ method: 'GET' })
     .inputValidator(
@@ -358,6 +368,8 @@ const ReviewCommentSchema = z.object({
     original_position: z.number().nullable(),
     line: z.number().nullable(),
 })
+
+export type ReviewComment = z.infer<typeof ReviewCommentSchema>
 
 export const getPRReviewComments = createServerFn({ method: 'GET' })
     .inputValidator(
