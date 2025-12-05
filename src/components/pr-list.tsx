@@ -42,13 +42,9 @@ export function PRList() {
     const hasNext = prs.data?.length === 10
 
     return (
-        <div className="min-h-screen p-8 font-sans">
+        <div className="min-h-screen font-sans">
             <PageContainer>
-                <h1 className="text-2xl font-bold mb-4">
-                    {owner}/{repo} - Pull Requests
-                </h1>
-
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between m-4">
                     <Tabs value={search.state} onValueChange={handleStateChange}>
                         <TabsList>
                             <TabsTrigger value="open">Open</TabsTrigger>

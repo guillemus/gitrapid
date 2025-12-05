@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { UserMenu } from '@/components/user-menu'
 import { authClient } from '@/lib/auth-client'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -38,6 +39,7 @@ function RouteComponent() {
     if (session.data?.user) {
         return (
             <div className="min-h-screen flex items-center justify-center">
+                <UserMenu />
                 <div className="text-center">
                     <h1 className="text-4xl font-bold mb-4">
                         Welcome back, {session.data.user.name}!

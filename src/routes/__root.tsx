@@ -1,5 +1,4 @@
 /// <reference types="vite/client" />
-import { UserMenu } from '@/components/user-menu'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import {
@@ -53,7 +52,6 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
                 {import.meta.env.DEV && (
                     <>
                         <script src="//unpkg.com/react-grab/dist/index.global.js"></script>
-                        <script src="//unpkg.com/@react-grab/opencode/dist/client.global.js"></script>
                     </>
                 )}
             </head>
@@ -66,9 +64,6 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
 
                 <ClientOnly>
                     <Toaster position="bottom-center" />
-                </ClientOnly>
-                <ClientOnly>
-                    <UserMenu />
                 </ClientOnly>
             </body>
         </html>
