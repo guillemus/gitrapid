@@ -9,5 +9,10 @@ export const appEnv = z
 
         UPSTASH_REDIS_REST_URL: z.string(),
         UPSTASH_REDIS_REST_TOKEN: z.string(),
+
+        POLAR_TOKEN: z.string(),
+        POLAR_WEBHOOK_SECRET: z.string(),
+        POLAR_PRODUCT_MONTHLY_ID: z.string(),
+        POLAR_PRODUCT_YEARLY_ID: z.string(),
     })
     .parse(process.env)

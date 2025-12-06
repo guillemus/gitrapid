@@ -13,6 +13,8 @@
         "knip": "knip"
     },
     "dependencies": {
+        "@polar-sh/better-auth": "^1.5.0",
+        "@polar-sh/sdk": "^0.41.5",
         "@primer/octicons-react": "^19.21.1",
         "@prisma/adapter-pg": "^7.1.0",
         "@prisma/client": "^7.1.0",

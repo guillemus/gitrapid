@@ -1,4 +1,4 @@
-import { DiffViewer, FileTreeSidebar } from '@/components/diff-viewer'
+import { DiffViewer } from '@/components/diff-viewer'
 import { qcopts } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'

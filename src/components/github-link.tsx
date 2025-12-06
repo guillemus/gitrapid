@@ -1,5 +1,5 @@
-import { useRouterState } from '@tanstack/react-router'
 import { LinkExternalIcon } from '@primer/octicons-react'
+import { useRouterState } from '@tanstack/react-router'
 
 export function GithubLink() {
     let routerState = useRouterState()
