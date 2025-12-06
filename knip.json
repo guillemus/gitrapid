@@ -1,0 +1,18 @@
+{
+    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "ignoreExportsUsedInFile": {
+        "interface": true,
+        "type": true
+    },
+    "tags": ["-lintignore"],
+    "entry": ["src/routes/**/*.{ts,tsx}", "src/server/**/*.{ts,tsx}", "src/router.tsx"],
+    "project": ["src/**/*.{ts,tsx}"],
+    "ignore": ["src/components/ui/**"],
+    "ignoreDependencies": [
+        "@tailwindcss/postcss",
+        "prettier-plugin-organize-imports",
+        "tailwindcss",
+        "tw-animate-css",
+        "vercel"
+    ]
+}

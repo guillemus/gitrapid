@@ -1,5 +1,7 @@
 import 'dotenv/config'
 
+import '@prisma/client'
+
 import { PrismaPg } from '@prisma/adapter-pg'
 import { attachDatabasePool } from '@vercel/functions'
 import { Pool } from 'pg'

@@ -9,7 +9,8 @@
         "start": "vite preview",
         "format": "prettier --write ./src --plugin prettier-plugin-organize-imports > /dev/null",
         "ts": "tsgo",
-        "lint": "eslint"
+        "lint": "eslint",
+        "knip": "knip"
     },
     "dependencies": {
         "@primer/octicons-react": "^19.21.1",
@@ -29,8 +30,8 @@
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
         "diff": "^8.0.2",
+        "dotenv": "^17.2.3",
         "idb-keyval": "^6.2.2",
-        "lucide-react": "^0.555.0",
         "nitro": "^3.0.1-alpha.1",
         "octokit": "^5.0.5",
         "prisma": "^7.1.0",
@@ -40,20 +41,20 @@
         "remark-gfm": "^4.0.1",
         "shiki": "^3.19.0",
         "sonner": "^2.0.7",
-        "tailwind-merge": "^3.4.0"
+        "tailwind-merge": "^3.4.0",
+        "zod": "^4.1.13"
     },
     "devDependencies": {
-        "@better-auth/cli": "^1.4.5",
         "@tailwindcss/postcss": "^4.1.17",
-        "@types/diff": "^8.0.0",
         "@types/node": "^24.10.1",
         "@types/pg": "^8.15.6",
         "@types/react": "^19.2.7",
         "@types/react-dom": "^19.2.3",
+        "@typescript/native-preview": "^7.0.0-dev.20251206.1",
         "@vitejs/plugin-react": "^5.1.1",
-        "daisyui": "^5.5.8",
         "eslint": "^9.39.1",
         "eslint-plugin-import": "^2.32.0",
+        "knip": "^5.71.0",
         "prettier": "^3.7.4",
         "prettier-plugin-organize-imports": "^4.3.0",
         "tailwindcss": "^4.1.17",

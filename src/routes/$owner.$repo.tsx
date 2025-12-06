@@ -1,3 +1,4 @@
+import { GithubLink } from '@/components/github-link'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { RepoNavLink } from '@/components/repo-nav-link'
 import { UserMenu } from '@/components/user-menu'
@@ -76,6 +77,9 @@ function RepoLayout() {
                             </span>
                         }
                     />
+                    <div className="ml-auto">
+                        <GithubLink />
+                    </div>
                 </div>
             </div>
 
