@@ -126,7 +126,7 @@ const PRSchema = z.object({
     state: z.string(),
     title: z.string(),
     number: z.number(),
-    body: z.string(),
+    body: z.string().nullable(),
     created_at: z.string(),
     milestone: z
         .object({

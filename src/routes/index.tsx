@@ -38,8 +38,10 @@ function RouteComponent() {
 
     if (session.data?.user) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <UserMenu />
+            <div className="relative min-h-screen flex items-center justify-center">
+                <div className="absolute top-6 right-6">
+                    <UserMenu />
+                </div>
                 <div className="text-center">
                     <h1 className="text-4xl font-bold mb-4">
                         Welcome back, {session.data.user.name}!
