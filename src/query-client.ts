@@ -69,6 +69,13 @@ type PRData = fns.PRList[number] & fns.PR
 
 export namespace qcopts {
     export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
+    export type ListOwnerReposData = Awaited<ReturnType<typeof fns.listOwnerRepos>>
+
+    export const listOwnerRepos = (owner: string, page: number) =>
+        queryOptions({
+            queryKey: ['repos', owner, page],
+            queryFn: () => fns.listOwnerRepos({ data: { owner, page } }),
+        })
 
     export const listPRs = (owner: string, repo: string, page: number, state: 'open' | 'closed') =>
         queryOptions({

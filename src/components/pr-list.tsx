@@ -66,6 +66,15 @@ export function PRList() {
                 <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">
                     {prs.isLoading ? (
                         <PRListSkeleton />
+                    ) : prs.data && prs.data.length === 0 ? (
+                        <div className="py-12 px-4 text-center">
+                            <p className="text-base font-semibold text-zinc-900 mb-2">
+                                No pull requests
+                            </p>
+                            <p className="text-sm text-zinc-600">
+                                There are no {search.state} pull requests.
+                            </p>
+                        </div>
                     ) : (
                         prs.data?.map((pr) => (
                             <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />

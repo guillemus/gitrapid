@@ -1,3 +1,4 @@
+import { PrefetchLink } from '@/components/prefetch-link'
 import { RepoNavLink } from '@/components/repo-nav-link'
 import { UserMenu } from '@/components/user-menu'
 import { qcopts } from '@/query-client'
@@ -27,7 +28,13 @@ function RepoLayout() {
                 {/* Title row */}
                 <div className="px-8 py-4 flex items-center justify-between">
                     <div>
-                        <span className="text-zinc-600">{params.owner}</span>
+                        <PrefetchLink
+                            to="/$owner"
+                            params={{ owner: params.owner }}
+                            className="text-zinc-600 hover:text-zinc-900 hover:underline transition-colors"
+                        >
+                            {params.owner}
+                        </PrefetchLink>
                         <span className="text-zinc-400 mx-2">/</span>
                         <span>{params.repo}</span>
                     </div>

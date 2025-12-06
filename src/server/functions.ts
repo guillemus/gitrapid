@@ -111,12 +111,14 @@ async function cachedRequest<T>(
 
 const PRBranch = z.object({
     ref: z.string(),
-    repo: z.object({
-        owner: z.object({
-            login: z.string(),
-        }),
-        ref: z.string().optional(),
-    }),
+    repo: z
+        .object({
+            owner: z.object({
+                login: z.string(),
+            }),
+            ref: z.string().optional(),
+        })
+        .nullable(),
 })
 
 const PRSchema = z.object({
@@ -411,6 +413,47 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
                 }),
         )
         return z.array(ReviewCommentSchema).parse(comments)
+    })
+
+const RepositorySchema = z.object({
+    name: z.string(),
+    description: z.string().nullable(),
+    stargazers_count: z.number(),
+    language: z.string().nullable(),
+    html_url: z.string(),
+})
+
+export type Repository = z.infer<typeof RepositorySchema>
+
+export const listOwnerRepos = createServerFn({ method: 'GET' })
+    .inputValidator(z.object({ owner: z.string(), page: z.number() }))
+    .handler(async ({ data }) => {
+        let userToken = await assertUserToken()
+        let octo = newOcto(userToken.token)
+
+        if (data.page !== 1) {
+            let res = await octo.rest.repos.listForUser({
+                username: data.owner,
+                page: data.page,
+                per_page: 10,
+            })
+
+            return z.array(RepositorySchema).parse(res.data)
+        }
+
+        const repositories = await cachedRequest(
+            userToken.userId,
+            `repos:${data.owner}:${data.page}`,
+            (headers) =>
+                octo.rest.repos.listForUser({
+                    username: data.owner,
+                    page: data.page,
+                    per_page: 10,
+                    headers,
+                }),
+        )
+
+        return z.array(RepositorySchema).parse(repositories)
     })
 
 const RepositoryStatsSchema = z.object({

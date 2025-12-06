@@ -70,8 +70,8 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
                         </div>
                         <span className="text-zinc-500">
                             wants to merge {data?.changedFiles} commits into{' '}
-                            {data?.base.repo.owner.login}:{data?.base.ref} from{' '}
-                            {data?.head.repo?.owner.login}:{data?.head.ref}
+                            {data?.base.repo?.owner.login ?? 'unknown'}:{data?.base.ref} from{' '}
+                            {data?.head.repo?.owner.login ?? 'unknown'}:{data?.head.ref}
                         </span>
                         <span className="text-sm text-zinc-500">
                             <span className="text-green-600">+{data?.additions}</span>{' '}
