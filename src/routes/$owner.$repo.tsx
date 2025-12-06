@@ -27,7 +27,11 @@ function RepoLayout() {
             {/* Header */}
             <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
                 {/* Title row */}
-                <div className="px-8 py-4 flex items-center justify-between">
+                <div className="px-8 py-4 flex items-center gap-3">
+                    {/* Logo */}
+                    <img src="/favicon.ico" alt="gitrapid" className="w-6 h-6" />
+
+                    {/* Owner/Repo */}
                     <div>
                         <PrefetchLink
                             to="/$owner"
@@ -39,6 +43,11 @@ function RepoLayout() {
                         <span className="text-zinc-400 mx-2">/</span>
                         <span>{params.repo}</span>
                     </div>
+
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* User menu */}
                     <UserMenu />
                 </div>
 

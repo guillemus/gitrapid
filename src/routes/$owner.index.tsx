@@ -2,6 +2,7 @@ import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { UserMenu } from '@/components/user-menu'
 import { qcopts } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
@@ -36,36 +37,56 @@ function OwnerRepos() {
     const hasNext = repos.data?.length === 10
 
     return (
-        <div className="min-h-screen font-sans">
-            <PageContainer>
-                <div className="flex items-center justify-between m-4">
-                    <h1 className="text-xl font-semibold text-zinc-900">
-                        {params.owner}'s repositories
-                    </h1>
+        <div className="min-h-screen flex flex-col font-sans">
+            {/* Header */}
+            <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
+                <div className="px-8 py-4 flex items-center gap-3">
+                    {/* Logo */}
+                    <img src="/favicon.ico" alt="gitrapid" className="w-6 h-6" />
 
-                    <div className="flex items-center gap-2">
-                        <Button onMouseDown={handlePrevPage} disabled={search.page === 1}>
-                            prev
-                        </Button>
-                        <span className="text-sm text-zinc-600">Page {search.page}</span>
-                        <Button onMouseDown={handleNextPage} disabled={!hasNext}>
-                            next
-                        </Button>
+                    {/* Owner name */}
+                    <span className="text-lg font-semibold text-zinc-900">{params.owner}</span>
+
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* User menu */}
+                    <UserMenu />
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1">
+                <PageContainer>
+                    <div className="flex items-center justify-between p-4">
+                        <span className="text-sm text-zinc-600">Repositories</span>
+
+                        <div className="flex items-center gap-2">
+                            <Button onMouseDown={handlePrevPage} disabled={search.page === 1}>
+                                prev
+                            </Button>
+                            <span className="text-sm text-zinc-600">Page {search.page}</span>
+                            <Button onMouseDown={handleNextPage} disabled={!hasNext}>
+                                next
+                            </Button>
+                        </div>
                     </div>
-                </div>
 
-                <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">
-                    {repos.isLoading ? (
-                        <RepoListSkeleton />
-                    ) : repos.data?.length === 0 ? (
-                        <div className="p-8 text-center text-zinc-500">No repositories found</div>
-                    ) : (
-                        repos.data?.map((repo) => (
-                            <RepoListItem key={repo.name} owner={params.owner} repo={repo} />
-                        ))
-                    )}
-                </div>
-            </PageContainer>
+                    <div className="border border-zinc-200 rounded-md overflow-hidden">
+                        {repos.isLoading ? (
+                            <RepoListSkeleton />
+                        ) : repos.data?.length === 0 ? (
+                            <div className="p-8 text-center text-zinc-500">
+                                No repositories found
+                            </div>
+                        ) : (
+                            repos.data?.map((repo) => (
+                                <RepoListItem key={repo.name} owner={params.owner} repo={repo} />
+                            ))
+                        )}
+                    </div>
+                </PageContainer>
+            </div>
         </div>
     )
 }

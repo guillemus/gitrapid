@@ -1,10 +1,10 @@
 import { auth } from '@/auth'
-import { polar } from '@/polar'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
+import { polar } from '@/polar'
+import { ResourceNotFound } from '@polar-sh/sdk/models/errors/resourcenotfound'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { ResourceNotFound } from '@polar-sh/sdk/models/errors/resourcenotfound'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
 
