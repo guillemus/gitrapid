@@ -12,6 +12,9 @@ export const Route = createFileRoute('/$owner/')({
         page: z.coerce.number().default(1),
     }),
     component: OwnerRepos,
+    loader: async ({ context: { queryClient }, params }) => {
+        queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, 1))
+    },
 })
 
 function OwnerRepos() {
