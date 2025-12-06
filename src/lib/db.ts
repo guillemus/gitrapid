@@ -1,5 +1,6 @@
 import 'dotenv/config'
 
+// the generated code uses prisma client internally, but knip reports unused errors. This silences it.
 import '@prisma/client'
 
 import { PrismaPg } from '@prisma/adapter-pg'
@@ -38,3 +39,5 @@ if (!import.meta.env.PROD) {
 }
 
 export { prisma }
+
+// @llm-script
