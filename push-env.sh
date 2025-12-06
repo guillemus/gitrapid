@@ -33,7 +33,10 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   value="${value#\'}"
 
   echo "Adding $key..."
-  printf '%s' "$value" | vercel env add "$key" "$ENVIRONMENT" --force
+  tmpfile=$(mktemp)
+  printf '%s' "$value" > "$tmpfile"
+  bunx vercel env add "$key" "$ENVIRONMENT" --force < "$tmpfile"
+  rm "$tmpfile"
 done < "$ENV_FILE"
 
 echo "Done!"
