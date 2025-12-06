@@ -32,6 +32,7 @@ export const auth = betterAuth({
                     authenticatedUsersOnly: true,
                 }),
                 portal(),
+                // full path is https://<domain>/api/auth/polar/webhooks
                 webhooks({
                     secret: appEnv.POLAR_WEBHOOK_SECRET,
                     onCustomerStateChanged: async (payload) => {

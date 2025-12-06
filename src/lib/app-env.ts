@@ -11,6 +11,7 @@ export const appEnv = z
         UPSTASH_REDIS_REST_TOKEN: z.string(),
 
         POLAR_TOKEN: z.string(),
+        POLAR_SERVER: z.union([z.literal('sandbox'), z.literal('production')]),
         POLAR_WEBHOOK_SECRET: z.string(),
         POLAR_PRODUCT_MONTHLY_ID: z.string(),
         POLAR_PRODUCT_YEARLY_ID: z.string(),
