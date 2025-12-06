@@ -11,7 +11,6 @@ export function GithubLink() {
     function Inner() {
         let routerState = useRouterState()
         let path = routerState.location.pathname
-        console.log(path)
         return (
             <div className="absolute top-0 right-0">
                 <a href={`https://github.com${path}`} target="_blank">
