@@ -1,14 +1,17 @@
 import { auth } from '@/auth'
+import { polar } from '@/polar'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { ResourceNotFound } from '@polar-sh/sdk/models/errors/resourcenotfound'
 import { Octokit } from 'octokit'
 import { z } from 'zod'
 
 const ETAG_CACHING = true
 
 export const UNAUTHORIZED_ERROR = 'unauthorized'
+export const NO_SUBSCRIPTION_ERROR = 'no_subscription'
 
 async function timedRequest<T>(
     cacheKey: string,
@@ -38,7 +41,12 @@ async function timedRequest<T>(
     }
 }
 
-async function assertUserToken() {
+type User = {
+    userId: string
+    token: string
+}
+
+async function assertUser(): Promise<User> {
     const request = getRequest()
     const session = await auth.api.getSession({ headers: request.headers })
 
@@ -55,6 +63,24 @@ async function assertUserToken() {
 
     if (!account?.accessToken) {
         throw new Error(UNAUTHORIZED_ERROR)
+    }
+
+    try {
+        const customerState = await polar.customers.getStateExternal({
+            externalId: session.user.id,
+        })
+
+        if (customerState?.activeSubscriptions?.length === 0) {
+            throw new Error(NO_SUBSCRIPTION_ERROR)
+        }
+    } catch (error) {
+        // Customer not found in Polar yet (404 ResourceNotFound)
+        // This is expected for new users who haven't completed checkout yet
+        if (error instanceof ResourceNotFound) {
+            throw new Error(NO_SUBSCRIPTION_ERROR)
+        } else {
+            throw error
+        }
     }
 
     return { userId: session.user.id, token: account.accessToken }
@@ -155,11 +181,11 @@ export type PR = z.infer<typeof PRSchema>
 export const getPR = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }): Promise<PR> => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const pullRequest = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `pr:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.get({
@@ -190,8 +216,8 @@ export const listPRs = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         if (data.page !== 1 || data.state !== 'open') {
             let res = await octo.rest.pulls.list({
@@ -206,7 +232,7 @@ export const listPRs = createServerFn({ method: 'GET' })
         }
 
         const pullRequests = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `prs:${data.owner}/${data.repo}`,
             (headers) =>
                 octo.rest.pulls.list({
@@ -239,11 +265,11 @@ export type PRFile = z.infer<typeof PRFileSchema>
 export const getPRFiles = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const files = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `pr-files:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.listFiles({
@@ -281,11 +307,11 @@ export type Issue = z.infer<typeof IssueSchema>
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const issues = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `issues:${data.owner}/${data.repo}`,
             (headers) =>
                 octo.rest.issues.listForRepo({
@@ -321,8 +347,8 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const page = data.page ?? 1
         if (page !== 1) {
@@ -338,7 +364,7 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }
 
         const comments = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `pr-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.issues.listComments({
@@ -383,8 +409,8 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const page = data.page ?? 1
         if (page !== 1) {
@@ -400,7 +426,7 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }
 
         const comments = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `pr-review-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
                 octo.rest.pulls.listReviewComments({
@@ -428,8 +454,8 @@ export type Repository = z.infer<typeof RepositorySchema>
 export const listOwnerRepos = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), page: z.number() }))
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         if (data.page !== 1) {
             let res = await octo.rest.repos.listForUser({
@@ -442,7 +468,7 @@ export const listOwnerRepos = createServerFn({ method: 'GET' })
         }
 
         const repositories = await cachedRequest(
-            userToken.userId,
+            user.userId,
             `repos:${data.owner}:${data.page}`,
             (headers) =>
                 octo.rest.repos.listForUser({
@@ -475,8 +501,8 @@ export type RepositoryStats = {
 export const getRepositoryStats = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        let userToken = await assertUserToken()
-        let octo = newOcto(userToken.token)
+        let user = await assertUser()
+        let octo = newOcto(user.token)
 
         const response = await octo.graphql(
             `query ($owner: String!, $repo: String!) {

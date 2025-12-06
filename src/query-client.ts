@@ -19,6 +19,12 @@ function newQueryClient() {
         },
         queryCache: new QueryCache({
             onError: (error) => {
+                if (error?.message === fns.NO_SUBSCRIPTION_ERROR) {
+                    toast.error('Subscription required')
+                    window.location.href = '/pricing'
+                    return
+                }
+
                 if (error?.message === fns.UNAUTHORIZED_ERROR) {
                     const callbackURL = window.location.pathname + window.location.search
                     sessionStorage.setItem('auth_callback', callbackURL)
