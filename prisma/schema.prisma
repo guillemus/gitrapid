@@ -50,6 +50,7 @@ model user {
     updatedAt     DateTime  @default(now()) @db.Timestamptz(6)
     account       account[]
     session       session[]
+    subscription  subscription?
 }
 
 model verification {
@@ -61,4 +62,17 @@ model verification {
     updatedAt  DateTime @default(now()) @db.Timestamptz(6)
 
     @@index([identifier])
+}
+
+model subscription {
+    id                  String    @id @default(cuid())
+    userId              String    @unique
+    polarCustomerId     String?
+    polarSubscriptionId String?
+    productId           String?
+    status              String    @default("none")
+    currentPeriodEnd    DateTime? @db.Timestamptz(6)
+    createdAt           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedAt           DateTime  @updatedAt @db.Timestamptz(6)
+    user                user      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

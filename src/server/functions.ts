@@ -1,8 +1,6 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
-import { polar } from '@/polar'
-import { ResourceNotFound } from '@polar-sh/sdk/models/errors/resourcenotfound'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { Octokit } from 'octokit'
@@ -65,22 +63,13 @@ async function assertUser(): Promise<User> {
         throw new Error(UNAUTHORIZED_ERROR)
     }
 
-    try {
-        const customerState = await polar.customers.getStateExternal({
-            externalId: session.user.id,
-        })
+    const subscription = await prisma.subscription.findUnique({
+        where: { userId: session.user.id },
+    })
 
-        if (customerState?.activeSubscriptions?.length === 0) {
-            throw new Error(NO_SUBSCRIPTION_ERROR)
-        }
-    } catch (error) {
-        // Customer not found in Polar yet (404 ResourceNotFound)
-        // This is expected for new users who haven't completed checkout yet
-        if (error instanceof ResourceNotFound) {
-            throw new Error(NO_SUBSCRIPTION_ERROR)
-        } else {
-            throw error
-        }
+    // Check if subscription exists and is active or trialing
+    if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
+        throw new Error(NO_SUBSCRIPTION_ERROR)
     }
 
     return { userId: session.user.id, token: account.accessToken }

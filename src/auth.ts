@@ -1,4 +1,5 @@
 import { appEnv } from '@/lib/app-env'
+import { prisma } from '@/lib/db'
 import { polar } from '@/polar'
 import { checkout, polar as polarPlugin, portal, webhooks } from '@polar-sh/better-auth'
 import { betterAuth } from 'better-auth'
@@ -34,7 +35,29 @@ export const auth = betterAuth({
                 webhooks({
                     secret: appEnv.POLAR_WEBHOOK_SECRET,
                     onCustomerStateChanged: async (payload) => {
-                        console.log('Customer state changed:', payload)
+                        const userId = payload.data.externalId
+                        if (!userId) return
+
+                        const activeSub = payload.data.activeSubscriptions?.[0]
+                        const status = activeSub ? activeSub.status : 'none'
+
+                        await prisma.subscription.upsert({
+                            where: { userId },
+                            create: {
+                                userId,
+                                polarCustomerId: payload.data.id,
+                                polarSubscriptionId: activeSub?.id ?? null,
+                                productId: activeSub?.productId ?? null,
+                                status,
+                                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
+                            },
+                            update: {
+                                polarSubscriptionId: activeSub?.id ?? null,
+                                productId: activeSub?.productId ?? null,
+                                status,
+                                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
+                            },
+                        })
                     },
                 }),
             ],
