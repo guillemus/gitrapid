@@ -3,56 +3,6 @@ import * as fns from '@/server/functions'
 import React from 'react'
 import { codeToHtml } from 'shiki'
 
-type FileTreeNode = {
-    name: string
-    path: string
-    type: 'file' | 'folder'
-    children?: FileTreeNode[]
-    additions?: number
-    deletions?: number
-}
-
-function buildFileTree(files: Awaited<ReturnType<typeof fns.getPRFiles>>): FileTreeNode {
-    const root: FileTreeNode = { name: '', path: '', type: 'folder', children: [] }
-
-    for (const file of files) {
-        const parts = file.filename.split('/')
-        let currentNode = root
-
-        for (let i = 0; i < parts.length; i++) {
-            const part = parts[i]
-            const isFile = i === parts.length - 1
-            const path = parts.slice(0, i + 1).join('/')
-
-            if (!currentNode.children) {
-                currentNode.children = []
-            }
-
-            let childNode = currentNode.children.find((n) => n.name === part)
-
-            if (!childNode) {
-                childNode = {
-                    name: part,
-                    path: path,
-                    type: isFile ? 'file' : 'folder',
-                    children: isFile ? undefined : [],
-                }
-
-                if (isFile) {
-                    childNode.additions = file.additions
-                    childNode.deletions = file.deletions
-                }
-
-                currentNode.children.push(childNode)
-            }
-
-            currentNode = childNode
-        }
-    }
-
-    return root
-}
-
 function DiffLineRow(props: { line: DiffLine; idx: number }) {
     let bgColor = 'bg-white'
     if (props.line.type === 'add') {
@@ -169,57 +119,6 @@ function FileChange(props: {
             )}
         </div>
     )
-}
-
-function FileTreeItem(props: { node: FileTreeNode; depth: number }) {
-    const handleClick = () => {
-        if (props.node.type === 'file') {
-            const element = document.getElementById(props.node.path)
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
-        }
-    }
-
-    let content = null
-
-    if (props.node.type === 'folder' && props.node.children) {
-        content = (
-            <div>
-                <div
-                    className="py-1 px-2 text-zinc-700 font-medium"
-                    style={{ paddingLeft: `${props.depth * 12}px` }}
-                >
-                    {props.node.name}/
-                </div>
-                {props.node.children.map((child) => (
-                    <FileTreeItem key={child.path} node={child} depth={props.depth + 1} />
-                ))}
-            </div>
-        )
-    }
-
-    if (props.node.type === 'file') {
-        content = (
-            <div
-                className="py-1 px-2 cursor-pointer hover:bg-zinc-100 text-sm"
-                style={{ paddingLeft: `${props.depth * 12}px` }}
-                onClick={handleClick}
-            >
-                <span className="text-zinc-900">{props.node.name}</span>
-                <span className="text-xs ml-2">
-                    {props.node.additions! > 0 && (
-                        <span className="text-green-600">+{props.node.additions} </span>
-                    )}
-                    {props.node.deletions! > 0 && (
-                        <span className="text-red-600">-{props.node.deletions}</span>
-                    )}
-                </span>
-            </div>
-        )
-    }
-
-    return content
 }
 
 export function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
