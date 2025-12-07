@@ -1,6 +1,5 @@
 import { appEnv } from '@/lib/app-env'
-import { prisma } from '@/lib/db'
-import { polar } from '@/polar'
+import { polar, syncSubscriptionByPolarCustomerId } from '@/polar'
 import { checkout, polar as polarPlugin, portal, webhooks } from '@polar-sh/better-auth'
 import { betterAuth } from 'better-auth'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
@@ -36,29 +35,16 @@ export const auth = betterAuth({
                 webhooks({
                     secret: appEnv.POLAR_WEBHOOK_SECRET,
                     onCustomerStateChanged: async (payload) => {
-                        const userId = payload.data.externalId
-                        if (!userId) return
+                        if (import.meta.env.DEV) {
+                            console.debug('onCustomerStateChanged (syncing fresh state)', payload)
+                        }
 
-                        const activeSub = payload.data.activeSubscriptions?.[0]
-                        const status = activeSub ? activeSub.status : 'none'
+                        const polarCustomerId = payload.data.id
+                        if (!polarCustomerId) {
+                            return
+                        }
 
-                        await prisma.subscription.upsert({
-                            where: { userId },
-                            create: {
-                                userId,
-                                polarCustomerId: payload.data.id,
-                                polarSubscriptionId: activeSub?.id ?? null,
-                                productId: activeSub?.productId ?? null,
-                                status,
-                                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
-                            },
-                            update: {
-                                polarSubscriptionId: activeSub?.id ?? null,
-                                productId: activeSub?.productId ?? null,
-                                status,
-                                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
-                            },
-                        })
+                        await syncSubscriptionByPolarCustomerId(polarCustomerId)
                     },
                 }),
             ],

@@ -1,5 +1,11 @@
 import * as fns from '@/server/functions'
-import { QueryCache, QueryClient, queryOptions, useQueryClient } from '@tanstack/react-query'
+import {
+    QueryCache,
+    QueryClient,
+    queryOptions,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
 import { toast } from 'sonner'
@@ -12,20 +18,22 @@ function newQueryClient() {
             queries: {
                 staleTime: 10 * 1000,
                 retry: (failureCount, error) => {
-                    if (error?.message === fns.UNAUTHORIZED_ERROR) return false
+                    if (error?.message === fns.ERR_UNAUTHORIZED) return false
+                    if (error?.message === fns.ERR_NO_SUBSCRIPTION_FOUND) return false
+
                     return failureCount < 3
                 },
             },
         },
         queryCache: new QueryCache({
             onError: (error) => {
-                if (error?.message === fns.NO_SUBSCRIPTION_ERROR) {
+                if (error?.message === fns.ERR_NO_SUBSCRIPTION_FOUND) {
                     toast.error('Subscription required')
                     window.location.href = '/pricing'
                     return
                 }
 
-                if (error?.message === fns.UNAUTHORIZED_ERROR) {
+                if (error?.message === fns.ERR_UNAUTHORIZED) {
                     const callbackURL = window.location.pathname + window.location.search
                     sessionStorage.setItem('auth_callback', callbackURL)
 
@@ -159,4 +167,20 @@ export namespace qcopts {
             queryKey: ['repository-stats', owner, repo],
             queryFn: () => fns.getRepositoryStats({ data: { owner, repo } }),
         })
+
+    export type GetUserData = Awaited<ReturnType<typeof fns.getUser>>
+
+    export const useUser = () => {
+        let user = useQuery(
+            queryOptions({
+                queryKey: ['user'],
+                queryFn: () => fns.getUser(),
+                staleTime: 0,
+                gcTime: 0,
+            }),
+            qcMem,
+        )
+
+        return user
+    }
 }

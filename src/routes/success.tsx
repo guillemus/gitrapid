@@ -1,54 +1,9 @@
-import { auth } from '@/auth'
 import { PageContainer } from '@/components/page-container'
 import { Button } from '@/components/ui/button'
-import { prisma } from '@/lib/db'
-import { polar } from '@/polar'
+import { syncSubscriptionAfterCheckout } from '@/server/functions'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/react-start/server'
 import { useEffect } from 'react'
-
-const syncSubscriptionAfterCheckout = createServerFn({ method: 'POST' }).handler(async () => {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
-
-    if (!session) {
-        return { success: false, error: 'Not authenticated' }
-    }
-
-    try {
-        const customerState = await polar.customers.getStateExternal({
-            externalId: session.user.id,
-        })
-
-        const activeSub = customerState.activeSubscriptions?.[0]
-        const status = activeSub ? activeSub.status : 'none'
-
-        await prisma.subscription.upsert({
-            where: { userId: session.user.id },
-            create: {
-                userId: session.user.id,
-                polarCustomerId: customerState.id,
-                polarSubscriptionId: activeSub?.id ?? null,
-                productId: activeSub?.productId ?? null,
-                status,
-                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
-            },
-            update: {
-                polarSubscriptionId: activeSub?.id ?? null,
-                productId: activeSub?.productId ?? null,
-                status,
-                currentPeriodEnd: activeSub?.currentPeriodEnd ?? null,
-            },
-        })
-
-        return { success: true }
-    } catch (error) {
-        console.error('Sync failed:', error)
-        return { success: false, error: 'Sync failed. Please refresh the page.' }
-    }
-})
 
 export const Route = createFileRoute('/success')({
     component: SuccessPage,
@@ -58,15 +13,12 @@ function SuccessPage() {
     const navigate = useNavigate()
     const mutation = useMutation({
         mutationFn: syncSubscriptionAfterCheckout,
-        onSuccess: () => {
-            navigate({ to: '/' })
-        },
     })
 
     // Sync subscription on mount to handle webhook race conditions and persist checkout data
     useEffect(() => {
         mutation.mutate(undefined)
-    }, [mutation])
+    }, [])
 
     if (mutation.isPending) {
         return (

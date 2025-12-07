@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
+import { syncSubscriptionByUserId } from '@/polar'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { Octokit } from 'octokit'
@@ -8,8 +9,8 @@ import { z } from 'zod'
 
 const ETAG_CACHING = true
 
-export const UNAUTHORIZED_ERROR = 'unauthorized'
-export const NO_SUBSCRIPTION_ERROR = 'no_subscription'
+export const ERR_UNAUTHORIZED = 'error_unauthorized'
+export const ERR_NO_SUBSCRIPTION_FOUND = 'error_no_subscription_found'
 
 async function timedRequest<T>(
     cacheKey: string,
@@ -49,7 +50,7 @@ async function assertUser(): Promise<User> {
     const session = await auth.api.getSession({ headers: request.headers })
 
     if (!session) {
-        throw new Error(UNAUTHORIZED_ERROR)
+        throw new Error(ERR_UNAUTHORIZED)
     }
 
     const account = await prisma.account.findFirst({
@@ -60,7 +61,7 @@ async function assertUser(): Promise<User> {
     })
 
     if (!account?.accessToken) {
-        throw new Error(UNAUTHORIZED_ERROR)
+        throw new Error(ERR_UNAUTHORIZED)
     }
 
     const subscription = await prisma.subscription.findUnique({
@@ -69,7 +70,7 @@ async function assertUser(): Promise<User> {
 
     // Check if subscription exists and is active or trialing
     if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
-        throw new Error(NO_SUBSCRIPTION_ERROR)
+        throw new Error(ERR_NO_SUBSCRIPTION_FOUND)
     }
 
     return { userId: session.user.id, token: account.accessToken }
@@ -516,3 +517,41 @@ export const getRepositoryStats = createServerFn({ method: 'GET' })
 
         return res
     })
+
+export const getUser = createServerFn({ method: 'GET' }).handler(async () => {
+    const request = getRequest()
+    const session = await auth.api.getSession({ headers: request.headers })
+
+    if (!session) {
+        return null
+    }
+
+    const subscription = await prisma.subscription.findUnique({
+        where: { userId: session.user.id },
+    })
+
+    return {
+        user: session.user,
+        session,
+        subscription,
+    }
+})
+
+export const syncSubscriptionAfterCheckout = createServerFn({ method: 'POST' }).handler(
+    async () => {
+        const request = getRequest()
+        const session = await auth.api.getSession({ headers: request.headers })
+
+        if (!session) {
+            return { success: false, error: 'Not authenticated' }
+        }
+
+        try {
+            await syncSubscriptionByUserId(session.user.id)
+            return { success: true }
+        } catch (error) {
+            console.error('Sync failed:', error)
+            return { success: false, error: 'Sync failed. Please refresh the page.' }
+        }
+    },
+)

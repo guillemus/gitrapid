@@ -4,10 +4,15 @@ import { nitro } from 'nitro/vite'
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 
+const allowedHosts = ['dev.test']
+if (process.env.NGROK_HOST) {
+    allowedHosts.push(process.env.NGROK_HOST)
+}
+
 export default defineConfig({
     server: {
         port: 3000,
-        allowedHosts: ['dev.test'],
+        allowedHosts,
     },
     plugins: [
         tsConfigPaths(),

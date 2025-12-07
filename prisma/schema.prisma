@@ -71,7 +71,13 @@ model subscription {
     polarSubscriptionId String?
     productId           String?
     status              String    @default("none")
+    currentPeriodStart  DateTime? @db.Timestamptz(6)
     currentPeriodEnd    DateTime? @db.Timestamptz(6)
+    startedAt           DateTime? @db.Timestamptz(6)
+    cancelAtPeriodEnd   Boolean   @default(false)
+    canceledAt          DateTime? @db.Timestamptz(6)
+    endsAt              DateTime? @db.Timestamptz(6)
+    recurringInterval   String?
     createdAt           DateTime  @default(now()) @db.Timestamptz(6)
     updatedAt           DateTime  @updatedAt @db.Timestamptz(6)
     user                user      @relation(fields: [userId], references: [id], onDelete: Cascade)

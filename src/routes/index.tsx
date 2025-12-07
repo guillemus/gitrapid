@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/user-menu'
 import { authClient } from '@/lib/auth-client'
+import { qcopts } from '@/query-client'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
@@ -9,7 +10,7 @@ export const Route = createFileRoute('/')({
 })
 
 function RouteComponent() {
-    const session = authClient.useSession()
+    const user = qcopts.useUser()
     const [callbackURL, setCallbackURL] = useState('/')
 
     useEffect(() => {
@@ -32,11 +33,11 @@ function RouteComponent() {
             .finally(() => setIsGithubLoading(false))
     }
 
-    if (session.isPending) {
+    if (user.isPending) {
         return null
     }
 
-    if (session.data?.user) {
+    if (user.data?.user) {
         return (
             <div className="relative min-h-screen flex items-center justify-center">
                 <div className="absolute top-6 right-6">
@@ -44,7 +45,7 @@ function RouteComponent() {
                 </div>
                 <div className="text-center">
                     <h1 className="text-4xl font-bold mb-4">
-                        Welcome back, {session.data.user.name}!
+                        Welcome back, {user.data.user.name}!
                     </h1>
                     <p className="text-gray-600 mb-4">Navigate to a repository to get started</p>
                     <p className="text-sm text-gray-500">e.g., /owner/repo/pulls</p>

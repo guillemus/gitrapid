@@ -39,5 +39,3 @@ if (!import.meta.env.PROD) {
 }
 
 export { prisma }
-
-// @llm-script
