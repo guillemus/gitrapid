@@ -37,7 +37,7 @@ function PricingPage() {
                         <h2 className="text-2xl font-bold mb-2">Monthly Plan</h2>
                         <p className="text-gray-600 mb-4">Perfect for getting started</p>
                         <div className="mb-6">
-                            <span className="text-4xl font-bold">$9</span>
+                            <span className="text-4xl font-bold">$8</span>
                             <span className="text-gray-600 ml-2">/month</span>
                         </div>
 

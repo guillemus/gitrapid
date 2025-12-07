@@ -40,3 +40,4 @@ next-env.d.ts
 .data*
 /src/generated/prisma
 /src/routeTree.gen.ts
+.opencode

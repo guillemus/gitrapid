@@ -4,7 +4,6 @@ import { checkout, polar as polarPlugin, portal, webhooks } from '@polar-sh/bett
 import { betterAuth } from 'better-auth'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { Pool } from 'pg'
-import type { PrismaClient } from './generated/prisma/internal/class'
 
 export const auth = betterAuth({
     database: new Pool({

@@ -25,12 +25,10 @@ function RouteComponent() {
 
     const handleLogin = async () => {
         setIsGithubLoading(true)
-        await authClient.signIn
-            .social({
-                provider: 'github',
-                callbackURL: callbackURL,
-            })
-            .finally(() => setIsGithubLoading(false))
+        await authClient.signIn.social({
+            provider: 'github',
+            callbackURL: callbackURL,
+        })
     }
 
     if (user.isPending) {

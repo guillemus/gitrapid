@@ -222,21 +222,6 @@ function FileTreeItem(props: { node: FileTreeNode; depth: number }) {
     return content
 }
 
-export function FileTreeSidebar(props: { files: Awaited<ReturnType<typeof fns.getPRFiles>> }) {
-    const tree = buildFileTree(props.files)
-
-    return (
-        <div className="w-64 shrink-0 sticky top-0 h-screen overflow-y-auto border-r bg-white font-mono text-sm">
-            <div className="p-3 border-b font-semibold text-zinc-800">Files</div>
-            <div className="py-2">
-                {tree.children?.map((child) => (
-                    <FileTreeItem key={child.path} node={child} depth={0} />
-                ))}
-            </div>
-        </div>
-    )
-}
-
 export function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
     const [highlightedFiles, setHighlightedFiles] = React.useState<Map<string, string>>(new Map())
 

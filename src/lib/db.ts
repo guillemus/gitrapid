@@ -1,8 +1,5 @@
 import 'dotenv/config'
 
-// the generated code uses prisma client internally, but knip reports unused errors. This silences it.
-import '@prisma/client'
-
 import { PrismaPg } from '@prisma/adapter-pg'
 import { attachDatabasePool } from '@vercel/functions'
 import { Pool } from 'pg'
