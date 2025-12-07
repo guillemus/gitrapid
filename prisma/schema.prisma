@@ -41,13 +41,13 @@ model session {
 }
 
 model user {
-    id            String    @id
+    id            String        @id
     name          String
-    email         String    @unique
+    email         String        @unique
     emailVerified Boolean
     image         String?
-    createdAt     DateTime  @default(now()) @db.Timestamptz(6)
-    updatedAt     DateTime  @default(now()) @db.Timestamptz(6)
+    createdAt     DateTime      @default(now()) @db.Timestamptz(6)
+    updatedAt     DateTime      @default(now()) @db.Timestamptz(6)
     account       account[]
     session       session[]
     subscription  subscription?
