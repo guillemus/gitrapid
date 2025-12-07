@@ -3,7 +3,7 @@ import { UserMenu } from '@/components/user-menu'
 import { authClient } from '@/lib/auth-client'
 import { qcopts } from '@/query-client'
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/')({
     component: RouteComponent,
@@ -11,15 +11,15 @@ export const Route = createFileRoute('/')({
 
 function RouteComponent() {
     const user = qcopts.useUser()
-    const [callbackURL, setCallbackURL] = useState('/')
-
-    useEffect(() => {
+    const [callbackURL] = useState(() => {
         const saved = sessionStorage.getItem('auth_callback')
+        sessionStorage.removeItem('auth_callback')
         if (saved) {
-            setCallbackURL(saved)
-            sessionStorage.removeItem('auth_callback')
+            return saved
         }
-    }, [])
+
+        return '/'
+    })
 
     const [isGithubLoading, setIsGithubLoading] = useState(false)
 

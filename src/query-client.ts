@@ -170,8 +170,8 @@ export namespace qcopts {
 
     export type GetUserData = Awaited<ReturnType<typeof fns.getUser>>
 
-    export const useUser = () => {
-        let user = useQuery(
+    export const useUser = () =>
+        useQuery(
             queryOptions({
                 queryKey: ['user'],
                 queryFn: () => fns.getUser(),
@@ -180,7 +180,4 @@ export namespace qcopts {
             }),
             qcMem,
         )
-
-        return user
-    }
 }
