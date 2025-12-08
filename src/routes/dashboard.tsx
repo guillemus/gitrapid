@@ -2,15 +2,15 @@ import { HeaderDashboard } from '@/components/header'
 import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qcopts } from '@/query-client'
-import * as fns from '@/server/functions'
+import { qcMem, qcopts } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dashboard')({
     component: RouteComponent,
     async loader({ context: { queryClient } }) {
-        let user = await fns.getUser()
+        // fetching the query here so that we can properly redirect.
+        let user = await qcMem.fetchQuery(qcopts.getUserOpts)
         if (!user?.user) {
             throw redirect({ to: '/' })
         }

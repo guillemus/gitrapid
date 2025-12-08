@@ -1,7 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { ComingSoon } from '@/components/coming-soon'
+import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/$owner/$repo/')({
-    loader({ params }) {
-        throw redirect({ to: '/$owner/$repo/pulls', params })
-    },
+    component: CodePage,
 })
+
+function CodePage() {
+    return <ComingSoon />
+}
