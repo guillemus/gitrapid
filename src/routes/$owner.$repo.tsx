@@ -29,7 +29,7 @@ function RepoLayout() {
                 {/* Title row */}
                 <div className="px-8 py-4 flex items-center gap-3">
                     {/* Logo */}
-                    <img src="/favicon.ico" alt="gitrapid" className="w-6 h-6" />
+                    <img src="/favicon.png" alt="gitrapid" className="w-6 h-6" />
 
                     {/* Owner/Repo */}
                     <div>

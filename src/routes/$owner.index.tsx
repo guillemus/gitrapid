@@ -42,7 +42,7 @@ function OwnerRepos() {
             <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
                 <div className="px-8 py-4 flex items-center gap-3">
                     {/* Logo */}
-                    <img src="/favicon.ico" alt="gitrapid" className="w-6 h-6" />
+                    <img src="/favicon.png" alt="gitrapid" className="w-6 h-6" />
 
                     {/* Owner name */}
                     <span className="text-lg font-semibold text-zinc-900">{params.owner}</span>
