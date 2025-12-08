@@ -87,7 +87,7 @@ export function PRConversation() {
         if (!sentinel) return
 
         let observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
+            if (entries[0]?.isIntersecting) {
                 if (issueComments.hasNextPage && !issueComments.isFetchingNextPage) {
                     issueComments.fetchNextPage()
                 }
