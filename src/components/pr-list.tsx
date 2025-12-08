@@ -1,10 +1,17 @@
 import { PageContainer } from '@/components/page-container'
-import { qcMem } from '@/query-client'
+import { qcDefault, qcMem } from '@/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 
 import { PrefetchLink } from '@/components/prefetch-link'
-import { Button } from '@/components/ui/button'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { qcopts } from '@/query-client'
@@ -25,6 +32,11 @@ export function PRList() {
         }
     }
 
+    const shouldPersist = search.state === 'open' && search.page === 1
+    const queryClient = shouldPersist ? qcDefault : qcMem
+
+    const prs = useQuery(qcopts.listPRs(owner, repo, search.page, search.state), queryClient)
+
     const handlePrevPage = () => {
         if (search.page > 1) {
             navigate({ search: (old) => ({ ...old, page: old.page - 1 }) })
@@ -35,10 +47,15 @@ export function PRList() {
         navigate({ search: (old) => ({ ...old, page: old.page + 1 }) })
     }
 
-    // Use qcMem for closed state, qcPersistent (router context) for open state
-    const queryClient = search.state === 'closed' ? qcMem : undefined
+    const prefetchPrev = () => {
+        if (search.page > 1) {
+            queryClient?.prefetchQuery(qcopts.listPRs(owner, repo, search.page - 1, search.state))
+        }
+    }
 
-    const prs = useQuery(qcopts.listPRs(owner, repo, search.page, search.state), queryClient)
+    const prefetchNext = () => {
+        queryClient?.prefetchQuery(qcopts.listPRs(owner, repo, search.page + 1, search.state))
+    }
     const hasNext = prs.data?.length === 10
 
     return (
@@ -52,15 +69,29 @@ export function PRList() {
                         </TabsList>
                     </Tabs>
 
-                    <div className="flex items-center gap-2">
-                        <Button onMouseDown={handlePrevPage} disabled={search.page === 1}>
-                            prev
-                        </Button>
-                        <span className="text-sm text-zinc-600">Page {search.page}</span>
-                        <Button onMouseDown={handleNextPage} disabled={!hasNext}>
-                            next
-                        </Button>
-                    </div>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={handlePrevPage}
+                                    onMouseEnter={prefetchPrev}
+                                    onMouseDown={prefetchPrev}
+                                    disabled={search.page === 1}
+                                />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationLink isActive>{search.page}</PaginationLink>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={handleNextPage}
+                                    onMouseEnter={prefetchNext}
+                                    onMouseDown={prefetchNext}
+                                    disabled={!hasNext}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
                 </div>
 
                 <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">

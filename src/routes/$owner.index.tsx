@@ -1,10 +1,17 @@
 import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
-import { Button } from '@/components/ui/button'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserMenu } from '@/components/user-menu'
 import { qcopts } from '@/query-client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
@@ -22,6 +29,10 @@ function OwnerRepos() {
     const params = Route.useParams()
     const search = Route.useSearch()
     const navigate = Route.useNavigate()
+    const queryClient = useQueryClient()
+
+    const repos = useQuery(qcopts.listOwnerRepos(params.owner, search.page))
+    const hasNext = repos.data?.length === 10
 
     const handlePrevPage = () => {
         if (search.page > 1) {
@@ -33,24 +44,24 @@ function OwnerRepos() {
         navigate({ search: { page: search.page + 1 } })
     }
 
-    const repos = useQuery(qcopts.listOwnerRepos(params.owner, search.page))
-    const hasNext = repos.data?.length === 10
+    const prefetchPrev = () => {
+        if (search.page > 1) {
+            queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, search.page - 1))
+        }
+    }
+
+    const prefetchNext = () => {
+        queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, search.page + 1))
+    }
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
             {/* Header */}
             <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
                 <div className="px-8 py-4 flex items-center gap-3">
-                    {/* Logo */}
                     <img src="/favicon.png" alt="gitrapid" className="w-6 h-6" />
-
-                    {/* Owner name */}
                     <span className="text-lg font-semibold text-zinc-900">{params.owner}</span>
-
-                    {/* Spacer */}
                     <div className="flex-1" />
-
-                    {/* User menu */}
                     <UserMenu />
                 </div>
             </div>
@@ -61,15 +72,29 @@ function OwnerRepos() {
                     <div className="flex items-center justify-between p-4">
                         <span className="text-sm text-zinc-600">Repositories</span>
 
-                        <div className="flex items-center gap-2">
-                            <Button onMouseDown={handlePrevPage} disabled={search.page === 1}>
-                                prev
-                            </Button>
-                            <span className="text-sm text-zinc-600">Page {search.page}</span>
-                            <Button onMouseDown={handleNextPage} disabled={!hasNext}>
-                                next
-                            </Button>
-                        </div>
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={handlePrevPage}
+                                        onMouseEnter={prefetchPrev}
+                                        onMouseDown={prefetchPrev}
+                                        disabled={search.page === 1}
+                                    />
+                                </PaginationItem>
+                                <PaginationItem>
+                                    <PaginationLink isActive>{search.page}</PaginationLink>
+                                </PaginationItem>
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={handleNextPage}
+                                        onMouseEnter={prefetchNext}
+                                        onMouseDown={prefetchNext}
+                                        disabled={!hasNext}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
                     </div>
 
                     <div className="border border-zinc-200 rounded-md overflow-hidden">

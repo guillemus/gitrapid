@@ -30,6 +30,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
                 title: 'gitrapid',
             },
         ],
+        links: [
+            {
+                rel: 'icon',
+                href: '/favicon.png',
+                type: 'image/png',
+            },
+        ],
     }),
     component: RootComponent,
 })
