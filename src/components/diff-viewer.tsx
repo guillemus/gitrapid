@@ -1,7 +1,5 @@
 import { computeInlineHighlights, parseDiff, type DiffLine } from '@/lib/diff'
 import * as fns from '@/server/functions'
-import React from 'react'
-import { codeToHtml } from 'shiki'
 
 function DiffLineRow(props: { line: DiffLine; idx: number }) {
     let bgColor = 'bg-white'
@@ -79,17 +77,14 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
     )
 }
 
-function FileChange(props: {
-    file: Awaited<ReturnType<typeof fns.getPRFiles>>[number]
-    highlighted: string | undefined
-}) {
+function FileChange(props: { file: Awaited<ReturnType<typeof fns.getPRFiles>>[number] }) {
     let diffLines: DiffLine[] = []
     if (props.file.patch) {
         diffLines = computeInlineHighlights(parseDiff(props.file.patch))
     }
 
-    let diffContent = <div className="p-4 text-zinc-500">Highlighting...</div>
-    if (props.highlighted) {
+    let diffContent = null
+    if (diffLines.length > 0) {
         diffContent = (
             <div className="relative">
                 {diffLines.map((line, idx) => (
@@ -122,62 +117,15 @@ function FileChange(props: {
 }
 
 export function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
-    const [highlightedFiles, setHighlightedFiles] = React.useState<Map<string, string>>(new Map())
-
-    React.useEffect(() => {
-        if (!props.files.data) return
-
-        async function highlightFiles() {
-            const highlighted = new Map<string, string>()
-
-            for (const file of props.files.data!) {
-                if (!file.patch) continue
-
-                const diffLines = parseDiff(file.patch)
-                const code = diffLines.map((l) => l.content).join('\n')
-
-                const ext = file.filename.split('.').pop() || 'txt'
-                const langMap: Record<string, string> = {
-                    ts: 'typescript',
-                    tsx: 'tsx',
-                    js: 'javascript',
-                    jsx: 'jsx',
-                    py: 'python',
-                    md: 'markdown',
-                    json: 'json',
-                    css: 'css',
-                    html: 'html',
-                    yml: 'yaml',
-                    yaml: 'yaml',
-                }
-
-                try {
-                    const html = await codeToHtml(code, {
-                        lang: langMap[ext] || 'text',
-                        theme: 'github-light',
-                    })
-                    highlighted.set(file.filename, html)
-                } catch (e) {
-                    console.error('Failed to highlight', file.filename, e)
-                }
-            }
-
-            setHighlightedFiles(highlighted)
-        }
-
-        highlightFiles()
-    }, [props.files.data])
-
     if (!props.files.data || props.files.data.length === 0) {
         return <div>No file changes</div>
     }
 
     return (
         <div className="space-y-6">
-            {props.files.data.map((file) => {
-                const highlighted = highlightedFiles.get(file.filename)
-                return <FileChange key={file.filename} file={file} highlighted={highlighted} />
-            })}
+            {props.files.data.map((file) => (
+                <FileChange key={file.filename} file={file} />
+            ))}
         </div>
     )
 }
