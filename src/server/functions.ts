@@ -433,6 +433,7 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
 
 const RepositorySchema = z.object({
     name: z.string(),
+    owner: z.object({ login: z.string() }),
     description: z.string().nullable(),
     stargazers_count: z.number(),
     language: z.string().nullable(),
@@ -517,6 +518,22 @@ export const getRepositoryStats = createServerFn({ method: 'GET' })
 
         return res
     })
+
+export const listMyRepos = createServerFn({ method: 'GET' }).handler(async () => {
+    let user = await assertUser()
+    let octo = newOcto(user.token)
+
+    const repositories = await cachedRequest(user.userId, `my-repos`, (headers) =>
+        octo.rest.repos.listForAuthenticatedUser({
+            per_page: 10,
+            sort: 'pushed',
+            affiliation: 'owner',
+            headers,
+        }),
+    )
+
+    return z.array(RepositorySchema).parse(repositories)
+})
 
 export const getUser = createServerFn({ method: 'GET' }).handler(async () => {
     const request = getRequest()

@@ -2,7 +2,7 @@ import { PrefetchLink } from '@/components/prefetch-link'
 import type { Repository } from '@/server/functions'
 import { StarIcon } from '@primer/octicons-react'
 
-export function RepoListItem(props: { owner: string; repo: Repository }) {
+export function RepoListItem(props: { repo: Repository }) {
     const formatStars = (count: number) => {
         return count.toLocaleString()
     }
@@ -10,7 +10,7 @@ export function RepoListItem(props: { owner: string; repo: Repository }) {
     return (
         <PrefetchLink
             to="/$owner/$repo/pulls"
-            params={{ owner: props.owner, repo: props.repo.name }}
+            params={{ owner: props.repo.owner.login, repo: props.repo.name }}
             className="block p-3 hover:bg-zinc-50 border-b border-zinc-200 last:border-b-0"
         >
             <div className="flex items-center gap-4">

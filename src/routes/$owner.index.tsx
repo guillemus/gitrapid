@@ -1,3 +1,4 @@
+import { HeaderOwner } from '@/components/header'
 import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import {
@@ -9,7 +10,6 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
-import { UserMenu } from '@/components/user-menu'
 import { qcopts } from '@/query-client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
@@ -56,15 +56,7 @@ function OwnerRepos() {
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
-            {/* Header */}
-            <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
-                <div className="px-8 py-4 flex items-center gap-3">
-                    <img src="/favicon.png" alt="gitrapid" className="w-6 h-6" />
-                    <span className="text-lg font-semibold text-zinc-900">{params.owner}</span>
-                    <div className="flex-1" />
-                    <UserMenu />
-                </div>
-            </div>
+            <HeaderOwner owner={params.owner}></HeaderOwner>
 
             {/* Content */}
             <div className="flex-1">
@@ -105,9 +97,7 @@ function OwnerRepos() {
                                 No repositories found
                             </div>
                         ) : (
-                            repos.data?.map((repo) => (
-                                <RepoListItem key={repo.name} owner={params.owner} repo={repo} />
-                            ))
+                            repos.data?.map((repo) => <RepoListItem key={repo.name} repo={repo} />)
                         )}
                     </div>
                 </PageContainer>
