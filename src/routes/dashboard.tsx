@@ -11,6 +11,8 @@ function RouteComponent() {
     const user = qcopts.useUser()
     let content = null
 
+    console.log('aaa')
+
     if (user.isPending) {
         content = (
             <div className="text-center">

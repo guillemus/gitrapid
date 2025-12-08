@@ -6,7 +6,7 @@
         {
             "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
             "source": "/",
-            "destination": "/_shell.html"
+            "destination": "/landing.html"
         },
         {
             "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],

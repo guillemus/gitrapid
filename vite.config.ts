@@ -17,7 +17,10 @@ export default defineConfig({
     plugins: [
         tsConfigPaths(),
         tanstackStart({
-            spa: { enabled: true },
+            spa: {
+                enabled: true,
+                maskPath: '/landing',
+            },
             prerender: {
                 enabled: true,
                 autoSubfolderIndex: false,

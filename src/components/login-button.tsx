@@ -1,38 +1,50 @@
+import { ClientOnly, useNavigate } from '@tanstack/react-router'
+import { Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
 import * as fns from '@/server/functions'
-import { useNavigate } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
-import { useEffect, useEffectEvent, useState } from 'react'
-import { toast } from 'sonner'
 
 const HAS_LOGGED_IN_KEY = 'hasLoggedIn'
 
-export function LoginButton() {
+function LoginButtonInner() {
     const [isLoading, setIsLoading] = useState(false)
     const hasToken = localStorage.getItem(HAS_LOGGED_IN_KEY) !== null
     const [isCheckingSession, setIsCheckingSession] = useState(hasToken)
     const navigate = useNavigate()
 
-    const checkExistingSession = useEffectEvent(async () => {
-        if (!hasToken) return
-
-        try {
-            const user = await fns.getUser()
-            if (user) {
-                navigate({ to: '/dashboard' })
-                return
-            }
-            localStorage.removeItem(HAS_LOGGED_IN_KEY)
-            toast.error('Session expired, please log in again')
-        } catch (error) {
-            console.error('Session check failed:', error)
-        }
-        setIsCheckingSession(false)
-    })
-
     useEffect(() => {
-        checkExistingSession()
+        if (!hasToken) {
+            return
+        }
+
+        let cancelled = false
+
+        async function checkSession() {
+            try {
+                const user = await fns.getUser()
+                if (cancelled) return
+                if (user) {
+                    navigate({ to: '/dashboard' })
+                    return
+                }
+                localStorage.removeItem(HAS_LOGGED_IN_KEY)
+                toast.error('Session expired, please log in again')
+            } catch (error) {
+                console.error('Session check failed:', error)
+            }
+            if (!cancelled) {
+                setIsCheckingSession(false)
+            }
+        }
+
+        checkSession()
+
+        return () => {
+            cancelled = true
+        }
     }, [])
 
     const handleLogin = async () => {
@@ -69,5 +81,20 @@ export function LoginButton() {
             )}
             {!isLoading && 'Login with GitHub'}
         </Button>
+    )
+}
+
+export function LoginButton() {
+    return (
+        <ClientOnly
+            fallback={
+                <Button className="w-full" size="lg" disabled>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                </Button>
+            }
+        >
+            <LoginButtonInner />
+        </ClientOnly>
     )
 }

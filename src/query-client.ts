@@ -48,12 +48,12 @@ function newQueryClient() {
 
 export const qcMem = newQueryClient()
 
-const qcPersistent = await createPersistedQueryClient('gitpr')
+const qcPersistent = createPersistedQueryClient('gitpr')
 
 // export const qcDefault = qcMem
 export const qcDefault = qcPersistent
 
-async function createPersistedQueryClient(dbname: string) {
+function createPersistedQueryClient(dbname: string) {
     let qc = newQueryClient()
     if (import.meta.env.SSR) {
         return qc
@@ -73,8 +73,7 @@ async function createPersistedQueryClient(dbname: string) {
 
     let buster = `${dbname}-0001`
 
-    let [, p] = persistQueryClient({ queryClient: qc, persister, buster })
-    await p
+    persistQueryClient({ queryClient: qc, persister, buster })
 
     return qc
 }
