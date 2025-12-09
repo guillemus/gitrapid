@@ -1,4 +1,4 @@
-import { qcDefault } from '@/query-client'
+import { qcDefault } from '@/lib/query-client'
 import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 

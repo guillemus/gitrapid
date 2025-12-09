@@ -10,7 +10,7 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/$owner/')({
     }),
     component: OwnerRepos,
     loader: async ({ context: { queryClient }, params }) => {
-        queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, 1))
+        queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, 1))
     },
 })
 
@@ -31,7 +31,7 @@ function OwnerRepos() {
     const navigate = Route.useNavigate()
     const queryClient = useQueryClient()
 
-    const repos = useQuery(qcopts.listOwnerRepos(params.owner, search.page))
+    const repos = useQuery(qc.listOwnerRepos(params.owner, search.page))
     const hasNext = repos.data?.length === 10
 
     const handlePrevPage = () => {
@@ -46,12 +46,12 @@ function OwnerRepos() {
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, search.page - 1))
+            queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, search.page - 1))
         }
     }
 
     const prefetchNext = () => {
-        queryClient.prefetchQuery(qcopts.listOwnerRepos(params.owner, search.page + 1))
+        queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, search.page + 1))
     }
 
     return (

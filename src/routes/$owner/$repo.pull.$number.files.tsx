@@ -1,12 +1,12 @@
 import { DiffViewer } from '@/components/diff-viewer'
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/$owner/$repo/pull/$number/files')({
     loader: async ({ context: { queryClient }, params }) => {
         const number = Number(params.number)
-        queryClient.prefetchQuery(qcopts.getPRFiles(params.owner, params.repo, number))
+        queryClient.prefetchQuery(qc.getPRFiles(params.owner, params.repo, number))
     },
     component: PRFilesPage,
 })
@@ -15,7 +15,7 @@ function PRFilesPage() {
     const params = Route.useParams()
     const number = Number(params.number)
 
-    const prFiles = useQuery(qcopts.getPRFiles(params.owner, params.repo, number))
+    const prFiles = useQuery(qc.getPRFiles(params.owner, params.repo, number))
 
     if (prFiles.isLoading) {
         return <div>Loading files...</div>

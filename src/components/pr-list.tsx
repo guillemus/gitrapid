@@ -1,5 +1,5 @@
 import { PageContainer } from '@/components/page-container'
-import { qcDefault, qcMem } from '@/query-client'
+import { qcDefault, qcMem } from '@/lib/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 
 export function PRList() {
@@ -35,7 +35,7 @@ export function PRList() {
     const shouldPersist = search.state === 'open' && search.page === 1
     const queryClient = shouldPersist ? qcDefault : qcMem
 
-    const prs = useQuery(qcopts.listPRs(owner, repo, search.page, search.state), queryClient)
+    const prs = useQuery(qc.listPRs(owner, repo, search.page, search.state), queryClient)
 
     const handlePrevPage = () => {
         if (search.page > 1) {
@@ -49,12 +49,12 @@ export function PRList() {
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient?.prefetchQuery(qcopts.listPRs(owner, repo, search.page - 1, search.state))
+            queryClient?.prefetchQuery(qc.listPRs(owner, repo, search.page - 1, search.state))
         }
     }
 
     const prefetchNext = () => {
-        queryClient?.prefetchQuery(qcopts.listPRs(owner, repo, search.page + 1, search.state))
+        queryClient?.prefetchQuery(qc.listPRs(owner, repo, search.page + 1, search.state))
     }
     const hasNext = prs.data?.length === 10
 
@@ -140,7 +140,7 @@ function PRListSkeleton() {
     )
 }
 
-function PRListItem(props: { owner: string; repo: string; pr: qcopts.ListPRsData[number] }) {
+function PRListItem(props: { owner: string; repo: string; pr: qc.ListPRsData[number] }) {
     return (
         <PrefetchLink
             to="/$owner/$repo/pull/$number"

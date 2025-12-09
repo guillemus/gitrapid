@@ -2,7 +2,6 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
 import { syncSubscriptionByUserId } from '@/polar'
-import { FileCodeIcon } from '@primer/octicons-react'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { Octokit } from 'octokit'
@@ -629,7 +628,7 @@ export const getFileContents = createServerFn({ method: 'GET' })
 
         // Handle base64 decoding if it's a file
         if (Array.isArray(fileResponse)) {
-            return { content: null, type: 'dir' as const }
+            return null
         }
 
         const isFile = fileResponse.type === 'file'
@@ -638,14 +637,13 @@ export const getFileContents = createServerFn({ method: 'GET' })
             if (fileResponse.path) {
                 let content = Buffer.from(fileResponse.content, 'base64').toString('utf-8')
                 return {
-                    type: 'file' as const,
-                    content,
                     path: fileResponse.path,
+                    content,
                 }
             }
         }
 
-        return { content: null, type: 'dir' as const }
+        return null
     })
 
 const TreeItemSchema = z.object({

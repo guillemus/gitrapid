@@ -1,4 +1,4 @@
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { CodeIcon, GitPullRequestIcon, IssueOpenedIcon } from '@primer/octicons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useMatch } from '@tanstack/react-router'
@@ -42,7 +42,7 @@ export function HeaderOwner(props: { owner: string }) {
 }
 
 export function HeaderRepo(props: { owner: string; repo: string }) {
-    const { data: stats } = useQuery(qcopts.getRepositoryStats(props.owner, props.repo))
+    const { data: stats } = useQuery(qc.getRepositoryStats(props.owner, props.repo))
 
     let isCode = useMatch({ from: '/$owner/$repo/', shouldThrow: false })
     let isIssues = useMatch({ from: '/$owner/$repo/issues', shouldThrow: false })

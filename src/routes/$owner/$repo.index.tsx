@@ -1,4 +1,5 @@
-import { qcMem, qcopts } from '@/query-client'
+import { qc } from '@/lib'
+import { qcMem } from '@/lib/query-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
@@ -22,16 +23,16 @@ function CodePage() {
             queryKey: ['code', params.owner, params.repo, search.ref, search.path],
             queryFn: async (ctx) => {
                 let meta = await ctx.client.fetchQuery(
-                    qcopts.getRepositoryMetadata(params.owner, params.repo),
+                    qc.getRepositoryMetadata(params.owner, params.repo),
                 )
 
                 let ref = search.ref ?? meta.defaultBranch
                 let path = search.path
 
                 let [tree, file] = await Promise.all([
-                    ctx.client.fetchQuery(qcopts.getRepositoryTree(params.owner, params.repo, ref)),
+                    ctx.client.fetchQuery(qc.getRepositoryTree(params.owner, params.repo, ref)),
                     ctx.client.fetchQuery(
-                        qcopts.getFileContents({
+                        qc.getFileContents({
                             owner: params.owner,
                             repo: params.repo,
                             path,

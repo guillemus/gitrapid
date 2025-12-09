@@ -2,7 +2,7 @@ import { HeaderDashboard } from '@/components/header'
 import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qcMem, qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -10,12 +10,12 @@ export const Route = createFileRoute('/dashboard')({
     component: RouteComponent,
     async loader({ context: { queryClient } }) {
         // fetching the query here so that we can properly redirect.
-        let user = await qcMem.fetchQuery(qcopts.getUserOpts)
+        let user = await qc.qcMem.fetchQuery(qc.getUserOpts)
         if (!user?.user) {
             throw redirect({ to: '/' })
         }
 
-        queryClient.prefetchQuery(qcopts.listMyRepos())
+        queryClient.prefetchQuery(qc.listMyRepos())
 
         return user
     },
@@ -23,7 +23,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function RouteComponent() {
     const user = Route.useLoaderData()
-    const repos = useQuery(qcopts.listMyRepos())
+    const repos = useQuery(qc.listMyRepos())
 
     return (
         <div className="min-h-screen flex flex-col font-sans">

@@ -13,7 +13,6 @@ export default tseslint.config(
         },
         rules: {
             'prefer-const': 'off',
-            '@typescript-eslint/no-namespace': 'off',
             'import/no-cycle': 'error',
         },
     },

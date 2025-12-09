@@ -4,6 +4,7 @@
         "interface": true,
         "type": true
     },
+    "include": ["nsExports", "nsTypes"],
     "tags": ["-lintignore"],
     "entry": ["src/routes/**/*.{ts,tsx}", "src/server/**/*.{ts,tsx}", "src/router.tsx"],
     "project": ["src/**/*.{ts,tsx}"],

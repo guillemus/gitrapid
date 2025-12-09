@@ -1,6 +1,6 @@
 import { MarkdownRenderer } from '@/components/markdown-renderer'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import * as fns from '@/server/functions'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
@@ -27,7 +27,7 @@ export function PRConversation() {
     let repo = params.repo
     let number = Number(params.number)
 
-    let pr = useQuery(qcopts.useGetPROpts(owner, repo, number))
+    let pr = useQuery(qc.useGetPROpts(owner, repo, number))
 
     let issueComments = useInfiniteQuery({
         queryKey: ['pr-comments', owner, repo, number],

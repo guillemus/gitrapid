@@ -8,7 +8,7 @@ Prefer:
 
 ```typescript
 const fileContents = useQuery(
-    qcopts.getFileContents(params.owner, params.repo, 'README.md', branch),
+    qc.getFileContents(params.owner, params.repo, 'README.md', branch),
 )
 ```
 
@@ -16,6 +16,6 @@ Over:
 
 ```typescript
 const { data: fileContents, isLoading, isError, error } = useQuery(
-    qcopts.getFileContents(params.owner, params.repo, 'README.md', branch),
+    qc.getFileContents(params.owner, params.repo, 'README.md', branch),
 )
 ```

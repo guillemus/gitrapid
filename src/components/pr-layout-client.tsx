@@ -1,6 +1,6 @@
 import { PageContainer } from '@/components/page-container'
 import { PrefetchLink } from '@/components/prefetch-link'
-import { qcopts } from '@/query-client'
+import { qc } from '@/lib'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
@@ -15,7 +15,7 @@ export function PRLayoutClient(props: { children: React.ReactNode }) {
     let routerState = useRouterState()
     let pathname = routerState.location.pathname
 
-    let pr = useQuery(qcopts.useGetPROpts(params.owner, params.repo, Number(params.number)))
+    let pr = useQuery(qc.useGetPROpts(params.owner, params.repo, Number(params.number)))
     let data = pr.data
 
     let isFilesTab = pathname.endsWith('/files')

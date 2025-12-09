@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button'
+import { qc } from '@/lib'
 import { authClient } from '@/lib/auth-client'
-import { qcopts } from '@/query-client'
 import { useNavigate } from '@tanstack/react-router'
 
 export function UserMenu() {
     const navigate = useNavigate()
-    const user = qcopts.useUser()
+    const user = qc.useUser()
 
     if (!user.data) return null
 
