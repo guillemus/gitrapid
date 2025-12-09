@@ -198,3 +198,36 @@ export const getUserOpts = queryOptions({
 })
 
 export const useUser = () => useQuery(getUserOpts, qcMem)
+
+export const fileTree = (params: { owner: string; repo: string; ref?: string }) =>
+    queryOptions({
+        queryKey: ['filetree', params.owner, params.repo, params.ref],
+        queryFn: async (ctx) => {
+            let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
+
+            let ref = params.ref ?? meta.defaultBranch
+            let query = await ctx.client.fetchQuery(
+                getRepositoryTree(params.owner, params.repo, ref),
+            )
+            return query
+        },
+    })
+
+export const file = (params: { owner: string; repo: string; ref?: string; path?: string }) =>
+    queryOptions({
+        queryKey: ['file', params.owner, params.repo, params.ref, params.path],
+        queryFn: async (ctx) => {
+            let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
+
+            let ref = params.ref ?? meta.defaultBranch
+            let query = await ctx.client.fetchQuery(
+                getFileContents({
+                    owner: params.owner,
+                    repo: params.repo,
+                    ref,
+                    path: params.path,
+                }),
+            )
+            return query
+        },
+    })

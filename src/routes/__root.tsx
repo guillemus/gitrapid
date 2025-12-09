@@ -8,7 +8,6 @@ import {
     Outlet,
     Scripts,
 } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
 import { Toaster } from 'sonner'
 import '../globals.css'
 
@@ -31,14 +30,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
     const { queryClient } = Route.useRouteContext()
     return (
-        <RootDocument queryClient={queryClient}>
-            <Outlet />
-        </RootDocument>
-    )
-}
-
-function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryClient }>) {
-    return (
         <html>
             <head>
                 <HeadContent />
@@ -46,8 +37,8 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
                 {/* <script src="//unpkg.com/react-grab/dist/index.global.js"></script> */}
             </head>
             <body>
-                <QueryClientProvider client={props.queryClient}>
-                    {props.children}
+                <QueryClientProvider client={queryClient}>
+                    <Outlet />
                     {import.meta.env.DEV && <ReactQueryDevtools></ReactQueryDevtools>}
                 </QueryClientProvider>
                 <Scripts />
