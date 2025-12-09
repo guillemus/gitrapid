@@ -81,7 +81,6 @@ function createPersistedQueryClient(dbname: string) {
 type PRData = fns.PRList[number] & fns.PR
 
 export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
-export type ListOwnerReposData = Awaited<ReturnType<typeof fns.listOwnerRepos>>
 
 export const listMyRepos = () =>
     queryOptions({
@@ -155,42 +154,11 @@ export const getPRComments = (owner: string, repo: string, number: number, page:
         queryFn: () => fns.getPRComments({ data: { owner, repo, number, page } }),
     })
 
-export const getPRReviewComments = (owner: string, repo: string, number: number, page: number) =>
-    queryOptions({
-        queryKey: ['pr-review-comments', owner, repo, number, page],
-        queryFn: () => fns.getPRReviewComments({ data: { owner, repo, number, page } }),
-    })
-
 export const getRepositoryStats = (owner: string, repo: string) =>
     queryOptions({
         queryKey: ['repository-stats', owner, repo],
         queryFn: () => fns.getRepositoryStats({ data: { owner, repo } }),
     })
-
-export const getRepositoryMetadata = (owner: string, repo: string) =>
-    queryOptions({
-        queryKey: ['repository-metadata', owner, repo],
-        queryFn: () => fns.getRepositoryMetadata({ data: { owner, repo } }),
-    })
-
-export const getFileContents = (params: {
-    owner: string
-    repo: string
-    path?: string
-    ref?: string
-}) =>
-    queryOptions({
-        queryKey: ['file-contents', params.owner, params.repo, params.ref, params.path],
-        queryFn: () => fns.getFileContents({ data: params }),
-    })
-
-export const getRepositoryTree = (owner: string, repo: string, branch?: string) =>
-    queryOptions({
-        queryKey: ['repository-tree', owner, repo, branch],
-        queryFn: () => fns.getRepositoryTree({ data: { owner, repo, branch } }),
-    })
-
-export type GetUserData = Awaited<ReturnType<typeof fns.getUser>>
 
 export const getUserOpts = queryOptions({
     queryKey: ['user'],
@@ -199,13 +167,31 @@ export const getUserOpts = queryOptions({
 
 export const useUser = () => useQuery(getUserOpts, qcMem)
 
+const getRepositoryMetadata = (owner: string, repo: string) =>
+    queryOptions({
+        queryKey: ['repository-metadata', owner, repo],
+        queryFn: () => fns.getRepositoryMetadata({ data: { owner, repo } }),
+    })
+
+const getFileContents = (params: { owner: string; repo: string; path?: string; ref?: string }) =>
+    queryOptions({
+        queryKey: ['file-contents', params.owner, params.repo, params.ref, params.path],
+        queryFn: () => fns.getFileContents({ data: params }),
+    })
+
+const getRepositoryTree = (owner: string, repo: string, branch?: string) =>
+    queryOptions({
+        queryKey: ['repository-tree', owner, repo, branch],
+        queryFn: () => fns.getRepositoryTree({ data: { owner, repo, branch } }),
+    })
+
 export const fileTree = (params: { owner: string; repo: string; ref?: string }) =>
     queryOptions({
         queryKey: ['filetree', params.owner, params.repo, params.ref],
         queryFn: async (ctx) => {
             let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
 
-            let ref = params.ref ?? meta.defaultBranch
+            let ref = params.ref ?? (meta as any).defaultBranch
             let query = await ctx.client.fetchQuery(
                 getRepositoryTree(params.owner, params.repo, ref),
             )
@@ -219,7 +205,7 @@ export const file = (params: { owner: string; repo: string; ref?: string; path?:
         queryFn: async (ctx) => {
             let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
 
-            let ref = params.ref ?? meta.defaultBranch
+            let ref = params.ref ?? (meta as any).defaultBranch
             let query = await ctx.client.fetchQuery(
                 getFileContents({
                     owner: params.owner,
