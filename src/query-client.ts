@@ -173,6 +173,29 @@ export namespace qcopts {
             queryFn: () => fns.getRepositoryStats({ data: { owner, repo } }),
         })
 
+    export const getRepositoryMetadata = (owner: string, repo: string) =>
+        queryOptions({
+            queryKey: ['repository-metadata', owner, repo],
+            queryFn: () => fns.getRepositoryMetadata({ data: { owner, repo } }),
+        })
+
+    export const getFileContents = (params: {
+        owner: string
+        repo: string
+        path?: string
+        ref?: string
+    }) =>
+        queryOptions({
+            queryKey: ['file-contents', params.owner, params.repo, params.ref, params.path],
+            queryFn: () => fns.getFileContents({ data: params }),
+        })
+
+    export const getRepositoryTree = (owner: string, repo: string, branch?: string) =>
+        queryOptions({
+            queryKey: ['repository-tree', owner, repo, branch],
+            queryFn: () => fns.getRepositoryTree({ data: { owner, repo, branch } }),
+        })
+
     export type GetUserData = Awaited<ReturnType<typeof fns.getUser>>
 
     export const getUserOpts = queryOptions({

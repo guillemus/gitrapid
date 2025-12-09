@@ -19,24 +19,11 @@ interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
     head: () => ({
         meta: [
-            {
-                charSet: 'utf-8',
-            },
-            {
-                name: 'viewport',
-                content: 'width=device-width, initial-scale=1',
-            },
-            {
-                title: 'gitrapid',
-            },
+            { title: 'gitrapid' },
+            { charSet: 'utf-8' },
+            { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         ],
-        links: [
-            {
-                rel: 'icon',
-                href: '/favicon.png',
-                type: 'image/png',
-            },
-        ],
+        links: [{ rel: 'icon', href: '/favicon.png', type: 'image/png' }],
     }),
     component: RootComponent,
 })
@@ -56,9 +43,7 @@ function RootDocument(props: Readonly<{ children: ReactNode; queryClient: QueryC
             <head>
                 <HeadContent />
                 {/* <script crossOrigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js" ></script> */}
-                {import.meta.env.DEV && (
-                    <script src="//unpkg.com/react-grab/dist/index.global.js"></script>
-                )}
+                {/* <script src="//unpkg.com/react-grab/dist/index.global.js"></script> */}
             </head>
             <body>
                 <QueryClientProvider client={props.queryClient}>

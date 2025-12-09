@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { redisGet, redisSet } from '@/lib/redis'
 import { syncSubscriptionByUserId } from '@/polar'
+import { FileCodeIcon } from '@primer/octicons-react'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { Octokit } from 'octokit'
@@ -572,3 +573,116 @@ export const syncSubscriptionAfterCheckout = createServerFn({ method: 'POST' }).
         }
     },
 )
+
+export const getRepositoryMetadata = createServerFn({ method: 'GET' })
+    .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
+    .handler(async ({ data }) => {
+        let user = await assertUser()
+        let octo = newOcto(user.token)
+
+        const repo = await cachedRequest(
+            user.userId,
+            `repo-metadata:${data.owner}/${data.repo}`,
+            (headers) =>
+                octo.rest.repos.get({
+                    owner: data.owner,
+                    repo: data.repo,
+                    headers,
+                }),
+        )
+
+        return { defaultBranch: repo.default_branch }
+    })
+
+export type FileContents = {
+    content: string | null
+    type: 'file' | 'dir'
+}
+
+export const getFileContents = createServerFn({ method: 'GET' })
+    .inputValidator(
+        z.object({
+            owner: z.string(),
+            repo: z.string(),
+            ref: z.string().optional(),
+            path: z.string().optional(),
+        }),
+    )
+    .handler(async ({ data }) => {
+        let user = await assertUser()
+        let octo = newOcto(user.token)
+
+        let path = data.path ?? 'README.md'
+
+        const fileResponse = await cachedRequest(
+            user.userId,
+            `file:${data.owner}/${data.repo}/${path}:${data.ref || 'default'}`,
+            (headers) =>
+                octo.rest.repos.getContent({
+                    owner: data.owner,
+                    repo: data.repo,
+                    path: path,
+                    ref: data.ref,
+                    headers,
+                }),
+        )
+
+        // Handle base64 decoding if it's a file
+        if (Array.isArray(fileResponse)) {
+            return { content: null, type: 'dir' as const }
+        }
+
+        const isFile = fileResponse.type === 'file'
+
+        if (isFile && 'content' in fileResponse && fileResponse.content) {
+            if (fileResponse.path) {
+                let content = Buffer.from(fileResponse.content, 'base64').toString('utf-8')
+                return {
+                    type: 'file' as const,
+                    content,
+                    path: fileResponse.path,
+                }
+            }
+        }
+
+        return { content: null, type: 'dir' as const }
+    })
+
+const TreeItemSchema = z.object({
+    path: z.string(),
+    mode: z.string(),
+    type: z.enum(['blob', 'tree', 'commit']),
+    sha: z.string(),
+    size: z.number().optional(),
+    url: z.string(),
+})
+
+export type TreeItem = z.infer<typeof TreeItemSchema>
+
+export const getRepositoryTree = createServerFn({ method: 'GET' })
+    .inputValidator(
+        z.object({
+            owner: z.string(),
+            repo: z.string(),
+            branch: z.string().optional(),
+        }),
+    )
+    .handler(async ({ data }) => {
+        let user = await assertUser()
+        let octo = newOcto(user.token)
+
+        const tree = await cachedRequest(
+            user.userId,
+            `tree:${data.owner}/${data.repo}:${data.branch || 'default'}`,
+            (headers) =>
+                octo.rest.git.getTree({
+                    owner: data.owner,
+                    repo: data.repo,
+                    tree_sha: data.branch || 'main',
+                    recursive: true as unknown as 'true',
+                    headers,
+                }),
+        )
+
+        return z.array(TreeItemSchema).parse(tree.tree)
+    })

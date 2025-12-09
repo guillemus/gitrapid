@@ -17,7 +17,8 @@ export async function redisSet<T>(key: string, value: T, opts?: { ex: number }):
     const start = performance.now()
     await redisClient.set(key, value, {
         ...opts,
-        ex: 60 * 60 * 24,
+        // Keep 8h or less for caching potentially license-sensitive code
+        ex: 60 * 60 * 8,
     })
     console.debug(`\x1b[90mredis.set(${key}): ${(performance.now() - start).toFixed(0)}ms\x1b[0m`)
 }
