@@ -1,276 +1,10 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
-import { redisGet, redisSet } from '@/lib/redis'
 import { syncSubscriptionByUserId } from '@/polar'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { Octokit } from 'octokit'
 import { z } from 'zod'
-
-const ETAG_CACHING = true
-
-export const ERR_UNAUTHORIZED = 'error_unauthorized'
-export const ERR_NO_SUBSCRIPTION_FOUND = 'error_no_subscription_found'
-
-async function timedRequest<T>(
-    cacheKey: string,
-    request: (headers: {
-        'If-None-Match'?: string
-    }) => Promise<{ data: T; headers: { etag?: string } }>,
-    headers: { 'If-None-Match'?: string },
-): Promise<{ data: T; headers: { etag?: string } }> {
-    const start = performance.now()
-    try {
-        const response = await request(headers)
-        console.log(
-            `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[31m(not cached)\x1b[0m`,
-        )
-        return response
-    } catch (error) {
-        if (isErrEtagCached(error)) {
-            console.log(
-                `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[32m(etag cached)\x1b[0m`,
-            )
-        } else {
-            console.log(
-                `\x1b[33m${cacheKey}: ${(performance.now() - start).toFixed(0)}ms\x1b[0m \x1b[31m(error)\x1b[0m`,
-            )
-        }
-        throw error
-    }
-}
-
-type User = {
-    userId: string
-    token: string
-}
-
-async function assertUser(): Promise<User> {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
-
-    if (!session) {
-        throw new Error(ERR_UNAUTHORIZED)
-    }
-
-    const account = await prisma.account.findFirst({
-        where: {
-            userId: session.user.id,
-            providerId: 'github',
-        },
-    })
-
-    if (!account?.accessToken) {
-        throw new Error(ERR_UNAUTHORIZED)
-    }
-
-    const subscription = await prisma.subscription.findUnique({
-        where: { userId: session.user.id },
-    })
-
-    // Check if subscription exists and is active or trialing
-    if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
-        throw new Error(ERR_NO_SUBSCRIPTION_FOUND)
-    }
-
-    return { userId: session.user.id, token: account.accessToken }
-}
-
-function newOcto(token: string) {
-    return new Octokit({ auth: token })
-}
-
-function isErrEtagCached(error: unknown) {
-    return error instanceof Error && 'status' in error && error.status === 304
-}
-
-// Note: for paging requests, use cachedRequest only for the first page. If page 1 changes, all subsequent pages
-// are likely invalid due to shifted offsets. Uncached pages stay consistent with current state.
-async function cachedRequest<T>(
-    userId: string,
-    cacheKey: string,
-    request: (headers: {
-        'If-None-Match'?: string
-    }) => Promise<{ data: T; headers: { etag?: string } }>,
-): Promise<T> {
-    const dataKey = `data:${cacheKey}`
-    const etagKey = `etag:${userId}:${cacheKey}`
-
-    if (!ETAG_CACHING) {
-        const response = await timedRequest(cacheKey, request, {})
-        return response.data
-    }
-
-    const [cachedData, userEtag] = await Promise.all([redisGet(dataKey), redisGet<string>(etagKey)])
-
-    const headers = typeof userEtag === 'string' ? { 'If-None-Match': userEtag } : {}
-
-    try {
-        const response = await timedRequest(cacheKey, request, headers)
-
-        if (response.headers.etag) {
-            await Promise.all([
-                redisSet(dataKey, response.data),
-                redisSet(etagKey, response.headers.etag),
-            ])
-        }
-
-        return response.data
-    } catch (error: unknown) {
-        if (cachedData && isErrEtagCached(error)) {
-            console.debug('\x1b[36mreturning cached response\x1b[0m')
-            return cachedData as T
-        }
-        throw error
-    }
-}
-
-const PRBranch = z.object({
-    ref: z.string(),
-    repo: z
-        .object({
-            owner: z.object({
-                login: z.string(),
-            }),
-            ref: z.string().optional(),
-        })
-        .nullable(),
-})
-
-const PRSchema = z.object({
-    changedFiles: z.number(),
-    additions: z.number().optional(),
-    deletions: z.number().optional(),
-    state: z.string(),
-    title: z.string(),
-    number: z.number(),
-    body: z.string().nullable(),
-    created_at: z.string(),
-    milestone: z
-        .object({
-            title: z.string(),
-        })
-        .nullable(),
-    labels: z.array(
-        z.object({
-            id: z.number(),
-            name: z.string(),
-            color: z.string(),
-        }),
-    ),
-    user: z.object({
-        login: z.string(),
-        avatar_url: z.string(),
-    }),
-    base: PRBranch,
-    head: PRBranch,
-})
-
-export type PR = z.infer<typeof PRSchema>
-
-export const getPR = createServerFn({ method: 'GET' })
-    .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
-    .handler(async ({ data }): Promise<PR> => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
-
-        const pullRequest = await cachedRequest(
-            user.userId,
-            `pr:${data.owner}/${data.repo}/${data.number}`,
-            (headers) =>
-                octo.rest.pulls.get({
-                    owner: data.owner,
-                    repo: data.repo,
-                    pull_number: data.number,
-                    headers,
-                }),
-        )
-
-        return PRSchema.parse({
-            ...pullRequest,
-            changedFiles: pullRequest.changed_files,
-        })
-    })
-
-const PRListSchema = z.array(PRSchema.omit({ changedFiles: true }))
-
-export type PRList = z.infer<typeof PRListSchema>
-
-export const listPRs = createServerFn({ method: 'GET' })
-    .inputValidator(
-        z.object({
-            owner: z.string(),
-            repo: z.string(),
-            page: z.number(),
-            state: z.enum(['open', 'closed']),
-        }),
-    )
-    .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
-
-        if (data.page !== 1 || data.state !== 'open') {
-            let res = await octo.rest.pulls.list({
-                owner: data.owner,
-                repo: data.repo,
-                page: data.page,
-                per_page: 10,
-                state: data.state,
-            })
-
-            return res.data
-        }
-
-        const pullRequests = await cachedRequest(
-            user.userId,
-            `prs:${data.owner}/${data.repo}`,
-            (headers) =>
-                octo.rest.pulls.list({
-                    owner: data.owner,
-                    repo: data.repo,
-                    page: data.page,
-                    per_page: 10,
-                    state: data.state,
-                    headers,
-                }),
-        )
-
-        return PRListSchema.parse(pullRequests)
-    })
-
-const PRFileSchema = z.object({
-    filename: z.string(),
-    status: z.string(),
-    additions: z.number(),
-    deletions: z.number(),
-    changes: z.number(),
-    patch: z.string().optional(),
-    blob_url: z.string(),
-    raw_url: z.string(),
-    contents_url: z.string(),
-})
-
-export type PRFile = z.infer<typeof PRFileSchema>
-
-export const getPRFiles = createServerFn({ method: 'GET' })
-    .inputValidator(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
-    .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
-
-        const files = await cachedRequest(
-            user.userId,
-            `pr-files:${data.owner}/${data.repo}/${data.number}`,
-            (headers) =>
-                octo.rest.pulls.listFiles({
-                    owner: data.owner,
-                    repo: data.repo,
-                    pull_number: data.number,
-                    headers,
-                }),
-        )
-        return z.array(PRFileSchema).parse(files)
-    })
+import { server } from './server'
 
 const IssueSchema = z.object({
     id: z.number(),
@@ -297,10 +31,10 @@ export type Issue = z.infer<typeof IssueSchema>
 export const listIssues = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
-        const issues = await cachedRequest(
+        const issues = await server.cachedRequest(
             user.userId,
             `issues:${data.owner}/${data.repo}`,
             (headers) =>
@@ -337,8 +71,8 @@ export const getPRComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
         const page = data.page ?? 1
         if (page !== 1) {
@@ -353,7 +87,7 @@ export const getPRComments = createServerFn({ method: 'GET' })
             return res.data
         }
 
-        const comments = await cachedRequest(
+        const comments = await server.cachedRequest(
             user.userId,
             `pr-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
@@ -399,8 +133,8 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
         const page = data.page ?? 1
         if (page !== 1) {
@@ -415,7 +149,7 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
             return res.data
         }
 
-        const comments = await cachedRequest(
+        const comments = await server.cachedRequest(
             user.userId,
             `pr-review-comments:${data.owner}/${data.repo}/${data.number}`,
             (headers) =>
@@ -423,7 +157,7 @@ export const getPRReviewComments = createServerFn({ method: 'GET' })
                     owner: data.owner,
                     repo: data.repo,
                     pull_number: data.number,
-                    per_page: 30,
+                    per_page: 100,
                     page,
                     headers,
                 }),
@@ -445,8 +179,8 @@ export type Repository = z.infer<typeof RepositorySchema>
 export const listOwnerRepos = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), page: z.number() }))
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
         if (data.page !== 1) {
             let res = await octo.rest.repos.listForUser({
@@ -458,7 +192,7 @@ export const listOwnerRepos = createServerFn({ method: 'GET' })
             return z.array(RepositorySchema).parse(res.data)
         }
 
-        const repositories = await cachedRequest(
+        const repositories = await server.cachedRequest(
             user.userId,
             `repos:${data.owner}:${data.page}`,
             (headers) =>
@@ -492,8 +226,8 @@ export type RepositoryStats = {
 export const getRepositoryStats = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
         const response = await octo.graphql(
             `query ($owner: String!, $repo: String!) {
@@ -520,10 +254,10 @@ export const getRepositoryStats = createServerFn({ method: 'GET' })
     })
 
 export const listMyRepos = createServerFn({ method: 'GET' }).handler(async () => {
-    let user = await assertUser()
-    let octo = newOcto(user.token)
+    let user = await server.assertUser()
+    let octo = server.newOcto(user.token)
 
-    const repositories = await cachedRequest(user.userId, `my-repos`, (headers) =>
+    const repositories = await server.cachedRequest(user.userId, `my-repos`, (headers) =>
         octo.rest.repos.listForAuthenticatedUser({
             per_page: 10,
             sort: 'pushed',
@@ -576,10 +310,10 @@ export const syncSubscriptionAfterCheckout = createServerFn({ method: 'POST' }).
 export const getRepositoryMetadata = createServerFn({ method: 'GET' })
     .inputValidator(z.object({ owner: z.string(), repo: z.string() }))
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
-        const repo = await cachedRequest(
+        const repo = await server.cachedRequest(
             user.userId,
             `repo-metadata:${data.owner}/${data.repo}`,
             (headers) =>
@@ -608,12 +342,12 @@ export const getFileContents = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
         let path = data.path ?? 'README.md'
 
-        const fileResponse = await cachedRequest(
+        const fileResponse = await server.cachedRequest(
             user.userId,
             `file:${data.owner}/${data.repo}/${path}:${data.ref || 'default'}`,
             (headers) =>
@@ -666,10 +400,10 @@ export const getRepositoryTree = createServerFn({ method: 'GET' })
         }),
     )
     .handler(async ({ data }) => {
-        let user = await assertUser()
-        let octo = newOcto(user.token)
+        let user = await server.assertUser()
+        let octo = server.newOcto(user.token)
 
-        const tree = await cachedRequest(
+        const tree = await server.cachedRequest(
             user.userId,
             `tree:${data.owner}/${data.repo}:${data.branch || 'default'}`,
             (headers) =>
