@@ -4,7 +4,7 @@ import type { TreeItem } from '@/server/functions'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createContext, useContext, useMemo, useState } from 'react'
-import { z } from 'zod'
+import z from 'zod'
 
 type TreeContextValue = {
     expandedPaths: Set<string>
@@ -58,8 +58,8 @@ export const Route = createFileRoute('/$owner/$repo/')({
 function CodePage() {
     return (
         <div className="flex h-[calc(100vh-64px)]">
-            <FileTree />
-            <FileViewer />
+            {/* <FileTree />
+            <FileViewer /> */}
         </div>
     )
 }

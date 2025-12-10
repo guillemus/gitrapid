@@ -121,5 +121,3 @@ export async function cachedRequest<T>(
         throw error
     }
 }
-
-export * as server from './server'

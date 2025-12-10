@@ -39,7 +39,11 @@ function RootComponent() {
             <body>
                 <QueryClientProvider client={queryClient}>
                     <Outlet />
-                    {import.meta.env.DEV && <ReactQueryDevtools></ReactQueryDevtools>}
+                    {import.meta.env.DEV && (
+                        <div className="text-lg">
+                            <ReactQueryDevtools></ReactQueryDevtools>
+                        </div>
+                    )}
                 </QueryClientProvider>
                 <Scripts />
 

@@ -1,4 +1,5 @@
 import * as fns from '@/server/functions'
+import * as server from '@/server/server'
 import {
     QueryCache,
     QueryClient,
@@ -18,8 +19,8 @@ function newQueryClient() {
             queries: {
                 staleTime: 10 * 1000,
                 retry: (failureCount, error) => {
-                    if (error?.message === fns.ERR_UNAUTHORIZED) return false
-                    if (error?.message === fns.ERR_NO_SUBSCRIPTION_FOUND) return false
+                    if (error?.message === server.ERR_UNAUTHORIZED) return false
+                    if (error?.message === server.ERR_NO_SUBSCRIPTION_FOUND) return false
 
                     return failureCount < 3
                 },
@@ -27,13 +28,13 @@ function newQueryClient() {
         },
         queryCache: new QueryCache({
             onError: (error) => {
-                if (error?.message === fns.ERR_NO_SUBSCRIPTION_FOUND) {
+                if (error?.message === server.ERR_NO_SUBSCRIPTION_FOUND) {
                     toast.error('Subscription required')
                     window.location.href = '/pricing'
                     return
                 }
 
-                if (error?.message === fns.ERR_UNAUTHORIZED) {
+                if (error?.message === server.ERR_UNAUTHORIZED) {
                     const callbackURL = window.location.pathname + window.location.search
                     sessionStorage.setItem('auth_callback', callbackURL)
 
@@ -80,8 +81,6 @@ function createPersistedQueryClient(dbname: string) {
 
 type PRData = fns.PRList[number] & fns.PR
 
-export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
-
 export const listMyRepos = () =>
     queryOptions({
         queryKey: ['my-repos'],
@@ -93,6 +92,8 @@ export const listOwnerRepos = (owner: string, page: number) =>
         queryKey: ['repos', owner, page],
         queryFn: () => fns.listOwnerRepos({ data: { owner, page } }),
     })
+
+export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
 
 export const listPRs = (owner: string, repo: string, page: number, state: 'open' | 'closed') =>
     queryOptions({
