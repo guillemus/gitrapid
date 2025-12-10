@@ -1,7 +1,7 @@
 import { MarkdownRenderer } from '@/components/markdown-renderer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
-import * as fns from '@/server/functions'
+import { trpcClient } from '@/server/trpc-client'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { formatDistanceToNow } from 'date-fns'
@@ -32,7 +32,7 @@ export function PRConversation() {
     let issueComments = useInfiniteQuery({
         queryKey: ['pr-comments', owner, repo, number],
         queryFn: ({ pageParam }) =>
-            fns.getPRComments({ data: { owner, repo, number, page: pageParam } }),
+            trpcClient.getPRComments.query({ owner, repo, number, page: pageParam }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, _, lastPageParam) =>
             lastPage.length < 30 ? undefined : lastPageParam + 1,
@@ -41,7 +41,7 @@ export function PRConversation() {
     let reviewComments = useInfiniteQuery({
         queryKey: ['pr-review-comments', owner, repo, number],
         queryFn: ({ pageParam }) =>
-            fns.getPRReviewComments({ data: { owner, repo, number, page: pageParam } }),
+            trpcClient.getPRReviewComments.query({ owner, repo, number, page: pageParam }),
         initialPageParam: 1,
         getNextPageParam: (lastPage, _, lastPageParam) =>
             lastPage.length < 30 ? undefined : lastPageParam + 1,

@@ -1,5 +1,5 @@
 import { computeInlineHighlights, parseDiff, type DiffLine } from '@/lib/diff'
-import * as fns from '@/server/functions'
+import type { fns } from '@/server/router'
 
 function DiffLineRow(props: { line: DiffLine; idx: number }) {
     let bgColor = 'bg-white'
@@ -77,7 +77,7 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
     )
 }
 
-function FileChange(props: { file: Awaited<ReturnType<typeof fns.getPRFiles>>[number] }) {
+function FileChange(props: { file: fns.PRFile }) {
     let diffLines: DiffLine[] = []
     if (props.file.patch) {
         diffLines = computeInlineHighlights(parseDiff(props.file.patch))
@@ -116,7 +116,7 @@ function FileChange(props: { file: Awaited<ReturnType<typeof fns.getPRFiles>>[nu
     )
 }
 
-export function DiffViewer(props: { files: { data: Awaited<ReturnType<typeof fns.getPRFiles>> } }) {
+export function DiffViewer(props: { files: { data: fns.PRFile[] } }) {
     if (!props.files.data || props.files.data.length === 0) {
         return <div>No file changes</div>
     }

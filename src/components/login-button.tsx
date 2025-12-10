@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
-import * as fns from '@/server/functions'
+import { trpcClient } from '@/server/trpc-client'
 
 const HAS_LOGGED_IN_KEY = 'hasLoggedIn'
 
@@ -24,7 +24,7 @@ function LoginButtonInner() {
 
         async function checkSession() {
             try {
-                const user = await fns.getUser()
+                const user = await trpcClient.getUser.query()
                 if (cancelled) return
                 if (user) {
                     navigate({ to: '/dashboard' })

@@ -3,6 +3,7 @@ import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -15,7 +16,7 @@ export const Route = createFileRoute('/dashboard')({
             throw redirect({ to: '/' })
         }
 
-        queryClient.prefetchQuery(qc.listMyRepos())
+        queryClient.prefetchQuery(trpc.listMyRepos.queryOptions())
 
         return user
     },
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function RouteComponent() {
     const user = Route.useLoaderData()
-    const repos = useQuery(qc.listMyRepos())
+    const repos = useQuery(trpc.listMyRepos.queryOptions())
 
     return (
         <div className="min-h-screen flex flex-col font-sans">

@@ -1,5 +1,6 @@
-import * as fns from '@/server/functions'
+import type { PR, PRList } from '@/server/router'
 import * as server from '@/server/server'
+import { trpc, trpcClient } from '@/server/trpc-client'
 import {
     QueryCache,
     QueryClient,
@@ -48,8 +49,7 @@ function newQueryClient() {
 }
 
 export const qcMem = newQueryClient()
-
-const qcPersistent = createPersistedQueryClient('gitpr')
+export const qcPersistent = createPersistedQueryClient('gitpr')
 
 // export const qcDefault = qcMem
 export const qcDefault = qcPersistent
@@ -79,49 +79,22 @@ function createPersistedQueryClient(dbname: string) {
     return qc
 }
 
-type PRData = fns.PRList[number] & fns.PR
-
-export const listMyRepos = () =>
-    queryOptions({
-        queryKey: ['my-repos'],
-        queryFn: () => fns.listMyRepos(),
-    })
-
-export const listOwnerRepos = (owner: string, page: number) =>
-    queryOptions({
-        queryKey: ['repos', owner, page],
-        queryFn: () => fns.listOwnerRepos({ data: { owner, page } }),
-    })
-
-export type ListPRsData = Awaited<ReturnType<typeof fns.listPRs>>
-
-export const listPRs = (owner: string, repo: string, page: number, state: 'open' | 'closed') =>
-    queryOptions({
-        queryKey: ['prs', owner, repo, page, state],
-        queryFn: () => fns.listPRs({ data: { owner, repo, page, state } }),
-    })
-
-// For loaders - no placeholderData (can't use hooks outside React)
-export const getPR = (owner: string, repo: string, number: number) =>
-    queryOptions({
-        queryKey: ['pr', owner, repo, number],
-        queryFn: () => fns.getPR({ data: { owner, repo, number } }),
-    })
+type PRData = PRList[number] & PR
 
 // For components - with placeholderData from listPRs cache
 export const useGetPROpts = (owner: string, repo: string, number: number) => {
-    let qc = useQueryClient()
+    let queryClient = useQueryClient()
 
     return queryOptions({
         queryKey: ['pr', owner, repo, number],
-        queryFn: () => fns.getPR({ data: { owner, repo, number } }),
+        queryFn: () => trpcClient.getPR.query({ owner, repo, number }),
 
         // When fetching the single PR page, we might already have seen data
         // from the previous list.
         // This means that we can reuse that data.
 
         placeholderData: () => {
-            const cache = qc.getQueryCache()
+            const cache = queryClient.getQueryCache()
             const allQueries = cache.findAll({ queryKey: ['prs', owner, repo] })
 
             for (const query of allQueries) {
@@ -144,47 +117,26 @@ export const useGetPROpts = (owner: string, repo: string, number: number) => {
 }
 
 export const getPRFiles = (owner: string, repo: string, number: number) =>
-    queryOptions({
-        queryKey: ['pr-files', owner, repo, number],
-        queryFn: () => fns.getPRFiles({ data: { owner, repo, number } }),
-    })
+    trpc.getPRFiles.queryOptions({ owner, repo, number })
 
 export const getPRComments = (owner: string, repo: string, number: number, page: number) =>
-    queryOptions({
-        queryKey: ['pr-comments', owner, repo, number, page],
-        queryFn: () => fns.getPRComments({ data: { owner, repo, number, page } }),
-    })
+    trpc.getPRComments.queryOptions({ owner, repo, number, page })
 
 export const getRepositoryStats = (owner: string, repo: string) =>
-    queryOptions({
-        queryKey: ['repository-stats', owner, repo],
-        queryFn: () => fns.getRepositoryStats({ data: { owner, repo } }),
-    })
+    trpc.getRepositoryStats.queryOptions({ owner, repo })
 
-export const getUserOpts = queryOptions({
-    queryKey: ['user'],
-    queryFn: () => fns.getUser(),
-})
+export const getUserOpts = trpc.getUser.queryOptions()
 
 export const useUser = () => useQuery(getUserOpts, qcMem)
 
 const getRepositoryMetadata = (owner: string, repo: string) =>
-    queryOptions({
-        queryKey: ['repository-metadata', owner, repo],
-        queryFn: () => fns.getRepositoryMetadata({ data: { owner, repo } }),
-    })
+    trpc.getRepositoryMetadata.queryOptions({ owner, repo })
 
 const getFileContents = (params: { owner: string; repo: string; path?: string; ref?: string }) =>
-    queryOptions({
-        queryKey: ['file-contents', params.owner, params.repo, params.ref, params.path],
-        queryFn: () => fns.getFileContents({ data: params }),
-    })
+    trpc.getFileContents.queryOptions(params)
 
 const getRepositoryTree = (owner: string, repo: string, branch?: string) =>
-    queryOptions({
-        queryKey: ['repository-tree', owner, repo, branch],
-        queryFn: () => fns.getRepositoryTree({ data: { owner, repo, branch } }),
-    })
+    trpc.getRepositoryTree.queryOptions({ owner, repo, branch })
 
 export const fileTree = (params: { owner: string; repo: string; ref?: string }) =>
     queryOptions({
@@ -192,7 +144,7 @@ export const fileTree = (params: { owner: string; repo: string; ref?: string }) 
         queryFn: async (ctx) => {
             let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
 
-            let ref = params.ref ?? (meta as any).defaultBranch
+            let ref = params.ref ?? meta.defaultBranch
             let query = await ctx.client.fetchQuery(
                 getRepositoryTree(params.owner, params.repo, ref),
             )
@@ -206,7 +158,7 @@ export const file = (params: { owner: string; repo: string; ref?: string; path?:
         queryFn: async (ctx) => {
             let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
 
-            let ref = params.ref ?? (meta as any).defaultBranch
+            let ref = params.ref ?? meta.defaultBranch
             let query = await ctx.client.fetchQuery(
                 getFileContents({
                     owner: params.owner,

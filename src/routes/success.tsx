@@ -1,9 +1,8 @@
 import { PageContainer } from '@/components/page-container'
 import { Button } from '@/components/ui/button'
-import { syncSubscriptionAfterCheckout } from '@/server/functions'
+import { trpcClient } from '@/server/trpc-client'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
 
 export const Route = createFileRoute('/success')({
     component: SuccessPage,
@@ -12,13 +11,8 @@ export const Route = createFileRoute('/success')({
 function SuccessPage() {
     const navigate = useNavigate()
     const mutation = useMutation({
-        mutationFn: syncSubscriptionAfterCheckout,
+        mutationFn: () => trpcClient.syncSubscriptionAfterCheckout.mutate(),
     })
-
-    // Sync subscription on mount to handle webhook race conditions and persist checkout data
-    useEffect(() => {
-        mutation.mutate(undefined)
-    }, [])
 
     if (mutation.isPending) {
         return (

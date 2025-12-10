@@ -10,7 +10,7 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
@@ -21,7 +21,9 @@ export const Route = createFileRoute('/$owner/')({
     }),
     component: OwnerRepos,
     loader: async ({ context: { queryClient }, params }) => {
-        queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, 1))
+        queryClient.prefetchQuery(
+            trpc.listOwnerRepos.queryOptions({ owner: params.owner, page: 1 }),
+        )
     },
 })
 
@@ -31,7 +33,12 @@ function OwnerRepos() {
     const navigate = Route.useNavigate()
     const queryClient = useQueryClient()
 
-    const repos = useQuery(qc.listOwnerRepos(params.owner, search.page))
+    const repos = useQuery(
+        trpc.listOwnerRepos.queryOptions({
+            owner: params.owner,
+            page: search.page,
+        }),
+    )
     const hasNext = repos.data?.length === 10
 
     const handlePrevPage = () => {
@@ -46,12 +53,22 @@ function OwnerRepos() {
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, search.page - 1))
+            queryClient.prefetchQuery(
+                trpc.listOwnerRepos.queryOptions({
+                    owner: params.owner,
+                    page: search.page - 1,
+                }),
+            )
         }
     }
 
     const prefetchNext = () => {
-        queryClient.prefetchQuery(qc.listOwnerRepos(params.owner, search.page + 1))
+        queryClient.prefetchQuery(
+            trpc.listOwnerRepos.queryOptions({
+                owner: params.owner,
+                page: search.page + 1,
+            }),
+        )
     }
 
     return (

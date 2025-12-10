@@ -1,5 +1,5 @@
 import { PRList } from '@/components/pr-list'
-import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
@@ -11,7 +11,14 @@ export const Route = createFileRoute('/$owner/$repo/pulls')({
     loader: async ({ context: { queryClient }, params }) => {
         // For now, prefetch default open page 1
         // The component will handle other states/pages
-        queryClient.prefetchQuery(qc.listPRs(params.owner, params.repo, 1, 'open'))
+        queryClient.prefetchQuery(
+            trpc.listPRs.queryOptions({
+                owner: params.owner,
+                repo: params.repo,
+                page: 1,
+                state: 'open',
+            }),
+        )
     },
     component: PRListPage,
 })

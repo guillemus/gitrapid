@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
     {
-        ignores: ['.vercel/**', '.tanstack/**'],
+        ignores: ['.vercel/**', '.tanstack/**', './dist'],
     },
     ...tseslint.configs.recommended,
     {

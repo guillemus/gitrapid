@@ -1,5 +1,5 @@
 import { PrefetchLink } from '@/components/prefetch-link'
-import type { Repository } from '@/server/functions'
+import type { Repository } from '@/server/router'
 import { StarIcon } from '@primer/octicons-react'
 
 export function RepoListItem(props: { repo: Repository }) {

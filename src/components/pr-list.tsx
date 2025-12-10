@@ -1,6 +1,6 @@
 import { PageContainer } from '@/components/page-container'
-import { qcDefault, qcMem } from '@/lib/query-client'
-import { useQuery } from '@tanstack/react-query'
+import { qcMem } from '@/lib/query-client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 
 import { PrefetchLink } from '@/components/prefetch-link'
@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { qc } from '@/lib'
+import type { PRList } from '@/server/router'
+import { trpc } from '@/server/trpc-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 
 export function PRList() {
@@ -32,10 +33,13 @@ export function PRList() {
         }
     }
 
+    let qcDefault = useQueryClient()
     const shouldPersist = search.state === 'open' && search.page === 1
     const queryClient = shouldPersist ? qcDefault : qcMem
 
-    const prs = useQuery(qc.listPRs(owner, repo, search.page, search.state), queryClient)
+    const prs = useQuery(
+        trpc.listPRs.queryOptions({ owner, repo, page: search.page, state: search.state }),
+    )
 
     const handlePrevPage = () => {
         if (search.page > 1) {
@@ -49,12 +53,26 @@ export function PRList() {
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient?.prefetchQuery(qc.listPRs(owner, repo, search.page - 1, search.state))
+            queryClient?.prefetchQuery(
+                trpc.listPRs.queryOptions({
+                    owner,
+                    repo,
+                    page: search.page - 1,
+                    state: search.state,
+                }),
+            )
         }
     }
 
     const prefetchNext = () => {
-        queryClient?.prefetchQuery(qc.listPRs(owner, repo, search.page + 1, search.state))
+        queryClient?.prefetchQuery(
+            trpc.listPRs.queryOptions({
+                owner,
+                repo,
+                page: search.page + 1,
+                state: search.state,
+            }),
+        )
     }
     const hasNext = prs.data?.length === 10
 
@@ -140,7 +158,7 @@ function PRListSkeleton() {
     )
 }
 
-function PRListItem(props: { owner: string; repo: string; pr: qc.ListPRsData[number] }) {
+function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) {
     return (
         <PrefetchLink
             to="/$owner/$repo/pull/$number"

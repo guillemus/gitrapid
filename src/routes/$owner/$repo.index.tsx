@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
-import type { TreeItem } from '@/server/functions'
+import type { TreeItem } from '@/server/router'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createContext, useContext, useMemo, useState } from 'react'
@@ -58,8 +58,8 @@ export const Route = createFileRoute('/$owner/$repo/')({
 function CodePage() {
     return (
         <div className="flex h-[calc(100vh-64px)]">
-            {/* <FileTree />
-            <FileViewer /> */}
+            <FileTree />
+            <FileViewer />
         </div>
     )
 }
