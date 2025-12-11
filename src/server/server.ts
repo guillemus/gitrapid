@@ -1,8 +1,9 @@
 import { auth } from '@/auth'
-import { prisma } from '@/lib/db'
-import { redisGet, redisSet } from '@/lib/redis'
-import { getRequest } from '@tanstack/react-start/server'
+import { prisma } from '@/server/db'
+import { redisGet, redisSet } from '@/server/redis'
 import { Octokit } from 'octokit'
+import type { TRPCContext } from './trpc'
+import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
 
 const ETAG_CACHING = true
 
@@ -39,12 +40,8 @@ type User = {
     token: string
 }
 
-export const ERR_UNAUTHORIZED = 'error_unauthorized'
-export const ERR_NO_SUBSCRIPTION_FOUND = 'error_no_subscription_found'
-
-export async function assertUser(): Promise<User> {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
+export async function assertUser(ctx: TRPCContext): Promise<User> {
+    const session = await auth.api.getSession({ headers: ctx.req.header() })
 
     if (!session) {
         throw new Error(ERR_UNAUTHORIZED)

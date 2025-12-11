@@ -1,5 +1,5 @@
 import type { PR, PRList } from '@/server/router'
-import * as server from '@/server/server'
+import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from '@/server/shared'
 import { trpc, trpcClient } from '@/server/trpc-client'
 import {
     QueryCache,
@@ -20,8 +20,8 @@ function newQueryClient() {
             queries: {
                 staleTime: 10 * 1000,
                 retry: (failureCount, error) => {
-                    if (error?.message === server.ERR_UNAUTHORIZED) return false
-                    if (error?.message === server.ERR_NO_SUBSCRIPTION_FOUND) return false
+                    if (error?.message === ERR_UNAUTHORIZED) return false
+                    if (error?.message === ERR_NO_SUBSCRIPTION_FOUND) return false
 
                     return failureCount < 3
                 },
@@ -29,13 +29,13 @@ function newQueryClient() {
         },
         queryCache: new QueryCache({
             onError: (error) => {
-                if (error?.message === server.ERR_NO_SUBSCRIPTION_FOUND) {
+                if (error?.message === ERR_NO_SUBSCRIPTION_FOUND) {
                     toast.error('Subscription required')
                     window.location.href = '/pricing'
                     return
                 }
 
-                if (error?.message === server.ERR_UNAUTHORIZED) {
+                if (error?.message === ERR_UNAUTHORIZED) {
                     const callbackURL = window.location.pathname + window.location.search
                     sessionStorage.setItem('auth_callback', callbackURL)
 

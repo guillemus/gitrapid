@@ -1,4 +1,4 @@
-import { appEnv } from '@/lib/app-env'
+import { appEnv } from '@/server/app-env'
 import { Redis } from '@upstash/redis'
 
 const redisClient = new Redis({

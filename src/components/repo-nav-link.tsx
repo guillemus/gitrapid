@@ -1,5 +1,5 @@
 import { PrefetchLink } from '@/components/prefetch-link'
-import { ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
 function RepoNavLink(props: {
     to: '/$owner/$repo' | '/$owner/$repo/issues' | '/$owner/$repo/pulls'

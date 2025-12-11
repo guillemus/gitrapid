@@ -1,6 +1,5 @@
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+import { tanstackRouter } from '@tanstack/router-vite-plugin'
 import viteReact from '@vitejs/plugin-react'
-import { nitro } from 'nitro/vite'
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 
@@ -13,21 +12,19 @@ export default defineConfig({
     server: {
         port: 3000,
         allowedHosts,
+        proxy: {
+            '/api': {
+                target: 'http://localhost:3001',
+                changeOrigin: true,
+            },
+        },
     },
     plugins: [
-        tsConfigPaths(),
-        tanstackStart({
-            spa: {
-                enabled: true,
-                maskPath: '/landing',
-            },
-            prerender: {
-                enabled: true,
-                autoSubfolderIndex: false,
-            },
+        tanstackRouter({
+            target: 'react',
+            autoCodeSplitting: true,
         }),
-        nitro({ preset: 'vercel' }),
-        // React's vite plugin must come after start's vite plugin
+        tsConfigPaths(),
         viteReact(),
     ],
 })

@@ -1,8 +1,8 @@
-import { prisma } from '@/lib/db'
+import { prisma } from '@/server/db'
 import { Polar } from '@polar-sh/sdk'
 import type { CustomerState } from '@polar-sh/sdk/models/components/customerstate'
 import { ResourceNotFound } from '@polar-sh/sdk/models/errors/resourcenotfound'
-import { appEnv } from './lib/app-env'
+import { appEnv } from './server/app-env'
 
 export const polar = new Polar({
     accessToken: appEnv.POLAR_TOKEN,

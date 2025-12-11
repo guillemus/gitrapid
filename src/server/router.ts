@@ -1,13 +1,13 @@
 import { auth } from '@/auth'
-import { prisma } from '@/lib/db'
+import { prisma } from '@/server/db'
 import { syncSubscriptionByUserId } from '@/polar'
-import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 
 import * as server from './server'
-import { createTRPCRouter, protectedProcedure, publicProcedure } from './trpc'
+import { createTRPCRouter, tProcedure, type TRPCContext } from './trpc'
+import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
 
-export * as fns from './router'
+export type * as routes from './router'
 
 const IssueSchema = z.object({
     id: z.number(),
@@ -168,12 +168,11 @@ const PRFileSchema = z.object({
 
 export type PRFile = z.infer<typeof PRFileSchema>
 
-async function getUserFromContext() {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
+async function getUserFromContext(ctx: TRPCContext) {
+    const session = await auth.api.getSession({ headers: ctx.req.header() })
 
     if (!session) {
-        throw new Error(server.ERR_UNAUTHORIZED)
+        throw new Error(ERR_UNAUTHORIZED)
     }
 
     const account = await prisma.account.findFirst({
@@ -184,7 +183,7 @@ async function getUserFromContext() {
     })
 
     if (!account?.accessToken) {
-        throw new Error(server.ERR_UNAUTHORIZED)
+        throw new Error(ERR_UNAUTHORIZED)
     }
 
     const subscription = await prisma.subscription.findUnique({
@@ -192,16 +191,16 @@ async function getUserFromContext() {
     })
 
     if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
-        throw new Error(server.ERR_NO_SUBSCRIPTION_FOUND)
+        throw new Error(ERR_NO_SUBSCRIPTION_FOUND)
     }
 
     return { userId: session.user.id, token: account.accessToken }
 }
 
-const listIssues = protectedProcedure
+const listIssues = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string() }))
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const issues = await server.cachedRequest(
@@ -218,7 +217,7 @@ const listIssues = protectedProcedure
         return z.array(IssueSchema).parse(issues)
     })
 
-const getPRComments = protectedProcedure
+const getPRComments = tProcedure
     .input(
         z.object({
             owner: z.string(),
@@ -227,8 +226,9 @@ const getPRComments = protectedProcedure
             page: z.number().optional(),
         }),
     )
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        ctx.req
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const page = input.page ?? 1
@@ -260,7 +260,7 @@ const getPRComments = protectedProcedure
         return z.array(CommentSchema).parse(comments)
     })
 
-const getPRReviewComments = protectedProcedure
+const getPRReviewComments = tProcedure
     .input(
         z.object({
             owner: z.string(),
@@ -269,8 +269,8 @@ const getPRReviewComments = protectedProcedure
             page: z.number().optional(),
         }),
     )
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const page = input.page ?? 1
@@ -302,10 +302,10 @@ const getPRReviewComments = protectedProcedure
         return z.array(ReviewCommentSchema).parse(comments)
     })
 
-const listOwnerRepos = protectedProcedure
+const listOwnerRepos = tProcedure
     .input(z.object({ owner: z.string(), page: z.number() }))
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         if (input.page !== 1) {
@@ -333,10 +333,10 @@ const listOwnerRepos = protectedProcedure
         return z.array(RepositorySchema).parse(repositories)
     })
 
-const getRepositoryStats = protectedProcedure
+const getRepositoryStats = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string() }))
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const response = await octo.graphql(
@@ -361,8 +361,8 @@ const getRepositoryStats = protectedProcedure
         }
     })
 
-const listMyRepos = protectedProcedure.query(async () => {
-    const user = await getUserFromContext()
+const listMyRepos = tProcedure.query(async ({ ctx }) => {
+    const user = await getUserFromContext(ctx)
     const octo = server.newOcto(user.token)
 
     const repositories = await server.cachedRequest(user.userId, `my-repos`, (headers) =>
@@ -377,9 +377,8 @@ const listMyRepos = protectedProcedure.query(async () => {
     return z.array(RepositorySchema).parse(repositories)
 })
 
-const getUser = publicProcedure.query(async () => {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
+const getUser = tProcedure.query(async ({ ctx }) => {
+    const session = await auth.api.getSession({ headers: ctx.req.header() })
 
     if (!session) {
         return null
@@ -396,9 +395,8 @@ const getUser = publicProcedure.query(async () => {
     }
 })
 
-const syncSubscriptionAfterCheckout = publicProcedure.mutation(async () => {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
+const syncSubscriptionAfterCheckout = tProcedure.mutation(async ({ ctx }) => {
+    const session = await auth.api.getSession({ headers: ctx.req.header() })
 
     if (!session) {
         return { success: false, error: 'Not authenticated' }
@@ -413,10 +411,10 @@ const syncSubscriptionAfterCheckout = publicProcedure.mutation(async () => {
     }
 })
 
-const getRepositoryMetadata = protectedProcedure
+const getRepositoryMetadata = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string() }))
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const repo = await server.cachedRequest(
@@ -433,7 +431,7 @@ const getRepositoryMetadata = protectedProcedure
         return { defaultBranch: repo.default_branch }
     })
 
-const getFileContents = protectedProcedure
+const getFileContents = tProcedure
     .input(
         z.object({
             owner: z.string(),
@@ -442,8 +440,8 @@ const getFileContents = protectedProcedure
             path: z.string().optional(),
         }),
     )
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const path = input.path ?? 'README.md'
@@ -480,7 +478,7 @@ const getFileContents = protectedProcedure
         return null
     })
 
-const getRepositoryTree = protectedProcedure
+const getRepositoryTree = tProcedure
     .input(
         z.object({
             owner: z.string(),
@@ -488,8 +486,8 @@ const getRepositoryTree = protectedProcedure
             branch: z.string().optional(),
         }),
     )
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const tree = await server.cachedRequest(
@@ -508,10 +506,10 @@ const getRepositoryTree = protectedProcedure
         return z.array(TreeItemSchema).parse(tree.tree)
     })
 
-const getPR = protectedProcedure
+const getPR = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
-    .query(async ({ input }): Promise<PR> => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }): Promise<PR> => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const pullRequest = await server.cachedRequest(
@@ -532,7 +530,7 @@ const getPR = protectedProcedure
         })
     })
 
-const listPRs = protectedProcedure
+const listPRs = tProcedure
     .input(
         z.object({
             owner: z.string(),
@@ -541,8 +539,8 @@ const listPRs = protectedProcedure
             state: z.enum(['open', 'closed']),
         }),
     )
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         if (input.page !== 1 || input.state !== 'open') {
@@ -574,10 +572,10 @@ const listPRs = protectedProcedure
         return PRListSchema.parse(pullRequests)
     })
 
-const getPRFiles = protectedProcedure
+const getPRFiles = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
-    .query(async ({ input }) => {
-        const user = await getUserFromContext()
+    .query(async ({ input, ctx }) => {
+        const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
         const files = await server.cachedRequest(

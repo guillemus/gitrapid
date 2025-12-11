@@ -1,21 +1,8 @@
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-import { appRouter } from './router'
+import app from './hono'
 
 const server = Bun.serve({
     port: 3001,
-    async fetch(request: Request) {
-        const url = new URL(request.url)
-
-        if (url.pathname.startsWith('/api/trpc')) {
-            return fetchRequestHandler({
-                endpoint: '/api/trpc',
-                req: request,
-                router: appRouter,
-            })
-        }
-
-        return new Response('Not found', { status: 404 })
-    },
+    fetch: app.fetch,
 })
 
-console.log(`tRPC server running at http://localhost:${server.port}`)
+console.log(`Hono server running at http://localhost:${server.port}`)

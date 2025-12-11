@@ -1,8 +1,8 @@
-import { appEnv } from '@/lib/app-env'
+import { appEnv } from '@/server/app-env'
 import { polar, syncSubscriptionByPolarCustomerId } from '@/polar'
 import { checkout, polar as polarPlugin, portal, webhooks } from '@polar-sh/better-auth'
 import { betterAuth } from 'better-auth'
-import { tanstackStartCookies } from 'better-auth/tanstack-start'
+
 import { Pool } from 'pg'
 
 export const auth = betterAuth({
@@ -18,7 +18,6 @@ export const auth = betterAuth({
     },
 
     plugins: [
-        tanstackStartCookies(),
         polarPlugin({
             client: polar,
             createCustomerOnSignUp: true,
