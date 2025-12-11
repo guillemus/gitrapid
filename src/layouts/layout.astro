@@ -1,5 +1,11 @@
 ---
 import '../globals.css'
+
+interface Props {
+    title?: string
+}
+
+const { title = 'GitRapid' } = Astro.props as Props
 ---
 
 <html lang="en">
@@ -7,7 +13,7 @@ import '../globals.css'
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.png" type="image/png" />
-        <title>gitrapid</title>
+        <title>{title}</title>
         <!-- <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script> -->
         <script>
             if (import.meta.env.DEV) {

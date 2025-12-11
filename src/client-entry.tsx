@@ -1,5 +1,3 @@
-import './globals.css'
-
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { qcDefault } from './lib/query-client'

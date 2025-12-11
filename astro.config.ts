@@ -20,11 +20,11 @@ export default defineConfig({
 
     vite: {
         plugins: [
+            tailwindcss(),
             tanstackRouter({
                 target: 'react',
                 autoCodeSplitting: true,
             }) as any,
-            tailwindcss(),
             {
                 name: 'dev-spa-rewrite',
                 configureServer(server) {
@@ -38,7 +38,7 @@ export default defineConfig({
                             !url.startsWith('/src') &&
                             !url.startsWith('/node_modules')
                         if (isNavigationRequest) {
-                            req.url = '/'
+                            req.url = '/app'
                         }
                         next()
                     })

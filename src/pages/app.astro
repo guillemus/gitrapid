@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/layout.astro'
+import { ClientEntry } from '../client-entry'
+
+export const prerender = true
+---
+
+<Layout>
+    <ClientEntry client:only />
+</Layout>
