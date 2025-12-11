@@ -71,6 +71,8 @@ function OwnerRepos() {
         )
     }
 
+    const canPaginate = search.page > 1 || hasNext
+
     return (
         <div className="min-h-screen flex flex-col font-sans">
             <HeaderOwner owner={params.owner}></HeaderOwner>
@@ -81,29 +83,31 @@ function OwnerRepos() {
                     <div className="flex items-center justify-between p-4">
                         <span className="text-sm text-zinc-600">Repositories</span>
 
-                        <Pagination>
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        onClick={handlePrevPage}
-                                        onMouseEnter={prefetchPrev}
-                                        onMouseDown={prefetchPrev}
-                                        disabled={search.page === 1}
-                                    />
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationLink isActive>{search.page}</PaginationLink>
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationNext
-                                        onClick={handleNextPage}
-                                        onMouseEnter={prefetchNext}
-                                        onMouseDown={prefetchNext}
-                                        disabled={!hasNext}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
+                        {canPaginate && (
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={handlePrevPage}
+                                            onMouseEnter={prefetchPrev}
+                                            onMouseDown={prefetchPrev}
+                                            disabled={search.page === 1}
+                                        />
+                                    </PaginationItem>
+                                    <PaginationItem>
+                                        <PaginationLink isActive>{search.page}</PaginationLink>
+                                    </PaginationItem>
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={handleNextPage}
+                                            onMouseEnter={prefetchNext}
+                                            onMouseDown={prefetchNext}
+                                            disabled={!hasNext}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        )}
                     </div>
 
                     <div className="border border-zinc-200 rounded-md overflow-hidden">

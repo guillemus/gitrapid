@@ -75,6 +75,7 @@ export function PRList() {
         )
     }
     const hasNext = prs.data?.length === 10
+    const canPaginate = search.page > 1 || hasNext
 
     return (
         <div className="min-h-screen font-sans">
@@ -87,29 +88,31 @@ export function PRList() {
                         </TabsList>
                     </Tabs>
 
-                    <Pagination>
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationPrevious
-                                    onClick={handlePrevPage}
-                                    onMouseEnter={prefetchPrev}
-                                    onMouseDown={prefetchPrev}
-                                    disabled={search.page === 1}
-                                />
-                            </PaginationItem>
-                            <PaginationItem>
-                                <PaginationLink isActive>{search.page}</PaginationLink>
-                            </PaginationItem>
-                            <PaginationItem>
-                                <PaginationNext
-                                    onClick={handleNextPage}
-                                    onMouseEnter={prefetchNext}
-                                    onMouseDown={prefetchNext}
-                                    disabled={!hasNext}
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
+                    {canPaginate && (
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={handlePrevPage}
+                                        onMouseEnter={prefetchPrev}
+                                        onMouseDown={prefetchPrev}
+                                        disabled={search.page === 1}
+                                    />
+                                </PaginationItem>
+                                <PaginationItem>
+                                    <PaginationLink isActive>{search.page}</PaginationLink>
+                                </PaginationItem>
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={handleNextPage}
+                                        onMouseEnter={prefetchNext}
+                                        onMouseDown={prefetchNext}
+                                        disabled={!hasNext}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
                 </div>
 
                 <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">

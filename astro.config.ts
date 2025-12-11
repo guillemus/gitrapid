@@ -36,8 +36,7 @@ export default defineConfig({
                             !url.startsWith('/api') &&
                             !url.startsWith('/@') &&
                             !url.startsWith('/src') &&
-                            !url.startsWith('/node_modules') &&
-                            !url.includes('.')
+                            !url.startsWith('/node_modules')
                         if (isNavigationRequest) {
                             req.url = '/'
                         }

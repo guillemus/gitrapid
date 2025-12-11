@@ -101,7 +101,7 @@ export function HeaderRepo(props: { owner: string; repo: string }) {
                 />
 
                 <RepoNavLink
-                    to="/$owner/$repo/pulls"
+                    to="/$owner/$repo"
                     params={props}
                     icon={<GitPullRequestIcon size={16} />}
                     label="Pull requests"

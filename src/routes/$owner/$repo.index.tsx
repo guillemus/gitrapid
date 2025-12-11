@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
 import type { TreeItem } from '@/server/router'
+import { File, Folder, FolderOpen } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createContext, useContext, useMemo, useState } from 'react'
@@ -222,7 +223,7 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
                 onClick={() => ctx.selectFile(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
             >
-                <span className="text-sm text-zinc-600">📄</span>
+                <File size={16} className="text-zinc-500 shrink-0" />
                 <span className="text-sm">{props.node.name}</span>
             </div>
         )
@@ -247,7 +248,11 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
                 onClick={() => ctx.toggleExpanded(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
             >
-                <span className="text-sm text-zinc-600">{expanded ? '📂' : '📁'}</span>
+                {expanded ? (
+                    <FolderOpen size={16} className="text-zinc-500 shrink-0" />
+                ) : (
+                    <Folder size={16} className="text-zinc-500 shrink-0" />
+                )}
                 <span className="text-sm font-medium">{props.node.name}</span>
             </div>
             {expanded && props.node.children && (

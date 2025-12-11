@@ -71,7 +71,7 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
             <div className={`${lineNumColor} px-2 text-right select-none min-w-12`}>
                 {props.line.newLineNumber ?? ''}
             </div>
-            <div className={`${lineNumColor} px-2 select-none`}>{prefix}</div>
+            <div className={`${lineNumColor} w-4 text-center select-none`}>{prefix}</div>
             <div className="px-2 flex-1 whitespace-pre">{contentElement}</div>
         </div>
     )

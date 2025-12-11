@@ -32,7 +32,7 @@ function PRFilesPage() {
     return (
         <div className="flex gap-6">
             {/* <FileTreeSidebar files={prFiles.data} /> */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pb-6">
                 <DiffViewer files={{ data: prFiles.data }} />
             </div>
         </div>

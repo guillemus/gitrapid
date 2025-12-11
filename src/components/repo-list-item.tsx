@@ -9,7 +9,7 @@ export function RepoListItem(props: { repo: Repository }) {
 
     return (
         <PrefetchLink
-            to="/$owner/$repo/pulls"
+            to="/$owner/$repo"
             params={{ owner: props.repo.owner.login, repo: props.repo.name }}
             className="block p-3 hover:bg-zinc-50 border-b border-zinc-200 last:border-b-0"
         >

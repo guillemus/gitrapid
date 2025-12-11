@@ -49,7 +49,7 @@ function newQueryClient() {
 }
 
 export const qcMem = newQueryClient()
-export const qcPersistent = createPersistedQueryClient('gitpr')
+export const qcPersistent = createPersistedQueryClient('GitRapid')
 
 // export const qcDefault = qcMem
 export const qcDefault = qcPersistent
