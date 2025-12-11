@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
 import { authClient } from '@/lib/auth-client'
 import { useNavigate } from '@tanstack/react-router'
@@ -7,7 +8,7 @@ export function UserMenu() {
     const navigate = useNavigate()
     const user = qc.useUser()
 
-    if (!user.data) return null
+    if (!user.data) return <Skeleton className="w-8 h-8 rounded-full" />
 
     const hasActiveSubscription =
         user.data.subscription?.status === 'active' || user.data.subscription?.status === 'trialing'

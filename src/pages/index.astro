@@ -1,8 +1,10 @@
 ---
-import '../globals.css'
+import Layout from '../layouts/layout.astro'
 import { ClientEntry } from '../client-entry'
 
 export const prerender = true
 ---
 
-<ClientEntry client:only />
+<Layout>
+    <ClientEntry client:only />
+</Layout>
