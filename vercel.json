@@ -1,17 +1,12 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "rewrites": [
-        { "source": "/_serverFn/:path*", "destination": "/_serverFn/:path*" },
-        { "source": "/api/:path*", "destination": "/__server" },
-        {
-            "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
-            "source": "/",
-            "destination": "/landing.html"
-        },
-        {
-            "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
-            "source": "/((?!api|_serverFn).*)",
-            "destination": "/_shell.html"
+    "bunVersion": "1.x",
+    "functions": {
+        "api/index.ts": {
+            "includeFiles": "src/server/**/*.ts"
         }
+    },
+    "rewrites": [
+        { "source": "/((?!api).*)", "destination": "/index.html" }
     ]
 }

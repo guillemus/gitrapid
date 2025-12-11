@@ -14,6 +14,7 @@ app.use(
         }),
     }),
 )
+
 app.all('/api/auth/*', async (c) => {
     return auth.handler(c.req.raw)
 })
