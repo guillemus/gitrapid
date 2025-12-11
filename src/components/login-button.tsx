@@ -9,12 +9,13 @@ import { useUser } from '@/lib/query-client'
 
 export function LoginButton() {
     const user = useUser()
-    const navigate = useNavigate()
     const [isLoading, setIsLoading] = useState(false)
 
     useEffect(() => {
         if (user.data) {
-            navigate({ to: '/dashboard' })
+            // this file is important to have it not depend on tanstack router,
+            // because when rendered in the landing it won't have the router context
+            window.location.href = '/dashboard'
         }
     }, [user.data])
 

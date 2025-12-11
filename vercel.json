@@ -1,8 +1,11 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
-        { "source": "/api/:path*", "destination": "/api/:path*" },
-        { "source": "/", "destination": "/landing.html" },
-        { "source": "/:path*", "destination": "/app.html" }
+        { "source": "/", "destination": "/index.html" },
+        {
+            "source": "/:path((?!api/).*)",
+            "has": [{ "type": "header", "key": "Accept", "value": ".*text/html.*" }],
+            "destination": "/app/index.html"
+        }
     ]
 }
