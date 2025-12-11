@@ -1,15 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import './globals.css'
+
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
+import { qcDefault } from './lib/query-client'
 
-const queryClient = new QueryClient()
-
-const router = createRouter({
-    routeTree,
-    context: {
-        queryClient,
-    },
-})
+const router = createRouter({ routeTree, context: { queryClient: qcDefault } })
 
 declare module '@tanstack/react-router' {
     interface Register {
@@ -18,9 +13,5 @@ declare module '@tanstack/react-router' {
 }
 
 export function ClientEntry() {
-    return (
-        <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-        </QueryClientProvider>
-    )
+    return <RouterProvider router={router} />
 }

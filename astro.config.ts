@@ -25,6 +25,26 @@ export default defineConfig({
                 autoCodeSplitting: true,
             }) as any,
             tailwindcss(),
+            {
+                name: 'dev-spa-rewrite',
+                configureServer(server) {
+                    server.middlewares.use((req, _res, next) => {
+                        const url = req.url || ''
+                        const isNavigationRequest =
+                            req.headers.accept?.includes('text/html') &&
+                            req.method === 'GET' &&
+                            !url.startsWith('/api') &&
+                            !url.startsWith('/@') &&
+                            !url.startsWith('/src') &&
+                            !url.startsWith('/node_modules') &&
+                            !url.includes('.')
+                        if (isNavigationRequest) {
+                            req.url = '/'
+                        }
+                        next()
+                    })
+                },
+            },
         ],
     },
 
