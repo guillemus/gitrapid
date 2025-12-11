@@ -1,5 +1,5 @@
-import { appEnv } from '@/server/app-env'
 import { polar, syncSubscriptionByPolarCustomerId } from '@/polar'
+import { appEnv } from '@/server/app-env'
 import { checkout, polar as polarPlugin, portal, webhooks } from '@polar-sh/better-auth'
 import { betterAuth } from 'better-auth'
 

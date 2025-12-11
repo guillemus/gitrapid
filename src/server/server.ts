@@ -2,8 +2,8 @@ import { auth } from '@/auth'
 import { prisma } from '@/server/db'
 import { redisGet, redisSet } from '@/server/redis'
 import { Octokit } from 'octokit'
-import type { TRPCContext } from './trpc'
 import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
+import type { TRPCContext } from './trpc'
 
 const ETAG_CACHING = true
 
@@ -41,7 +41,7 @@ type User = {
 }
 
 export async function assertUser(ctx: TRPCContext): Promise<User> {
-    const session = await auth.api.getSession({ headers: ctx.req.header() })
+    const session = await auth.api.getSession({ headers: ctx.req.headers })
 
     if (!session) {
         throw new Error(ERR_UNAUTHORIZED)

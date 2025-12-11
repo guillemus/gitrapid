@@ -1,11 +1,11 @@
 import { auth } from '@/auth'
-import { prisma } from '@/server/db'
 import { syncSubscriptionByUserId } from '@/polar'
+import { prisma } from '@/server/db'
 import { z } from 'zod'
 
 import * as server from './server'
-import { createTRPCRouter, tProcedure, type TRPCContext } from './trpc'
 import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
+import { createTRPCRouter, tProcedure, type TRPCContext } from './trpc'
 
 export type * as routes from './router'
 
@@ -169,7 +169,7 @@ const PRFileSchema = z.object({
 export type PRFile = z.infer<typeof PRFileSchema>
 
 async function getUserFromContext(ctx: TRPCContext) {
-    const session = await auth.api.getSession({ headers: ctx.req.header() })
+    const session = await auth.api.getSession({ headers: ctx.req.headers })
 
     if (!session) {
         throw new Error(ERR_UNAUTHORIZED)
@@ -378,7 +378,7 @@ const listMyRepos = tProcedure.query(async ({ ctx }) => {
 })
 
 const getUser = tProcedure.query(async ({ ctx }) => {
-    const session = await auth.api.getSession({ headers: ctx.req.header() })
+    const session = await auth.api.getSession({ headers: ctx.req.headers })
 
     if (!session) {
         return null
@@ -396,7 +396,7 @@ const getUser = tProcedure.query(async ({ ctx }) => {
 })
 
 const syncSubscriptionAfterCheckout = tProcedure.mutation(async ({ ctx }) => {
-    const session = await auth.api.getSession({ headers: ctx.req.header() })
+    const session = await auth.api.getSession({ headers: ctx.req.headers })
 
     if (!session) {
         return { success: false, error: 'Not authenticated' }

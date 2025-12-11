@@ -1,9 +1,8 @@
 import { initTRPC } from '@trpc/server'
-import { type HonoRequest } from 'hono'
 import { ZodError } from 'zod'
 
 export type TRPCContext = {
-    req: HonoRequest
+    req: Request
 }
 
 const t = initTRPC.context<TRPCContext>().create({
