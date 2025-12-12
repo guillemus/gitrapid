@@ -13,7 +13,7 @@ export async function redisGet<T = unknown>(key: string): Promise<T | null> {
     return result
 }
 
-export async function redisSet<T>(key: string, value: T, opts?: { ex: number }): Promise<void> {
+export async function redisSet(key: string, value: unknown, opts?: { ex: number }): Promise<void> {
     const start = performance.now()
     await redisClient.set(key, value, {
         ...opts,

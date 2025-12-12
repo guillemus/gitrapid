@@ -17,6 +17,7 @@ function PricingPage() {
         }
 
         try {
+            // eslint-disable-next-line
             await authClient.checkout({ slug })
         } catch (error) {
             console.error('Checkout error:', error)

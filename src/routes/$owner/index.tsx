@@ -20,8 +20,8 @@ export const Route = createFileRoute('/$owner/')({
         page: z.coerce.number().default(1),
     }),
     component: OwnerRepos,
-    loader: async ({ context: { queryClient }, params }) => {
-        queryClient.prefetchQuery(
+    loader: ({ context: { queryClient }, params }) => {
+        void queryClient.prefetchQuery(
             trpc.listOwnerRepos.queryOptions({ owner: params.owner, page: 1 }),
         )
     },
@@ -43,17 +43,17 @@ function OwnerRepos() {
 
     const handlePrevPage = () => {
         if (search.page > 1) {
-            navigate({ search: { page: search.page - 1 } })
+            void navigate({ search: { page: search.page - 1 } })
         }
     }
 
     const handleNextPage = () => {
-        navigate({ search: { page: search.page + 1 } })
+        void navigate({ search: { page: search.page + 1 } })
     }
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient.prefetchQuery(
+            void queryClient.prefetchQuery(
                 trpc.listOwnerRepos.queryOptions({
                     owner: params.owner,
                     page: search.page - 1,
@@ -63,7 +63,7 @@ function OwnerRepos() {
     }
 
     const prefetchNext = () => {
-        queryClient.prefetchQuery(
+        void queryClient.prefetchQuery(
             trpc.listOwnerRepos.queryOptions({
                 owner: params.owner,
                 page: search.page + 1,

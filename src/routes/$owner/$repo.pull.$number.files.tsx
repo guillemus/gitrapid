@@ -1,12 +1,14 @@
 import { DiffViewer } from '@/components/diff-viewer'
-import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/$owner/$repo/pull/$number/files')({
-    loader: async ({ context: { queryClient }, params }) => {
+    loader: ({ context: { queryClient }, params }) => {
         const number = Number(params.number)
-        queryClient.prefetchQuery(qc.getPRFiles(params.owner, params.repo, number))
+        void queryClient.prefetchQuery(
+            trpc.getPRFiles.queryOptions({ owner: params.owner, repo: params.repo, number }),
+        )
     },
     component: PRFilesPage,
 })
@@ -15,14 +17,16 @@ function PRFilesPage() {
     const params = Route.useParams()
     const number = Number(params.number)
 
-    const prFiles = useQuery(qc.getPRFiles(params.owner, params.repo, number))
+    const prFiles = useQuery(
+        trpc.getPRFiles.queryOptions({ owner: params.owner, repo: params.repo, number }),
+    )
 
     if (prFiles.isLoading) {
         return <div>Loading files...</div>
     }
 
     if (prFiles.error) {
-        return <div>Error: {String(prFiles.error)}</div>
+        return <div>Error: {prFiles.error.message}</div>
     }
 
     if (!prFiles.data) {

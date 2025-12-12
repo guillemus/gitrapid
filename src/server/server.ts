@@ -5,8 +5,6 @@ import { Octokit } from 'octokit'
 import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
 import type { TRPCContext } from './trpc'
 
-const ETAG_CACHING = true
-
 async function timedRequest<T>(
     cacheKey: string,
     request: (headers: {
@@ -89,11 +87,6 @@ export async function cachedRequest<T>(
 ): Promise<T> {
     const dataKey = `data:${cacheKey}`
     const etagKey = `etag:${userId}:${cacheKey}`
-
-    if (!ETAG_CACHING) {
-        const response = await timedRequest(cacheKey, request, {})
-        return response.data
-    }
 
     const [cachedData, userEtag] = await Promise.all([redisGet(dataKey), redisGet<string>(etagKey)])
 

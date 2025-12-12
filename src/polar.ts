@@ -84,7 +84,7 @@ export async function syncSubscriptionByPolarCustomerId(polarCustomerId: string)
  */
 function pickSubscription(customerState: CustomerState) {
     const subs = customerState.activeSubscriptions
-    if (!subs?.length) {
+    if (!subs.length) {
         return null
     }
 

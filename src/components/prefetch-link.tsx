@@ -11,7 +11,7 @@ const PrefetchLinkComponent = React.forwardRef<
     function onMouseDown(e: React.MouseEvent<HTMLAnchorElement>) {
         const href = props.href
         if (href) {
-            router.preloadRoute({ to: href })
+            void router.preloadRoute({ to: href })
         }
         props.onMouseDown?.(e)
     }

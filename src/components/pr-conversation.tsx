@@ -3,7 +3,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
 import { trpcClient } from '@/server/trpc-client'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
 import { formatDistanceToNow } from 'date-fns'
 import { useEffect, useRef } from 'react'
 
@@ -21,11 +20,10 @@ type UnifiedComment = {
     diff_hunk?: string
 }
 
-export function PRConversation() {
-    let params = useParams({ strict: false }) as { owner: string; repo: string; number: string }
-    let owner = params.owner
-    let repo = params.repo
-    let number = Number(params.number)
+export function PRConversation(props: { params: { owner: string; repo: string; number: string } }) {
+    let owner = props.params.owner
+    let repo = props.params.repo
+    let number = Number(props.params.number)
 
     let pr = useQuery(qc.useGetPROpts(owner, repo, number))
 
@@ -89,10 +87,10 @@ export function PRConversation() {
         let observer = new IntersectionObserver((entries) => {
             if (entries[0]?.isIntersecting) {
                 if (issueComments.hasNextPage && !issueComments.isFetchingNextPage) {
-                    issueComments.fetchNextPage()
+                    void issueComments.fetchNextPage()
                 }
                 if (reviewComments.hasNextPage && !reviewComments.isFetchingNextPage) {
-                    reviewComments.fetchNextPage()
+                    void reviewComments.fetchNextPage()
                 }
             }
         })

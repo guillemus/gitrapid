@@ -20,8 +20,8 @@ function newQueryClient() {
             queries: {
                 staleTime: 10 * 1000,
                 retry: (failureCount, error) => {
-                    if (error?.message === ERR_UNAUTHORIZED) return false
-                    if (error?.message === ERR_NO_SUBSCRIPTION_FOUND) return false
+                    if (error.message === ERR_UNAUTHORIZED) return false
+                    if (error.message === ERR_NO_SUBSCRIPTION_FOUND) return false
 
                     return failureCount < 3
                 },
@@ -29,13 +29,13 @@ function newQueryClient() {
         },
         queryCache: new QueryCache({
             onError: (error) => {
-                if (error?.message === ERR_NO_SUBSCRIPTION_FOUND) {
+                if (error.message === ERR_NO_SUBSCRIPTION_FOUND) {
                     toast.error('Subscription required')
                     window.location.href = '/pricing'
                     return
                 }
 
-                if (error?.message === ERR_UNAUTHORIZED) {
+                if (error.message === ERR_UNAUTHORIZED) {
                     const callbackURL = window.location.pathname + window.location.search
                     sessionStorage.setItem('auth_callback', callbackURL)
 
@@ -65,6 +65,7 @@ function createPersistedQueryClient(dbname: string) {
             await kv.set(dbname, client)
         },
         restoreClient: async () => {
+            // eslint-disable-next-line
             return await kv.get(dbname)
         },
         removeClient: async () => {
@@ -74,7 +75,7 @@ function createPersistedQueryClient(dbname: string) {
 
     let buster = `${dbname}-0001`
 
-    persistQueryClient({ queryClient: qc, persister, buster })
+    void persistQueryClient({ queryClient: qc, persister, buster })
 
     return qc
 }
@@ -99,14 +100,14 @@ export const useGetPROpts = (owner: string, repo: string, number: number) => {
 
             for (const query of allQueries) {
                 const cached = query.state.data as PRData[]
-                if (cached) {
+                if (cached.length) {
                     const found = cached.find((pr) => pr.number === number)
                     if (found) {
                         // this is horrible, don't get me wrong. At some point the rpc functions
                         // should return actually a proper typescript type that
                         // maps the octokit type to what we can easily use in the app.
 
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        // eslint-disable-next-line
                         return found as any
                     }
                 }
@@ -116,37 +117,22 @@ export const useGetPROpts = (owner: string, repo: string, number: number) => {
     })
 }
 
-export const getPRFiles = (owner: string, repo: string, number: number) =>
-    trpc.getPRFiles.queryOptions({ owner, repo, number })
-
-export const getPRComments = (owner: string, repo: string, number: number, page: number) =>
-    trpc.getPRComments.queryOptions({ owner, repo, number, page })
-
-export const getRepositoryStats = (owner: string, repo: string) =>
-    trpc.getRepositoryStats.queryOptions({ owner, repo })
-
 export const getUserOpts = trpc.getUser.queryOptions()
 
 export const useUser = () => useQuery(getUserOpts, qcMem)
-
-const getRepositoryMetadata = (owner: string, repo: string) =>
-    trpc.getRepositoryMetadata.queryOptions({ owner, repo })
-
-const getFileContents = (params: { owner: string; repo: string; path?: string; ref?: string }) =>
-    trpc.getFileContents.queryOptions(params)
-
-const getRepositoryTree = (owner: string, repo: string, branch?: string) =>
-    trpc.getRepositoryTree.queryOptions({ owner, repo, branch })
 
 export const fileTree = (params: { owner: string; repo: string; ref?: string }) =>
     queryOptions({
         queryKey: ['filetree', params.owner, params.repo, params.ref],
         queryFn: async (ctx) => {
-            let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
-
+            let meta = await ctx.client.fetchQuery(trpc.getRepositoryMetadata.queryOptions(params))
             let ref = params.ref ?? meta.defaultBranch
+
             let query = await ctx.client.fetchQuery(
-                getRepositoryTree(params.owner, params.repo, ref),
+                trpc.getRepositoryTree.queryOptions({
+                    ...params,
+                    ref,
+                }),
             )
             return query
         },
@@ -156,11 +142,11 @@ export const file = (params: { owner: string; repo: string; ref?: string; path?:
     queryOptions({
         queryKey: ['file', params.owner, params.repo, params.ref, params.path],
         queryFn: async (ctx) => {
-            let meta = await ctx.client.fetchQuery(getRepositoryMetadata(params.owner, params.repo))
+            let meta = await ctx.client.fetchQuery(trpc.getRepositoryMetadata.queryOptions(params))
 
             let ref = params.ref ?? meta.defaultBranch
             let query = await ctx.client.fetchQuery(
-                getFileContents({
+                trpc.getFileContents.queryOptions({
                     owner: params.owner,
                     repo: params.repo,
                     ref,

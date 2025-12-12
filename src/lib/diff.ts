@@ -23,8 +23,8 @@ export function parseDiff(patch: string): DiffLine[] {
         if (line.startsWith('@@')) {
             const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/)
             if (match) {
-                oldLine = parseInt(match[1]!)
-                newLine = parseInt(match[2]!)
+                oldLine = parseInt(match[1])
+                newLine = parseInt(match[2])
             }
             result.push({ type: 'header', content: line })
         } else if (line.startsWith('+')) {
@@ -54,9 +54,9 @@ export function computeInlineHighlights(lines: DiffLine[]): DiffLine[] {
         // Look for remove followed by add (a modification)
         if (line?.type === 'remove' && lines[i + 1]?.type === 'add') {
             const oldLine = line
-            const newLine = lines[i + 1]!
+            const newLine = lines[i + 1]
 
-            const changes = diffWords(oldLine.content!, newLine.content!)
+            const changes = diffWords(oldLine.content, newLine.content)
 
             // Build segments for the removed line
             const oldSegments: DiffSegment[] = []
@@ -76,8 +76,8 @@ export function computeInlineHighlights(lines: DiffLine[]): DiffLine[] {
             result.push({ ...oldLine, segments: oldSegments })
             result.push({ ...newLine, segments: newSegments })
             i += 2
-        } else {
-            result.push(line!)
+        } else if (line) {
+            result.push(line)
             i++
         }
     }

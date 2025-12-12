@@ -1,9 +1,9 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
 import type { TreeItem } from '@/server/router'
-import { File, Folder, FolderOpen } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { File, Folder, FolderOpen } from 'lucide-react'
 import { createContext, useContext, useMemo, useState } from 'react'
 import z from 'zod'
 
@@ -42,10 +42,10 @@ export const Route = createFileRoute('/$owner/$repo/')({
     component: CodePage,
     loaderDeps: ({ search }) => ({ search }),
     loader({ params, deps: { search }, context: { queryClient } }) {
-        queryClient.prefetchQuery(
+        void queryClient.prefetchQuery(
             qc.fileTree({ owner: params.owner, repo: params.repo, ref: search.ref }),
         )
-        queryClient.prefetchQuery(
+        void queryClient.prefetchQuery(
             qc.file({
                 owner: params.owner,
                 repo: params.repo,
@@ -102,12 +102,12 @@ function FileTree() {
             }
             return next
         })
-        navigate({ search: { ...search, path } })
+        void navigate({ search: { ...search, path } })
     }
 
     let router = useRouter()
     const preloadFile = (path: string) => {
-        router.preloadRoute({ to: '.', search: { ...search, path: path } })
+        void router.preloadRoute({ to: '.', search: { ...search, path: path } })
     }
 
     const ctxValue: TreeContextValue = {

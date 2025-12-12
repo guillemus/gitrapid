@@ -8,10 +8,10 @@ export const Route = createFileRoute('/$owner/$repo/pulls')({
         page: z.coerce.number().default(1),
         state: z.enum(['open', 'closed']).default('open'),
     }),
-    loader: async ({ context: { queryClient }, params }) => {
+    loader: ({ context: { queryClient }, params }) => {
         // For now, prefetch default open page 1
         // The component will handle other states/pages
-        queryClient.prefetchQuery(
+        void queryClient.prefetchQuery(
             trpc.listPRs.queryOptions({
                 owner: params.owner,
                 repo: params.repo,

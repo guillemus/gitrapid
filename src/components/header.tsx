@@ -1,4 +1,4 @@
-import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { CodeIcon, GitPullRequestIcon, IssueOpenedIcon } from '@primer/octicons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useMatch } from '@tanstack/react-router'
@@ -10,7 +10,7 @@ import { UserMenu } from './user-menu'
 function Logo() {
     return (
         <PrefetchLink to="/dashboard">
-            <img src="/favicon.png" alt="gitrapid" className="w-6 h-6 rounded" />
+            <img src="/logo.png" alt="gitrapid" className="w-6 h-6 rounded" />
         </PrefetchLink>
     )
 }
@@ -42,7 +42,7 @@ export function HeaderOwner(props: { owner: string }) {
 }
 
 export function HeaderRepo(props: { owner: string; repo: string }) {
-    const { data: stats } = useQuery(qc.getRepositoryStats(props.owner, props.repo))
+    const { data: stats } = useQuery(trpc.getRepositoryStats.queryOptions(props))
 
     let isCode = useMatch({ from: '/$owner/$repo/', shouldThrow: false })
     let isIssues = useMatch({ from: '/$owner/$repo/issues', shouldThrow: false })

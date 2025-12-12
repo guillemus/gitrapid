@@ -29,7 +29,7 @@ export function PRList() {
 
     const handleStateChange = (newState: string) => {
         if (newState === 'open' || newState === 'closed') {
-            navigate({ search: (old) => ({ ...old, state: newState, page: 1 }) })
+            void navigate({ search: (old) => ({ ...old, state: newState, page: 1 }) })
         }
     }
 
@@ -43,17 +43,17 @@ export function PRList() {
 
     const handlePrevPage = () => {
         if (search.page > 1) {
-            navigate({ search: (old) => ({ ...old, page: old.page - 1 }) })
+            void navigate({ search: (old) => ({ ...old, page: old.page - 1 }) })
         }
     }
 
     const handleNextPage = () => {
-        navigate({ search: (old) => ({ ...old, page: old.page + 1 }) })
+        void navigate({ search: (old) => ({ ...old, page: old.page + 1 }) })
     }
 
     const prefetchPrev = () => {
         if (search.page > 1) {
-            queryClient?.prefetchQuery(
+            void queryClient.prefetchQuery(
                 trpc.listPRs.queryOptions({
                     owner,
                     repo,
@@ -65,7 +65,7 @@ export function PRList() {
     }
 
     const prefetchNext = () => {
-        queryClient?.prefetchQuery(
+        void queryClient.prefetchQuery(
             trpc.listPRs.queryOptions({
                 owner,
                 repo,
@@ -186,7 +186,7 @@ function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) 
                                 month: 'short',
                                 day: 'numeric',
                             })}{' '}
-                            by {props.pr.user?.login}
+                            by {props.pr.user.login}
                         </span>
                         {props.pr.milestone && (
                             <span className="flex items-center gap-1">
@@ -197,7 +197,7 @@ function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) 
                     </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                    {props.pr.labels && props.pr.labels.length > 0 && (
+                    {props.pr.labels.length > 0 && (
                         <div className="flex gap-1">
                             {props.pr.labels.slice(0, 3).map((label) => (
                                 <span

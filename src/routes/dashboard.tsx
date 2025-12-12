@@ -2,28 +2,19 @@ import { HeaderDashboard } from '@/components/header'
 import { PageContainer } from '@/components/page-container'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Skeleton } from '@/components/ui/skeleton'
-import { qc } from '@/lib'
 import { trpc } from '@/server/trpc-client'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dashboard')({
     component: RouteComponent,
-    async loader({ context: { queryClient } }) {
-        // fetching the query here so that we can properly redirect.
-        let user = await qc.qcMem.fetchQuery(qc.getUserOpts)
-        if (!user?.user) {
-            throw redirect({ to: '/' })
-        }
-
-        queryClient.prefetchQuery(trpc.listMyRepos.queryOptions())
-
-        return user
+    loader({ context: { queryClient } }) {
+        void queryClient.prefetchQuery(trpc.listMyRepos.queryOptions())
     },
 })
 
 function RouteComponent() {
-    const user = Route.useLoaderData()
+    const user = useQuery(trpc.getUser.queryOptions())
     const repos = useQuery(trpc.listMyRepos.queryOptions())
 
     return (
@@ -34,7 +25,7 @@ function RouteComponent() {
                 <PageContainer>
                     <div className="p-4">
                         <h1 className="text-xl font-semibold text-zinc-900 mb-1">
-                            Welcome back, {user.user.name}!
+                            Welcome back, {user.data?.user.name}!
                         </h1>
                         <p className="text-sm text-zinc-600">Your recent repositories</p>
                     </div>

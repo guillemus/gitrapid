@@ -1,15 +1,18 @@
 import { PRConversation } from '@/components/pr-conversation'
-import { qc } from '@/lib'
+import { trpc } from '@/server/trpc-client'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/$owner/$repo/pull/$number/')({
-    loader: async ({ context: { queryClient }, params }) => {
+    loader: ({ context: { queryClient }, params }) => {
         const number = Number(params.number)
-        queryClient.prefetchQuery(qc.getPRComments(params.owner, params.repo, number, 1))
+        void queryClient.prefetchQuery(
+            trpc.getPRComments.queryOptions({ owner: params.owner, repo: params.repo, number }),
+        )
     },
     component: PRConversationPage,
 })
 
 function PRConversationPage() {
-    return <PRConversation />
+    let params = Route.useParams()
+    return <PRConversation params={params} />
 }

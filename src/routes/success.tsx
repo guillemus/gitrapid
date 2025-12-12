@@ -52,7 +52,7 @@ function SuccessPage() {
                         </div>
                         <h1 className="text-4xl font-bold mb-4">Oops, something went wrong</h1>
                         <p className="text-lg text-gray-600 mb-8">
-                            {mutation.error?.message || 'Sync failed. Please refresh the page.'}
+                            {mutation.error.message || 'Sync failed. Please refresh the page.'}
                         </p>
                         <Button onClick={() => window.location.reload()} className="inline-block">
                             Refresh Page

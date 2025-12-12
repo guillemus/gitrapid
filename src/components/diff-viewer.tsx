@@ -117,7 +117,7 @@ function FileChange(props: { file: routes.PRFile }) {
 }
 
 export function DiffViewer(props: { files: { data: routes.PRFile[] } }) {
-    if (!props.files.data || props.files.data.length === 0) {
+    if (props.files.data.length === 0) {
         return <div>No file changes</div>
     }
 

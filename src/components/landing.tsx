@@ -2,16 +2,49 @@ import { LoginButton } from '@/components/login-button'
 
 export function Landing() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full text-center p-8">
-                <h1 className="text-4xl font-bold mb-2">GitRapid</h1>
-                <p className="text-gray-600 mb-8">A fast open source GitHub UI</p>
+        <div className="min-h-screen bg-linear-to-b from-zinc-50 to-white">
+            <div className="mx-auto max-w-xl px-6 py-16">
+                <div className="rounded-md border border-zinc-200 bg-white p-6 text-center shadow-sm">
+                    <div className="flex items-center justify-center gap-3">
+                        <img
+                            src="/logo.png"
+                            width={40}
+                            height={40}
+                            alt="GitRapid logo"
+                            className="h-10 w-10 rounded-md"
+                        />
+                        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+                            GitRapid
+                        </h1>
+                    </div>
 
-                <LoginButton />
+                    <p className="mt-3 text-lg text-zinc-600">A faster, open-source GitHub UI.</p>
 
-                <p className="text-sm text-gray-500 mt-4">
-                    Access your GitHub pull requests with a fast, modern interface
-                </p>
+                    <div className="mt-6 w-40 m-auto">
+                        <LoginButton />
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
+                        <a
+                            href="https://github.com/guillemus/gitrapid"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md px-3 py-2 text-zinc-700 hover:bg-zinc-100"
+                        >
+                            GitHub repo
+                        </a>
+                        <a
+                            href="/pricing"
+                            className="rounded-md px-3 py-2 text-zinc-700 hover:bg-zinc-100"
+                        >
+                            Pricing
+                        </a>
+                    </div>
+
+                    <div className="mt-4 text-sm text-zinc-600">
+                        <div>Free: up to 10 repos. Pro: $8/month.</div>
+                    </div>
+                </div>
             </div>
         </div>
     )

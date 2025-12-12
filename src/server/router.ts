@@ -227,7 +227,6 @@ const getPRComments = tProcedure
         }),
     )
     .query(async ({ input, ctx }) => {
-        ctx.req
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
@@ -483,7 +482,7 @@ const getRepositoryTree = tProcedure
         z.object({
             owner: z.string(),
             repo: z.string(),
-            branch: z.string().optional(),
+            ref: z.string(),
         }),
     )
     .query(async ({ input, ctx }) => {
@@ -492,12 +491,12 @@ const getRepositoryTree = tProcedure
 
         const tree = await server.cachedRequest(
             user.userId,
-            `tree:${input.owner}/${input.repo}:${input.branch || 'default'}`,
+            `tree:${input.owner}/${input.repo}:${input.ref || 'default'}`,
             (headers) =>
                 octo.rest.git.getTree({
                     owner: input.owner,
                     repo: input.repo,
-                    tree_sha: input.branch || 'main',
+                    tree_sha: input.ref,
                     recursive: true as unknown as 'true',
                     headers,
                 }),
