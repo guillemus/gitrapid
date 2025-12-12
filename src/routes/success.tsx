@@ -1,8 +1,9 @@
-import { PageContainer } from '@/components/page-container'
+import { PageContainer } from '@/components/layouts'
 import { Button } from '@/components/ui/button'
 import { trpcClient } from '@/server/trpc-client'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 
 export const Route = createFileRoute('/success')({
     component: SuccessPage,
@@ -14,7 +15,11 @@ function SuccessPage() {
         mutationFn: () => trpcClient.syncSubscriptionAfterCheckout.mutate(),
     })
 
-    if (mutation.isPending) {
+    useEffect(() => {
+        mutation.mutate()
+    }, [])
+
+    if (mutation.isPending || mutation.isIdle) {
         return (
             <PageContainer>
                 <div className="max-w-2xl mx-auto py-12 text-center">

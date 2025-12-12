@@ -1,4 +1,4 @@
-import { PageContainer } from '@/components/page-container'
+import { PageContainer } from '@/components/layouts'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { qc } from '@/lib'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'

@@ -1,5 +1,5 @@
 import { useParams } from '@tanstack/react-router'
-import { PageContainer } from './page-container'
+import { PageContainer } from './layouts'
 
 export function ComingSoon() {
     let params = useParams({ strict: false })

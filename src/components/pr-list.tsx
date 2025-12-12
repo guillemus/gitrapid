@@ -1,4 +1,3 @@
-import { PageContainer } from '@/components/page-container'
 import { qcMem } from '@/lib/query-client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
@@ -17,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { PRList } from '@/server/router'
 import { trpc } from '@/server/trpc-client'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
+import { PageContainer } from './layouts'
 
 export function PRList() {
     const { owner, repo } = useParams({ strict: false })

@@ -1,5 +1,5 @@
-import { HeaderDashboard } from '@/components/header'
-import { PageContainer } from '@/components/page-container'
+import { HeaderWithTitle } from '@/components/header'
+import { PageContainer } from '@/components/layouts'
 import { RepoListItem } from '@/components/repo-list-item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { trpc } from '@/server/trpc-client'
@@ -19,7 +19,7 @@ function RouteComponent() {
 
     return (
         <div className="min-h-screen flex flex-col font-sans">
-            <HeaderDashboard></HeaderDashboard>
+            <HeaderWithTitle title="Dashboard"></HeaderWithTitle>
 
             <div className="flex-1">
                 <PageContainer>

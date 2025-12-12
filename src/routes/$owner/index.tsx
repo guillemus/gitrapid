@@ -1,5 +1,5 @@
 import { HeaderOwner } from '@/components/header'
-import { PageContainer } from '@/components/page-container'
+import { PageContainer } from '@/components/layouts'
 import { RepoListItem } from '@/components/repo-list-item'
 import {
     Pagination,

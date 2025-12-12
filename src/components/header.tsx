@@ -15,12 +15,12 @@ function Logo() {
     )
 }
 
-export function HeaderDashboard() {
+export function HeaderWithTitle(props: { title: string }) {
     return (
         <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
             <div className="px-8 py-4 flex items-center gap-3">
                 <Logo />
-                <span className="font-semibold text-zinc-900">Dashboard</span>
+                <span className="font-semibold text-zinc-900">{props.title}</span>
                 <div className="flex-1" />
                 <UserMenu />
             </div>

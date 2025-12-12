@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Dev server (node --inspect)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "node",
+            "runtimeArgs": ["--inspect=9229"],
+            "program": "${workspaceFolder}/node_modules/.bin/astro",
+            "args": ["dev"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"],
+            "serverReadyAction": {
+                "pattern": "Local:\\s+(https?://localhost:\\d+)",
+                "uriFormat": "%s",
+                "action": "openExternally"
+            }
+        }
+    ]
+}
