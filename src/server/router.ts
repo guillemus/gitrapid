@@ -1,10 +1,11 @@
-import { auth } from '@/auth'
+import { demoRepos } from '@/lib/demo-repos'
 import { syncSubscriptionByUserId } from '@/polar'
 import { prisma } from '@/server/db'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 import * as server from './server'
-import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
+import { ERR_NO_SUBSCRIPTION_FOUND, ERR_REPO_ACCESS_DENIED, ERR_UNAUTHORIZED } from './shared'
 import { createTRPCRouter, tProcedure, type TRPCContext } from './trpc'
 
 export type * as routes from './router'
@@ -169,37 +170,53 @@ const PRFileSchema = z.object({
 export type PRFile = z.infer<typeof PRFileSchema>
 
 async function getUserFromContext(ctx: TRPCContext) {
-    const session = await auth.api.getSession({ headers: ctx.req.headers })
-
-    if (!session) {
-        throw new Error(ERR_UNAUTHORIZED)
+    if (!ctx.session) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: ERR_UNAUTHORIZED })
     }
 
     const account = await prisma.account.findFirst({
         where: {
-            userId: session.user.id,
+            userId: ctx.session.user.id,
             providerId: 'github',
         },
     })
 
     if (!account?.accessToken) {
-        throw new Error(ERR_UNAUTHORIZED)
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: ERR_UNAUTHORIZED })
     }
 
     const subscription = await prisma.subscription.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: ctx.session.user.id },
     })
 
     if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
-        throw new Error(ERR_NO_SUBSCRIPTION_FOUND)
+        throw new TRPCError({ code: 'PAYMENT_REQUIRED', message: ERR_NO_SUBSCRIPTION_FOUND })
     }
 
-    return { userId: session.user.id, token: account.accessToken }
+    return { userId: ctx.session.user.id, token: account.accessToken }
+}
+
+function isDemoRepo(owner: string, repo: string): boolean {
+    return demoRepos.some(
+        (demo) =>
+            demo.owner.toLowerCase() === owner.toLowerCase() &&
+            demo.repo.toLowerCase() === repo.toLowerCase(),
+    )
+}
+
+function checkRepoAccess(ctx: TRPCContext, owner: string, repo: string): void {
+    if (isDemoRepo(owner, repo)) {
+        return
+    }
+    if (!ctx.session) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: ERR_REPO_ACCESS_DENIED })
+    }
 }
 
 const listIssues = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string() }))
     .query(async ({ input, ctx }) => {
+        checkRepoAccess(ctx, input.owner, input.repo)
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
@@ -377,32 +394,28 @@ const listMyRepos = tProcedure.query(async ({ ctx }) => {
 })
 
 const getUser = tProcedure.query(async ({ ctx }) => {
-    const session = await auth.api.getSession({ headers: ctx.req.headers })
-
-    if (!session) {
+    if (!ctx.session) {
         return null
     }
 
     const subscription = await prisma.subscription.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: ctx.session.user.id },
     })
 
     return {
-        user: session.user,
-        session,
+        user: ctx.session.user,
+        session: ctx.session,
         subscription,
     }
 })
 
 const syncSubscriptionAfterCheckout = tProcedure.mutation(async ({ ctx }) => {
-    const session = await auth.api.getSession({ headers: ctx.req.headers })
-
-    if (!session) {
+    if (!ctx.session) {
         return { success: false, error: 'Not authenticated' }
     }
 
     try {
-        await syncSubscriptionByUserId(session.user.id)
+        await syncSubscriptionByUserId(ctx.session.user.id)
         return { success: true }
     } catch (error) {
         console.error('Sync failed:', error)
@@ -486,6 +499,7 @@ const getRepositoryTree = tProcedure
         }),
     )
     .query(async ({ input, ctx }) => {
+        checkRepoAccess(ctx, input.owner, input.repo)
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
@@ -508,6 +522,7 @@ const getRepositoryTree = tProcedure
 const getPR = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .query(async ({ input, ctx }): Promise<PR> => {
+        checkRepoAccess(ctx, input.owner, input.repo)
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
@@ -539,6 +554,7 @@ const listPRs = tProcedure
         }),
     )
     .query(async ({ input, ctx }) => {
+        checkRepoAccess(ctx, input.owner, input.repo)
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 
@@ -574,6 +590,7 @@ const listPRs = tProcedure
 const getPRFiles = tProcedure
     .input(z.object({ owner: z.string(), repo: z.string(), number: z.number() }))
     .query(async ({ input, ctx }) => {
+        checkRepoAccess(ctx, input.owner, input.repo)
         const user = await getUserFromContext(ctx)
         const octo = server.newOcto(user.token)
 

@@ -1,56 +1,22 @@
 import { LoginButton } from '@/components/login-button'
-import { PrefetchLink } from '@/components/prefetch-link'
-import { Separator } from './ui/separator'
+import { Separator } from '@/components/ui/separator'
+import { demoRepos } from '@/lib/demo-repos'
 
 function RepoCard(props: { owner: string; repo: string; description: string }) {
     return (
-        <PrefetchLink
-            to="/$owner/$repo"
-            params={{ owner: props.owner, repo: props.repo }}
+        <a
+            href={`/${props.owner}/${props.repo}`}
             className="group block rounded-md px-3 py-3 text-left hover:bg-zinc-50"
         >
             <div className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2 group-hover:decoration-zinc-900">
                 {props.owner}/{props.repo}
             </div>
             <div className="mt-1 text-sm text-zinc-600 line-clamp-2">{props.description}</div>
-        </PrefetchLink>
+        </a>
     )
 }
 
 export function Landing() {
-    const demoRepos = [
-        {
-            owner: 'guillemus',
-            repo: 'gitrapid',
-            description: 'You should definitely check it out!',
-        },
-        {
-            owner: 'sst',
-            repo: 'opencode',
-            description: 'The open source coding agent',
-        },
-        {
-            owner: 'facebook',
-            repo: 'react',
-            description: 'The library for web and native user interfaces',
-        },
-        {
-            owner: 'TanStack',
-            repo: 'query',
-            description: 'Powerful asynchronous state management',
-        },
-        {
-            owner: 'withastro',
-            repo: 'astro',
-            description: 'The web framework for content-driven websites',
-        },
-        {
-            owner: 'microsoft',
-            repo: 'typescript-go',
-            description: 'TypeScript Go implementation',
-        },
-    ]
-
     return (
         <div className="min-h-screen bg-linear-to-b from-zinc-50 to-white">
             <div className="mx-auto max-w-3xl px-6 py-16">

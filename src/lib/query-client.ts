@@ -1,5 +1,6 @@
+import { handleServerError } from '@/lib/handle-server-error'
 import type { PR, PRList } from '@/server/router'
-import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from '@/server/shared'
+import { isNonRetryableError } from '@/server/shared'
 import { trpc, trpcClient } from '@/server/trpc-client'
 import {
     QueryCache,
@@ -10,7 +11,6 @@ import {
 } from '@tanstack/react-query'
 import { persistQueryClient } from '@tanstack/react-query-persist-client'
 import * as kv from 'idb-keyval'
-import { toast } from 'sonner'
 
 // newQueryClient creates the default query client. Useful to set custom
 // behaviour for all queries
@@ -20,30 +20,13 @@ function newQueryClient() {
             queries: {
                 staleTime: 10 * 1000,
                 retry: (failureCount, error) => {
-                    if (error.message === ERR_UNAUTHORIZED) return false
-                    if (error.message === ERR_NO_SUBSCRIPTION_FOUND) return false
-
+                    if (isNonRetryableError(error)) return false
                     return failureCount < 3
                 },
             },
         },
         queryCache: new QueryCache({
-            onError: (error) => {
-                if (error.message === ERR_NO_SUBSCRIPTION_FOUND) {
-                    toast.error('Subscription required')
-                    window.location.href = '/pricing'
-                    return
-                }
-
-                if (error.message === ERR_UNAUTHORIZED) {
-                    const callbackURL = window.location.pathname + window.location.search
-                    sessionStorage.setItem('auth_callback', callbackURL)
-
-                    toast.error('Please log in to continue')
-
-                    window.location.href = '/'
-                }
-            },
+            onError: handleServerError,
         }),
     })
 }

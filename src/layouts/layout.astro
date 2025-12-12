@@ -15,12 +15,10 @@ const { title = 'GitRapid' } = Astro.props as Props
         <link rel="icon" href="/favicon.png" type="image/png" />
         <title>{title}</title>
         <!-- <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script> -->
-        <script>
-            if (import.meta.env.DEV) {
-                import('react-grab')
-            }
-        </script>
+        <!-- <script is:inline src="//unpkg.com/react-grab/dist/index.global.js"></script> -->
+        <!-- <script is:inline src="//unpkg.com/@react-grab/opencode/dist/client.global.js"></script> -->
     </head>
+
     <body>
         <slot />
     </body>
