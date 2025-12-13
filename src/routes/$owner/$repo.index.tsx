@@ -1,6 +1,8 @@
+import { RefSwitcher } from '@/components/ref-switcher'
 import { Skeleton } from '@/components/ui/skeleton'
 import { qc } from '@/lib'
 import type { TreeItem } from '@/server/router'
+import { trpc } from '@/server/trpc-client'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react'
@@ -58,7 +60,7 @@ export const Route = createFileRoute('/$owner/$repo/')({
 
 function CodePage() {
     return (
-        <div className="flex h-[calc(100vh-64px)]">
+        <div className="flex">
             <FileTree />
             <FileViewer />
         </div>
@@ -71,6 +73,8 @@ function FileTree() {
     const navigate = Route.useNavigate()
 
     const tree = useQuery(qc.fileTree({ owner: params.owner, repo: params.repo, ref: search.ref }))
+    const refs = useQuery(qc.refs({ owner: params.owner, repo: params.repo }))
+    const repoMeta = useQuery(trpc.getRepositoryMetadata.queryOptions(params))
 
     const initialExpanded = useMemo(() => {
         if (!search.path) {
@@ -139,10 +143,25 @@ function FileTree() {
 
     const treeData = buildTree(tree.data)
 
+    const handleRefSelect = (ref: string) => {
+        void navigate({ search: { ref, path: undefined } })
+    }
+
     return (
         <TreeContext.Provider value={ctxValue}>
-            <div className="w-80 border-r border-border overflow-y-auto">
+            <div className="w-80 border-r border-border sticky top-0 h-screen overflow-y-auto">
                 <div className="p-4">
+                    {refs.data && repoMeta.data && (
+                        <div className="mb-4">
+                            <RefSwitcher
+                                branches={refs.data.branches}
+                                tags={refs.data.tags}
+                                defaultBranch={repoMeta.data.defaultBranch}
+                                currentRef={search.ref}
+                                onSelect={handleRefSelect}
+                            />
+                        </div>
+                    )}
                     <TreeNode node={treeData} depth={0} />
                 </div>
             </div>

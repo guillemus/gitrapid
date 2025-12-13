@@ -1,5 +1,5 @@
 import { handleServerError } from '@/lib/handle-server-error'
-import type { PR, PRList } from '@/server/router'
+import type { PR } from '@/server/router'
 import { isNonRetryableError } from '@/server/shared'
 import { trpc, trpcClient } from '@/server/trpc-client'
 import {
@@ -62,8 +62,6 @@ function createPersistedQueryClient(dbname: string) {
 
     return qc
 }
-
-type PRData = PRList[number] & PR
 
 // For components - with placeholderData from listPRs cache
 export const useGetPROpts = (owner: string, repo: string, number: number) => {

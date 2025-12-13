@@ -78,63 +78,61 @@ export function PRList() {
     const canPaginate = search.page > 1 || hasNext
 
     return (
-        <div className="min-h-screen font-sans">
-            <PageContainer>
-                <div className="flex items-center justify-between m-4">
-                    <Tabs value={search.state} onValueChange={handleStateChange}>
-                        <TabsList>
-                            <TabsTrigger value="open">Open</TabsTrigger>
-                            <TabsTrigger value="closed">Closed</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+        <PageContainer>
+            <div className="flex items-center justify-between m-4">
+                <Tabs value={search.state} onValueChange={handleStateChange}>
+                    <TabsList>
+                        <TabsTrigger value="open">Open</TabsTrigger>
+                        <TabsTrigger value="closed">Closed</TabsTrigger>
+                    </TabsList>
+                </Tabs>
 
-                    {canPaginate && (
-                        <Pagination>
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        onClick={handlePrevPage}
-                                        onMouseEnter={prefetchPrev}
-                                        onMouseDown={prefetchPrev}
-                                        disabled={search.page === 1}
-                                    />
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationLink isActive>{search.page}</PaginationLink>
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationNext
-                                        onClick={handleNextPage}
-                                        onMouseEnter={prefetchNext}
-                                        onMouseDown={prefetchNext}
-                                        disabled={!hasNext}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
-                    )}
-                </div>
+                {canPaginate && (
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={handlePrevPage}
+                                    onMouseEnter={prefetchPrev}
+                                    onMouseDown={prefetchPrev}
+                                    disabled={search.page === 1}
+                                />
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationLink isActive>{search.page}</PaginationLink>
+                            </PaginationItem>
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={handleNextPage}
+                                    onMouseEnter={prefetchNext}
+                                    onMouseDown={prefetchNext}
+                                    disabled={!hasNext}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                )}
+            </div>
 
-                <div className="mt-4 border border-border rounded-md overflow-hidden">
-                    {prs.isLoading ? (
-                        <PRListSkeleton />
-                    ) : prs.data && prs.data.length === 0 ? (
-                        <div className="py-12 px-4 text-center">
-                            <p className="text-base font-semibold text-foreground mb-2">
-                                No pull requests
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                There are no {search.state} pull requests.
-                            </p>
-                        </div>
-                    ) : (
-                        prs.data?.map((pr) => (
-                            <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />
-                        ))
-                    )}
-                </div>
-            </PageContainer>
-        </div>
+            <div className="mt-4 border border-border rounded-md overflow-hidden">
+                {prs.isLoading ? (
+                    <PRListSkeleton />
+                ) : prs.data && prs.data.length === 0 ? (
+                    <div className="py-12 px-4 text-center">
+                        <p className="text-base font-semibold text-foreground mb-2">
+                            No pull requests
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            There are no {search.state} pull requests.
+                        </p>
+                    </div>
+                ) : (
+                    prs.data?.map((pr) => (
+                        <PRListItem key={pr.number} pr={pr} owner={owner} repo={repo} />
+                    ))
+                )}
+            </div>
+        </PageContainer>
     )
 }
 

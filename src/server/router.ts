@@ -626,29 +626,37 @@ const listRefs = tProcedure
         const user = await getUserContext(ctx, input.owner, input.repo)
         const octo = server.newOcto(user.token)
 
-        const [branches, tags] = await Promise.all([
-            server.cachedRequest(user.userId, `branches:${input.owner}/${input.repo}`, (headers) =>
+        const branches = await server.cachedRequest(
+            user.userId,
+            `branches:${input.owner}/${input.repo}`,
+            (headers) =>
                 octo.rest.repos.listBranches({
                     owner: input.owner,
                     repo: input.repo,
                     per_page: 100,
                     headers,
                 }),
-            ),
-            server.cachedRequest(user.userId, `tags:${input.owner}/${input.repo}`, (headers) =>
+        )
+
+        const tags = await server.cachedRequest(
+            user.userId,
+            `tags:${input.owner}/${input.repo}`,
+            (headers) =>
                 octo.rest.repos.listTags({
                     owner: input.owner,
                     repo: input.repo,
                     per_page: 100,
                     headers,
                 }),
-            ),
-        ])
+        )
 
         const branchRefs = z.array(RefSchema).parse(branches)
         const tagRefs = z.array(RefSchema).parse(tags)
 
-        return [...branchRefs.map((b) => b.name), ...tagRefs.map((t) => t.name)]
+        return {
+            branches: branchRefs.map((b) => b.name),
+            tags: tagRefs.map((t) => t.name),
+        }
     })
 
 export const appRouter = createTRPCRouter({

@@ -77,11 +77,16 @@ function BlobRedirect() {
     })
 
     useEffect(() => {
-        if (!refsQuery.data || refsQuery.data.length === 0) {
+        if (!refsQuery.data) {
             return
         }
 
-        onRefsLoaded(refsQuery.data)
+        const allRefs = [...refsQuery.data.branches, ...refsQuery.data.tags]
+        if (allRefs.length === 0) {
+            return
+        }
+
+        onRefsLoaded(allRefs)
     }, [refsQuery.data])
 
     if (refsQuery.isError) {
