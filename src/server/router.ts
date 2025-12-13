@@ -113,6 +113,7 @@ const PRBranch = z.object({
     ref: z.string(),
     repo: z
         .object({
+            name: z.string(),
             owner: z.object({
                 login: z.string(),
             }),

@@ -1,6 +1,7 @@
 import { PageContainer } from '@/components/layouts'
 import { PrefetchLink } from '@/components/prefetch-link'
 import { qc } from '@/lib'
+import type { PR } from '@/server/router'
 import { GitPullRequestClosedIcon, GitPullRequestIcon } from '@primer/octicons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouterState } from '@tanstack/react-router'
@@ -19,7 +20,6 @@ export function PRLayoutClient(props: {
     let pathname = routerState.location.pathname
 
     let pr = useQuery(qc.useGetPROpts(params.owner, params.repo, Number(params.number)))
-    let data = pr.data
 
     let isFilesTab = pathname.endsWith('/files')
 
@@ -29,41 +29,41 @@ export function PRLayoutClient(props: {
             {!pr.isLoading && (
                 <>
                     <h1 className="text-2xl font-bold mb-2">
-                        #{data?.number} {data?.title}
+                        #{pr.data?.number} {pr.data?.title}
                     </h1>
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
                         <div
                             className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded-full border ${
-                                data?.state === 'open'
+                                pr.data?.state === 'open'
                                     ? 'bg-green-700 text-white border-green-600'
                                     : 'bg-purple-700 text-white border-purple-600'
                             }`}
                         >
-                            {data?.state === 'open' ? (
+                            {pr.data?.state === 'open' ? (
                                 <GitPullRequestIcon size={12} />
                             ) : (
                                 <GitPullRequestClosedIcon size={12} />
                             )}
-                            {data?.state}
+                            {pr.data?.state}
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                            {data?.user.avatar_url && (
+                            {pr.data?.user.avatar_url && (
                                 <img
-                                    src={data.user.avatar_url}
-                                    alt={data.user.login}
+                                    src={pr.data.user.avatar_url}
+                                    alt={pr.data.user.login}
                                     className="w-5 h-5 rounded-full"
                                 />
                             )}
                             <span className="text-muted-foreground">
                                 <span className="font-medium text-foreground">
-                                    {data?.user.login}
+                                    {pr.data?.user.login}
                                 </span>
-                                {data?.created_at && (
+                                {pr.data?.created_at && (
                                     <>
                                         {' '}
                                         opened{' '}
                                         <span className="font-medium">
-                                            {formatDistanceToNow(new Date(data.created_at), {
+                                            {formatDistanceToNow(new Date(pr.data.created_at), {
                                                 addSuffix: true,
                                             })}
                                         </span>
@@ -71,23 +71,19 @@ export function PRLayoutClient(props: {
                                 )}
                             </span>
                         </div>
-                        <span className="text-muted-foreground">
-                            wants to merge {data?.changedFiles} commits into{' '}
-                            {data?.base.repo?.owner.login ?? 'unknown'}:{data?.base.ref} from{' '}
-                            {data?.head.repo?.owner.login ?? 'unknown'}:{data?.head.ref}
-                        </span>
+                        <MergeInfo pr={pr.data} />
                         <span className="text-sm text-muted-foreground">
-                            <span className="text-green-600">+{data?.additions}</span>{' '}
-                            <span className="text-red-600">-{data?.deletions}</span>
+                            <span className="text-green-600">+{pr.data?.additions}</span>{' '}
+                            <span className="text-red-600">-{pr.data?.deletions}</span>
                         </span>
                     </div>
 
                     {/* Labels and Milestone */}
-                    {(data?.labels && data.labels.length > 0) || data?.milestone ? (
+                    {(pr.data?.labels && pr.data.labels.length > 0) || pr.data?.milestone ? (
                         <div className="mb-4 flex gap-3 flex-wrap items-center">
-                            {data.labels.length > 0 && (
+                            {pr.data.labels.length > 0 && (
                                 <div className="flex gap-2 flex-wrap">
-                                    {data.labels.map((label) => (
+                                    {pr.data.labels.map((label) => (
                                         <span
                                             key={label.id}
                                             className="text-xs px-2 py-1 rounded"
@@ -101,9 +97,9 @@ export function PRLayoutClient(props: {
                                     ))}
                                 </div>
                             )}
-                            {data.milestone && (
+                            {pr.data.milestone && (
                                 <span className="text-xs px-2 py-1 rounded border border-border">
-                                    📍 {data.milestone.title}
+                                    📍 {pr.data.milestone.title}
                                 </span>
                             )}
                         </div>
@@ -135,7 +131,7 @@ export function PRLayoutClient(props: {
                                         : 'text-muted-foreground hover:text-foreground'
                                 }`}
                             >
-                                Files{data?.changedFiles ? ` (${data.changedFiles})` : ''}
+                                Files{pr.data?.changedFiles ? ` (${pr.data.changedFiles})` : ''}
                             </PrefetchLink>
                         </div>
                     </div>
@@ -144,6 +140,43 @@ export function PRLayoutClient(props: {
                 </>
             )}
         </PageContainer>
+    )
+}
+
+function MergeInfo(props: { pr?: PR }) {
+    let baseRepo = props.pr?.base.repo
+    let headRepo = props.pr?.head.repo
+
+    let baseLabel = baseRepo ? `${baseRepo.owner.login}:${props.pr?.base.ref}` : 'unknown'
+    let headLabel = headRepo ? `${headRepo.owner.login}:${props.pr?.head.ref}` : 'unknown'
+
+    return (
+        <span className="text-muted-foreground">
+            wants to merge {props.pr?.changedFiles} commits into{' '}
+            {baseRepo ? (
+                <PrefetchLink
+                    to="/$owner/$repo"
+                    params={{ owner: baseRepo.owner.login, repo: baseRepo.name }}
+                    className="text-blue-500 hover:underline"
+                >
+                    {baseLabel}
+                </PrefetchLink>
+            ) : (
+                baseLabel
+            )}{' '}
+            from{' '}
+            {headRepo ? (
+                <PrefetchLink
+                    to="/$owner/$repo"
+                    params={{ owner: headRepo.owner.login, repo: headRepo.name }}
+                    className="text-blue-500 hover:underline"
+                >
+                    {headLabel}
+                </PrefetchLink>
+            ) : (
+                headLabel
+            )}
+        </span>
     )
 }
 

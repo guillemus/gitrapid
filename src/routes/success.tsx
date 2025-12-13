@@ -87,7 +87,10 @@ function SuccessPage() {
                             GitRapid.
                         </p>
 
-                        <Button onClick={() => navigate({ to: '/' })} className="inline-block">
+                        <Button
+                            onClick={() => navigate({ to: '/dashboard' })}
+                            className="inline-block"
+                        >
                             Go to Dashboard
                         </Button>
                     </>
