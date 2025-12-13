@@ -14,5 +14,7 @@ export const appEnv = z
         POLAR_SERVER: z.union([z.literal('sandbox'), z.literal('production')]),
         POLAR_WEBHOOK_SECRET: z.string(),
         POLAR_PRODUCT_MONTHLY_ID: z.string(),
+
+        GITHUB_TOKEN: z.string(),
     })
     .parse(process.env)

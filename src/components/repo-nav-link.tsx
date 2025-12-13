@@ -2,7 +2,7 @@ import { PrefetchLink } from '@/components/prefetch-link'
 import { type ReactNode } from 'react'
 
 function RepoNavLink(props: {
-    to: '/$owner/$repo' | '/$owner/$repo/issues'
+    to: '/$owner/$repo' | '/$owner/$repo/issues' | '/$owner/$repo/pulls'
     params: { owner: string; repo: string }
     icon: ReactNode
     label: string
