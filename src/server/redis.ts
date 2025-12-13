@@ -21,8 +21,8 @@ const ratelimitAnon = new Ratelimit({
     analytics: true,
 })
 
-export const checkRatelimitAnon = (identifier: string) => ratelimitAnon.limit(identifier)
-export const checkRatelimitUser = (identifier: string) => ratelimitAuth.limit(identifier)
+export const checkRatelimitAnon = (ip: string) => ratelimitAnon.limit(ip)
+export const checkRatelimitUser = (userId: string) => ratelimitAuth.limit(userId)
 
 export async function redisGet<T = unknown>(key: string): Promise<T | null> {
     const start = performance.now()

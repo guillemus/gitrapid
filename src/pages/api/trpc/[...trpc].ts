@@ -8,26 +8,21 @@ import { checkBotId } from 'botid/server'
 const handler: APIRoute = async ({ request, clientAddress }) => {
     const headers: Record<string, string> = {}
     request.headers.forEach((value, key) => {
-        headers[key] = value
+        headers[key.toLowerCase()] = value
     })
 
     const verification = await checkBotId({
         advancedOptions: {
             headers,
         },
-        developmentOptions: {
-            bypass: 'HUMAN',
-            isDevelopment: import.meta.env.DEV,
-        },
+        developmentOptions: { bypass: 'HUMAN', isDevelopment: import.meta.env.DEV },
     })
     if (!verification.isHuman) {
         return new Response('Forbidden', { status: 403 })
     }
 
-    // Fetch session once for the entire request
     const session = await auth.api.getSession({ headers: request.headers })
 
-    // Rate limiting
     let ratelimitResult
     if (session) {
         ratelimitResult = await checkRatelimitUser(session.user.id)

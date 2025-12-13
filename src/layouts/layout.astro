@@ -14,6 +14,20 @@ const { title = 'GitRapid' } = Astro.props as Props
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.png" type="image/png" />
         <title>{title}</title>
+        <!--
+            BotID must be initialized in <head> before any React code loads.
+            If placed in client-entry.tsx with client:only, tRPC requests may fire
+            before initBotId() runs, causing requests to be blocked as bots.
+        -->
+        <script>
+            import { initBotId } from 'botid/client/core'
+            initBotId({
+                protect: [
+                    { method: 'GET', path: '/api/trpc/*' },
+                    { method: 'POST', path: '/api/trpc/*' },
+                ],
+            })
+        </script>
         <!-- <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script> -->
         <!-- <script is:inline src="//unpkg.com/react-grab/dist/index.global.js"></script> -->
         <!-- <script is:inline src="//unpkg.com/@react-grab/opencode/dist/client.global.js"></script> -->
