@@ -60,7 +60,7 @@ function getAncestorPaths(path: string): string[] {
 
 function CodePage() {
     return (
-        <div className="flex">
+        <div className="flex flex-1">
             <FileTree />
             <FileViewer />
         </div>
