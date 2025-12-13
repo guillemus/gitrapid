@@ -4,34 +4,34 @@ import type { routes } from '@/server/router'
 function DiffLineRow(props: { line: DiffLine; idx: number }) {
     let bgColor = 'bg-card'
     if (props.line.type === 'add') {
-        bgColor = 'bg-green-100'
+        bgColor = 'bg-green-950/50'
     }
     if (props.line.type === 'remove') {
-        bgColor = 'bg-red-50'
+        bgColor = 'bg-red-950/50'
     }
     if (props.line.type === 'header') {
-        bgColor = 'bg-blue-50'
+        bgColor = 'bg-blue-950/50'
     }
 
     let lineNumColor = 'text-muted-foreground'
     if (props.line.type === 'add') {
-        lineNumColor = 'text-green-700'
+        lineNumColor = 'text-green-400'
     }
     if (props.line.type === 'remove') {
-        lineNumColor = 'text-red-700'
+        lineNumColor = 'text-red-400'
     }
 
     let borderColor = 'border-transparent'
     if (props.line.type === 'add') {
-        borderColor = 'border-green-400'
+        borderColor = 'border-green-600'
     }
     if (props.line.type === 'remove') {
-        borderColor = 'border-red-400'
+        borderColor = 'border-red-600'
     }
 
     let contentElement = <>{props.line.content}</>
     if (props.line.type === 'header') {
-        contentElement = <span className="text-blue-700">{props.line.content}</span>
+        contentElement = <span className="text-blue-400">{props.line.content}</span>
     }
     if (props.line.segments) {
         contentElement = (
@@ -40,9 +40,9 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
                     let segClass = ''
                     if (seg.changed) {
                         if (props.line.type === 'add') {
-                            segClass = 'bg-green-200 box-decoration-clone border '
+                            segClass = 'bg-green-800/70 box-decoration-clone'
                         } else {
-                            segClass = 'bg-red-200 box-decoration-clone'
+                            segClass = 'bg-red-800/70 box-decoration-clone'
                         }
                     }
                     return (

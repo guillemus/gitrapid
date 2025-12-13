@@ -19,8 +19,6 @@ export function handleServerError(error: Error): void {
     }
 
     if (error.message === ERR_UNAUTHORIZED) {
-        const callbackURL = window.location.pathname + window.location.search
-        sessionStorage.setItem('auth_callback', callbackURL)
         toast.error('Please log in to continue')
         window.location.href = '/'
         return

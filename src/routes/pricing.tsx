@@ -1,5 +1,6 @@
 import { HeaderWithTitle } from '@/components/header'
 import { PageContainer } from '@/components/layouts'
+import { PrefetchLink } from '@/components/prefetch-link'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { authClient } from '@/lib/auth-client'
@@ -29,28 +30,23 @@ function PricingPage() {
             <div className="flex-1">
                 <PageContainer>
                     <div className="max-w-xl mx-auto py-12">
-                        <div className="border rounded-lg p-8">
-                            <h2 className="text-2xl font-bold mb-2">Monthly Plan</h2>
-                            <p className="text-muted-foreground mb-4">
-                                Perfect for getting started
-                            </p>
-                            <div className="mb-6">
-                                <span className="text-4xl font-bold">$8</span>
-                                <span className="text-muted-foreground ml-2">/month</span>
+                        <div className="border rounded-lg p-8 max-w-sm mx-auto">
+                            <div className="flex flex-col items-center">
+                                <h2 className="text-2xl font-bold mb-2">Monthly Plan</h2>
+                                <div className="mb-6">
+                                    <span className="text-4xl font-bold">$8</span>
+                                    <span className="text-muted-foreground ml-2">/month</span>
+                                </div>
                             </div>
 
                             <ul className="mb-8 space-y-3 text-sm">
-                                <li className="flex items-center">
-                                    <span className="mr-3">✓</span>
-                                    Full access to all features
-                                </li>
                                 <li className="flex items-center">
                                     <span className="mr-3">✓</span>
                                     Unlimited repositories
                                 </li>
                                 <li className="flex items-center">
                                     <span className="mr-3">✓</span>
-                                    Priority support
+                                    Support development of a faster GitHub UI
                                 </li>
                             </ul>
 
@@ -76,9 +72,10 @@ function PricingPage() {
                             </div>
                             <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                                 {demoRepos.map((demoRepo) => (
-                                    <a
+                                    <PrefetchLink
                                         key={`${demoRepo.owner}/${demoRepo.repo}`}
-                                        href={`/${demoRepo.owner}/${demoRepo.repo}`}
+                                        to="/$owner/$repo"
+                                        params={demoRepo}
                                         className="group block rounded-md px-3 py-3 text-left hover:bg-accent"
                                     >
                                         <div className="font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
@@ -87,7 +84,7 @@ function PricingPage() {
                                         <div className="mt-1 text-sm text-muted-foreground line-clamp-2">
                                             {demoRepo.description}
                                         </div>
-                                    </a>
+                                    </PrefetchLink>
                                 ))}
                             </div>
                         </div>

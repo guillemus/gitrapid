@@ -41,7 +41,6 @@ export function UserMenu() {
                     className="w-full justify-start"
                     onClick={async () => {
                         await authClient.signOut()
-                        localStorage.removeItem('hasLoggedIn')
                         await navigate({ to: '/' })
                     }}
                 >

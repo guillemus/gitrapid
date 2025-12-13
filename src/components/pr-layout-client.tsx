@@ -33,10 +33,10 @@ export function PRLayoutClient(props: {
                     </h1>
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
                         <div
-                            className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${
+                            className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded-full border ${
                                 data?.state === 'open'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-purple-100 text-purple-800'
+                                    ? 'bg-green-700 text-white border-green-600'
+                                    : 'bg-purple-700 text-white border-purple-600'
                             }`}
                         >
                             {data?.state === 'open' ? (

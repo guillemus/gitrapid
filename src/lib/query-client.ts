@@ -77,21 +77,19 @@ export const useGetPROpts = (owner: string, repo: string, number: number) => {
         // from the previous list.
         // This means that we can reuse that data.
 
-        placeholderData: () => {
-            const cache = queryClient.getQueryCache()
-            const allQueries = cache.findAll({ queryKey: ['prs', owner, repo] })
-
-            for (const query of allQueries) {
-                const cached = query.state.data as PRData[]
-                if (cached.length) {
-                    const found = cached.find((pr) => pr.number === number)
-                    if (found) {
-                        // this is horrible, don't get me wrong. At some point the rpc functions
-                        // should return actually a proper typescript type that
-                        // maps the octokit type to what we can easily use in the app.
-
-                        // eslint-disable-next-line
-                        return found as any
+        placeholderData: (): PR | undefined => {
+            // Check both open and closed PR lists, pages 1-3
+            const states = ['open', 'closed'] as const
+            for (const state of states) {
+                for (let page = 1; page <= 3; page++) {
+                    const { queryKey } = trpc.listPRs.queryOptions({ owner, repo, page, state })
+                    const cached = queryClient.getQueryData(queryKey)
+                    if (cached) {
+                        const found = cached.find((pr) => pr.number === number)
+                        if (found) {
+                            // PRList doesn't have changedFiles, provide placeholder value
+                            return { ...found, changedFiles: 0 }
+                        }
                     }
                 }
             }
