@@ -3,7 +3,7 @@ import { qc } from '@/lib'
 import type { TreeItem } from '@/server/router'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { File, Folder, FolderOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react'
 import { createContext, useContext, useMemo, useState } from 'react'
 import z from 'zod'
 
@@ -219,12 +219,13 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
         return (
             <div
                 className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-accent ${isSelected ? 'bg-secondary' : ''}`}
-                style={{ paddingLeft: `${props.depth * 12 + 8}px` }}
+                style={{ paddingLeft: `${props.depth * 12 + 8 + 14 + 8}px` }}
                 onClick={() => ctx.selectFile(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
+                title={props.node.path}
             >
                 <File size={16} className="text-muted-foreground shrink-0" />
-                <span className="text-sm">{props.node.name}</span>
+                <span className="text-sm truncate">{props.node.name}</span>
             </div>
         )
     }
@@ -247,13 +248,15 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
                 style={{ paddingLeft: `${props.depth * 12 + 8}px` }}
                 onClick={() => ctx.toggleExpanded(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
+                title={props.node.path}
             >
                 {expanded ? (
-                    <FolderOpen size={16} className="text-muted-foreground shrink-0" />
+                    <ChevronDown size={14} className="text-muted-foreground shrink-0" />
                 ) : (
-                    <Folder size={16} className="text-muted-foreground shrink-0" />
+                    <ChevronRight size={14} className="text-muted-foreground shrink-0" />
                 )}
-                <span className="text-sm font-medium">{props.node.name}</span>
+                <Folder size={16} className="text-muted-foreground shrink-0" fill="currentColor" />
+                <span className="text-sm font-medium truncate">{props.node.name}</span>
             </div>
             {expanded && props.node.children && (
                 <div>
