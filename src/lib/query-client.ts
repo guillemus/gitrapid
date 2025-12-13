@@ -137,3 +137,5 @@ export const file = (params: { owner: string; repo: string; ref?: string; path?:
             return query
         },
     })
+
+export const refs = (params: { owner: string; repo: string }) => trpc.listRefs.queryOptions(params)

@@ -611,6 +611,46 @@ const getPRFiles = tProcedure
         return z.array(PRFileSchema).parse(files)
     })
 
+const RefSchema = z.object({
+    name: z.string(),
+    commit: z.object({
+        sha: z.string(),
+    }),
+})
+
+export type Ref = z.infer<typeof RefSchema>
+
+const listRefs = tProcedure
+    .input(z.object({ owner: z.string(), repo: z.string() }))
+    .query(async ({ input, ctx }) => {
+        const user = await getUserContext(ctx, input.owner, input.repo)
+        const octo = server.newOcto(user.token)
+
+        const [branches, tags] = await Promise.all([
+            server.cachedRequest(user.userId, `branches:${input.owner}/${input.repo}`, (headers) =>
+                octo.rest.repos.listBranches({
+                    owner: input.owner,
+                    repo: input.repo,
+                    per_page: 100,
+                    headers,
+                }),
+            ),
+            server.cachedRequest(user.userId, `tags:${input.owner}/${input.repo}`, (headers) =>
+                octo.rest.repos.listTags({
+                    owner: input.owner,
+                    repo: input.repo,
+                    per_page: 100,
+                    headers,
+                }),
+            ),
+        ])
+
+        const branchRefs = z.array(RefSchema).parse(branches)
+        const tagRefs = z.array(RefSchema).parse(tags)
+
+        return [...branchRefs.map((b) => b.name), ...tagRefs.map((t) => t.name)]
+    })
+
 export const appRouter = createTRPCRouter({
     listIssues,
     getPRComments,
@@ -626,6 +666,7 @@ export const appRouter = createTRPCRouter({
     getPR,
     listPRs,
     getPRFiles,
+    listRefs,
 })
 
 export type AppRouter = typeof appRouter
