@@ -6,21 +6,23 @@ function RepoCard(props: { owner: string; repo: string; description: string }) {
     return (
         <a
             href={`/${props.owner}/${props.repo}`}
-            className="group block rounded-md px-3 py-3 text-left hover:bg-zinc-50"
+            className="group block rounded-md px-3 py-3 text-left hover:bg-accent"
         >
-            <div className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2 group-hover:decoration-zinc-900">
+            <div className="font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
                 {props.owner}/{props.repo}
             </div>
-            <div className="mt-1 text-sm text-zinc-600 line-clamp-2">{props.description}</div>
+            <div className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                {props.description}
+            </div>
         </a>
     )
 }
 
 export function Landing() {
     return (
-        <div className="min-h-screen bg-linear-to-b from-zinc-50 to-white">
+        <div className="min-h-screen bg-background">
             <div className="mx-auto max-w-3xl px-6 py-16">
-                <div className="rounded-md border border-zinc-200 bg-white p-6 text-center shadow-sm">
+                <div className="rounded-md border border-border bg-card p-6 text-center shadow-sm">
                     <div className="flex items-center justify-center gap-3">
                         <img
                             src="/logo.png"
@@ -29,18 +31,18 @@ export function Landing() {
                             alt="GitRapid logo"
                             className="h-10 w-10 rounded-md"
                         />
-                        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+                        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                             GitRapid
                         </h1>
                     </div>
 
-                    <p className="mt-3 text-lg text-zinc-600">
+                    <p className="mt-3 text-lg text-muted-foreground">
                         A fast,{' '}
                         <a
                             href="https://github.com/guillemus/gitrapid"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:decoration-zinc-900"
+                            className="font-medium text-foreground underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground"
                         >
                             opensource
                         </a>{' '}
@@ -58,7 +60,7 @@ export function Landing() {
                     <Separator></Separator>
 
                     <div className="pt-6">
-                        <div className="text-sm font-medium text-zinc-900">
+                        <div className="text-sm font-medium text-foreground">
                             Or try GitRapid for free it on an example repo
                         </div>
                         <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">

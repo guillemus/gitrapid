@@ -121,7 +121,7 @@ function FileTree() {
 
     if (tree.isPending) {
         return (
-            <div className="w-80 border-r border-zinc-200 p-4 overflow-y-auto">
+            <div className="w-80 border-r border-border p-4 overflow-y-auto">
                 <Skeleton className="h-6 w-full mb-2" />
                 <Skeleton className="h-6 w-3/4 mb-2" />
                 <Skeleton className="h-6 w-5/6 mb-2" />
@@ -131,7 +131,7 @@ function FileTree() {
 
     if (tree.isError) {
         return (
-            <div className="w-80 border-r border-zinc-200 p-4">
+            <div className="w-80 border-r border-border p-4">
                 <div className="text-red-500">Error loading file tree</div>
             </div>
         )
@@ -141,7 +141,7 @@ function FileTree() {
 
     return (
         <TreeContext.Provider value={ctxValue}>
-            <div className="w-80 border-r border-zinc-200 overflow-y-auto">
+            <div className="w-80 border-r border-border overflow-y-auto">
                 <div className="p-4">
                     <TreeNode node={treeData} depth={0} />
                 </div>
@@ -218,12 +218,12 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
         const isSelected = ctx.selectedPath === props.node.path
         return (
             <div
-                className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-zinc-100 ${isSelected ? 'bg-zinc-200' : ''}`}
+                className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-accent ${isSelected ? 'bg-secondary' : ''}`}
                 style={{ paddingLeft: `${props.depth * 12 + 8}px` }}
                 onClick={() => ctx.selectFile(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
             >
-                <File size={16} className="text-zinc-500 shrink-0" />
+                <File size={16} className="text-muted-foreground shrink-0" />
                 <span className="text-sm">{props.node.name}</span>
             </div>
         )
@@ -243,15 +243,15 @@ function TreeNode(props: { node: TreeNodeData; depth: number }) {
     return (
         <div>
             <div
-                className="flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-zinc-100"
+                className="flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-accent"
                 style={{ paddingLeft: `${props.depth * 12 + 8}px` }}
                 onClick={() => ctx.toggleExpanded(props.node.path)}
                 onMouseDown={() => ctx.preloadFile(props.node.path)}
             >
                 {expanded ? (
-                    <FolderOpen size={16} className="text-zinc-500 shrink-0" />
+                    <FolderOpen size={16} className="text-muted-foreground shrink-0" />
                 ) : (
-                    <Folder size={16} className="text-zinc-500 shrink-0" />
+                    <Folder size={16} className="text-muted-foreground shrink-0" />
                 )}
                 <span className="text-sm font-medium">{props.node.name}</span>
             </div>
@@ -300,7 +300,7 @@ function FileViewer() {
     if (!file.data) {
         return (
             <div className="flex-1 p-6">
-                <div className="text-zinc-500">Select a file to view</div>
+                <div className="text-muted-foreground">Select a file to view</div>
             </div>
         )
     }
@@ -308,10 +308,10 @@ function FileViewer() {
     return (
         <div className="flex-1 overflow-y-auto">
             <div className="p-6">
-                <div className="bg-zinc-100 px-4 py-2 rounded-t border border-b-0 border-zinc-300">
+                <div className="bg-muted px-4 py-2 rounded-t border border-b-0 border-border">
                     <span className="font-mono text-sm font-semibold">{file.data.path}</span>
                 </div>
-                <div className="bg-white border border-zinc-300 rounded-b overflow-x-auto">
+                <div className="bg-card border border-border rounded-b overflow-x-auto">
                     <pre className="p-4 text-sm font-mono whitespace-pre">{file.data.content}</pre>
                 </div>
             </div>

@@ -1,7 +1,9 @@
 import { HeaderWithTitle } from '@/components/header'
 import { PageContainer } from '@/components/layouts'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { authClient } from '@/lib/auth-client'
+import { demoRepos } from '@/lib/demo-repos'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/pricing')({
@@ -29,10 +31,12 @@ function PricingPage() {
                     <div className="max-w-xl mx-auto py-12">
                         <div className="border rounded-lg p-8">
                             <h2 className="text-2xl font-bold mb-2">Monthly Plan</h2>
-                            <p className="text-gray-600 mb-4">Perfect for getting started</p>
+                            <p className="text-muted-foreground mb-4">
+                                Perfect for getting started
+                            </p>
                             <div className="mb-6">
                                 <span className="text-4xl font-bold">$8</span>
-                                <span className="text-gray-600 ml-2">/month</span>
+                                <span className="text-muted-foreground ml-2">/month</span>
                             </div>
 
                             <ul className="mb-8 space-y-3 text-sm">
@@ -62,6 +66,30 @@ function PricingPage() {
                                     Log in to subscribe
                                 </Button>
                             )}
+                        </div>
+
+                        <Separator className="my-8" />
+
+                        <div>
+                            <div className="text-sm font-medium text-foreground text-center">
+                                Or try GitRapid for free on an example repo
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                                {demoRepos.map((demoRepo) => (
+                                    <a
+                                        key={`${demoRepo.owner}/${demoRepo.repo}`}
+                                        href={`/${demoRepo.owner}/${demoRepo.repo}`}
+                                        className="group block rounded-md px-3 py-3 text-left hover:bg-accent"
+                                    >
+                                        <div className="font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
+                                            {demoRepo.owner}/{demoRepo.repo}
+                                        </div>
+                                        <div className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                                            {demoRepo.description}
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </PageContainer>

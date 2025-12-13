@@ -115,15 +115,15 @@ export function PRList() {
                     )}
                 </div>
 
-                <div className="mt-4 border border-zinc-200 rounded-md overflow-hidden">
+                <div className="mt-4 border border-border rounded-md overflow-hidden">
                     {prs.isLoading ? (
                         <PRListSkeleton />
                     ) : prs.data && prs.data.length === 0 ? (
                         <div className="py-12 px-4 text-center">
-                            <p className="text-base font-semibold text-zinc-900 mb-2">
+                            <p className="text-base font-semibold text-foreground mb-2">
                                 No pull requests
                             </p>
-                            <p className="text-sm text-zinc-600">
+                            <p className="text-sm text-muted-foreground">
                                 There are no {search.state} pull requests.
                             </p>
                         </div>
@@ -142,7 +142,7 @@ function PRListSkeleton() {
     return (
         <>
             {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="p-3 border-b border-zinc-200 last:border-b-0">
+                <div key={i} className="p-3 border-b border-border last:border-b-0">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
@@ -166,7 +166,7 @@ function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) 
         <PrefetchLink
             to="/$owner/$repo/pull/$number"
             params={{ owner: props.owner, repo: props.repo, number: String(props.pr.number) }}
-            className="block p-3 hover:bg-zinc-50 border-b border-zinc-200 last:border-b-0"
+            className="block p-3 hover:bg-accent border-b border-border last:border-b-0"
         >
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -176,10 +176,10 @@ function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) 
                         ) : (
                             <GitPullRequestClosedIcon size={16} className="text-purple-600" />
                         )}
-                        <span className="text-zinc-500">#{props.pr.number}</span>
+                        <span className="text-muted-foreground">#{props.pr.number}</span>
                         <span className="font-medium truncate">{props.pr.title}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-zinc-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>
                             opened{' '}
                             {new Date(props.pr.created_at).toLocaleDateString('en-US', {
@@ -213,7 +213,7 @@ function PRListItem(props: { owner: string; repo: string; pr: PRList[number] }) 
                                 </span>
                             ))}
                             {props.pr.labels.length > 3 && (
-                                <span className="text-xs text-zinc-500">
+                                <span className="text-xs text-muted-foreground">
                                     +{props.pr.labels.length - 3}
                                 </span>
                             )}

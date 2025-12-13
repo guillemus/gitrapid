@@ -2,7 +2,7 @@ import { computeInlineHighlights, parseDiff, type DiffLine } from '@/lib/diff'
 import type { routes } from '@/server/router'
 
 function DiffLineRow(props: { line: DiffLine; idx: number }) {
-    let bgColor = 'bg-white'
+    let bgColor = 'bg-card'
     if (props.line.type === 'add') {
         bgColor = 'bg-green-100'
     }
@@ -13,7 +13,7 @@ function DiffLineRow(props: { line: DiffLine; idx: number }) {
         bgColor = 'bg-blue-50'
     }
 
-    let lineNumColor = 'text-zinc-400'
+    let lineNumColor = 'text-muted-foreground'
     if (props.line.type === 'add') {
         lineNumColor = 'text-green-700'
     }
@@ -100,9 +100,9 @@ function FileChange(props: { file: routes.PRFile }) {
             key={props.file.filename}
             className="border rounded-lg overflow-hidden"
         >
-            <div className="bg-zinc-100 p-3 font-mono text-sm border-b">
+            <div className="bg-muted p-3 font-mono text-sm border-b">
                 <span className="font-semibold">{props.file.filename}</span>
-                <span className="text-zinc-500 ml-4">
+                <span className="text-muted-foreground ml-4">
                     {props.file.additions > 0 && `+${props.file.additions} `}
                     {props.file.deletions > 0 && `-${props.file.deletions}`}
                 </span>

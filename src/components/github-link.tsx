@@ -9,7 +9,7 @@ export function GithubLink() {
             <a
                 href={`https://github.com${path}`}
                 target="_blank"
-                className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-zinc-200 transition-colors"
+                className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-accent transition-colors"
             >
                 <LinkExternalIcon size={16} />
                 <span className="text-sm">See on GitHub</span>

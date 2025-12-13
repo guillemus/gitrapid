@@ -24,10 +24,10 @@ function SuccessPage() {
             <PageContainer>
                 <div className="max-w-2xl mx-auto py-12 text-center">
                     <div className="mb-8">
-                        <div className="w-16 h-16 mx-auto mb-6 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 mx-auto mb-6 border-4 border-border border-t-blue-500 rounded-full animate-spin"></div>
                     </div>
                     <h1 className="text-4xl font-bold mb-4">Setting up your subscription...</h1>
-                    <p className="text-lg text-gray-600">
+                    <p className="text-lg text-muted-foreground">
                         Just a moment while we finalize everything.
                     </p>
                 </div>
@@ -56,7 +56,7 @@ function SuccessPage() {
                             </svg>
                         </div>
                         <h1 className="text-4xl font-bold mb-4">Oops, something went wrong</h1>
-                        <p className="text-lg text-gray-600 mb-8">
+                        <p className="text-lg text-muted-foreground mb-8">
                             {mutation.error.message || 'Sync failed. Please refresh the page.'}
                         </p>
                         <Button onClick={() => window.location.reload()} className="inline-block">
@@ -82,7 +82,7 @@ function SuccessPage() {
                         </div>
 
                         <h1 className="text-4xl font-bold mb-4">Thank you for subscribing!</h1>
-                        <p className="text-lg text-gray-600 mb-8">
+                        <p className="text-lg text-muted-foreground mb-8">
                             Your subscription is now active. You can start using all the features of
                             GitRapid.
                         </p>

@@ -54,8 +54,8 @@ export function PRLayoutClient(props: {
                                     className="w-5 h-5 rounded-full"
                                 />
                             )}
-                            <span className="text-zinc-500">
-                                <span className="font-medium text-zinc-900">
+                            <span className="text-muted-foreground">
+                                <span className="font-medium text-foreground">
                                     {data?.user.login}
                                 </span>
                                 {data?.created_at && (
@@ -71,12 +71,12 @@ export function PRLayoutClient(props: {
                                 )}
                             </span>
                         </div>
-                        <span className="text-zinc-500">
+                        <span className="text-muted-foreground">
                             wants to merge {data?.changedFiles} commits into{' '}
                             {data?.base.repo?.owner.login ?? 'unknown'}:{data?.base.ref} from{' '}
                             {data?.head.repo?.owner.login ?? 'unknown'}:{data?.head.ref}
                         </span>
-                        <span className="text-sm text-zinc-500">
+                        <span className="text-sm text-muted-foreground">
                             <span className="text-green-600">+{data?.additions}</span>{' '}
                             <span className="text-red-600">-{data?.deletions}</span>
                         </span>
@@ -102,7 +102,7 @@ export function PRLayoutClient(props: {
                                 </div>
                             )}
                             {data.milestone && (
-                                <span className="text-xs px-2 py-1 rounded border border-zinc-300">
+                                <span className="text-xs px-2 py-1 rounded border border-border">
                                     📍 {data.milestone.title}
                                 </span>
                             )}
@@ -117,7 +117,7 @@ export function PRLayoutClient(props: {
                                 className={`px-4 py-2 -mb-px ${
                                     !isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-zinc-600 hover:text-zinc-900'
+                                        : 'text-muted-foreground hover:text-foreground'
                                 }`}
                             >
                                 Conversation
@@ -132,7 +132,7 @@ export function PRLayoutClient(props: {
                                 className={`px-4 py-2 -mb-px ${
                                     isFilesTab
                                         ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-zinc-600 hover:text-zinc-900'
+                                        : 'text-muted-foreground hover:text-foreground'
                                 }`}
                             >
                                 Files{data?.changedFiles ? ` (${data.changedFiles})` : ''}

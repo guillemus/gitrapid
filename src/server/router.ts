@@ -6,7 +6,7 @@ import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 import * as server from './server'
-import { ERR_NO_SUBSCRIPTION_FOUND, ERR_REPO_ACCESS_DENIED, ERR_UNAUTHORIZED } from './shared'
+import { ERR_NO_SUBSCRIPTION_FOUND, ERR_UNAUTHORIZED } from './shared'
 import { createTRPCRouter, tProcedure, type TRPCContext } from './trpc'
 
 export type * as routes from './router'

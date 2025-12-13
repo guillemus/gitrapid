@@ -17,10 +17,10 @@ function Logo() {
 
 export function HeaderWithTitle(props: { title: string }) {
     return (
-        <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
+        <div className="bg-muted border-b border-border sticky top-0 z-40">
             <div className="px-8 py-4 flex items-center gap-3">
                 <Logo />
-                <span className="font-semibold text-zinc-900">{props.title}</span>
+                <span className="font-semibold text-foreground">{props.title}</span>
                 <div className="flex-1" />
                 <UserMenu />
             </div>
@@ -30,10 +30,10 @@ export function HeaderWithTitle(props: { title: string }) {
 
 export function HeaderOwner(props: { owner: string }) {
     return (
-        <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
+        <div className="bg-muted border-b border-border sticky top-0 z-40">
             <div className="px-8 py-4 flex items-center gap-3">
                 <Logo></Logo>
-                <span className="font-semibold text-zinc-900">{props.owner}</span>
+                <span className="font-semibold text-foreground">{props.owner}</span>
                 <div className="flex-1" />
                 <UserMenu />
             </div>
@@ -56,7 +56,7 @@ export function HeaderRepo(props: { owner: string; repo: string }) {
     }
 
     return (
-        <div className="bg-zinc-50 border-b border-zinc-200 sticky top-0 z-40">
+        <div className="bg-muted border-b border-border sticky top-0 z-40">
             <div className="px-8 py-4 flex items-center gap-3">
                 <Logo />
 
@@ -64,11 +64,11 @@ export function HeaderRepo(props: { owner: string; repo: string }) {
                     <PrefetchLink
                         to="/$owner"
                         params={{ owner: props.owner }}
-                        className="text-zinc-600 hover:text-zinc-900 hover:underline transition-colors"
+                        className="text-muted-foreground hover:text-foreground hover:underline transition-colors"
                     >
                         {props.owner}
                     </PrefetchLink>
-                    <span className="text-zinc-400 mx-2">/</span>
+                    <span className="text-muted-foreground/60 mx-2">/</span>
                     <span>{props.repo}</span>
                 </div>
 
@@ -94,7 +94,7 @@ export function HeaderRepo(props: { owner: string; repo: string }) {
                     label="Issues"
                     isActive={active.issues}
                     badge={
-                        <span className="ml-1 text-xs bg-zinc-200 px-2 py-0.5 rounded-full tabular-nums min-w-5 inline-block text-center">
+                        <span className="ml-1 text-xs bg-secondary px-2 py-0.5 rounded-full tabular-nums min-w-5 inline-block text-center">
                             {stats?.openIssues ?? ''}
                         </span>
                     }
@@ -107,7 +107,7 @@ export function HeaderRepo(props: { owner: string; repo: string }) {
                     label="Pull requests"
                     isActive={active.prs}
                     badge={
-                        <span className="ml-1 text-xs bg-zinc-300 text-zinc-700 px-2 py-0.5 rounded-full tabular-nums min-w-5 inline-block text-center">
+                        <span className="ml-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full tabular-nums min-w-5 inline-block text-center">
                             {stats?.openPullRequests ?? ''}
                         </span>
                     }

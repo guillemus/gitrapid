@@ -8,7 +8,7 @@ interface Props {
 const { title = 'GitRapid' } = Astro.props as Props
 ---
 
-<html lang="en">
+<html lang="en" class="dark">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -29,7 +29,11 @@ const { title = 'GitRapid' } = Astro.props as Props
             })
         </script>
         <!-- <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script> -->
-        <!-- <script is:inline src="//unpkg.com/react-grab/dist/index.global.js"></script> -->
+        {
+            import.meta.env.DEV && (
+                <script is:inline src="//unpkg.com/react-grab/dist/index.global.js" />
+            )
+        }
         <!-- <script is:inline src="//unpkg.com/@react-grab/opencode/dist/client.global.js"></script> -->
     </head>
 

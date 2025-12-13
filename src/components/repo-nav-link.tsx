@@ -16,7 +16,7 @@ function RepoNavLink(props: {
             <PrefetchLink
                 to={props.to}
                 params={props.params}
-                className={`flex items-center gap-2 px-2 py-1 rounded-md hover:bg-zinc-200 transition-colors font-medium ${props.isActive ? 'font-bold' : 'font-normal'}`}
+                className={`flex items-center gap-2 px-2 py-1 rounded-md hover:bg-accent transition-colors font-medium ${props.isActive ? 'font-bold' : 'font-normal'}`}
             >
                 {props.icon}
                 <span className="text-sm">{props.label}</span>

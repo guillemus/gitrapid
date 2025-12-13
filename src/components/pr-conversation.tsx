@@ -114,7 +114,7 @@ export function PRConversation(props: { params: { owner: string; repo: string; n
                     <MarkdownRenderer content={pr.data.body} />
                 </div>
             ) : (
-                <div className="text-zinc-500 italic">No description provided.</div>
+                <div className="text-muted-foreground italic">No description provided.</div>
             )}
 
             {/* Comments */}
@@ -131,7 +131,7 @@ export function PRConversation(props: { params: { owner: string; repo: string; n
 
             {/* Loading indicator */}
             {(issueComments.isFetchingNextPage || reviewComments.isFetchingNextPage) && (
-                <div className="text-zinc-500 text-center">Loading more...</div>
+                <div className="text-muted-foreground text-center">Loading more...</div>
             )}
         </div>
     )
@@ -171,15 +171,15 @@ function CommentCard(props: { comment: UnifiedComment }) {
                     />
                 )}
                 <span className="font-medium">{comment.user?.login ?? 'unknown'}</span>
-                <span className="text-zinc-500">·</span>
-                <span className="text-zinc-500">{timeAgo}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{timeAgo}</span>
             </div>
 
             {/* Review comment: file badge + diff hunk */}
             {comment.type === 'review' && (
                 <>
                     {comment.path && (
-                        <div className="text-xs text-zinc-500">
+                        <div className="text-xs text-muted-foreground">
                             📁 {comment.path}
                             {comment.line != null && `:${comment.line}`}
                         </div>

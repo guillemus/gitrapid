@@ -11,27 +11,27 @@ export function RepoListItem(props: { repo: Repository }) {
         <PrefetchLink
             to="/$owner/$repo"
             params={{ owner: props.repo.owner.login, repo: props.repo.name }}
-            className="block p-3 hover:bg-zinc-50 border-b border-zinc-200 last:border-b-0"
+            className="block p-3 hover:bg-accent border-b border-border last:border-b-0"
         >
             <div className="flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium truncate text-zinc-900">
+                        <span className="font-medium truncate text-foreground">
                             {props.repo.name}
                         </span>
                         {props.repo.language && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
                                 {props.repo.language}
                             </span>
                         )}
                     </div>
                     {props.repo.description && (
-                        <div className="text-sm text-zinc-600 line-clamp-2">
+                        <div className="text-sm text-muted-foreground line-clamp-2">
                             {props.repo.description}
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0 text-sm text-zinc-500">
+                <div className="flex items-center gap-1 shrink-0 text-sm text-muted-foreground">
                     <span>{formatStars(props.repo.stargazers_count)}</span>
                     <StarIcon size={14} />
                 </div>

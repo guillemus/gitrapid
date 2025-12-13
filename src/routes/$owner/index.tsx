@@ -81,7 +81,7 @@ function OwnerRepos() {
             <div className="flex-1">
                 <PageContainer>
                     <div className="flex items-center justify-between p-4">
-                        <span className="text-sm text-zinc-600">Repositories</span>
+                        <span className="text-sm text-muted-foreground">Repositories</span>
 
                         {canPaginate && (
                             <Pagination>
@@ -110,11 +110,11 @@ function OwnerRepos() {
                         )}
                     </div>
 
-                    <div className="border border-zinc-200 rounded-md overflow-hidden">
+                    <div className="border border-border rounded-md overflow-hidden">
                         {repos.isLoading ? (
                             <RepoListSkeleton />
                         ) : repos.data?.length === 0 ? (
-                            <div className="p-8 text-center text-zinc-500">
+                            <div className="p-8 text-center text-muted-foreground">
                                 No repositories found
                             </div>
                         ) : (
@@ -131,7 +131,7 @@ function RepoListSkeleton() {
     return (
         <>
             {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="p-3 border-b border-zinc-200 last:border-b-0">
+                <div key={i} className="p-3 border-b border-border last:border-b-0">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">

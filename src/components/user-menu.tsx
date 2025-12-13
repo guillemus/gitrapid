@@ -20,10 +20,12 @@ export function UserMenu() {
                 alt={user.data.session.user.name || ''}
                 className="w-8 h-8 rounded-full cursor-pointer"
             />
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                <div className="px-4 py-2 border-b">
+            <div className="absolute right-0 mt-2 w-48 bg-popover rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all border border-border">
+                <div className="px-4 py-2 border-b border-border">
                     <p className="text-sm font-medium">{user.data.session.user.name || ''}</p>
-                    <p className="text-xs text-gray-500">{user.data.session.user.email || ''}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {user.data.session.user.email || ''}
+                    </p>
                 </div>
                 {hasActiveSubscription && (
                     <Button
