@@ -9,6 +9,30 @@ import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react'
 import { createContext, useContext, useMemo, useState } from 'react'
 import z from 'zod'
 
+let search = z.object({
+    ref: z.string().optional(),
+    path: z.string().optional(),
+})
+
+export const Route = createFileRoute('/$owner/$repo/')({
+    validateSearch: search,
+    loaderDeps: ({ search }) => ({ search }),
+    loader({ params, deps: { search }, context: { queryClient } }) {
+        void queryClient.prefetchQuery(
+            qc.fileTree({ owner: params.owner, repo: params.repo, ref: search.ref }),
+        )
+        void queryClient.prefetchQuery(
+            qc.file({
+                owner: params.owner,
+                repo: params.repo,
+                ref: search.ref,
+                path: search.path,
+            }),
+        )
+    },
+    component: CodePage,
+})
+
 type TreeContextValue = {
     expandedPaths: Set<string>
     toggleExpanded: (path: string) => void
@@ -33,30 +57,6 @@ function getAncestorPaths(path: string): string[] {
     }
     return ancestors
 }
-
-let search = z.object({
-    ref: z.string().optional(),
-    path: z.string().optional(),
-})
-
-export const Route = createFileRoute('/$owner/$repo/')({
-    validateSearch: search,
-    component: CodePage,
-    loaderDeps: ({ search }) => ({ search }),
-    loader({ params, deps: { search }, context: { queryClient } }) {
-        void queryClient.prefetchQuery(
-            qc.fileTree({ owner: params.owner, repo: params.repo, ref: search.ref }),
-        )
-        void queryClient.prefetchQuery(
-            qc.file({
-                owner: params.owner,
-                repo: params.repo,
-                ref: search.ref,
-                path: search.path,
-            }),
-        )
-    },
-})
 
 function CodePage() {
     return (
