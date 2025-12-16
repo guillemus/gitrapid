@@ -1,4 +1,4 @@
-# AGENTS.md - AI Assistant Guide for GitRapid
+# CLAUDE.md - AI Assistant Guide for GitRapid
 
 ## Project Overview
 
@@ -198,23 +198,15 @@ Demo repos are listed in `src/lib/demo-repos.ts`. These are accessible without a
 
 ## Documentation References
 
-When you need help with any of the core technologies, reference these documentation URLs:
-
 - **Astro**: https://docs.astro.build
 - **React**: https://react.dev
 - **TanStack Router**: https://tanstack.com/router/latest/docs/framework/react/overview
 - **TanStack Query**: https://tanstack.com/query/latest/docs/framework/react/overview
 - **tRPC**: https://trpc.io/docs
-- **Vercel**: https://vercel.com/docs
 - **Prisma**: https://www.prisma.io/docs
-- **PostgreSQL**: https://www.postgresql.org/docs/current/
 - **Better Auth**: https://www.better-auth.com/docs/introduction
 - **Polar.sh**: https://docs.polar.sh/introduction
-- **Polar Better Auth Integration**: https://docs.polar.sh/integrate/authentication
 - **Upstash Redis**: https://upstash.com/docs/redis/overall/getstarted
-- **Vercel botid**: https://vercel.com/docs/botid
-
-Use web fetch tools to look up specific information from these docs when needed.
 
 ## Gotchas
 
